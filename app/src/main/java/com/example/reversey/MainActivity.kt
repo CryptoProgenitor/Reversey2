@@ -14,7 +14,10 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -27,13 +30,21 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.navigation.NavController
@@ -49,6 +60,13 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.experimental.and
+import kotlin.io.path.moveTo
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.PI
+import kotlin.math.min
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -161,10 +179,8 @@ fun AboutScreen(navController: NavController) {
     }
 }
 
-
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
-@Composable
-fun AudioReverserApp(openDrawer: () -> Unit) { // CHANGED: Now takes a function to open the drawer
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)@Composable
+fun AudioReverserApp(openDrawer: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -173,22 +189,27 @@ fun AudioReverserApp(openDrawer: () -> Unit) { // CHANGED: Now takes a function 
     var statusText by remember { mutableStateOf("Ready to record") }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var recordingJob by remember { mutableStateOf<Job?>(null) }
+    val waveformAmplitudes = remember { mutableStateListOf<Float>() }
 
     val recordAudioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
+    // Function to refresh the list of recordings from storage
     fun updateRecordingsList() {
         coroutineScope.launch {
             recordings = loadRecordings(context)
         }
     }
 
+    // Load initial recordings when the app starts
     LaunchedEffect(Unit) {
         updateRecordingsList()
     }
 
+    // Clean up the MediaPlayer and recording job when the app closes
     DisposableEffect(Unit) {
         onDispose {
             mediaPlayer?.release()
+            mediaPlayer = null
             recordingJob?.cancel()
         }
     }
@@ -197,7 +218,6 @@ fun AudioReverserApp(openDrawer: () -> Unit) { // CHANGED: Now takes a function 
         topBar = {
             TopAppBar(
                 title = { Text("ReVerseY") },
-                // NEW: Navigation icon to open the drawer
                 navigationIcon = {
                     IconButton(onClick = openDrawer) {
                         Icon(Icons.Default.Menu, contentDescription = "Menu")
@@ -226,36 +246,57 @@ fun AudioReverserApp(openDrawer: () -> Unit) { // CHANGED: Now takes a function 
                 onStartRecording = {
                     isRecording = true
                     statusText = "Recording..."
+                    waveformAmplitudes.clear() // Clear previous waveform data
+                    val file = createAudioFile(context)
                     recordingJob = coroutineScope.launch(Dispatchers.IO) {
-                        val file = createAudioFile(context)
-                        startRecording(context, file)
+                        startRecording(context, file, waveformAmplitudes)
                     }
                 },
                 onStopRecording = {
-                    isRecording = false
+                    isRecording = false // UI updates immediately
                     statusText = "Processing..."
                     coroutineScope.launch(Dispatchers.IO) {
+                        // Wait for the recording coroutine to completely finish
                         recordingJob?.cancelAndJoin()
 
+                        // Find the most recent file we just finished writing
                         val lastRecording = getLatestFile(context)
                         val reversedFile = reverseWavFile(lastRecording)
 
+                        // Update the UI on the main thread
                         withContext(Dispatchers.Main) {
-                            statusText = if (reversedFile != null) "Reversed successfully!" else "Error: Could not reverse audio."
+                            statusText = if (reversedFile != null) {
+                                "Reversed successfully!"
+                            } else {
+                                "Error: Could not reverse audio."
+                            }
                             updateRecordingsList()
                         }
                     }
                 }
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
+
+            if (isRecording) {
+                WaveformVisualizer(
+                    amplitudes = waveformAmplitudes,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                )
+            } else {
+                Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
             Divider()
+
+            // Corrected LazyColumn with items and key
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(recordings) { recording ->
+                items(recordings, key = { it.originalPath }) { recording ->
                     RecordingItem(
                         recording = recording,
                         onPlay = { path ->
@@ -283,6 +324,8 @@ fun AudioReverserApp(openDrawer: () -> Unit) { // CHANGED: Now takes a function 
         }
     }
 }
+
+
 
 
 @Composable
@@ -377,7 +420,11 @@ private suspend fun deleteRecording(originalPath: String, reversedPath: String?)
     }
 }
 
-private suspend fun startRecording(context: Context, file: File) {
+private suspend fun startRecording(
+    context: Context,
+    file: File,
+    amplitudes: MutableList<Float> // NEW parameter
+) {
     val sampleRate = 44100
     val channelConfig = AudioFormat.CHANNEL_IN_MONO
     val audioFormat = AudioFormat.ENCODING_PCM_16BIT
@@ -388,24 +435,42 @@ private suspend fun startRecording(context: Context, file: File) {
     }
 
     val audioRecord = AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig, audioFormat, bufferSize)
-    val buffer = ByteArray(bufferSize)
+    val buffer = ShortArray(bufferSize / 2) // Use ShortArray for 16-bit audio
 
     try {
         FileOutputStream(file).use { fos ->
             audioRecord.startRecording()
             while (currentCoroutineContext().isActive) {
-                val read = audioRecord.read(buffer, 0, buffer.size)
-                if (read > 0) {
-                    fos.write(buffer, 0, read)
+                val readSize = audioRecord.read(buffer, 0, buffer.size)
+                if (readSize > 0) {
+                    // Convert ShortArray to ByteArray to write to file
+                    val byteBuffer = ByteArray(readSize * 2)
+                    for (i in 0 until readSize) {
+                        byteBuffer[i * 2] = buffer[i].and(0xFF).toByte()
+
+                        byteBuffer[i * 2 + 1] = (buffer[i].toInt() shr 8).toByte()
+                    }
+                    fos.write(byteBuffer)
+
+                    // NEW: Calculate amplitude and update state
+                    val maxAmplitude = buffer.maxOfOrNull { kotlin.math.abs(it.toFloat()) } ?: 0f
+                    val normalizedAmplitude = maxAmplitude / Short.MAX_VALUE
+
+                    // Update the list on the Main thread to be safe for UI
+                    withContext(Dispatchers.Main) {
+                        amplitudes.add(normalizedAmplitude)
+                        // Keep the list at a reasonable size
+                        if (amplitudes.size > 200) {
+                            amplitudes.removeAt(0)
+                        }
+                    }
                 }
             }
         }
     } catch (e: Exception) {
         Log.e("Recording", "Error during recording", e)
     } finally {
-        if (audioRecord.state == AudioRecord.STATE_INITIALIZED) {
-            audioRecord.stop()
-        }
+        if (audioRecord.state == AudioRecord.STATE_INITIALIZED) audioRecord.stop()
         audioRecord.release()
         addWavHeader(file)
     }
@@ -478,14 +543,68 @@ private fun getLatestFile(context: Context): File? {
 }
 
 @Composable
-fun RecordButton(isRecording: Boolean, hasPermission: Boolean, onRequestPermission: () -> Unit, onStartRecording: () -> Unit, onStopRecording: () -> Unit) {
+fun RecordButton(
+    isRecording: Boolean,
+    hasPermission: Boolean,
+    onRequestPermission: () -> Unit,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit
+) {// Define shape and color based on the recording state
+    val buttonShape = if (isRecording) OctagonShape() else CircleShape
+    val buttonColor = if (isRecording) Color.Red else Color(0xFF00C853) // A nice Material Green
+
     Button(
-        onClick = { if (hasPermission) { if (isRecording) onStopRecording() else onStartRecording() } else { onRequestPermission() } },
+        onClick = {
+            if (!hasPermission) {
+                onRequestPermission()
+                return@Button
+            }
+            if (isRecording) onStopRecording() else onStartRecording()
+        },
         modifier = Modifier.size(100.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = if (isRecording) Color.Red else MaterialTheme.colorScheme.primary)
+        shape = buttonShape, // Use the dynamic shape
+        colors = ButtonDefaults.buttonColors(containerColor = buttonColor) // Use the dynamic color
     ) {
-        Text(text = if (isRecording) "STOP" else "REC", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        // We still use a Box to ensure alignment, but the crucial change is in the Text composable
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = if (isRecording) "STOP" else "REC",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                // THIS IS THE FIX: Prevent the text from breaking into a new line
+                softWrap = false
+            )
+        }
+    }
+}
+
+// NEW: Composable to draw the waveform
+@Composable
+fun WaveformVisualizer(
+    amplitudes: List<Float>,
+    modifier: Modifier = Modifier,
+    barColor: Color = MaterialTheme.colorScheme.primary,    barWidth: Float = 4f,
+    barGap: Float = 2f
+) {
+    Canvas(modifier = modifier) {
+        val canvasHeight = size.height
+        val maxAmplitude = 1.0f // Normalized max amplitude
+
+        val totalBarWidth = barWidth + barGap
+        val maxBars = (size.width / totalBarWidth).toInt()
+        val barsToDraw = amplitudes.takeLast(maxBars)
+
+        barsToDraw.forEachIndexed { index, amplitude ->
+            val barHeight = (amplitude / maxAmplitude) * canvasHeight
+            val x = index * totalBarWidth
+            val y = (canvasHeight - barHeight) / 2
+
+            drawRect(
+                color = barColor,
+                topLeft = androidx.compose.ui.geometry.Offset(x, y),
+                size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
+            )
+        }
     }
 }
 
@@ -537,5 +656,37 @@ fun writeWavHeader(out: FileOutputStream, audioData: ByteArray, channels: Int, s
 
     out.write(header, 0, 44)
     out.write(audioData)
+}
+
+// NEW: Custom Shape class for the octagon button
+class OctagonShape : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val path = Path().apply {
+            val centerX = size.width / 2f
+            val centerY = size.height / 2f
+            val radius = min(centerX, centerY)
+            val angle = (2 * PI / 8).toFloat() // 8 sides for an octagon
+            val startAngle = -angle / 2f // Start at the top middle point
+
+            // Move to the first point
+            moveTo(
+                centerX + radius * cos(startAngle),
+                centerY + radius * sin(startAngle)
+            )
+            // Draw lines to the other 7 points
+            for (i in 1 until 8) {
+                lineTo(
+                    centerX + radius * cos(startAngle + angle * i),
+                    centerY + radius * sin(startAngle + angle * i)
+                )
+            }
+            close() // Close the path to form the octagon
+        }
+        return Outline.Generic(path)
+    }
 }
 
