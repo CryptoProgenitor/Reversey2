@@ -2,6 +2,9 @@ package com.example.reversey
 
 import android.Manifest
 import android.content.Context
+import androidx.compose.animation.core.copy
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
@@ -15,22 +18,28 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -47,35 +56,115 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    AudioReverserApp()
+                    // NEW: App now starts at the MainApp composable which handles navigation
+                    MainApp()
                 }
             }
         }
     }
 }
 
-// Add this new helper function
-private fun formatFileName(fileName: String): String {
-    // Input format: "REC_yyyyMMdd_HHmmss.wav"
-    val parser = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
-    // Output format: "MMM d, yyyy 'at' h:mm a" -> "Oct 11, 2025 at 4:44 PM"
-    val formatter = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.US)
+// NEW: A top-level composable to manage navigation state
+@Composable
+fun MainApp() {
+    val navController = rememberNavController()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    return try {
-        // Extract the date-time part from the filename "REC_..." and "... .wav"
-        val dateTimeString = fileName.substring(4, fileName.length - 4)
-        val date = parser.parse(dateTimeString)
-        if (date != null) formatter.format(date) else "Invalid Date"
-    } catch (e: Exception) {
-        // If parsing fails for any reason, just show the original name
-        fileName
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AppDrawerContent(navController = navController, closeDrawer = {
+                scope.launch { drawerState.close() }
+            })
+        }
+    ) {
+        // NavHost contains all the screens your app can navigate to
+        NavHost(navController = navController, startDestination = "home") {
+            composable("home") {
+                AudioReverserApp(openDrawer = {
+                    scope.launch { drawerState.open() }
+                })
+            }
+            composable("about") {
+                AboutScreen(navController = navController)
+            }
+        }
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
-@JvmOverloads
+// NEW: Content for the slide-out navigation drawer
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AudioReverserApp() {
+fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
+    ModalDrawerSheet {
+        Text("ReVerseY Menu", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
+        Divider()
+        NavigationDrawerItem(
+            label = { Text("Home") },
+            selected = navController.currentDestination?.route == "home",
+            onClick = {
+                navController.navigate("home") { popUpTo("home") { inclusive = true } }
+                closeDrawer()
+            }
+        )
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Info, contentDescription = "About") },
+            label = { Text("About") },
+            selected = navController.currentDestination?.route == "about",
+            onClick = {
+                navController.navigate("about")
+                closeDrawer()
+            }
+        )
+    }
+}
+
+// NEW: A simple screen for the "About" page
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AboutScreen(navController: NavController) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("About ReVerseY") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack, // This line will now work
+                            contentDescription = "Back",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Version 1.0", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "A fun audio recording and reversing game built by Ed Dark (c) 2025.",
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    }
+}
+
+
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun AudioReverserApp(openDrawer: () -> Unit) { // CHANGED: Now takes a function to open the drawer
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -108,9 +197,16 @@ fun AudioReverserApp() {
         topBar = {
             TopAppBar(
                 title = { Text("ReVerseY") },
+                // NEW: Navigation icon to open the drawer
+                navigationIcon = {
+                    IconButton(onClick = openDrawer) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         }
@@ -130,25 +226,20 @@ fun AudioReverserApp() {
                 onStartRecording = {
                     isRecording = true
                     statusText = "Recording..."
-                    // Launch the entire recording process in one single coroutine job
                     recordingJob = coroutineScope.launch(Dispatchers.IO) {
                         val file = createAudioFile(context)
                         startRecording(context, file)
                     }
                 },
                 onStopRecording = {
-                    isRecording = false // UI updates immediately
+                    isRecording = false
                     statusText = "Processing..."
                     coroutineScope.launch(Dispatchers.IO) {
-                        // THIS IS THE FIX: We cancel the job, which stops the `while` loop,
-                        // and then we `join()` to wait for the `finally` block to finish.
                         recordingJob?.cancelAndJoin()
 
-                        // Find the most recent file we just finished writing.
                         val lastRecording = getLatestFile(context)
                         val reversedFile = reverseWavFile(lastRecording)
 
-                        // Update UI on the main thread
                         withContext(Dispatchers.Main) {
                             statusText = if (reversedFile != null) "Reversed successfully!" else "Error: Could not reverse audio."
                             updateRecordingsList()
@@ -165,7 +256,6 @@ fun AudioReverserApp() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(recordings) { recording ->
-                    // THIS IS THE CORRECTED PART:
                     RecordingItem(
                         recording = recording,
                         onPlay = { path ->
@@ -175,17 +265,15 @@ fun AudioReverserApp() {
                                     setDataSource(path)
                                     prepare()
                                     start()
-                                    setOnCompletionListener { mp: MediaPlayer -> mp.release() }
+                                    setOnCompletionListener { it.release() }
                                 } catch (e: IOException) {
                                     Log.e("MediaPlayer", "Failed to play file", e)
                                 }
                             }
                         },
-                        // NEW: Handle the delete action from the RecordingItem
                         onDelete = { originalPath, reversedPath ->
                             coroutineScope.launch {
                                 deleteRecording(originalPath, reversedPath)
-                                // Refresh the list from storage after deleting
                                 updateRecordingsList()
                             }
                         }
@@ -196,13 +284,13 @@ fun AudioReverserApp() {
     }
 }
 
+
 @Composable
 fun RecordingItem(
     recording: Recording,
     onPlay: (String) -> Unit,
-    onDelete: (String, String?) -> Unit
+    onDelete: (originalPath: String, reversedPath: String?) -> Unit
 ) {
-    // ... (Your AlertDialog code is correct and does not need to change)
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     if (showDeleteDialog) {
@@ -233,67 +321,61 @@ fun RecordingItem(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = { onPlay(recording.originalPath) },
+                    shape = CircleShape,
+                    modifier = Modifier.size(50.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Play Original", tint = Color.White)
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Button(
+                    onClick = { recording.reversedPath?.let { onPlay(it) } },
+                    enabled = recording.reversedPath != null,
+                    shape = CircleShape,
+                    modifier = Modifier.size(50.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Replay, contentDescription = "Play Reversed", tint = Color.White)
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Recording", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
                 text = recording.name,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.Start)
             )
-            // Play Original Button
-            Button(
-                onClick = { onPlay(recording.originalPath) },
-                shape = CircleShape,
-                modifier = Modifier.size(50.dp),
-                // NEW: Remove internal padding
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Play Original",
-                    // NEW: Set the icon color to white
-                    tint = Color.White
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            // Play Reversed Button
-            Button(
-                onClick = { recording.reversedPath?.let { onPlay(it) } },
-                enabled = recording.reversedPath != null,
-                shape = CircleShape,
-                modifier = Modifier.size(50.dp),
-                // NEW: Remove internal padding
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Replay,
-                    contentDescription = "Play Reversed",
-                    // NEW: Set the icon color to white
-                    tint = Color.White
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            // Delete Button
-            IconButton(onClick = { showDeleteDialog = true }) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete Recording",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
         }
     }
 }
 
-
-
-
-
+// All other helper functions (startRecording, loadRecordings, deleteRecording, etc.) remain the same.
+// ... (The rest of your file from RecordButton downwards is unchanged and correct)
+private suspend fun deleteRecording(originalPath: String, reversedPath: String?) = withContext(Dispatchers.IO) {
+    try {
+        File(originalPath).let { if (it.exists()) it.delete() }
+        reversedPath?.let { File(it).let { f -> if (f.exists()) f.delete() } }
+    } catch (e: Exception) {
+        Log.e("Delete", "Error deleting files for $originalPath", e)
+    }
+}
 
 private suspend fun startRecording(context: Context, file: File) {
     val sampleRate = 44100
@@ -311,7 +393,6 @@ private suspend fun startRecording(context: Context, file: File) {
     try {
         FileOutputStream(file).use { fos ->
             audioRecord.startRecording()
-            // This loop will automatically stop when the coroutine is cancelled.
             while (currentCoroutineContext().isActive) {
                 val read = audioRecord.read(buffer, 0, buffer.size)
                 if (read > 0) {
@@ -326,8 +407,6 @@ private suspend fun startRecording(context: Context, file: File) {
             audioRecord.stop()
         }
         audioRecord.release()
-        // The very last step after the loop is stopped and resources are released
-        // is to add the WAV header to the now-complete raw PCM file.
         addWavHeader(file)
     }
 }
@@ -337,7 +416,6 @@ private fun addWavHeader(file: File) {
 
     val rawData = file.readBytes()
     try {
-        // This is the correct, safe way to prepend a header to a file.
         val tempFile = File.createTempFile("temp_wav", ".tmp", file.parentFile)
         FileOutputStream(tempFile).use { fos ->
             writeWavHeader(fos, rawData, 1, 44100, 16)
@@ -356,7 +434,7 @@ private suspend fun reverseWavFile(originalFile: File?): File? = withContext(Dis
 
     try {
         val fileBytes = originalFile.readBytes()
-        val rawPcmData = fileBytes.drop(44).toByteArray() // Skip 44-byte header
+        val rawPcmData = fileBytes.drop(44).toByteArray()
         if (rawPcmData.isEmpty()) return@withContext null
 
         val reversedPcmData = ByteArray(rawPcmData.size)
@@ -378,7 +456,8 @@ private suspend fun reverseWavFile(originalFile: File?): File? = withContext(Dis
     }
 }
 
-private suspend fun loadRecordings(context: Context): List<Recording> = withContext(Dispatchers.IO) {val dir = getRecordingsDir(context)
+private suspend fun loadRecordings(context: Context): List<Recording> = withContext(Dispatchers.IO) {
+    val dir = getRecordingsDir(context)
     val originalFiles = dir.listFiles { _, name -> name.endsWith(".wav") && !name.contains("_reversed") } ?: emptyArray()
 
     originalFiles
@@ -386,22 +465,11 @@ private suspend fun loadRecordings(context: Context): List<Recording> = withCont
         .map { file ->
             val reversedFile = File(dir, file.name.replace(".wav", "_reversed.wav"))
             Recording(
-                // THIS IS THE CHANGED LINE:
-                name = formatFileName(file.name), // Use the new helper function here
+                name = formatFileName(file.name),
                 originalPath = file.absolutePath,
                 reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null
             )
         }
-}
-
-// NEW: Function to delete a recording's files
-private suspend fun deleteRecording(originalPath: String, reversedPath: String?) = withContext(Dispatchers.IO) {
-    try {
-        File(originalPath).let { if (it.exists()) it.delete() }
-        reversedPath?.let { File(it).let { f -> if (f.exists()) f.delete() } }
-    } catch (e: Exception) {
-        Log.e("Delete", "Error deleting files for $originalPath", e)
-    }
 }
 
 private fun getLatestFile(context: Context): File? {
@@ -432,6 +500,19 @@ fun createAudioFile(context: Context): File {
     return File(getRecordingsDir(context), "REC_${timeStamp}.wav")
 }
 
+private fun formatFileName(fileName: String): String {
+    val parser = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+    val formatter = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.US)
+
+    return try {
+        val dateTimeString = fileName.substring(4, fileName.length - 4)
+        val date = parser.parse(dateTimeString)
+        if (date != null) formatter.format(date) else "Invalid Date"
+    } catch (e: Exception) {
+        fileName
+    }
+}
+
 @Throws(IOException::class)
 fun writeWavHeader(out: FileOutputStream, audioData: ByteArray, channels: Int, sampleRate: Int, bitDepth: Int) {
     val audioDataLength = audioData.size
@@ -457,3 +538,4 @@ fun writeWavHeader(out: FileOutputStream, audioData: ByteArray, channels: Int, s
     out.write(header, 0, 44)
     out.write(audioData)
 }
+
