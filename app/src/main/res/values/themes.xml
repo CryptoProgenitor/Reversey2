@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.ReVerseY" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Base application theme. -->
+        <!-- Customize your theme here. -->
+        <!-- For example, you can customize colors: -->
+        <!--
+        <item name="colorPrimary">@color/my_light_primary</item>
+        <item name="colorPrimaryVariant">@color/my_light_primary_variant</item>
+        <item name="colorOnPrimary">@color/white</item>
+        -->
+    </style>
+
+</resources>
