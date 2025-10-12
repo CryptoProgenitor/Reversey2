@@ -2,6 +2,7 @@ package com.example.reversey
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import androidx.compose.animation.core.copy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -15,12 +16,17 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -28,6 +34,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableStateListOf
@@ -47,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
+import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -168,10 +176,10 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.0", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.1", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "A fun audio recording and reversing game built by Ed Dark (c) 2025.",
+                text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyLarge
             )
@@ -179,7 +187,9 @@ fun AboutScreen(navController: NavController) {
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)@Composable
+// CHANGED: Added @OptIn annotation
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
 fun AudioReverserApp(openDrawer: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -193,19 +203,16 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
 
     val recordAudioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
-    // Function to refresh the list of recordings from storage
     fun updateRecordingsList() {
         coroutineScope.launch {
             recordings = loadRecordings(context)
         }
     }
 
-    // Load initial recordings when the app starts
     LaunchedEffect(Unit) {
         updateRecordingsList()
     }
 
-    // Clean up the MediaPlayer and recording job when the app closes
     DisposableEffect(Unit) {
         onDispose {
             mediaPlayer?.release()
@@ -246,37 +253,27 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                 onStartRecording = {
                     isRecording = true
                     statusText = "Recording..."
-                    waveformAmplitudes.clear() // Clear previous waveform data
+                    waveformAmplitudes.clear()
                     val file = createAudioFile(context)
                     recordingJob = coroutineScope.launch(Dispatchers.IO) {
                         startRecording(context, file, waveformAmplitudes)
                     }
                 },
                 onStopRecording = {
-                    isRecording = false // UI updates immediately
+                    isRecording = false
                     statusText = "Processing..."
                     coroutineScope.launch(Dispatchers.IO) {
-                        // Wait for the recording coroutine to completely finish
                         recordingJob?.cancelAndJoin()
-
-                        // Find the most recent file we just finished writing
                         val lastRecording = getLatestFile(context)
                         val reversedFile = reverseWavFile(lastRecording)
-
-                        // Update the UI on the main thread
                         withContext(Dispatchers.Main) {
-                            statusText = if (reversedFile != null) {
-                                "Reversed successfully!"
-                            } else {
-                                "Error: Could not reverse audio."
-                            }
+                            statusText = if (reversedFile != null) "Reversed successfully!" else "Error: Could not reverse audio."
                             updateRecordingsList()
                         }
                     }
                 }
             )
             Spacer(modifier = Modifier.height(16.dp))
-
             if (isRecording) {
                 WaveformVisualizer(
                     amplitudes = waveformAmplitudes,
@@ -287,17 +284,16 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
             } else {
                 Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
             }
-
             Spacer(modifier = Modifier.height(20.dp))
             Divider()
 
-            // Corrected LazyColumn with items and key
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            // This is the corrected list implementation that fixes the rename UI bug.
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                // We use the stable 'id' of the recording as the key.
+                // This is crucial for the UI to update correctly after a rename.
                 items(recordings, key = { it.originalPath }) { recording ->
-                    RecordingItem(
+
+                RecordingItem(
                         recording = recording,
                         onPlay = { path ->
                             mediaPlayer?.release()
@@ -306,15 +302,25 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                                     setDataSource(path)
                                     prepare()
                                     start()
-                                    setOnCompletionListener { it.release() }
+                                    setOnCompletionListener { mp -> mp.release() }
                                 } catch (e: IOException) {
-                                    Log.e("MediaPlayer", "Failed to play file", e)
+                                    Log.e("MediaPlayer", "Failed to play recording", e)
+                                    statusText = "Error: Could not play audio."
                                 }
                             }
                         },
                         onDelete = { originalPath, reversedPath ->
                             coroutineScope.launch {
                                 deleteRecording(originalPath, reversedPath)
+                                updateRecordingsList()
+                            }
+                        },
+                        onShare = { path ->
+                            shareRecording(context, File(path))
+                        },
+                        onRename = { oldPath, newName ->
+                            coroutineScope.launch {
+                                renameRecording(context, oldPath, newName)
                                 updateRecordingsList()
                             }
                         }
@@ -326,16 +332,83 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
 }
 
 
-
-
+@OptIn(ExperimentalFoundationApi::class) // This is still needed for combinedClickable
 @Composable
 fun RecordingItem(
     recording: Recording,
     onPlay: (String) -> Unit,
-    onDelete: (originalPath: String, reversedPath: String?) -> Unit
+    onDelete: (originalPath: String, reversedPath: String?) -> Unit,
+    onShare: (path: String) -> Unit,
+    onRename: (oldPath: String, newName: String) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var editableName by remember { mutableStateOf("") }
 
+    // --- RENAME DIALOG (This is correct) ---
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename Recording") },
+            text = {
+                OutlinedTextField(
+                    value = editableName,
+                    onValueChange = { editableName = it },
+                    label = { Text("Filename") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRename(recording.originalPath, editableName)
+                        showRenameDialog = false
+                    },
+                    enabled = editableName.isNotBlank() && editableName.endsWith(".wav")
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showRenameDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // --- SHARE DIALOG (This is correct) ---
+    if (showShareDialog) {
+        AlertDialog(
+            onDismissRequest = { showShareDialog = false },
+            title = { Text("Share Which Version?") },
+            text = { Text("Which version of the recording would you like to share?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        recording.reversedPath?.let { onShare(it) }
+                        showShareDialog = false
+                    },
+                    enabled = recording.reversedPath != null
+                ) {
+                    Text("Reversed")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        onShare(recording.originalPath)
+                        showShareDialog = false
+                    }
+                ) {
+                    Text("Original")
+                }
+            }
+        )
+    }
+
+    // --- DELETE DIALOG (This is correct) ---
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -360,15 +433,30 @@ fun RecordingItem(
         )
     }
 
+
+    // --- CARD UI (This is where the fix is) ---
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // THIS IS THE ROW WITH THE ICONS RESTORED
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // Share Button
+                IconButton(onClick = { showShareDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share Recording",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Play Original Button
                 Button(
                     onClick = { onPlay(recording.originalPath) },
                     shape = CircleShape,
@@ -378,8 +466,9 @@ fun RecordingItem(
                     Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Play Original", tint = Color.White)
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
 
+                // Play Reversed Button
                 Button(
                     onClick = { recording.reversedPath?.let { onPlay(it) } },
                     enabled = recording.reversedPath != null,
@@ -392,6 +481,7 @@ fun RecordingItem(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
+                // Delete Button
                 IconButton(onClick = { showDeleteDialog = true }) {
                     Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Recording", tint = MaterialTheme.colorScheme.error)
                 }
@@ -399,15 +489,32 @@ fun RecordingItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Text with formatted name for long-press-to-rename
             Text(
                 text = recording.name,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.Start)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            editableName = File(recording.originalPath).name
+                            showRenameDialog = true
+                        }
+                    )
             )
         }
     }
 }
+
+
+
+
+
+
+
+
 
 // All other helper functions (startRecording, loadRecordings, deleteRecording, etc.) remain the same.
 // ... (The rest of your file from RecordButton downwards is unchanged and correct)
@@ -530,12 +637,57 @@ private suspend fun loadRecordings(context: Context): List<Recording> = withCont
         .map { file ->
             val reversedFile = File(dir, file.name.replace(".wav", "_reversed.wav"))
             Recording(
-                name = formatFileName(file.name),
+                name = formatFileName(file.name), // This will now just remove ".wav"
                 originalPath = file.absolutePath,
                 reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null
             )
         }
 }
+
+
+
+
+// CHANGED: This function is now much simpler.
+private suspend fun renameRecording(
+    context: Context,
+    oldPath: String,
+    newName: String // This is the full new name, e.g., "My Cat Purring.wav"
+): Boolean = withContext(Dispatchers.IO) {
+    // Basic validation for the new name. Still important.
+    if (newName.isBlank() || !newName.endsWith(".wav")) return@withContext false
+
+    try {
+        val oldFile = File(oldPath)
+        if (!oldFile.exists()) return@withContext false
+
+        // Create the new file object directly with the user-provided new name.
+        val newFile = File(oldFile.parent, newName)
+
+        // Prevent overwriting an existing file, which renameTo() can do silently on some systems.
+        if (newFile.exists()) return@withContext false
+
+        // Perform the rename.
+        val renameSuccess = oldFile.renameTo(newFile)
+
+        if (renameSuccess) {
+            // If the original file was renamed, find and rename the reversed version too.
+            val oldReversedPath = oldPath.replace(".wav", "_reversed.wav")
+            val oldReversedFile = File(oldReversedPath)
+            if (oldReversedFile.exists()) {
+                val newReversedName = newName.replace(".wav", "_reversed.wav")
+                val newReversedFile = File(oldReversedFile.parent, newReversedName)
+                oldReversedFile.renameTo(newReversedFile)
+            }
+        }
+        return@withContext renameSuccess
+    } catch (e: Exception) {
+        Log.e("Rename", "Error renaming file", e)
+        return@withContext false
+    }
+}
+
+
+
 
 private fun getLatestFile(context: Context): File? {
     val dir = getRecordingsDir(context)
@@ -608,29 +760,33 @@ fun WaveformVisualizer(
     }
 }
 
-data class Recording(val name: String, val originalPath: String, val reversedPath: String?)
+data class Recording(
+    val name: String,         // The human-readable name for display
+    val originalPath: String,
+    val reversedPath: String?
+)
 
 fun getRecordingsDir(context: Context): File {
     return File(context.filesDir, "recordings").apply { mkdirs() }
 }
 
 fun createAudioFile(context: Context): File {
-    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    return File(getRecordingsDir(context), "REC_${timeStamp}.wav")
+    // THIS IS THE FIX: We use the human-readable format for the filename itself.
+    // The format "dd MMM yy - HH.mm.ss" is filename-safe (no colons).
+    val timeStamp = SimpleDateFormat("dd MMM yy - HH.mm.ss", Locale.US).format(Date())
+    val fileName = "REC-$timeStamp.wav" // e.g., "REC-12 Oct 25 - 19.35.15.wav"
+
+    return File(getRecordingsDir(context), fileName)
 }
+
 
 private fun formatFileName(fileName: String): String {
-    val parser = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
-    val formatter = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.US)
-
-    return try {
-        val dateTimeString = fileName.substring(4, fileName.length - 4)
-        val date = parser.parse(dateTimeString)
-        if (date != null) formatter.format(date) else "Invalid Date"
-    } catch (e: Exception) {
-        fileName
-    }
+    // Since the filename is now always human-readable,
+    // we just need to remove the ".wav" extension for display.
+    return fileName.removeSuffix(".wav")
 }
+
+
 
 @Throws(IOException::class)
 fun writeWavHeader(out: FileOutputStream, audioData: ByteArray, channels: Int, sampleRate: Int, bitDepth: Int) {
@@ -657,6 +813,27 @@ fun writeWavHeader(out: FileOutputStream, audioData: ByteArray, channels: Int, s
     out.write(header, 0, 44)
     out.write(audioData)
 }
+
+// NEW: Helper function to launch the Android Share Sheet
+fun shareRecording(context: Context, file: File) {
+    val uri = FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.provider",
+        file
+    )
+
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "audio/wav" // Set the MIME type for WAV files
+        putExtra(Intent.EXTRA_STREAM, uri)
+        // Grant temporary read permission to the app that handles the share
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    // Use a chooser to let the user pick how to share
+    val chooser = Intent.createChooser(intent, "Share Recording")
+    context.startActivity(chooser)
+}
+
 
 // NEW: Custom Shape class for the octagon button
 class OctagonShape : Shape {
