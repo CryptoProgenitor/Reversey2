@@ -1,5 +1,4 @@
 package com.example.reversey.ui.theme
-//comment
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -44,18 +43,16 @@ fun ReVerseYTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Set the status bar color to be transparent to allow edge-to-edge
-            window.statusBarColor = Color.Transparent.toArgb()
-            // Set the navigation bar color to be transparent
-            window.navigationBarColor = Color.Transparent.toArgb()
-
-            // Ensure the content can draw behind the system bars
+            // This call is the key to enabling edge-to-edge display.
             WindowCompat.setDecorFitsSystemWindows(window, false)
 
-            // Set the icons on the status bar (like time and battery) to be light or dark
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
-            // Set the icons on the navigation bar (if any) to be light or dark
-            androidx.compose.ui.window.Window.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
+            // Set the status and navigation bar icon colors.
+            // In a dark theme, we want light icons (!darkTheme = true for light icons is wrong, should be !darkTheme = false).
+            // The boolean means "is the appearance light?" -> "should the icons be dark?".
+            // So, !darkTheme is correct. If NOT dark theme (i.e., light theme), then icons should be dark (true).
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            insetsController.isAppearanceLightStatusBars = !darkTheme
+            insetsController.isAppearanceLightNavigationBars = !darkTheme
         }
     }
 
