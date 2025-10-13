@@ -1,6 +1,6 @@
 package com.example.reversey
 
-// update from v. XXX
+// update from v. 1.1.5
 
 import android.Manifest
 import android.content.Context
@@ -16,11 +16,17 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -219,7 +225,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.1.4", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.1.5", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -372,14 +378,33 @@ fun AudioReverserApp(
                         .height(100.dp)
                 )
             } else {
-                Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
+                AnimatedVisibility(
+                    visible = statusText.isNotEmpty(),
+                    // A longer, smoother fade-in animation
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 3000,
+                            delayMillis = 3000,
+                            easing = LinearOutSlowInEasing // Makes the fade-in more natural
+                        )
+                    ),
+                    // A corresponding longer fade-out
+                    exit = fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 3000,
+                            easing = LinearOutSlowInEasing
+                        )
+                    )
+                ) {
+                    Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
+                }
             }
             Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider()
 
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = listState,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(MaterialTheme.shapes.medium)
