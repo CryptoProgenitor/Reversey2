@@ -9,27 +9,39 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-// Creates a DataStore instance, available application-wide
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class SettingsDataStore(context: Context) {
 
     private val dataStore = context.dataStore
 
-    // Define a key for storing our theme name as a String
     companion object {
         val THEME_KEY = stringPreferencesKey("app_theme")
+        // NEW: Key for the dark mode preference
+        val DARK_MODE_KEY = stringPreferencesKey("dark_mode_preference")
     }
 
-    // A Flow that emits the currently saved theme name. Defaults to "Purple".
+    // Flow for the theme color
     val getTheme: Flow<String> = dataStore.data.map { preferences ->
         preferences[THEME_KEY] ?: "Purple"
     }
 
-    // A suspend function to save the chosen theme name
+    // Suspend function to save the theme color
     suspend fun saveTheme(themeName: String) {
         dataStore.edit { preferences ->
             preferences[THEME_KEY] = themeName
+        }
+    }
+
+    // NEW: Flow for the dark mode preference. Defaults to "System".
+    val getDarkModePreference: Flow<String> = dataStore.data.map { preferences ->
+        preferences[DARK_MODE_KEY] ?: "System"
+    }
+
+    // NEW: Suspend function to save the dark mode preference
+    suspend fun saveDarkModePreference(preference: String) {
+        dataStore.edit { preferences ->
+            preferences[DARK_MODE_KEY] = preference
         }
     }
 }

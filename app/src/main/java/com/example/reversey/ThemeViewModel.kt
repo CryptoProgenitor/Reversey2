@@ -1,7 +1,8 @@
 package com.example.reversey
 
 import android.app.Application
-import androidx.lifecycle.AndroidViewModel    import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -12,18 +13,31 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsDataStore = SettingsDataStore(application)
 
-    // Expose the theme as a StateFlow that the UI can collect.
-    // It survives configuration changes and always has the latest value.
+    // Expose the theme color as a StateFlow
     val theme: StateFlow<String> = settingsDataStore.getTheme.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = "Purple" // Default value while loading
+        initialValue = "Purple"
     )
 
-    // Function called from the UI to change the theme.
+    // Function to change the theme color
     fun setTheme(themeName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             settingsDataStore.saveTheme(themeName)
+        }
+    }
+
+    // NEW: Expose the dark mode preference as a StateFlow
+    val darkModePreference: StateFlow<String> = settingsDataStore.getDarkModePreference.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "System"
+    )
+
+    // NEW: Function to change the dark mode preference
+    fun setDarkModePreference(preference: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsDataStore.saveDarkModePreference(preference)
         }
     }
 }

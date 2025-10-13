@@ -1,6 +1,6 @@
 package com.example.reversey
 
-// update from v. 1.1.5
+// changes from v. 1.1.6 - visible mode!
 
 import android.Manifest
 import android.content.Context
@@ -23,6 +23,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,7 +68,6 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -103,9 +103,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
-import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.NavHost
+import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.reversey.ui.theme.ReVerseYTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -135,35 +135,40 @@ import kotlin.math.sin
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // RESTORE THE FULLY WORKING THEME BLOCK
         setContent {
-            // Get the ViewModel instance.
             val themeViewModel: ThemeViewModel = viewModel()
-            // Collect the theme name as state. The UI will automatically update when this changes.
             val currentTheme by themeViewModel.theme.collectAsState()
+            val darkModePreference by themeViewModel.darkModePreference.collectAsState()
 
-            // Pass the dynamic theme name to our theme composable.
-            ReVerseYTheme(themeName = currentTheme) {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    // Pass the ViewModel down to MainApp so it can be used by the Settings screen.
-                    MainApp(themeViewModel = themeViewModel)
-                }
+            val useDarkTheme = when (darkModePreference) {
+                "Light" -> false
+                "Dark" -> true
+                else -> isSystemInDarkTheme() // Default to system setting
+            }
+
+            // This will now work correctly
+            ReVerseYTheme(themeName = currentTheme, darkTheme = useDarkTheme) {
+                MainApp(themeViewModel = themeViewModel)
             }
         }
+
     }
 }
 
 // NEW: A top-level composable to manage navigation state
+// NEW CODE
 @Composable
-fun MainApp(themeViewModel: ThemeViewModel) { // Now accepts the ViewModel
+fun MainApp(themeViewModel: ThemeViewModel) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    // Collect the theme here as well to pass to the Settings screen
     val currentTheme by themeViewModel.theme.collectAsState()
+    val darkModePreference by themeViewModel.darkModePreference.collectAsState()
 
     var showClearAllDialog by remember { mutableStateOf(false) }
 
-    ModalNavigationDrawer(
+ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             AppDrawerContent(
@@ -173,28 +178,29 @@ fun MainApp(themeViewModel: ThemeViewModel) { // Now accepts the ViewModel
             )
         }
     ) {
-        NavHost(navController = navController, startDestination = "home") {
-            composable("home") {
-                AudioReverserApp(
-                    openDrawer = { scope.launch { drawerState.open() } },
-                    showClearAllDialog = showClearAllDialog,
-                    onClearAllDialogDismiss = { showClearAllDialog = false }
-                )
-            }
-            composable("about") {
-                AboutScreen(navController = navController)
-            }
-            // NEW: Add the Settings screen to the NavHost
-            composable("settings") {
-                SettingsScreen(
-                    navController = navController,
-                    currentTheme = currentTheme,
-                    // The onThemeChange lambda calls the ViewModel's function
-                    onThemeChange = { themeName -> themeViewModel.setTheme(themeName) }
-                )
-            }
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") {
+            AudioReverserApp(
+                openDrawer = { scope.launch { drawerState.open() } },
+                showClearAllDialog = showClearAllDialog,
+                onClearAllDialogDismiss = { showClearAllDialog = false }
+            )
+        }
+        composable("about") {
+            AboutScreen(navController = navController)
+        }
+        composable("settings") {
+            SettingsScreen(
+                navController = navController,
+                currentTheme = currentTheme,
+                onThemeChange = { themeName -> themeViewModel.setTheme(themeName) },
+                currentDarkModePreference = darkModePreference,
+                onDarkModePreferenceChange = { preference -> themeViewModel.setDarkModePreference(preference) }
+            )
         }
     }
+
+}
 }
 
 
@@ -280,7 +286,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.1.6.a", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.1.7", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",

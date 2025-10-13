@@ -18,9 +18,14 @@ import androidx.navigation.NavController
 fun SettingsScreen(
     navController: NavController,
     currentTheme: String,
-    onThemeChange: (String) -> Unit
+    onThemeChange: (String) -> Unit,
+    // NEW PARAMETERS
+    currentDarkModePreference: String,
+    onDarkModePreferenceChange: (String) -> Unit
 ) {
     val themes = listOf("Purple", "Blue", "Green", "Orange")
+    // NEW: Options for the dark mode toggle
+    val darkModeOptions = listOf("Light", "Dark", "System")
 
     Scaffold(
         topBar = {
@@ -39,6 +44,7 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Theme Color Section (Unchanged)
             item {
                 Text(
                     "Theme Color",
@@ -60,6 +66,32 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = themeName, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+
+            // NEW: Dark Mode Section
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                Text(
+                    "Dark Mode",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                )
+            }
+            items(darkModeOptions) { preference ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onDarkModePreferenceChange(preference) }
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = (preference == currentDarkModePreference),
+                        onClick = { onDarkModePreferenceChange(preference) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = preference, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
