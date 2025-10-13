@@ -29,12 +29,12 @@ android {
             )
         }
     }
-    compileOptions {
+    compileOptions { //old
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        jvmToolchain(11)
     }
     buildFeatures {
         compose = true
@@ -42,7 +42,7 @@ android {
 }
 
 dependencies {
-    
+
     implementation(libs.accompanist.permissions)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material) // For Material 1 components if needed
