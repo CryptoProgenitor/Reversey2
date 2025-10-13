@@ -142,7 +142,7 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playEasterEgg(context: Context) {
-        val mediaPlayer = MediaPlayer.create(context, R.raw.sad_trombone)
+        val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
         mediaPlayer.setOnCompletionListener { mp -> mp.release() }
         mediaPlayer.start()
     }
