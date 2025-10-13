@@ -1,7 +1,5 @@
 package com.example.reversey
 
-//1
-
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -264,7 +262,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 2.0.b", style = MaterialTheme.typography.bodyMedium)
+            Text("Version beta -  2.0.c", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD! :-)",
