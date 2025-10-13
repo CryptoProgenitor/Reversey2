@@ -41,6 +41,7 @@ import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -252,7 +253,7 @@ fun AudioReverserApp(
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var recordingJob by remember { mutableStateOf<Job?>(null) }
     var currentlyPlayingPath by remember { mutableStateOf<String?>(null) }
-    var playbackProgress by remember { mutableStateOf(0f) }
+    var playbackProgress by remember { mutableFloatStateOf(0f) }
     var playbackJob by remember { mutableStateOf<Job?>(null) }
     var isPaused by remember { mutableStateOf(false) }
 
