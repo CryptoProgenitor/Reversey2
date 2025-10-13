@@ -856,7 +856,7 @@ private suspend fun startRecording(
                         amplitudes.add(normalizedAmplitude)
                         // Use the constant and the more idiomatic removeFirst()
                         if (amplitudes.size > AudioConstants.MAX_WAVEFORM_SAMPLES) {
-                            amplitudes.removeFirst()
+                            amplitudes.removeAt(0)
                         }
                     }
                 }
