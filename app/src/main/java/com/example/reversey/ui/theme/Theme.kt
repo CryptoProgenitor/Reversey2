@@ -8,10 +8,10 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import com.example.reversey.*
 
 // Define the color schemes for each theme
 private val DarkPurpleColorScheme = darkColorScheme(primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80)
@@ -44,8 +44,18 @@ fun ReVerseYTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            // Set the status bar color to be transparent to allow edge-to-edge
+            window.statusBarColor = Color.Transparent.toArgb()
+            // Set the navigation bar color to be transparent
+            window.navigationBarColor = Color.Transparent.toArgb()
+
+            // Ensure the content can draw behind the system bars
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+
+            // Set the icons on the status bar (like time and battery) to be light or dark
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            // Set the icons on the navigation bar (if any) to be light or dark
+            androidx.compose.ui.window.Window.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
     }
 
