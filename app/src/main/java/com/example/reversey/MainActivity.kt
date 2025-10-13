@@ -3,7 +3,6 @@ package com.example.reversey
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import androidx.compose.animation.core.copy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import android.content.pm.PackageManager
@@ -23,10 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -54,7 +50,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
@@ -72,7 +67,6 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.experimental.and
-import kotlin.io.path.moveTo
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.PI
@@ -128,7 +122,7 @@ fun MainApp() {
 fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
     ModalDrawerSheet {
         Text("ReVerseY Menu", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
-        Divider()
+        HorizontalDivider()
         NavigationDrawerItem(
             label = { Text("Home") },
             selected = navController.currentDestination?.route == "home",
@@ -179,7 +173,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.1.2", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.1.2.a", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -292,7 +286,7 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                 Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
             }
             Spacer(modifier = Modifier.height(20.dp))
-            Divider()
+            HorizontalDivider()
 
             // ... inside AudioReverserApp, after the Divider()
             LazyColumn(modifier = Modifier.fillMaxSize()) {
