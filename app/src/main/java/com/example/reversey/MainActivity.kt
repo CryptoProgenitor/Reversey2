@@ -619,7 +619,7 @@ fun WaveformVisualizer(
             drawRect(
                 color = barColor,
                 topLeft = androidx.compose.ui.geometry.Offset(x, y),
-                size = androidx.compose.ui.geometry.Size(barWidthPx, barHeight) // Use the pixel value
+                size = Size(barWidthPx, barHeight)
             )
         }
     }
