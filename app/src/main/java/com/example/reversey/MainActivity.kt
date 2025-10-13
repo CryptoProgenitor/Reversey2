@@ -101,20 +101,32 @@ fun MainApp() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    // NEW: State for the dialog is now lifted up to here, the common parent.
+    var showClearAllDialog by remember { mutableStateOf(false) }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            AppDrawerContent(navController = navController, closeDrawer = {
-                scope.launch { drawerState.close() }
-            })
+            AppDrawerContent(
+                navController = navController,
+                closeDrawer = {
+                    scope.launch { drawerState.close() }
+                },
+                // The drawer now just tells MainApp to show the dialog
+                onClearAll = { showClearAllDialog = true }
+            )
         }
     ) {
-        // NavHost contains all the screens your app can navigate to
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
-                AudioReverserApp(openDrawer = {
-                    scope.launch { drawerState.open() }
-                })
+                AudioReverserApp(
+                    openDrawer = {
+                        scope.launch { drawerState.open() }
+                    },
+                    // Pass the state and a way to dismiss it down to AudioReverserApp
+                    showClearAllDialog = showClearAllDialog,
+                    onClearAllDialogDismiss = { showClearAllDialog = false }
+                )
             }
             composable("about") {
                 AboutScreen(navController = navController)
@@ -123,12 +135,21 @@ fun MainApp() {
     }
 }
 
+
 // NEW: Content for the slide-out navigation drawer
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
+fun AppDrawerContent(
+    navController: NavController,
+    closeDrawer: () -> Unit,
+    onClearAll: () -> Unit // CHANGED: Simplified to just a callback
+) {
     ModalDrawerSheet {
-        Text("ReVerseY Menu", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
+        Text(
+            "ReVerseY Menu",
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.titleMedium
+        )
         HorizontalDivider()
         NavigationDrawerItem(
             label = { Text("Home") },
@@ -147,8 +168,25 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
                 closeDrawer()
             }
         )
+        HorizontalDivider()
+        NavigationDrawerItem(
+            label = { Text("Clear All Recordings", color = MaterialTheme.colorScheme.error) },
+            icon = {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Clear All",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            selected = false,
+            onClick = {
+                onClearAll() // Just call the callback
+                closeDrawer()
+            }
+        )
     }
 }
+
 
 // NEW: A simple screen for the "About" page
 @OptIn(ExperimentalMaterial3Api::class)
@@ -180,7 +218,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.1.3", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.1.4", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -193,13 +231,20 @@ fun AboutScreen(navController: NavController) {
 
 // CHANGED: Added @OptIn annotation
 // This is the complete, correct, and final version of AudioReverserApp.
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(
+    ExperimentalPermissionsApi::class,
+    ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class
+)
 @Composable
-fun AudioReverserApp(openDrawer: () -> Unit) {
+fun AudioReverserApp(
+    openDrawer: () -> Unit,
+    showClearAllDialog: Boolean, // NEW: State passed from MainApp
+    onClearAllDialogDismiss: () -> Unit  // NEW: Callback to dismiss the dialog
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // All `remember` calls are correctly placed here, at the top level of the composable.
     val listState = rememberLazyListState()
     var recordings by remember { mutableStateOf<List<Recording>>(emptyList()) }
     var isRecording by remember { mutableStateOf(false) }
@@ -211,19 +256,8 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
     var playbackJob by remember { mutableStateOf<Job?>(null) }
     var isPaused by remember { mutableStateOf(false) }
 
-    // Derived state declarations for the fading edge effect, correctly placed.
-    val showTopFade by remember {
-        derivedStateOf {
-            // Use the simple boolean property from the state
-            listState.canScrollBackward
-        }
-    }
-    val showBottomFade by remember {
-        derivedStateOf {
-            // Use the simple boolean property from the state
-            listState.canScrollForward
-        }
-    }
+    val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
+    val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
 
     val waveformAmplitudes = remember { mutableStateListOf<Float>() }
     val recordAudioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
@@ -244,6 +278,35 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
             mediaPlayer = null
             recordingJob?.cancel()
         }
+    }
+
+    // NEW: The dialog is now here, where it has access to updateRecordingsList()
+    if (showClearAllDialog) {
+        AlertDialog(
+            onDismissRequest = { onClearAllDialogDismiss() },
+            title = { Text("Clear All Recordings?") },
+            text = { Text("This will permanently delete all of your recordings. This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            clearAllRecordings(context)
+                            // We can now call this here to refresh the UI!
+                            updateRecordingsList()
+                        }
+                        onClearAllDialogDismiss() // Close the dialog
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete All")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { onClearAllDialogDismiss() }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -271,8 +334,6 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(20.dp))
-
-            // THIS IS THE FULL, CORRECT RecordButton CALL
             RecordButton(
                 isRecording = isRecording,
                 hasPermission = recordAudioPermissionState.status.isGranted,
@@ -294,41 +355,37 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                         val lastRecording = getLatestFile(context)
                         val reversedFile = reverseWavFile(lastRecording)
                         withContext(Dispatchers.Main) {
-                            statusText = if (reversedFile != null) "Reversed successfully!" else "Error: Could not reverse audio."
+                            statusText =
+                                if (reversedFile != null) "Reversed successfully!" else "Error: Could not reverse audio."
                             updateRecordingsList()
                         }
                     }
                 }
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            // THIS IS THE FULL, CORRECT WaveformVisualizer / Text BLOCK
             if (isRecording) {
                 WaveformVisualizer(
                     amplitudes = waveformAmplitudes,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
+                        .height(100.dp)
                 )
             } else {
                 Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
             }
-
             Spacer(modifier = Modifier.height(20.dp))
             HorizontalDivider()
 
-            // This Box contains the list and the fading edge overlays.
             Box(modifier = Modifier.fillMaxSize()) {
-                // The LazyColumn with its full, correct content.XXX
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(MaterialTheme.shapes.medium) // THIS IS THE FIX
+                        .clip(MaterialTheme.shapes.medium)
                 ) {
                     items(recordings, key = { it.originalPath }) { recording ->
-                        val isCurrentlyPlayingThisItem = currentlyPlayingPath == recording.originalPath || currentlyPlayingPath == recording.reversedPath
+                        val isCurrentlyPlayingThisItem =
+                            currentlyPlayingPath == recording.originalPath || currentlyPlayingPath == recording.reversedPath
                         RecordingItem(
                             recording = recording,
                             isPlaying = isCurrentlyPlayingThisItem,
@@ -353,9 +410,13 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                                         playbackJob = coroutineScope.launch {
                                             while (isActive) {
                                                 withContext(Dispatchers.Main) {
-                                                    val currentPos = mediaPlayer?.currentPosition?.toFloat() ?: 0f
-                                                    val totalDuration = mediaPlayer?.duration?.toFloat() ?: 0f
-                                                    playbackProgress = if (totalDuration > 0) currentPos / totalDuration else 0f
+                                                    val currentPos =
+                                                        mediaPlayer?.currentPosition?.toFloat()
+                                                            ?: 0f
+                                                    val totalDuration =
+                                                        mediaPlayer?.duration?.toFloat() ?: 0f
+                                                    playbackProgress =
+                                                        if (totalDuration > 0) currentPos / totalDuration else 0f
                                                 }
                                                 delay(100)
                                             }
@@ -377,9 +438,12 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                                     playbackJob = coroutineScope.launch {
                                         while (isActive) {
                                             withContext(Dispatchers.Main) {
-                                                val currentPos = mediaPlayer?.currentPosition?.toFloat() ?: 0f
-                                                val totalDuration = mediaPlayer?.duration?.toFloat() ?: 0f
-                                                playbackProgress = if (totalDuration > 0) currentPos / totalDuration else 0f
+                                                val currentPos =
+                                                    mediaPlayer?.currentPosition?.toFloat() ?: 0f
+                                                val totalDuration =
+                                                    mediaPlayer?.duration?.toFloat() ?: 0f
+                                                playbackProgress =
+                                                    if (totalDuration > 0) currentPos / totalDuration else 0f
                                             }
                                             delay(100)
                                         }
@@ -414,55 +478,44 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                     }
                 }
 
-                // --- FADING EDGE GRADIENTS (Subtler Version) ---
-
-                // This gradient will be used for the top fade
                 val topGradient = Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), // Start with 50% transparent purple
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                         Color.Transparent
                     )
                 )
-                // This gradient will be used for the bottom fade
                 val bottomGradient = Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) // End with 50% transparent purple
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                     )
                 )
 
-
-                // Top fading edge overlay, shown only when not at the top
                 if (showTopFade) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(24.dp)
                             .align(Alignment.TopCenter)
-                            .clip(MaterialTheme.shapes.medium) // THIS IS THE FIX
+                            .clip(MaterialTheme.shapes.medium)
                             .background(brush = topGradient)
                     )
                 }
-                // Bottom fading edge overlay, shown only when not at the bottom
-                if (showBottomFade) {    Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(24.dp)
-                        .align(Alignment.BottomCenter)
-                        .clip(MaterialTheme.shapes.medium) // THIS IS THE FIX
-                        .background(brush = bottomGradient)
-                )
+
+                if (showBottomFade) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(24.dp)
+                            .align(Alignment.BottomCenter)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(brush = bottomGradient)
+                    )
                 }
             }
         }
     }
 }
-
-
-
-
-
-
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -647,6 +700,19 @@ private suspend fun deleteRecording(originalPath: String, reversedPath: String?)
         reversedPath?.let { File(it).let { f -> if (f.exists()) f.delete() } }
     } catch (e: Exception) {
         Log.e("Delete", "Error deleting files for $originalPath", e)
+    }
+}
+
+private suspend fun clearAllRecordings(context: Context) = withContext(Dispatchers.IO) {
+    try {
+        val recordingsDir = getRecordingsDir(context)
+        recordingsDir.listFiles()?.forEach { file ->
+            if (file.isFile) {
+                file.delete()
+            }
+        }
+    } catch (e: Exception) {
+        Log.e("ClearAll", "Error clearing recordings directory", e)
     }
 }
 
