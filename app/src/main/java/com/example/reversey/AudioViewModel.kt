@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.io.File
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -95,7 +94,7 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                         delay(100)
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _uiState.update { it.copy(statusText = "Error: Could not play file.") }
             }
         }

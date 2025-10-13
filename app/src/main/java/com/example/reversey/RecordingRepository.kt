@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.core.app.ActivityCompat
-import com.example.reversey.Recording
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -31,7 +30,7 @@ class RecordingRepository(private val context: Context) {
                         originalPath = file.absolutePath,
                         reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null
                     )
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     null // Skip invalid files
                 }
             }
@@ -42,7 +41,7 @@ class RecordingRepository(private val context: Context) {
         try {
             File(originalPath).let { if (it.exists()) it.delete() }
             reversedPath?.let { File(it).let { f -> if (f.exists()) f.delete() } }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Log error if needed
         }
     }
@@ -55,7 +54,7 @@ class RecordingRepository(private val context: Context) {
                     file.delete()
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Log error if needed
         }
     }
@@ -80,7 +79,7 @@ class RecordingRepository(private val context: Context) {
                 }
             }
             return@withContext renameSuccess
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return@withContext false
         }
     }
@@ -153,7 +152,7 @@ class RecordingRepository(private val context: Context) {
                 writeWavHeader(fos, reversedPcmData, 1, AudioConstants.SAMPLE_RATE, 16)
             }
             return@withContext reversedFile
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return@withContext null
         }
     }
@@ -168,7 +167,7 @@ class RecordingRepository(private val context: Context) {
             }
             file.delete()
             tempFile.renameTo(file)
-        } catch (e: IOException) {
+        } catch (_: IOException) {
             // Log error if needed
         }
     }
