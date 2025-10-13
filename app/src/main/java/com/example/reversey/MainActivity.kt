@@ -76,6 +76,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -262,7 +263,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version beta -  2.0.c", style = MaterialTheme.typography.bodyMedium)
+            Text("Version beta -  2.0.d", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD! :-)",
@@ -616,7 +617,7 @@ fun WaveformVisualizer(
             val y = (canvasHeight - barHeight) / 2
             drawRect(
                 color = barColor,
-                topLeft = androidx.compose.ui.geometry.Offset(x, y),
+                topLeft = Offset(x, y),
                 size = Size(barWidthPx, barHeight)
             )
         }
