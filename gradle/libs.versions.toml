@@ -26,7 +26,7 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "androidx-glance" }
-androidx-glance-core = { group = "androidx.glance", name = "glance", version.ref = "androidx_glance_version" }
+androidx-glance-core = { group = "androidx.glance", name = "glance", version.ref = "androidx-glance-version" }
 androidx-glance-glance = { group = "androidx.glance", name = "glance", version.ref = "androidx-glance-version" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "androidx-glance" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
