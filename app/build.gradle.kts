@@ -42,24 +42,21 @@ android {
 }
 
 dependencies {
-    val nav_version = "2.9.5"
-
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.navigation:navigation-compose:${nav_version}")
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
+    
+    implementation(libs.accompanist.permissions)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material) // For Material 1 components if needed
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
-    implementation("androidx.compose.material:material:1.9.3")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
-    implementation("androidx.compose.foundation:foundation:1.9.3")
-    implementation("androidx.compose.foundation:foundation-layout:1.9.3")
-    implementation("androidx.compose.runtime:runtime:1.9.3")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -67,4 +64,5 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
 }

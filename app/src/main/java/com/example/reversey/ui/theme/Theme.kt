@@ -1,53 +1,52 @@
 package com.example.reversey.ui.theme
 
+
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import com.example.reversey.*
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
+// Define the color schemes for each theme
+private val DarkPurpleColorScheme = darkColorScheme(primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80)
+private val LightPurpleColorScheme = lightColorScheme(primary = Purple40, secondary = PurpleGrey40, tertiary = Pink40)
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+private val DarkBlueColorScheme = darkColorScheme(primary = Blue80, secondary = BlueGrey80, tertiary = LightBlue80)
+private val LightBlueColorScheme = lightColorScheme(primary = Blue40, secondary = BlueGrey40, tertiary = LightBlue40)
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-)
+private val DarkGreenColorScheme = darkColorScheme(primary = Green80, secondary = GreenGrey80, tertiary = LightGreen80)
+private val LightGreenColorScheme = lightColorScheme(primary = Green40, secondary = GreenGrey40, tertiary = LightGreen40)
+
+private val DarkOrangeColorScheme = darkColorScheme(primary = Orange80, secondary = OrangeGrey80, tertiary = LightOrange80)
+private val LightOrangeColorScheme = lightColorScheme(primary = Orange40, secondary = OrangeGrey40, tertiary = LightOrange40)
 
 @Composable
 fun ReVerseYTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    themeName: String, // NEW: The name of the theme to apply
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    // Select the appropriate color scheme based on the theme name and dark mode
+    val colorScheme = when (themeName) {
+        "Blue" -> if (darkTheme) DarkBlueColorScheme else LightBlueColorScheme
+        "Green" -> if (darkTheme) DarkGreenColorScheme else LightGreenColorScheme
+        "Orange" -> if (darkTheme) DarkOrangeColorScheme else LightOrangeColorScheme
+        else -> if (darkTheme) DarkPurpleColorScheme else LightPurpleColorScheme // Default to Purple
+    }
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.primary.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+        }
     }
 
     MaterialTheme(

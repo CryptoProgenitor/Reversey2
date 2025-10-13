@@ -41,10 +41,12 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.*
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -67,10 +69,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.reversey.ui.theme.ReVerseYTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -91,10 +95,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            // Get the ViewModel instance.
+            val themeViewModel: ThemeViewModel = viewModel()
+            // Collect the theme name as state. The UI will automatically update when this changes.
+            val currentTheme by themeViewModel.theme.collectAsState()
+
+            // Pass the dynamic theme name to our theme composable.
+            ReVerseYTheme(themeName = currentTheme) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    // NEW: App now starts at the MainApp composable which handles navigation
-                    MainApp()
+                    // Pass the ViewModel down to MainApp so it can be used by the Settings screen.
+                    MainApp(themeViewModel = themeViewModel)
                 }
             }
         }
@@ -103,12 +113,13 @@ class MainActivity : ComponentActivity() {
 
 // NEW: A top-level composable to manage navigation state
 @Composable
-fun MainApp() {
+fun MainApp(themeViewModel: ThemeViewModel) { // Now accepts the ViewModel
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    // Collect the theme here as well to pass to the Settings screen
+    val currentTheme by themeViewModel.theme.collectAsState()
 
-    // NEW: State for the dialog is now lifted up to here, the common parent.
     var showClearAllDialog by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(
@@ -116,10 +127,7 @@ fun MainApp() {
         drawerContent = {
             AppDrawerContent(
                 navController = navController,
-                closeDrawer = {
-                    scope.launch { drawerState.close() }
-                },
-                // The drawer now just tells MainApp to show the dialog
+                closeDrawer = { scope.launch { drawerState.close() } },
                 onClearAll = { showClearAllDialog = true }
             )
         }
@@ -127,16 +135,22 @@ fun MainApp() {
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
                 AudioReverserApp(
-                    openDrawer = {
-                        scope.launch { drawerState.open() }
-                    },
-                    // Pass the state and a way to dismiss it down to AudioReverserApp
+                    openDrawer = { scope.launch { drawerState.open() } },
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false }
                 )
             }
             composable("about") {
                 AboutScreen(navController = navController)
+            }
+            // NEW: Add the Settings screen to the NavHost
+            composable("settings") {
+                SettingsScreen(
+                    navController = navController,
+                    currentTheme = currentTheme,
+                    // The onThemeChange lambda calls the ViewModel's function
+                    onThemeChange = { themeName -> themeViewModel.setTheme(themeName) }
+                )
             }
         }
     }
@@ -149,14 +163,10 @@ fun MainApp() {
 fun AppDrawerContent(
     navController: NavController,
     closeDrawer: () -> Unit,
-    onClearAll: () -> Unit // CHANGED: Simplified to just a callback
+    onClearAll: () -> Unit
 ) {
     ModalDrawerSheet {
-        Text(
-            "ReVerseY Menu",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.titleMedium
-        )
+        Text("ReVerseY Menu", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
         HorizontalDivider()
         NavigationDrawerItem(
             label = { Text("Home") },
@@ -175,19 +185,23 @@ fun AppDrawerContent(
                 closeDrawer()
             }
         )
+        // NEW: Add a Settings Item to the drawer
+        NavigationDrawerItem(
+            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+            label = { Text("Settings") },
+            selected = navController.currentDestination?.route == "settings",
+            onClick = {
+                navController.navigate("settings")
+                closeDrawer()
+            }
+        )
         HorizontalDivider()
         NavigationDrawerItem(
             label = { Text("Clear All Recordings", color = MaterialTheme.colorScheme.error) },
-            icon = {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Clear All",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            },
+            icon = { Icon(Icons.Default.Delete, contentDescription = "Clear All", tint = MaterialTheme.colorScheme.error) },
             selected = false,
             onClick = {
-                onClearAll() // Just call the callback
+                onClearAll()
                 closeDrawer()
             }
         )
@@ -225,7 +239,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.1.5", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.1.6", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
