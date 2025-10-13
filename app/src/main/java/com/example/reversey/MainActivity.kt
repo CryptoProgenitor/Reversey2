@@ -1,5 +1,10 @@
 package com.example.reversey
 
+// Add these imports to the top of your file if they are missing
+
+
+
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -36,6 +41,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.Alignment
@@ -176,7 +182,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.1", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.1.1", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -199,8 +205,11 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
     var statusText by remember { mutableStateOf("Ready to record") }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var recordingJob by remember { mutableStateOf<Job?>(null) }
-    val waveformAmplitudes = remember { mutableStateListOf<Float>() }
+    var currentlyPlayingPath by remember { mutableStateOf<String?>(null) }
+    var playbackProgress by remember { mutableStateOf(0f) }
+    var playbackJob by remember { mutableStateOf<Job?>(null) }
 
+    val waveformAmplitudes = remember { mutableStateListOf<Float>() }
     val recordAudioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
     fun updateRecordingsList() {
@@ -294,21 +303,57 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                 items(recordings, key = { it.originalPath }) { recording ->
 
                 RecordingItem(
-                        recording = recording,
-                        onPlay = { path ->
+                    recording = recording,
+                    // NEW: Pass the playback state down
+                    isPlaying = currentlyPlayingPath == recording.originalPath || currentlyPlayingPath == recording.reversedPath,
+                    progress = if (currentlyPlayingPath == recording.originalPath || currentlyPlayingPath == recording.reversedPath) playbackProgress else 0f,
+
+                    onPlay = { path ->
+                        if (currentlyPlayingPath == path) {
+                            // If the same item is clicked again, stop playback
+                            mediaPlayer?.stop()
                             mediaPlayer?.release()
+                            mediaPlayer = null
+                            playbackJob?.cancel()
+                            currentlyPlayingPath = null
+                            playbackProgress = 0f
+                        } else {
+                            // Stop any previous playback
+                            mediaPlayer?.release()
+                            playbackJob?.cancel()
+
                             mediaPlayer = MediaPlayer().apply {
                                 try {
                                     setDataSource(path)
                                     prepare()
                                     start()
-                                    setOnCompletionListener { mp -> mp.release() }
+                                    currentlyPlayingPath = path // Set the active path
+                                    playbackProgress = 0f
+
+                                    setOnCompletionListener {
+                                        // When playback is finished, reset state
+                                        playbackJob?.cancel()
+                                        currentlyPlayingPath = null
+                                        playbackProgress = 0f
+                                    }
+
+                                    // Launch a job to update progress
+                                    playbackJob = coroutineScope.launch {
+                                        while (isActive) {
+                                            withContext(Dispatchers.Main) {
+                                                playbackProgress = currentPosition.toFloat() / duration.toFloat()
+                                            }
+                                            delay(100) // Update every 100ms
+                                        }
+                                    }
                                 } catch (e: IOException) {
                                     Log.e("MediaPlayer", "Failed to play recording", e)
                                     statusText = "Error: Could not play audio."
+                                    currentlyPlayingPath = null
                                 }
                             }
-                        },
+                        }
+                    },
                         onDelete = { originalPath, reversedPath ->
                             coroutineScope.launch {
                                 deleteRecording(originalPath, reversedPath)
@@ -331,11 +376,12 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
     }
 }
 
-
 @OptIn(ExperimentalFoundationApi::class) // This is still needed for combinedClickable
 @Composable
 fun RecordingItem(
     recording: Recording,
+    isPlaying: Boolean, // NEW: Is this item the one playing?
+    progress: Float,    // NEW: What is the playback progress?
     onPlay: (String) -> Unit,
     onDelete: (originalPath: String, reversedPath: String?) -> Unit,
     onShare: (path: String) -> Unit,
@@ -346,7 +392,7 @@ fun RecordingItem(
     var showRenameDialog by remember { mutableStateOf(false) }
     var editableName by remember { mutableStateOf("") }
 
-    // --- RENAME DIALOG (This is correct) ---
+    // --- RENAME DIALOG ---
     if (showRenameDialog) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
@@ -378,7 +424,7 @@ fun RecordingItem(
         )
     }
 
-    // --- SHARE DIALOG (This is correct) ---
+    // --- SHARE DIALOG ---
     if (showShareDialog) {
         AlertDialog(
             onDismissRequest = { showShareDialog = false },
@@ -408,7 +454,7 @@ fun RecordingItem(
         )
     }
 
-    // --- DELETE DIALOG (This is correct) ---
+    // --- DELETE DIALOG ---
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -434,13 +480,13 @@ fun RecordingItem(
     }
 
 
-    // --- CARD UI (This is where the fix is) ---
+    // --- CARD UI ---
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // THIS IS THE ROW WITH THE ICONS RESTORED
+            // THIS ROW IS COMPLETE AND CORRECT
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -504,16 +550,18 @@ fun RecordingItem(
                         }
                     )
             )
+
+            // NEW: Show a progress bar only if this item is the one playing
+            if (isPlaying) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { progress }, // Use the progress parameter here
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
-
-
-
-
-
-
-
 
 
 // All other helper functions (startRecording, loadRecordings, deleteRecording, etc.) remain the same.
