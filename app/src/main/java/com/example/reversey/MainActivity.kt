@@ -1,6 +1,6 @@
 package com.example.reversey
 
-// changes from v. 1.1.6 - visible mode!
+// changes from v. 1.1.7a
 
 import android.Manifest
 import android.content.Context
@@ -127,6 +127,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.experimental.and
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -286,7 +287,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.1.7", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.2.0a", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -537,9 +538,12 @@ fun AudioReverserApp(
                                     }
                                 }
                             },
-                            onStop = {
-                                mediaPlayer?.stop()
-                                mediaPlayer?.release()
+                            onStop = {mediaPlayer?.apply {
+                                if (isPlaying) {
+                                    stop()
+                                }
+                                release()
+                            }
                                 mediaPlayer = null
                                 playbackJob?.cancel()
                                 currentlyPlayingPath = null
@@ -806,19 +810,31 @@ private suspend fun clearAllRecordings(context: Context) = withContext(Dispatche
 private suspend fun startRecording(
     context: Context,
     file: File,
-    amplitudes: MutableList<Float> // NEW parameter
+    amplitudes: MutableList<Float>
 ) {
-    val sampleRate = 44100
-    val channelConfig = AudioFormat.CHANNEL_IN_MONO
-    val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-    val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+    // Use the new constants
+    val bufferSize = AudioRecord.getMinBufferSize(
+        AudioConstants.SAMPLE_RATE,
+        AudioConstants.CHANNEL_CONFIG,
+        AudioConstants.AUDIO_FORMAT
+    )
 
-    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+    if (ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) != PackageManager.PERMISSION_GRANTED
+    ) {
         return
     }
 
-    val audioRecord = AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig, audioFormat, bufferSize)
-    val buffer = ShortArray(bufferSize / 2) // Use ShortArray for 16-bit audio
+    val audioRecord = AudioRecord(
+        MediaRecorder.AudioSource.MIC,
+        AudioConstants.SAMPLE_RATE,
+        AudioConstants.CHANNEL_CONFIG,
+        AudioConstants.AUDIO_FORMAT,
+        bufferSize
+    )
+    val buffer = ShortArray(bufferSize / 2)
 
     try {
         FileOutputStream(file).use { fos ->
@@ -826,25 +842,21 @@ private suspend fun startRecording(
             while (currentCoroutineContext().isActive) {
                 val readSize = audioRecord.read(buffer, 0, buffer.size)
                 if (readSize > 0) {
-                    // Convert ShortArray to ByteArray to write to file
                     val byteBuffer = ByteArray(readSize * 2)
                     for (i in 0 until readSize) {
                         byteBuffer[i * 2] = buffer[i].and(0xFF).toByte()
-
                         byteBuffer[i * 2 + 1] = (buffer[i].toInt() shr 8).toByte()
                     }
                     fos.write(byteBuffer)
 
-                    // NEW: Calculate amplitude and update state
-                    val maxAmplitude = buffer.maxOfOrNull { kotlin.math.abs(it.toFloat()) } ?: 0f
+                    val maxAmplitude = buffer.maxOfOrNull { abs(it.toFloat()) } ?: 0f
                     val normalizedAmplitude = maxAmplitude / Short.MAX_VALUE
 
-                    // Update the list on the Main thread to be safe for UI
                     withContext(Dispatchers.Main) {
                         amplitudes.add(normalizedAmplitude)
-                        // Keep the list at a reasonable size
-                        if (amplitudes.size > 200) {
-                            amplitudes.removeAt(0)
+                        // Use the constant and the more idiomatic removeFirst()
+                        if (amplitudes.size > AudioConstants.MAX_WAVEFORM_SAMPLES) {
+                            amplitudes.removeFirst()
                         }
                     }
                 }
@@ -866,7 +878,8 @@ private fun addWavHeader(file: File) {
     try {
         val tempFile = File.createTempFile("temp_wav", ".tmp", file.parentFile)
         FileOutputStream(tempFile).use { fos ->
-            writeWavHeader(fos, rawData, 1, 44100, 16)
+            // Use the new constant
+            writeWavHeader(fos, rawData, 1, AudioConstants.SAMPLE_RATE, 16)
         }
         file.delete()
         tempFile.renameTo(file)
@@ -893,9 +906,11 @@ private suspend fun reverseWavFile(originalFile: File?): File? = withContext(Dis
             i += 2
         }
 
-        val reversedFile = File(originalFile.parent, originalFile.name.replace(".wav", "_reversed.wav"))
+        val reversedFile =
+            File(originalFile.parent, originalFile.name.replace(".wav", "_reversed.wav"))
         FileOutputStream(reversedFile).use { fos ->
-            writeWavHeader(fos, reversedPcmData, 1, 44100, 16)
+            // Use the new constant
+            writeWavHeader(fos, reversedPcmData, 1, AudioConstants.SAMPLE_RATE, 16)
         }
         return@withContext reversedFile
     } catch (e: Exception) {
@@ -1142,3 +1157,10 @@ class OctagonShape : Shape {
     }
 }
 
+// NEW: As suggested by Claude
+object AudioConstants {
+    const val SAMPLE_RATE = 44100
+    const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
+    const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
+    const val MAX_WAVEFORM_SAMPLES = 200
+}
