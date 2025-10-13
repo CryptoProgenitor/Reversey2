@@ -17,7 +17,7 @@ lifecycleViewmodelCompose = "2.9.4"
 navigationCompose = "2.9.5" # Let's update this to a recent stable version
 composeMaterial = "1.9.3"
 volley = "1.2.1" # And this one too
-
+#--
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
