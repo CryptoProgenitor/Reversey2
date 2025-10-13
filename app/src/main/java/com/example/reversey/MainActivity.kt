@@ -406,7 +406,7 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                             },
                             onRename = { oldPath, newName ->
                                 coroutineScope.launch {
-                                    renameRecording(context, oldPath, newName)
+                                    renameRecording(oldPath, newName)
                                     updateRecordingsList()
                                 }
                             }
@@ -772,7 +772,6 @@ private suspend fun loadRecordings(context: Context): List<Recording> = withCont
 
 // CHANGED: This function is now much simpler.
 private suspend fun renameRecording(
-    context: Context,
     oldPath: String,
     newName: String // This is the full new name, e.g., "My Cat Purring.wav"
 ): Boolean = withContext(Dispatchers.IO) {
