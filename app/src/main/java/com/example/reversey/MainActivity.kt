@@ -1,7 +1,14 @@
 package com.example.reversey
 
+import coil.ImageLoader
+import android.os.Build.VERSION.SDK_INT
+
+
+
 import android.content.Context
 import android.content.Intent
+import android.media.MediaPlayer
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -22,6 +29,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -65,6 +73,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -97,10 +106,17 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import coil.transform.AnimatedTransformation
+import coil.request.ImageRequest
+import com.example.reversey.R
 import com.example.reversey.ui.theme.ReVerseYTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -231,55 +247,102 @@ fun AppDrawerContent(
     }
 }
 
+// PASTE THIS ENTIRE, CORRECTED AboutScreen FUNCTION
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(navController: NavController) {
-    var cpdTaps by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val audioViewModel: AudioViewModel = viewModel()
+    val uiState by audioViewModel.uiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("About ReVerseY") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
+    // --- ONE ImageLoader, defined once. This is correct. ---
+    val imageLoader = remember {
+        ImageLoader.Builder(context)
+            .components {
+                if (SDK_INT >= 28) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
                 }
-            )
+            }
+            .build()
+    }
+
+    // This Box will contain both the screen content AND the GIF overlay
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // --- The Original Screen Content (This part is fine) ---
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("About ReVerseY") },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                // You can bump this to your final version number when you commit
+                Text("Version 2.0.0g", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.clickable {
+                        // Play the sound directly here, as it needs the context.
+                        // We check if the *next* tap will be the 5th one.
+                        if (uiState.cpdTaps + 1 == 5) {
+                            val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
+                            mediaPlayer?.start()
+                            mediaPlayer?.setOnCompletionListener { mp -> mp.release() }
+                        }
+                        // Tell the ViewModel that a tap occurred. The ViewModel handles ALL state changes.
+                        audioViewModel.onCpdTapped()
+                    }
+                )
+            }
         }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Version beta -  2.0.d", style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD! :-)",
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.clickable {
-                    cpdTaps++
-                    if (cpdTaps == 5) {
-                        audioViewModel.playEasterEgg(context)
-                        cpdTaps = 0
-                    }
-                }
+        // --- The CORRECTED GIF Overlay ---
+        if (uiState.showEasterEgg) {
+            // Use a LaunchedEffect to give the UI a moment to compose before dismissing
+            LaunchedEffect(Unit) {
+                // Wait for the animation to play. A simple delay works well here.
+                // We'll use a duration slightly longer than the GIF's animation.
+                // Let's assume the GIF is about 1.5 seconds long.
+                delay(1500L) // 1.5 seconds
+                audioViewModel.dismissEasterEgg()
+            }
+
+            AsyncImage(
+                model = R.drawable.cracking_egg, // The model can be simple
+                contentDescription = "Easter Egg GIF",
+                // Use the imageLoader you already defined at the top of the function
+                imageLoader = imageLoader,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.75f))
             )
         }
     }
 }
+
 
 // NEW, "DUMB" UI COMPOSABLE
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

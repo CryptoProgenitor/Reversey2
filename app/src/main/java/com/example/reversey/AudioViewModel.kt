@@ -21,7 +21,9 @@ data class AudioUiState(
     val currentlyPlayingPath: String? = null,
     val playbackProgress: Float = 0f,
     val isPaused: Boolean = false,
-    val amplitudes: List<Float> = emptyList()
+    val amplitudes: List<Float> = emptyList(),
+    val showEasterEgg: Boolean = false,
+    val cpdTaps: Int = 0 // <-- ADD THIS NEW STATE
 )
 
 
@@ -43,6 +45,17 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val newRecordings = repository.loadRecordings()
             _uiState.update { it.copy(recordings = newRecordings) }
+        }
+    }
+
+    fun onCpdTapped() {
+        val newTaps = _uiState.value.cpdTaps + 1
+        if (newTaps >= 5) {
+            // If we've reached 5 taps, show the egg and immediately reset the counter
+            _uiState.update { it.copy(showEasterEgg = true, cpdTaps = 0) }
+        } else {
+            // Otherwise, just increment the counter
+            _uiState.update { it.copy(cpdTaps = newTaps) }
         }
     }
 
@@ -141,15 +154,18 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun playEasterEgg(context: Context) {
-        val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
-        mediaPlayer.setOnCompletionListener { mp -> mp.release() }
-        mediaPlayer.start()
+    fun triggerEasterEgg() {
+        _uiState.update { it.copy(showEasterEgg = true) }
     }
 
+    // This function will be called to hide it
+    fun dismissEasterEgg() {
+        _uiState.update { it.copy(showEasterEgg = false) }
+    }
+    // The 'override' function was outside the class, move it inside.
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
     }
-}
 
+} // This is the closing brace for the AudioViewModel class
