@@ -1,5 +1,7 @@
 package com.example.reversey
 
+// update from v. XXX
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -16,12 +18,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
@@ -36,10 +40,13 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -173,7 +180,7 @@ fun AboutScreen(navController: NavController) {
         ) {
             Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Version 1.1.2.a", style = MaterialTheme.typography.bodyMedium)
+            Text("Version 1.1.3", style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -185,12 +192,15 @@ fun AboutScreen(navController: NavController) {
 }
 
 // CHANGED: Added @OptIn annotation
+// This is the complete, correct, and final version of AudioReverserApp.
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AudioReverserApp(openDrawer: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    // All `remember` calls are correctly placed here, at the top level of the composable.
+    val listState = rememberLazyListState()
     var recordings by remember { mutableStateOf<List<Recording>>(emptyList()) }
     var isRecording by remember { mutableStateOf(false) }
     var statusText by remember { mutableStateOf("Ready to record") }
@@ -199,7 +209,21 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
     var currentlyPlayingPath by remember { mutableStateOf<String?>(null) }
     var playbackProgress by remember { mutableStateOf(0f) }
     var playbackJob by remember { mutableStateOf<Job?>(null) }
-    var isPaused by remember { mutableStateOf(false) } // NEW: State to track pause
+    var isPaused by remember { mutableStateOf(false) }
+
+    // Derived state declarations for the fading edge effect, correctly placed.
+    val showTopFade by remember {
+        derivedStateOf {
+            // Use the simple boolean property from the state
+            listState.canScrollBackward
+        }
+    }
+    val showBottomFade by remember {
+        derivedStateOf {
+            // Use the simple boolean property from the state
+            listState.canScrollForward
+        }
+    }
 
     val waveformAmplitudes = remember { mutableStateListOf<Float>() }
     val recordAudioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
@@ -247,6 +271,8 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(20.dp))
+
+            // THIS IS THE FULL, CORRECT RecordButton CALL
             RecordButton(
                 isRecording = isRecording,
                 hasPermission = recordAudioPermissionState.status.isGranted,
@@ -274,7 +300,10 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
                     }
                 }
             )
+
             Spacer(modifier = Modifier.height(16.dp))
+
+            // THIS IS THE FULL, CORRECT WaveformVisualizer / Text BLOCK
             if (isRecording) {
                 WaveformVisualizer(
                     amplitudes = waveformAmplitudes,
@@ -285,106 +314,153 @@ fun AudioReverserApp(openDrawer: () -> Unit) {
             } else {
                 Text(text = statusText, style = MaterialTheme.typography.bodyLarge)
             }
+
             Spacer(modifier = Modifier.height(20.dp))
             HorizontalDivider()
 
-            // ... inside AudioReverserApp, after the Divider()
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(recordings, key = { it.originalPath }) { recording ->
-                    val isCurrentlyPlayingThisItem = currentlyPlayingPath == recording.originalPath || currentlyPlayingPath == recording.reversedPath
-                    RecordingItem(
-
-                        recording = recording,
-                    isPlaying = isCurrentlyPlayingThisItem,
-                    isPaused = isPaused,
-                    progress = if (isCurrentlyPlayingThisItem) playbackProgress else 0f,
-
-                    // --- PLAYBACK LOGIC ---
-                    onPlay = { path ->
-                        mediaPlayer?.release()
-                        playbackJob?.cancel()
-                        mediaPlayer = MediaPlayer().apply {
-                            try {
-                                setDataSource(path)
-                                prepare()
-                                start()
-                                currentlyPlayingPath = path
+            // This Box contains the list and the fading edge overlays.
+            Box(modifier = Modifier.fillMaxSize()) {
+                // The LazyColumn with its full, correct content.XXX
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(MaterialTheme.shapes.medium) // THIS IS THE FIX
+                ) {
+                    items(recordings, key = { it.originalPath }) { recording ->
+                        val isCurrentlyPlayingThisItem = currentlyPlayingPath == recording.originalPath || currentlyPlayingPath == recording.reversedPath
+                        RecordingItem(
+                            recording = recording,
+                            isPlaying = isCurrentlyPlayingThisItem,
+                            isPaused = isPaused,
+                            progress = if (isCurrentlyPlayingThisItem) playbackProgress else 0f,
+                            onPlay = { path ->
+                                mediaPlayer?.release()
+                                playbackJob?.cancel()
+                                mediaPlayer = MediaPlayer().apply {
+                                    try {
+                                        setDataSource(path)
+                                        prepare()
+                                        start()
+                                        currentlyPlayingPath = path
+                                        isPaused = false
+                                        playbackProgress = 0f
+                                        setOnCompletionListener {
+                                            playbackJob?.cancel()
+                                            currentlyPlayingPath = null
+                                            isPaused = false
+                                        }
+                                        playbackJob = coroutineScope.launch {
+                                            while (isActive) {
+                                                withContext(Dispatchers.Main) {
+                                                    val currentPos = mediaPlayer?.currentPosition?.toFloat() ?: 0f
+                                                    val totalDuration = mediaPlayer?.duration?.toFloat() ?: 0f
+                                                    playbackProgress = if (totalDuration > 0) currentPos / totalDuration else 0f
+                                                }
+                                                delay(100)
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("MediaPlayer", "Error playing", e)
+                                        currentlyPlayingPath = null
+                                    }
+                                }
+                            },
+                            onPause = {
+                                if (mediaPlayer?.isPlaying == true) {
+                                    mediaPlayer?.pause()
+                                    isPaused = true
+                                    playbackJob?.cancel()
+                                } else {
+                                    mediaPlayer?.start()
+                                    isPaused = false
+                                    playbackJob = coroutineScope.launch {
+                                        while (isActive) {
+                                            withContext(Dispatchers.Main) {
+                                                val currentPos = mediaPlayer?.currentPosition?.toFloat() ?: 0f
+                                                val totalDuration = mediaPlayer?.duration?.toFloat() ?: 0f
+                                                playbackProgress = if (totalDuration > 0) currentPos / totalDuration else 0f
+                                            }
+                                            delay(100)
+                                        }
+                                    }
+                                }
+                            },
+                            onStop = {
+                                mediaPlayer?.stop()
+                                mediaPlayer?.release()
+                                mediaPlayer = null
+                                playbackJob?.cancel()
+                                currentlyPlayingPath = null
                                 isPaused = false
                                 playbackProgress = 0f
-                                setOnCompletionListener {
-                                    playbackJob?.cancel()
-                                    currentlyPlayingPath = null
-                                    isPaused = false
+                            },
+                            onDelete = { originalPath, reversedPath ->
+                                coroutineScope.launch {
+                                    deleteRecording(originalPath, reversedPath)
+                                    updateRecordingsList()
                                 }
-                                playbackJob = coroutineScope.launch {
-                                    while (isActive) {
-                                        withContext(Dispatchers.Main) {
-                                            // FIX #1: Correctly calculate progress, with safety checks
-                                            val currentPos = mediaPlayer?.currentPosition?.toFloat() ?: 0f
-                                            val totalDuration = mediaPlayer?.duration?.toFloat() ?: 0f
-                                            playbackProgress = if (totalDuration > 0) currentPos / totalDuration else 0f
-                                        }
-                                        delay(100)
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Log.e("MediaPlayer", "Error playing", e)
-                                currentlyPlayingPath = null
-                            }
-                        }
-                    },
-                    onPause = {
-                        if (mediaPlayer?.isPlaying == true) {
-                            mediaPlayer?.pause()
-                            isPaused = true
-                            playbackJob?.cancel()
-                        } else {
-                            mediaPlayer?.start()
-                            isPaused = false
-                            playbackJob = coroutineScope.launch {
-                                while (isActive) {
-                                    withContext(Dispatchers.Main) {
-                                        // FIX #2: Use the SAME safe logic here
-                                        val currentPos = mediaPlayer?.currentPosition?.toFloat() ?: 0f
-                                        val totalDuration = mediaPlayer?.duration?.toFloat() ?: 0f
-                                        playbackProgress = if (totalDuration > 0) currentPos / totalDuration else 0f
-                                    }
-                                    delay(100)
+                            },
+                            onShare = { path ->
+                                shareRecording(context, File(path))
+                            },
+                            onRename = { oldPath, newName ->
+                                coroutineScope.launch {
+                                    renameRecording(context, oldPath, newName)
+                                    updateRecordingsList()
                                 }
                             }
-                        }
-                    },
-                    onStop = {
-                        mediaPlayer?.stop()
-                        mediaPlayer?.release()
-                        mediaPlayer = null
-                        playbackJob?.cancel()
-                        currentlyPlayingPath = null
-                        isPaused = false
-                        playbackProgress = 0f
-                    },
-                    // --- (Your other callbacks are correct) ---
-                    onDelete = { originalPath, reversedPath ->
-                        coroutineScope.launch {
-                            deleteRecording(originalPath, reversedPath)
-                            updateRecordingsList()
-                        }
-                    },
-                    onShare = { path ->
-                        shareRecording(context, File(path))
-                    },
-                    onRename = { oldPath, newName ->
-                        coroutineScope.launch {
-                            renameRecording(context, oldPath, newName)
-                            updateRecordingsList()
-                        }
+                        )
                     }
+                }
+
+                // --- FADING EDGE GRADIENTS (Subtler Version) ---
+
+                // This gradient will be used for the top fade
+                val topGradient = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), // Start with 50% transparent purple
+                        Color.Transparent
                     )
+                )
+                // This gradient will be used for the bottom fade
+                val bottomGradient = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) // End with 50% transparent purple
+                    )
+                )
+
+
+                // Top fading edge overlay, shown only when not at the top
+                if (showTopFade) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(24.dp)
+                            .align(Alignment.TopCenter)
+                            .clip(MaterialTheme.shapes.medium) // THIS IS THE FIX
+                            .background(brush = topGradient)
+                    )
+                }
+                // Bottom fading edge overlay, shown only when not at the bottom
+                if (showBottomFade) {    Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(24.dp)
+                        .align(Alignment.BottomCenter)
+                        .clip(MaterialTheme.shapes.medium) // THIS IS THE FIX
+                        .background(brush = bottomGradient)
+                )
                 }
             }
         }
     }
 }
+
+
+
+
 
 
 
