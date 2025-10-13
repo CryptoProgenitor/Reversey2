@@ -153,7 +153,7 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // This function will be called to hide it
+    // This function will be called to hide it-
     fun dismissEasterEgg() {
         _uiState.update { it.copy(showEasterEgg = false) }
     }
