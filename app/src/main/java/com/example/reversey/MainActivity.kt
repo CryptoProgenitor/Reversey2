@@ -298,7 +298,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 2.0.2", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 2.0.2claude", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -511,141 +511,161 @@ fun AudioReverserApp(
 }
 
 // THE RecordingItem composable remains here as it's part of the UI layer
+// This is the NEW, COMPLETE, and CORRECT version of the RecordingItem composable
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecordingItem(
-    recording: Recording,
-    isPlaying: Boolean,
+    recording: Recording, isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
     onPlay: (String) -> Unit,
     onPause: () -> Unit,
     onStop: () -> Unit,
-    onDelete: () -> Unit, // Simplified callback
-    onShare: (path: String) -> Unit,
-    onRename: (oldPath: String, newName: String) -> Unit,
-    isGameModeEnabled: Boolean, // <-- ADD THIS
-    onStartAttempt: (Recording) -> Unit // <-- THE ONLY CHANGE IS THIS NEW LINE
+    onDelete: (Recording) -> Unit,
+    onShare: (String) -> Unit,
+    onRename: (String, String) -> Unit,
+    isGameModeEnabled: Boolean,
+    onStartAttempt: (Recording) -> Unit
 ) {
+    var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
-    var showRenameDialog by remember { mutableStateOf(false) }
-    var editableName by remember { mutableStateOf("") }
 
-    if (showRenameDialog) {
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text("Rename Recording") },
-            text = {
-                OutlinedTextField(
-                    value = editableName,
-                    onValueChange = { editableName = it },
-                    label = { Text("Filename") },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onRename(recording.originalPath, editableName)
-                        showRenameDialog = false
-                    },
-                    enabled = editableName.isNotBlank() && editableName.endsWith(".wav")
-                ) { Text("Save") }
-            },
-            dismissButton = {
-                Button(onClick = { showRenameDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
-    if (showShareDialog) {
-        AlertDialog(
-            onDismissRequest = { showShareDialog = false },
-            title = { Text("Share Which Version?") },
-            text = { Text("Which version of the recording would you like to share?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        recording.reversedPath?.let { onShare(it) }
-                        showShareDialog = false
-                    },
-                    enabled = recording.reversedPath != null
-                ) { Text("Reversed") }
-            },
-            dismissButton = {
-                Button(onClick = { onShare(recording.originalPath); showShareDialog = false }) { Text("Original") }
-            }
-        )
-    }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Recording") },
-            text = { Text("Are you sure you want to permanently delete this recording?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDelete() // Call the simplified callback
-                        showDeleteDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete") }
-            },
-            dismissButton = {
-                Button(onClick = { showDeleteDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // This is the NEW, well-spaced Row block to paste
-            // This is the NEW, well-spaced Row block to paste
+    // Re-introduce the Column to structure the card correctly
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            // --- TOP ROW: Name and Rename Logic ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // --- LEFT-ALIGNED GROUP ---
+                Text(
+                    text = recording.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showRenameDialog = true } // Click name to rename
+                )
+            }
+
+            // This is the Rename Dialog
+            if (showRenameDialog) {
+                var newName by remember { mutableStateOf(recording.name) }
+                AlertDialog(
+                    onDismissRequest = { showRenameDialog = false },
+                    title = { Text("Rename Recording") },
+                    text = {
+                        OutlinedTextField(
+                            value = newName,
+                            onValueChange = { newName = it },
+                            label = { Text("New Name") }
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            onRename(recording.originalPath, newName)
+                            showRenameDialog = false
+                        }) { Text("Rename") }
+                    },
+                    dismissButton = {
+                        Button(onClick = { showRenameDialog = false }) { Text("Cancel") }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // --- MIDDLE: Progress Bar ---
+            LinearProgressIndicator(
+                progress = { if (isPlaying) progress else 0f },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // --- BOTTOM ROW: All Action Buttons ---
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Left Group: Share
                 IconButton(onClick = { showShareDialog = true }) {
-                    Icon(imageVector = Icons.Default.Share, contentDescription = "Share Recording", tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share Recording",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
 
-                // This Spacer pushes everything else away from the Share button
-                Spacer(modifier = Modifier.weight(1f))
-
-                // --- CENTER-ALIGNED GROUP (The Play Buttons) ---
+                // Center Group: Playback
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isPlaying) {
-                        Button(onClick = { onPause() }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
-                            val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
-                            Icon(imageVector = pauseIcon, contentDescription = "Pause/Resume", tint = Color.White)
+                        Button(
+                            onClick = { onPause() },
+                            shape = CircleShape,
+                            modifier = Modifier.size(50.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            val pauseIcon =
+                                if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
+                            Icon(
+                                imageVector = pauseIcon,
+                                contentDescription = "Pause/Resume",
+                                tint = Color.White
+                            )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Button(onClick = { onStop() }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-                            Icon(imageVector = Icons.Default.Stop, contentDescription = "Stop", tint = Color.White)
+                        Button(
+                            onClick = { onStop() },
+                            shape = CircleShape,
+                            modifier = Modifier.size(50.dp),
+                            contentPadding = PaddingValues(0.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = "Stop",
+                                tint = Color.White
+                            )
                         }
                     } else {
-                        Button(onClick = { onPlay(recording.originalPath) }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
-                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Play Original", tint = Color.White)
+                        Button(
+                            onClick = { onPlay(recording.originalPath) },
+                            shape = CircleShape,
+                            modifier = Modifier.size(50.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play Original",
+                                tint = Color.White
+                            )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Button(onClick = { onPlay(recording.reversedPath!!) }, enabled = recording.reversedPath != null, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
-                            Icon(imageVector = Icons.Default.Replay, contentDescription = "Play Reversed", tint = Color.White)
+                        Button(
+                            onClick = { onPlay(recording.reversedPath!!) },
+                            enabled = recording.reversedPath != null,
+                            shape = CircleShape,
+                            modifier = Modifier.size(50.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Replay,
+                                contentDescription = "Play Reversed",
+                                tint = Color.White
+                            )
                         }
                     }
                 }
 
-                // This Spacer pushes the right-aligned group away from the center group
-                Spacer(modifier = Modifier.weight(1f))
-
-                // --- RIGHT-ALIGNED GROUP ---
+                // Right Group: Game and Delete
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // This is the NEW Button block
                     if (isGameModeEnabled) {
                         Button(
-                            onClick = { onStartAttempt(recording) }, // <-- THE ONLY CHANGE IS THIS LINE
+                            onClick = { onStartAttempt(recording) },
                             shape = CircleShape,
                             modifier = Modifier.size(50.dp),
                             contentPadding = PaddingValues(0.dp),
@@ -659,9 +679,41 @@ fun RecordingItem(
                         }
                     }
                     IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Recording", tint = MaterialTheme.colorScheme.error)
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Recording",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
+            }
+
+            // This is the Delete Dialog
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Delete Recording?") },
+                    text = { Text("Are you sure you want to delete '${recording.name}'? This action cannot be undone.") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onDelete(recording)
+                                showDeleteDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Delete") }
+                    },
+                    dismissButton = {
+                        Button(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+                    }
+                )
+            }
+
+            // This is the Share Dialog (which just launches the intent)
+            if (showShareDialog) {
+                val pathToShare = recording.reversedPath ?: recording.originalPath
+                onShare(pathToShare)
+                showShareDialog = false // Dismiss immediately after launching
             }
         }
     }

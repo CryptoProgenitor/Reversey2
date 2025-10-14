@@ -2,8 +2,11 @@ package com.example.reversey
 
 import android.app.Application
 import android.media.MediaPlayer
+import android.os.Environment
+import androidx.compose.animation.core.copy
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -42,12 +45,38 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         loadRecordings()
     }
 
+    //claude's loadRecordings
     fun loadRecordings() {
-        viewModelScope.launch {
-            val newRecordings = repository.loadRecordings()
-            _uiState.update { it.copy(recordings = newRecordings) }
+        viewModelScope.launch(Dispatchers.IO) {
+            // 1. Remember the attempts from the current UI state.
+            val attemptsMap = _uiState.value.recordings.associate { it.originalPath to it.attempts }
+
+            // 2. Call the REAL function from the repository.
+            val loadedRecordingsFromDisk = repository.loadRecordings()
+
+            // 3. Filter out any files that are actually attempt files (don't have "_reversed" counterparts and are in the attempts map)
+            val attemptFilePaths = attemptsMap.values.flatten().map { it.attemptFilePath }.toSet()
+
+            val filteredRecordings = loadedRecordingsFromDisk.filter { diskRecording ->
+                // Keep this recording if it's NOT an attempt file
+                !attemptFilePaths.contains(diskRecording.originalPath)
+            }
+
+            // 4. Merge the disk data with the in-memory attempts.
+            val mergedRecordings = filteredRecordings.map { diskRecording ->
+                val existingAttempts = attemptsMap[diskRecording.originalPath]
+                if (existingAttempts != null && existingAttempts.isNotEmpty()) {
+                    diskRecording.copy(attempts = existingAttempts)
+                } else {
+                    diskRecording
+                }
+            }
+
+            // 5. Update the UI with the final, merged list.
+            _uiState.update { it.copy(recordings = mergedRecordings) }
         }
     }
+
 
     fun onCpdTapped() {
         val newTaps = _uiState.value.cpdTaps + 1
@@ -61,21 +90,22 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // This is the NEW, COMPLETE function to paste
-    fun startAttemptRecording(parentRecording: Recording) {
-        if (_uiState.value.isRecording || _uiState.value.isRecordingAttempt) return
 
-        // Update the state to show we're recording an attempt
-        _uiState.update {
-            it.copy(
-                isRecordingAttempt = true,
-                parentRecordingPath = parentRecording.originalPath,
-                isRecording = true, // Also set the main recording flag
-                statusText = "Get ready to sing...",
-                amplitudes = emptyList()
-            )
+    // In AudioViewModel.kt
+
+    private fun createAudioFile(context: Application): java.io.File {
+        val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+        val storageDir = File(context.filesDir, "recordings")
+        // Ensure the directory exists
+        if (!storageDir.exists()) {
+            storageDir.mkdirs()
         }
+        return java.io.File(storageDir, "REC_${timeStamp}.wav")
+    }
 
-        // We can reuse the existing startRecording logic!
+
+    fun startRecording() {
+        _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
         val file = createAudioFile(getApplication())
         recordingJob = viewModelScope.launch(Dispatchers.IO) {
             repository.startRecording(file) { amplitude ->
@@ -87,9 +117,16 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
-    fun startRecording() {
-        _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
+    fun startAttemptRecording(recording: Recording) {
+        _uiState.update {
+            it.copy(
+                isRecordingAttempt = true,
+                parentRecordingPath = recording.originalPath,
+                isRecording = true,
+                statusText = "Recording attempt...",
+                amplitudes = emptyList()
+            )
+        }
         val file = createAudioFile(getApplication())
         recordingJob = viewModelScope.launch(Dispatchers.IO) {
             repository.startRecording(file) { amplitude ->
@@ -118,9 +155,25 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            // Stop the recording job and get the most recent file
+            // Cancel the recording job and wait for it to finish cleaning up
             recordingJob?.cancel()
-            val lastRecordingFile = repository.getLatestFile() ?: return@launch
+            recordingJob?.join()
+
+            // Give the file system a moment to finalize the file
+            delay(200) // Increased delay
+
+            // DEBUG: Check what files exist
+            val dir = getApplication<Application>().getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+            android.util.Log.d("AudioViewModel", "Recording directory: ${dir?.absolutePath}")
+            android.util.Log.d("AudioViewModel", "Files in directory: ${dir?.listFiles()?.joinToString { it.name }}")
+
+            val lastRecordingFile = repository.getLatestFile()
+            android.util.Log.d("AudioViewModel", "Latest file: ${lastRecordingFile?.absolutePath}")
+
+            if (lastRecordingFile == null) {
+                _uiState.update { it.copy(statusText = "Error: No recording file found.") }
+                return@launch
+            }
 
             if (wasRecordingAttempt && parentPath != null) {
                 // This was a GAME ATTEMPT recording.
@@ -139,7 +192,6 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 // Update the UI with the new list of recordings and a confirmation status
-                // IMPORTANT: WE DO NOT CALL loadRecordings() HERE.
                 _uiState.update {
                     it.copy(
                         recordings = updatedRecordings,
