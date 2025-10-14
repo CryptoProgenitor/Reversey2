@@ -21,8 +21,11 @@ fun SettingsScreen(
     onThemeChange: (String) -> Unit,
     // NEW PARAMETERS
     currentDarkModePreference: String,
-    onDarkModePreferenceChange: (String) -> Unit
-) {
+    onDarkModePreferenceChange: (String) -> Unit,
+    // ADD THESE TWO NEW PARAMETERS
+    isGameModeEnabled: Boolean,
+    onGameModeChange: (Boolean) -> Unit
+    ) {
     val themes = listOf("Purple", "Blue", "Green", "Orange")
     // NEW: Options for the dark mode toggle
     val darkModeOptions = listOf("Light", "Dark", "System")
@@ -44,6 +47,28 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            item {
+                Text(
+                    "Gameplay",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onGameModeChange(!isGameModeEnabled) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Enable Game Mode", style = MaterialTheme.typography.bodyLarge)
+                    Switch(
+                        checked = isGameModeEnabled,
+                        onCheckedChange = onGameModeChange
+                    )
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            }
             // Theme Color Section (Unchanged)
             item {
                 Text(

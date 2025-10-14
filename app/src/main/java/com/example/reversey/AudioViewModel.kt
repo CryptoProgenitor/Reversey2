@@ -22,7 +22,9 @@ data class AudioUiState(
     val isPaused: Boolean = false,
     val amplitudes: List<Float> = emptyList(),
     val showEasterEgg: Boolean = false,
-    val cpdTaps: Int = 0 // <-- ADD THIS NEW STATE
+    val cpdTaps: Int = 0, // <-- ADD THIS NEW STATE
+    val isRecordingAttempt: Boolean = false, // Are we currently recording a player's attempt?
+    val parentRecordingPath: String? = null // Which original recording are we making an attempt for?
 )
 
 
@@ -58,6 +60,34 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // This is the NEW, COMPLETE function to paste
+    fun startAttemptRecording(parentRecording: Recording) {
+        if (_uiState.value.isRecording || _uiState.value.isRecordingAttempt) return
+
+        // Update the state to show we're recording an attempt
+        _uiState.update {
+            it.copy(
+                isRecordingAttempt = true,
+                parentRecordingPath = parentRecording.originalPath,
+                isRecording = true, // Also set the main recording flag
+                statusText = "Get ready to sing...",
+                amplitudes = emptyList()
+            )
+        }
+
+        // We can reuse the existing startRecording logic!
+        val file = createAudioFile(getApplication())
+        recordingJob = viewModelScope.launch(Dispatchers.IO) {
+            repository.startRecording(file) { amplitude ->
+                _uiState.update {
+                    val newAmplitudes = it.amplitudes + amplitude
+                    it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
+                }
+            }
+        }
+    }
+
+
     fun startRecording() {
         _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
         val file = createAudioFile(getApplication())
@@ -71,17 +101,64 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // REPLACE your old stopRecording function with this one
     fun stopRecording() {
-        _uiState.update { it.copy(isRecording = false, statusText = "Processing...") }
+        // First, check if this was a game attempt BEFORE we update the state
+        val wasRecordingAttempt = _uiState.value.isRecordingAttempt
+        val parentPath = _uiState.value.parentRecordingPath
+
+        // Update UI immediately to stop showing the recording state
+        _uiState.update {
+            it.copy(
+                isRecording = false,
+                isRecordingAttempt = false,
+                parentRecordingPath = null,
+                statusText = "Processing..."
+            )
+        }
+
         viewModelScope.launch(Dispatchers.IO) {
+            // Stop the recording job and get the most recent file
             recordingJob?.cancel()
-            val lastRecording = repository.getLatestFile()
-            val reversedFile = repository.reverseWavFile(lastRecording)
-            val newStatus = if (reversedFile != null) "Reversed successfully!" else "Error: Reversing failed."
-            _uiState.update { it.copy(statusText = newStatus) }
-            loadRecordings()
+            val lastRecordingFile = repository.getLatestFile() ?: return@launch
+
+            if (wasRecordingAttempt && parentPath != null) {
+                // This was a GAME ATTEMPT recording.
+                val newAttempt = PlayerAttempt(
+                    playerName = "Player 1",
+                    attemptFilePath = lastRecordingFile.absolutePath,
+                    score = 0 // We will calculate this later
+                )
+
+                // Find the parent recording in the current state and add the new attempt to its list
+                val updatedRecordings = _uiState.value.recordings.map { recording ->
+                    if (recording.originalPath == parentPath) {
+                        recording.copy(attempts = recording.attempts + newAttempt)
+                    } else {
+                        recording
+                    }
+                }
+                // Update the UI with the new list of recordings and a confirmation status
+                // IMPORTANT: WE DO NOT CALL loadRecordings() HERE.
+                _uiState.update {
+                    it.copy(
+                        recordings = updatedRecordings,
+                        statusText = "Attempt Saved!"
+                    )
+                }
+
+            } else {
+                // This was a NORMAL recording, so we reverse it, just like before.
+                val reversedFile = repository.reverseWavFile(lastRecordingFile)
+                val newStatus =
+                    if (reversedFile != null) "Reversed successfully!" else "Error: Reversing failed."
+                _uiState.update { it.copy(statusText = newStatus) }
+                // For a normal recording, we DO reload from disk to get the new file.
+                loadRecordings()
+            }
         }
     }
+
 
     fun play(path: String) {
         mediaPlayer?.release()

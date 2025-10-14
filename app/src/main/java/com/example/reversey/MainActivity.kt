@@ -43,6 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
@@ -151,6 +152,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     val scope = rememberCoroutineScope()
     val currentTheme by themeViewModel.theme.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
+    val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
 
     var showClearAllDialog by remember { mutableStateOf(false) }
 
@@ -173,7 +175,8 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     viewModel = audioViewModel, // Pass the ViewModel down
                     openDrawer = { scope.launch { drawerState.open() } },
                     showClearAllDialog = showClearAllDialog,
-                    onClearAllDialogDismiss = { showClearAllDialog = false }
+                    onClearAllDialogDismiss = { showClearAllDialog = false },
+                    isGameModeEnabled = isGameModeEnabled // <-- PASS THE FLAG
                 )
             }
             composable("about") {
@@ -185,7 +188,9 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     currentTheme = currentTheme,
                     onThemeChange = { themeName -> themeViewModel.setTheme(themeName) },
                     currentDarkModePreference = darkModePreference,
-                    onDarkModePreferenceChange = { preference -> themeViewModel.setDarkModePreference(preference) }
+                    onDarkModePreferenceChange = { preference -> themeViewModel.setDarkModePreference(preference) },
+                    isGameModeEnabled = isGameModeEnabled,
+                    onGameModeChange = { isEnabled -> themeViewModel.setGameMode(isEnabled) }
                 )
             }
         }
@@ -293,7 +298,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 2.0.1", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 2.0.2", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -345,7 +350,9 @@ fun AudioReverserApp(
     viewModel: AudioViewModel,
     openDrawer: () -> Unit,
     showClearAllDialog: Boolean,
-    onClearAllDialogDismiss: () -> Unit
+    onClearAllDialogDismiss: () -> Unit,
+    isGameModeEnabled: Boolean // <-- ADD THIS
+
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
@@ -427,6 +434,7 @@ fun AudioReverserApp(
                 val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
                 val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
 
+                // This is the NEW, CORRECTED LazyColumn block
                 LazyColumn(
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -434,19 +442,47 @@ fun AudioReverserApp(
                         .fillMaxSize()
                         .clip(MaterialTheme.shapes.medium)
                 ) {
-                    items(uiState.recordings, key = { it.originalPath }) { recording ->
-                        RecordingItem(
-                            recording = recording,
-                            isPlaying = uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath,
-                            isPaused = uiState.isPaused,
-                            progress = if (uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
-                            onPlay = { path -> viewModel.play(path) },
-                            onPause = { viewModel.pause() },
-                            onStop = { viewModel.stopPlayback() },
-                            onDelete = { viewModel.deleteRecording(recording) },
-                            onShare = { path -> shareRecording(context, File(path)) },
-                            onRename = { oldPath, newName -> viewModel.renameRecording(oldPath, newName) }
-                        )
+                    // Use forEach to have access to the 'recording' variable for both items
+                    uiState.recordings.forEach { recording ->
+                        // 1. Show the parent recording item
+                        item(key = "parent_${recording.originalPath}") {
+                            RecordingItem(
+                                recording = recording,
+                                isPlaying = uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath,
+                                isPaused = uiState.isPaused,
+                                progress = if (uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
+                                onPlay = { path -> viewModel.play(path) },
+                                onPause = { viewModel.pause() },
+                                onStop = { viewModel.stopPlayback() },
+                                onDelete = { viewModel.deleteRecording(recording) },
+                                onShare = { path ->
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "audio/wav"
+                                        putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
+                                },
+                                onRename = { oldPath, newName -> viewModel.renameRecording(oldPath, newName) },
+                                isGameModeEnabled = isGameModeEnabled,
+                                onStartAttempt = { rec -> viewModel.startAttemptRecording(rec) }
+                            )
+                        }
+
+                        // 2. Show all the child attempts for THIS recording
+                        items(
+                            recording.attempts,
+                            key = { attempt -> "attempt_${attempt.attemptFilePath}" }) { attempt ->
+                            AttemptItem(
+                                attempt = attempt,
+                                currentlyPlayingPath = uiState.currentlyPlayingPath,
+                                isPaused = uiState.isPaused,
+                                progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath) uiState.playbackProgress else 0f,
+                                onPlay = { path -> viewModel.play(path) },
+                                onPause = { viewModel.pause() },
+                                onStop = { viewModel.stopPlayback() }
+                            )
+                        }
                     }
                 }
 
@@ -487,7 +523,9 @@ fun RecordingItem(
     onStop: () -> Unit,
     onDelete: () -> Unit, // Simplified callback
     onShare: (path: String) -> Unit,
-    onRename: (oldPath: String, newName: String) -> Unit
+    onRename: (oldPath: String, newName: String) -> Unit,
+    isGameModeEnabled: Boolean, // <-- ADD THIS
+    onStartAttempt: (Recording) -> Unit // <-- THE ONLY CHANGE IS THIS NEW LINE
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
@@ -563,56 +601,67 @@ fun RecordingItem(
 
     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // This is the NEW, well-spaced Row block to paste
+            // This is the NEW, well-spaced Row block to paste
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // --- LEFT-ALIGNED GROUP ---
                 IconButton(onClick = { showShareDialog = true }) {
                     Icon(imageVector = Icons.Default.Share, contentDescription = "Share Recording", tint = MaterialTheme.colorScheme.primary)
                 }
+
+                // This Spacer pushes everything else away from the Share button
                 Spacer(modifier = Modifier.weight(1f))
 
-                if (isPlaying) {
-                    Button(onClick = { onPause() }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
-                        val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
-                        Icon(imageVector = pauseIcon, contentDescription = "Pause/Resume", tint = Color.White)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = { onStop() }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-                        Icon(imageVector = Icons.Default.Stop, contentDescription = "Stop", tint = Color.White)
-                    }
-                } else {
-                    Button(onClick = { onPlay(recording.originalPath) }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
-                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Play Original", tint = Color.White)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = { onPlay(recording.reversedPath!!) }, enabled = recording.reversedPath != null, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
-                        Icon(imageVector = Icons.Default.Replay, contentDescription = "Play Reversed", tint = Color.White)
+                // --- CENTER-ALIGNED GROUP (The Play Buttons) ---
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isPlaying) {
+                        Button(onClick = { onPause() }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
+                            val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
+                            Icon(imageVector = pauseIcon, contentDescription = "Pause/Resume", tint = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(onClick = { onStop() }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+                            Icon(imageVector = Icons.Default.Stop, contentDescription = "Stop", tint = Color.White)
+                        }
+                    } else {
+                        Button(onClick = { onPlay(recording.originalPath) }, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
+                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Play Original", tint = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(onClick = { onPlay(recording.reversedPath!!) }, enabled = recording.reversedPath != null, shape = CircleShape, modifier = Modifier.size(50.dp), contentPadding = PaddingValues(0.dp)) {
+                            Icon(imageVector = Icons.Default.Replay, contentDescription = "Play Reversed", tint = Color.White)
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Recording", tint = MaterialTheme.colorScheme.error)
+                // This Spacer pushes the right-aligned group away from the center group
+                Spacer(modifier = Modifier.weight(1f))
+
+                // --- RIGHT-ALIGNED GROUP ---
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // This is the NEW Button block
+                    if (isGameModeEnabled) {
+                        Button(
+                            onClick = { onStartAttempt(recording) }, // <-- THE ONLY CHANGE IS THIS LINE
+                            shape = CircleShape,
+                            modifier = Modifier.size(50.dp),
+                            contentPadding = PaddingValues(0.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = "Sing Along",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Recording", tint = MaterialTheme.colorScheme.error)
+                    }
                 }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = recording.name,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .combinedClickable(
-                        onClick = {},
-                        onLongClick = {
-                            editableName = File(recording.originalPath).name; showRenameDialog =
-                            true
-                        })
-            )
-            if (isPlaying) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { progress }, // The progress parameter for M3 expects a lambda
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
     }
@@ -758,3 +807,113 @@ object AudioConstants {
     const val AUDIO_FORMAT = android.media.AudioFormat.ENCODING_PCM_16BIT
     const val MAX_WAVEFORM_SAMPLES = 200
 }
+
+// This is the NEW, UPGRADED Composable for showing a player's attempt
+@Composable
+fun AttemptItem(
+    attempt: PlayerAttempt,
+    // We need to know the state of the media player
+    currentlyPlayingPath: String?,
+    isPaused: Boolean,
+    progress: Float,
+    // We need to be able to call the playback functions
+    onPlay: (String) -> Unit,
+    onPause: () -> Unit,
+    onStop: () -> Unit
+) {
+    // Determine if this specific attempt is the one currently playing
+    val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath
+
+    // A Column to hold the info and the buttons
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            // Indent the entire item from the left
+            .padding(start = 40.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp) // Inner padding
+    ) {
+        // Top row for Player Name and Score
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = attempt.playerName, style = MaterialTheme.typography.bodyLarge)
+            Text(text = "${attempt.score}%", style = MaterialTheme.typography.headlineSmall)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Progress bar for the attempt playback
+        if (isPlayingThis) {
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            // Show a static divider when not playing for consistent height
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Bottom row for the playback controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center // Center the play buttons
+        ) {
+            if (isPlayingThis) {
+                // Show Pause and Stop buttons
+                Button(
+                    onClick = onPause,
+                    shape = CircleShape,
+                    modifier = Modifier.size(40.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
+                    Icon(
+                        imageVector = pauseIcon,
+                        contentDescription = "Pause/Resume Attempt",
+                        tint = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = onStop,
+                    shape = CircleShape,
+                    modifier = Modifier.size(40.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Stop",
+                        tint = Color.White
+                    )
+                }
+            } else {
+                // Show Play button for the attempt
+                Button(
+                    onClick = { onPlay(attempt.attemptFilePath) },
+                    shape = CircleShape,
+                    modifier = Modifier.size(40.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play Attempt",
+                        tint = Color.White
+                    )
+                }
+                // TODO: In a future step, we can add a button to play the reversed version of the attempt
+            }
+        }
+    }
+}
+
+
+
+

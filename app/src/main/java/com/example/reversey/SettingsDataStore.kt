@@ -3,6 +3,7 @@ package com.example.reversey
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -19,6 +20,7 @@ class SettingsDataStore(context: Context) {
         val THEME_KEY = stringPreferencesKey("app_theme")
         // NEW: Key for the dark mode preference
         val DARK_MODE_KEY = stringPreferencesKey("dark_mode_preference")
+        val GAME_MODE_KEY = booleanPreferencesKey("game_mode_enabled")
     }
 
     // Flow for the theme color
@@ -44,4 +46,19 @@ class SettingsDataStore(context: Context) {
             preferences[DARK_MODE_KEY] = preference
         }
     }
+
+    // --- Add this block for Game Mode ---
+    // Flow for the game mode setting. Defaults to false.
+    val getGameModeEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[GAME_MODE_KEY] ?: false
+    }
+
+    // Suspend function to save the game mode setting
+    suspend fun saveGameMode(isEnabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[GAME_MODE_KEY] = isEnabled
+        }
+    }
+
+
 }

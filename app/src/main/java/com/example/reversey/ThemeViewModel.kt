@@ -20,6 +20,8 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = "Purple"
     )
 
+
+
     // Function to change the theme color
     fun setTheme(themeName: String) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -40,4 +42,21 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
             settingsDataStore.saveDarkModePreference(preference)
         }
     }
+
+    // --- Add this block for Game Mode ---
+
+    // Expose the game mode setting as a StateFlow
+    val gameModeEnabled: StateFlow<Boolean> = settingsDataStore.getGameModeEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false // Default to false
+    )
+
+    // Function to change the game mode setting
+    fun setGameMode(isEnabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsDataStore.saveGameMode(isEnabled)
+        }
+    }
+
 }
