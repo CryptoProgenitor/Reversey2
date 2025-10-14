@@ -710,10 +710,46 @@ fun RecordingItem(
             }
 
             // This is the Share Dialog (which just launches the intent)
+            // This is the Share Dialog - let user choose which version to share-CLAUDE
+            // This is the Share Dialog - let user choose which version to share
             if (showShareDialog) {
-                val pathToShare = recording.reversedPath ?: recording.originalPath
-                onShare(pathToShare)
-                showShareDialog = false // Dismiss immediately after launching
+                AlertDialog(
+                    onDismissRequest = { showShareDialog = false },
+                    title = { Text("Share Recording") },
+                    text = {
+                        Column {
+                            Text("Which version would you like to share?")
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = {
+                                    onShare(recording.originalPath)
+                                    showShareDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Share Original")
+                            }
+                            if (recording.reversedPath != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = {
+                                        onShare(recording.reversedPath!!)
+                                        showShareDialog = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Share Reversed")
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = { },
+                    dismissButton = {
+                        Button(onClick = { showShareDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
     }
