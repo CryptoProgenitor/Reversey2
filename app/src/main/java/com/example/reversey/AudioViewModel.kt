@@ -34,6 +34,7 @@ data class AudioUiState(
 class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = RecordingRepository(application)
+    private val attemptsRepository = AttemptsRepository(application)
     private var mediaPlayer: MediaPlayer? = null
     private var recordingJob: Job? = null
     private var playbackJob: Job? = null
@@ -48,31 +49,23 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     //claude's loadRecordings
     fun loadRecordings() {
         viewModelScope.launch(Dispatchers.IO) {
-            // 1. Remember the attempts from the current UI state.
-            val attemptsMap = _uiState.value.recordings.associate { it.originalPath to it.attempts }
-
-            // 2. Call the REAL function from the repository.
+            // 1. Load recordings from disk
             val loadedRecordingsFromDisk = repository.loadRecordings()
 
-            // 3. Filter out any files that are actually attempt files (don't have "_reversed" counterparts and are in the attempts map)
-            val attemptFilePaths = attemptsMap.values.flatten().map { it.attemptFilePath }.toSet()
+            // 2. Load attempts from JSON
+            val attemptsMap = attemptsRepository.loadAttempts()
 
-            val filteredRecordings = loadedRecordingsFromDisk.filter { diskRecording ->
-                // Keep this recording if it's NOT an attempt file
-                !attemptFilePaths.contains(diskRecording.originalPath)
-            }
-
-            // 4. Merge the disk data with the in-memory attempts.
-            val mergedRecordings = filteredRecordings.map { diskRecording ->
-                val existingAttempts = attemptsMap[diskRecording.originalPath]
-                if (existingAttempts != null && existingAttempts.isNotEmpty()) {
-                    diskRecording.copy(attempts = existingAttempts)
+            // 3. Merge the disk data with the saved attempts
+            val mergedRecordings = loadedRecordingsFromDisk.map { diskRecording ->
+                val savedAttempts = attemptsMap[diskRecording.originalPath]
+                if (savedAttempts != null && savedAttempts.isNotEmpty()) {
+                    diskRecording.copy(attempts = savedAttempts)
                 } else {
                     diskRecording
                 }
             }
 
-            // 5. Update the UI with the final, merged list.
+            // 4. Update the UI with the final, merged list
             _uiState.update { it.copy(recordings = mergedRecordings) }
         }
     }
@@ -93,9 +86,13 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     // In AudioViewModel.kt
 
-    private fun createAudioFile(context: Application): java.io.File {
+    private fun createAudioFile(context: Application, isAttempt: Boolean = false): java.io.File {
         val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-        val storageDir = File(context.filesDir, "recordings")
+        val storageDir = if (isAttempt) {
+            File(context.filesDir, "recordings/attempts")
+        } else {
+            File(context.filesDir, "recordings")
+        }
         // Ensure the directory exists
         if (!storageDir.exists()) {
             storageDir.mkdirs()
@@ -106,7 +103,7 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startRecording() {
         _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
-        val file = createAudioFile(getApplication())
+        val file = createAudioFile(getApplication(), isAttempt = false)
         recordingJob = viewModelScope.launch(Dispatchers.IO) {
             repository.startRecording(file) { amplitude ->
                 _uiState.update {
@@ -127,7 +124,7 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                 amplitudes = emptyList()
             )
         }
-        val file = createAudioFile(getApplication())
+        val file = createAudioFile(getApplication(), isAttempt = true)
         recordingJob = viewModelScope.launch(Dispatchers.IO) {
             repository.startRecording(file) { amplitude ->
                 _uiState.update {
@@ -160,15 +157,9 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             recordingJob?.join()
 
             // Give the file system a moment to finalize the file
-            delay(200) // Increased delay
-
-            // DEBUG: Check what files exist
-            val dir = getApplication<Application>().getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-            android.util.Log.d("AudioViewModel", "Recording directory: ${dir?.absolutePath}")
-            android.util.Log.d("AudioViewModel", "Files in directory: ${dir?.listFiles()?.joinToString { it.name }}")
+            delay(200)
 
             val lastRecordingFile = repository.getLatestFile()
-            android.util.Log.d("AudioViewModel", "Latest file: ${lastRecordingFile?.absolutePath}")
 
             if (lastRecordingFile == null) {
                 _uiState.update { it.copy(statusText = "Error: No recording file found.") }
@@ -191,6 +182,13 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                         recording
                     }
                 }
+
+                // SAVE THE ATTEMPTS TO JSON
+                val attemptsMap = updatedRecordings.associate {
+                    it.originalPath to it.attempts
+                }.filterValues { it.isNotEmpty() }
+                attemptsRepository.saveAttempts(attemptsMap)
+
                 // Update the UI with the new list of recordings and a confirmation status
                 _uiState.update {
                     it.copy(
@@ -264,6 +262,16 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteRecording(recording: Recording) {
         viewModelScope.launch {
             repository.deleteRecording(recording.originalPath, recording.reversedPath)
+
+            // Delete attempt files
+            recording.attempts.forEach { attempt ->
+                try {
+                    File(attempt.attemptFilePath).delete()
+                } catch (e: Exception) {
+                    android.util.Log.e("AudioViewModel", "Error deleting attempt file", e)
+                }
+            }
+
             loadRecordings()
         }
     }
@@ -271,6 +279,14 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     fun clearAllRecordings() {
         viewModelScope.launch {
             repository.clearAllRecordings()
+
+            // Clear attempts directory
+            val attemptsDir = File(getApplication<Application>().filesDir, "recordings/attempts")
+            attemptsDir.listFiles()?.forEach { it.delete() }
+
+            // Clear attempts JSON
+            attemptsRepository.saveAttempts(emptyMap())
+
             loadRecordings()
         }
     }
@@ -290,6 +306,29 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
+    }
+
+
+    //Add this temporary function to your AudioViewModel to reset everything:
+    fun resetAttemptsData() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Delete the JSON file
+                val attemptsJsonFile = File(getApplication<Application>().filesDir, "attempts.json")
+                if (attemptsJsonFile.exists()) {
+                    attemptsJsonFile.delete()
+                }
+
+                // Clear the attempts directory
+                val attemptsDir = File(getApplication<Application>().filesDir, "recordings/attempts")
+                attemptsDir.listFiles()?.forEach { it.delete() }
+
+                android.util.Log.d("AudioViewModel", "Reset complete")
+                loadRecordings()
+            } catch (e: Exception) {
+                android.util.Log.e("AudioViewModel", "Error resetting", e)
+            }
+        }
     }
 
 } // This is the closing brace for the AudioViewModel class

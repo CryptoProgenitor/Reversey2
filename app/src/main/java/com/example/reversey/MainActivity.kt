@@ -298,7 +298,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 2.0.2claude", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 2.0.2.d.claude", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -434,7 +434,7 @@ fun AudioReverserApp(
                 val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
                 val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
 
-                // This is the NEW, CORRECTED LazyColumn block
+                // Start LazyColumn block
                 LazyColumn(
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -471,8 +471,10 @@ fun AudioReverserApp(
 
                         // 2. Show all the child attempts for THIS recording
                         items(
-                            recording.attempts,
-                            key = { attempt -> "attempt_${attempt.attemptFilePath}" }) { attempt ->
+                            count = recording.attempts.size,
+                            key = { index -> "attempt_${recording.originalPath}_${index}" }
+                        ) { index ->
+                            val attempt = recording.attempts[index]
                             AttemptItem(
                                 attempt = attempt,
                                 currentlyPlayingPath = uiState.currentlyPlayingPath,
