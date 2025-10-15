@@ -298,7 +298,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 2.0.2.d.claude", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 2.0.2.e.claude", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -482,7 +482,10 @@ fun AudioReverserApp(
                                 progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath) uiState.playbackProgress else 0f,
                                 onPlay = { path -> viewModel.play(path) },
                                 onPause = { viewModel.pause() },
-                                onStop = { viewModel.stopPlayback() }
+                                onStop = { viewModel.stopPlayback() },
+                                onRenamePlayer = { oldAttempt, newName ->
+                                    viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
+                                }
                             )
                         }
                     }
@@ -898,7 +901,7 @@ object AudioConstants {
     const val MAX_WAVEFORM_SAMPLES = 200
 }
 
-// This is the NEW, UPGRADED Composable for showing a player's attempt
+// This is the NEW, UPGRADED Composable for renaming (from 2.0.2.e) a player's attempt
 @Composable
 fun AttemptItem(
     attempt: PlayerAttempt,
@@ -909,10 +912,14 @@ fun AttemptItem(
     // We need to be able to call the playback functions
     onPlay: (String) -> Unit,
     onPause: () -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null
 ) {
     // Determine if this specific attempt is the one currently playing
     val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath
+
+    // State for the rename dialog
+    var showRenameDialog by remember { mutableStateOf(false) }
 
     // A Column to hold the info and the buttons
     Column(
@@ -930,7 +937,11 @@ fun AttemptItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = attempt.playerName, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = attempt.playerName,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clickable { showRenameDialog = true }
+            )
             Text(text = "${attempt.score}%", style = MaterialTheme.typography.headlineSmall)
         }
 
@@ -998,9 +1009,35 @@ fun AttemptItem(
                         tint = Color.White
                     )
                 }
-                // TODO: In a future step, we can add a button to play the reversed version of the attempt
             }
         }
+    }
+
+    // Rename player dialog
+    if (showRenameDialog) {
+        var newPlayerName by remember { mutableStateOf(attempt.playerName) }
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename Player") },
+            text = {
+                OutlinedTextField(
+                    value = newPlayerName,
+                    onValueChange = { newPlayerName = it },
+                    label = { Text("Player Name") }
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (newPlayerName.isNotBlank() && onRenamePlayer != null) {
+                        onRenamePlayer(attempt, newPlayerName)
+                    }
+                    showRenameDialog = false
+                }) { Text("Rename") }
+            },
+            dismissButton = {
+                Button(onClick = { showRenameDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

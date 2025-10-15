@@ -331,4 +331,37 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    //Now add a new function (from 2.0.2.e) to your AudioViewModel to handle renaming:
+    fun renamePlayer(parentRecordingPath: String, oldAttempt: PlayerAttempt, newPlayerName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Update the attempt with the new player name
+            val updatedAttempt = oldAttempt.copy(playerName = newPlayerName)
+
+            // Update the recordings list
+            val updatedRecordings = _uiState.value.recordings.map { recording ->
+                if (recording.originalPath == parentRecordingPath) {
+                    val updatedAttempts = recording.attempts.map { attempt ->
+                        if (attempt.attemptFilePath == oldAttempt.attemptFilePath) {
+                            updatedAttempt
+                        } else {
+                            attempt
+                        }
+                    }
+                    recording.copy(attempts = updatedAttempts)
+                } else {
+                    recording
+                }
+            }
+
+            // Save to JSON
+            val attemptsMap = updatedRecordings.associate {
+                it.originalPath to it.attempts
+            }.filterValues { it.isNotEmpty() }
+            attemptsRepository.saveAttempts(attemptsMap)
+
+            // Update UI
+            _uiState.update { it.copy(recordings = updatedRecordings) }
+        }
+    }
+
 } // This is the closing brace for the AudioViewModel class
