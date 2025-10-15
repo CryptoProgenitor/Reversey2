@@ -136,10 +136,14 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // REPLACE your old stopRecording function with this one
+    // Update stopRecording() in AudioViewModel to reverse attempts:
+    //2. Update stopRecording() in AudioViewModel.kt to reverse attempts:
+    //Replace your stopRecording() function with this:
     fun stopRecording() {
         // First, check if this was a game attempt BEFORE we update the state
         val wasRecordingAttempt = _uiState.value.isRecordingAttempt
         val parentPath = _uiState.value.parentRecordingPath
+
 
         // Update UI immediately to stop showing the recording state
         _uiState.update {
@@ -159,7 +163,7 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             // Give the file system a moment to finalize the file
             delay(200)
 
-            val lastRecordingFile = repository.getLatestFile()
+            val lastRecordingFile = repository.getLatestFile(isAttempt = wasRecordingAttempt)
 
             if (lastRecordingFile == null) {
                 _uiState.update { it.copy(statusText = "Error: No recording file found.") }
@@ -168,9 +172,16 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
             if (wasRecordingAttempt && parentPath != null) {
                 // This was a GAME ATTEMPT recording.
+                // Reverse the attempt file so it can be played back
+                val reversedAttemptFile = repository.reverseWavFile(lastRecordingFile)
+
+                android.util.Log.d("AudioViewModel", "Attempt original: ${lastRecordingFile.absolutePath}")
+                android.util.Log.d("AudioViewModel", "Attempt reversed: ${reversedAttemptFile?.absolutePath}")
+
                 val newAttempt = PlayerAttempt(
                     playerName = "Player 1",
                     attemptFilePath = lastRecordingFile.absolutePath,
+                    reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
                     score = 0 // We will calculate this later
                 )
 

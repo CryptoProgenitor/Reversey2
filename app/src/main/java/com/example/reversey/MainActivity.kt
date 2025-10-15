@@ -298,7 +298,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 2.0.2.e.claude", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 2.0.2.f.claude", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -470,16 +470,18 @@ fun AudioReverserApp(
                         }
 
                         // 2. Show all the child attempts for THIS recording
+                        // 2. Show all the child attempts for THIS recording
                         items(
                             count = recording.attempts.size,
                             key = { index -> "attempt_${recording.originalPath}_${index}" }
                         ) { index ->
                             val attempt = recording.attempts[index]
+                            val attemptPlaybackPath = attempt.reversedAttemptFilePath ?: attempt.attemptFilePath
                             AttemptItem(
                                 attempt = attempt,
                                 currentlyPlayingPath = uiState.currentlyPlayingPath,
                                 isPaused = uiState.isPaused,
-                                progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath) uiState.playbackProgress else 0f,
+                                progress = if (uiState.currentlyPlayingPath == attemptPlaybackPath) uiState.playbackProgress else 0f,
                                 onPlay = { path -> viewModel.play(path) },
                                 onPause = { viewModel.pause() },
                                 onStop = { viewModel.stopPlayback() },
@@ -487,7 +489,7 @@ fun AudioReverserApp(
                                     viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
                                 }
                             )
-                        }
+                         }
                     }
                 }
 
@@ -555,7 +557,7 @@ fun RecordingItem(
                 )
             }
 
-            // This is the Rename Dialog
+            // This is the Rename Dialog for WAV files
             if (showRenameDialog) {
                 var newName by remember { mutableStateOf(recording.name) }
                 AlertDialog(
@@ -570,7 +572,11 @@ fun RecordingItem(
                     },
                     confirmButton = {
                         Button(onClick = {
-                            onRename(recording.originalPath, newName)
+                            if (newName.isNotBlank()) {
+                                // Make sure the name ends with .wav
+                                val finalName = if (newName.endsWith(".wav")) newName else "$newName.wav"
+                                onRename(recording.originalPath, finalName)
+                            }
                             showRenameDialog = false
                         }) { Text("Rename") }
                     },
@@ -916,7 +922,7 @@ fun AttemptItem(
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null
 ) {
     // Determine if this specific attempt is the one currently playing
-    val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingThis = currentlyPlayingPath == (attempt.reversedAttemptFilePath ?: attempt.attemptFilePath)
 
     // State for the rename dialog
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -997,8 +1003,12 @@ fun AttemptItem(
                 }
             } else {
                 // Show Play button for the attempt
+                // Show Play button for the attempt (play the REVERSED attempt)
                 Button(
-                    onClick = { onPlay(attempt.attemptFilePath) },
+                    onClick = {
+                        val pathToPlay = attempt.reversedAttemptFilePath ?: attempt.attemptFilePath
+                        onPlay(pathToPlay)
+                    },
                     shape = CircleShape,
                     modifier = Modifier.size(40.dp),
                     contentPadding = PaddingValues(0.dp)

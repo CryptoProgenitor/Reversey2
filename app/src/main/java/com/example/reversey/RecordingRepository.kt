@@ -175,8 +175,12 @@ class RecordingRepository(private val context: Context) {
         }
     }
 
-    fun getLatestFile(): File? {
-        val dir = getRecordingsDir(context)
+    fun getLatestFile(isAttempt: Boolean = false): File? {
+        val dir = if (isAttempt) {
+            File(context.filesDir, "recordings/attempts")
+        } else {
+            getRecordingsDir(context)
+        }
         return dir.listFiles { _, name -> name.endsWith(".wav") && !name.contains("_reversed") }?.maxByOrNull { it.lastModified() }
     }
 }
