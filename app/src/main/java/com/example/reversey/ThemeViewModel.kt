@@ -3,6 +3,7 @@ package com.example.reversey
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -56,6 +57,21 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
     fun setGameMode(isEnabled: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             settingsDataStore.saveGameMode(isEnabled)
+        }
+    }
+    // Expose the aesthetic theme as a StateFlow
+    val aestheticTheme: StateFlow<AppTheme> = settingsDataStore.getAestheticTheme
+        .map { themeId -> ThemeRepository.getThemeById(themeId) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ThemeRepository.y2kCyberTheme
+        )
+
+    // Function to change the aesthetic theme
+    fun setAestheticTheme(themeId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsDataStore.saveAestheticTheme(themeId)
         }
     }
 

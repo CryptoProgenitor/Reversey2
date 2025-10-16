@@ -18,47 +18,49 @@ class SettingsDataStore(context: Context) {
 
     companion object {
         val THEME_KEY = stringPreferencesKey("app_theme")
-        // NEW: Key for the dark mode preference
         val DARK_MODE_KEY = stringPreferencesKey("dark_mode_preference")
         val GAME_MODE_KEY = booleanPreferencesKey("game_mode_enabled")
+        val AESTHETIC_THEME_KEY = stringPreferencesKey("aesthetic_theme") // NEW
     }
 
-    // Flow for the theme color
     val getTheme: Flow<String> = dataStore.data.map { preferences ->
         preferences[THEME_KEY] ?: "Purple"
     }
 
-    // Suspend function to save the theme color
     suspend fun saveTheme(themeName: String) {
         dataStore.edit { preferences ->
             preferences[THEME_KEY] = themeName
         }
     }
 
-    // NEW: Flow for the dark mode preference. Defaults to "System".
     val getDarkModePreference: Flow<String> = dataStore.data.map { preferences ->
         preferences[DARK_MODE_KEY] ?: "System"
     }
 
-    // NEW: Suspend function to save the dark mode preference
     suspend fun saveDarkModePreference(preference: String) {
         dataStore.edit { preferences ->
             preferences[DARK_MODE_KEY] = preference
         }
     }
 
-    // --- Add this block for Game Mode ---
-    // Flow for the game mode setting. Defaults to false.
     val getGameModeEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[GAME_MODE_KEY] ?: false
     }
 
-    // Suspend function to save the game mode setting
     suspend fun saveGameMode(isEnabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[GAME_MODE_KEY] = isEnabled
         }
     }
 
+    // NEW: Aesthetic theme
+    val getAestheticTheme: Flow<String> = dataStore.data.map { preferences ->
+        preferences[AESTHETIC_THEME_KEY] ?: "y2k_cyber" // Default to Y2K
+    }
 
+    suspend fun saveAestheticTheme(themeId: String) {
+        dataStore.edit { preferences ->
+            preferences[AESTHETIC_THEME_KEY] = themeId
+        }
+    }
 }

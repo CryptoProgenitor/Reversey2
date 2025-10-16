@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -145,6 +146,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// THIS SHOULD BE HERE - at top level, not inside anything
+object AudioConstants {
+    const val SAMPLE_RATE = 44100
+    const val CHANNEL_CONFIG = android.media.AudioFormat.CHANNEL_IN_MONO
+    const val AUDIO_FORMAT = android.media.AudioFormat.ENCODING_PCM_16BIT
+    const val MAX_WAVEFORM_SAMPLES = 200
+}
+
 @Composable
 fun MainApp(themeViewModel: ThemeViewModel) {
     val navController = rememberNavController()
@@ -168,15 +177,15 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     ) {
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
-                // Create an instance of the ViewModel.
-                // It will be automatically retained across screen rotations.
                 val audioViewModel: AudioViewModel = viewModel()
+                val currentAestheticTheme by themeViewModel.aestheticTheme.collectAsState()  // ADD THIS
                 AudioReverserApp(
-                    viewModel = audioViewModel, // Pass the ViewModel down
+                    viewModel = audioViewModel,
                     openDrawer = { scope.launch { drawerState.open() } },
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
-                    isGameModeEnabled = isGameModeEnabled // <-- PASS THE FLAG
+                    isGameModeEnabled = isGameModeEnabled,
+                    aestheticTheme = currentAestheticTheme  // ADD THIS
                 )
             }
             composable("about") {
@@ -192,6 +201,9 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     isGameModeEnabled = isGameModeEnabled,
                     onGameModeChange = { isEnabled -> themeViewModel.setGameMode(isEnabled) }
                 )
+            }
+            composable("themes") {
+                ThemeSelectionScreen(navController = navController)
             }
         }
     }
@@ -230,6 +242,14 @@ fun AppDrawerContent(
             selected = navController.currentDestination?.route == "settings",
             onClick = {
                 navController.navigate("settings")
+                closeDrawer()
+            }
+        )
+        NavigationDrawerItem(
+            label = { Text("Themes") },
+            selected = navController.currentDestination?.route == "themes",
+            onClick = {
+                navController.navigate("themes")
                 closeDrawer()
             }
         )
@@ -298,7 +318,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 3.0.0 - theme-engine! ", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 3.0.2 - theme-engine! ", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -351,7 +371,8 @@ fun AudioReverserApp(
     openDrawer: () -> Unit,
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
-    isGameModeEnabled: Boolean // <-- ADD THIS
+    isGameModeEnabled: Boolean, // <-- ADD THIS
+    aestheticTheme: AppTheme  // ADDS THEMES
 
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -379,20 +400,28 @@ fun AudioReverserApp(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("ReVerseY") },
-                navigationIcon = { IconButton(onClick = openDrawer) { Icon(Icons.Default.Menu, "Menu") } },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(aestheticTheme.primaryGradient)  // ADD GRADIENT BACKGROUND
+    ) {
+        Scaffold(
+            containerColor = Color.Transparent,  // Make scaffold transparent
+            topBar = {
+                TopAppBar(
+                    title = { Text("ReVerseY", color = aestheticTheme.textPrimary) },  // Use theme text color
+                    navigationIcon = {
+                        IconButton(onClick = openDrawer) {
+                            Icon(Icons.Default.Menu, "Menu", tint = aestheticTheme.textPrimary)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent  // Transparent so gradient shows through
+                    )
                 )
-            )
-        }
-    ) { paddingValues ->
-        Column(
+            }
+        ) { paddingValues ->
+            Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -451,11 +480,11 @@ fun AudioReverserApp(
                                 isPlaying = uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath,
                                 isPaused = uiState.isPaused,
                                 progress = if (uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
-                                onPlay = { path -> viewModel.play(path) },
+                                onPlay = { path: String -> viewModel.play(path) },  // Add explicit type
                                 onPause = { viewModel.pause() },
                                 onStop = { viewModel.stopPlayback() },
                                 onDelete = { viewModel.deleteRecording(recording) },
-                                onShare = { path ->
+                                onShare = { path: String ->  // Add explicit type
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "audio/wav"
                                         putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
@@ -463,9 +492,10 @@ fun AudioReverserApp(
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
                                 },
-                                onRename = { oldPath, newName -> viewModel.renameRecording(oldPath, newName) },
+                                onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },  // Add explicit types
                                 isGameModeEnabled = isGameModeEnabled,
-                                onStartAttempt = { rec -> viewModel.startAttemptRecording(rec) }
+                                onStartAttempt = { rec: Recording -> viewModel.startAttemptRecording(rec) },  // Add explicit type
+                                theme = aestheticTheme
                             )
                         }
 
@@ -499,7 +529,8 @@ fun AudioReverserApp(
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
-                                }
+                                },
+                                theme = aestheticTheme
                             )
                         }
                     }
@@ -517,20 +548,50 @@ fun AudioReverserApp(
                         .background(topGradient))
                 }
                 if (showBottomFade) {
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
-                        .height(24.dp)
-                        .align(Alignment.BottomCenter)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(bottomGradient))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(24.dp)
+                            .align(Alignment.BottomCenter)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(bottomGradient)
+                    )
                 }
-            }
+            }  // Closes the Box containing LazyColumn and gradients
+            }  // Closes the Column
+        }  // Closes the Scaffold paddingValues lambda
+        // ADD THIS BLOCK - Automatic rename dialog for new attempts
+        uiState.attemptToRename?.let { (parentPath, attempt) ->
+            var newPlayerName by remember { mutableStateOf(attempt.playerName) }
+            AlertDialog(
+                onDismissRequest = { viewModel.clearAttemptToRename() },
+                title = { Text("Name This Player") },
+                text = {
+                    OutlinedTextField(
+                        value = newPlayerName,
+                        onValueChange = { newPlayerName = it },
+                        label = { Text("Player Name") }
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        if (newPlayerName.isNotBlank()) {
+                            viewModel.renamePlayer(parentPath, attempt, newPlayerName)
+                        }
+                        viewModel.clearAttemptToRename()
+                    }) { Text("Save") }
+                },
+                dismissButton = {
+                    Button(onClick = { viewModel.clearAttemptToRename() }) {
+                        Text("Keep Default")
+                    }
+                }
+            )
         }
-    }
-}
+    }  // Closes the Box with gradient background
+}  // Closes AudioReverserApp function
 
-// THE RecordingItem composable remains here as it's part of the UI layer
-// This is the NEW, COMPLETE, and CORRECT version of the RecordingItem composable
+// RecordingItem should be here as a separate top-level function
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecordingItem(
@@ -544,16 +605,25 @@ fun RecordingItem(
     onShare: (String) -> Unit,
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
-    onStartAttempt: (Recording) -> Unit
+    onStartAttempt: (Recording) -> Unit,
+    theme: AppTheme
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
 
-    // Re-introduce the Column to structure the card correctly
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = theme.cardBackground
+        ),
+        border = androidx.compose.foundation.BorderStroke(2.dp, theme.cardBorder)
+    ) {
+        // ADD THIS COLUMN WRAPPER WITH PADDING
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)  // Add padding around all content
         ) {
             // --- TOP ROW: Name and Rename Logic ---
             Row(
@@ -563,38 +633,10 @@ fun RecordingItem(
                 Text(
                     text = recording.name,
                     style = MaterialTheme.typography.titleMedium,
+                    color = theme.textPrimary,
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { showRenameDialog = true } // Click name to rename
-                )
-            }
-
-            // This is the Rename Dialog for WAV files
-            if (showRenameDialog) {
-                var newName by remember { mutableStateOf(recording.name) }
-                AlertDialog(
-                    onDismissRequest = { showRenameDialog = false },
-                    title = { Text("Rename Recording") },
-                    text = {
-                        OutlinedTextField(
-                            value = newName,
-                            onValueChange = { newName = it },
-                            label = { Text("New Name") }
-                        )
-                    },
-                    confirmButton = {
-                        Button(onClick = {
-                            if (newName.isNotBlank()) {
-                                // Make sure the name ends with .wav
-                                val finalName = if (newName.endsWith(".wav")) newName else "$newName.wav"
-                                onRename(recording.originalPath, finalName)
-                            }
-                            showRenameDialog = false
-                        }) { Text("Rename") }
-                    },
-                    dismissButton = {
-                        Button(onClick = { showRenameDialog = false }) { Text("Cancel") }
-                    }
+                        .clickable { showRenameDialog = true }
                 )
             }
 
@@ -710,70 +752,94 @@ fun RecordingItem(
                     }
                 }
             }
+        }  // CLOSE THE NEW COLUMN HERE
 
-            // This is the Delete Dialog
-            if (showDeleteDialog) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("Delete Recording?") },
-                    text = { Text("Are you sure you want to delete '${recording.name}'? This action cannot be undone.") },
-                    confirmButton = {
+        // Dialogs remain outside the Column but inside the Card
+        if (showRenameDialog) {
+            var newName by remember { mutableStateOf(recording.name) }
+            AlertDialog(
+                onDismissRequest = { showRenameDialog = false },
+                title = { Text("Rename Recording") },
+                text = {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("New Name") }
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        if (newName.isNotBlank()) {
+                            val finalName = if (newName.endsWith(".wav")) newName else "$newName.wav"
+                            onRename(recording.originalPath, finalName)
+                        }
+                        showRenameDialog = false
+                    }) { Text("Rename") }
+                },
+                dismissButton = {
+                    Button(onClick = { showRenameDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("Delete Recording?") },
+                text = { Text("Are you sure you want to delete '${recording.name}'? This action cannot be undone.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onDelete(recording)
+                            showDeleteDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Delete") }
+                },
+                dismissButton = {
+                    Button(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        if (showShareDialog) {
+            AlertDialog(
+                onDismissRequest = { showShareDialog = false },
+                title = { Text("Share Recording") },
+                text = {
+                    Column {
+                        Text("Which version would you like to share?")
+                        Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = {
-                                onDelete(recording)
-                                showDeleteDialog = false
+                                onShare(recording.originalPath)
+                                showShareDialog = false
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                        ) { Text("Delete") }
-                    },
-                    dismissButton = {
-                        Button(onClick = { showDeleteDialog = false }) { Text("Cancel") }
-                    }
-                )
-            }
-
-            // This is the Share Dialog (which just launches the intent)
-            // This is the Share Dialog - let user choose which version to share-CLAUDE
-            // This is the Share Dialog - let user choose which version to share
-            if (showShareDialog) {
-                AlertDialog(
-                    onDismissRequest = { showShareDialog = false },
-                    title = { Text("Share Recording") },
-                    text = {
-                        Column {
-                            Text("Which version would you like to share?")
-                            Spacer(modifier = Modifier.height(16.dp))
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Share Original")
+                        }
+                        if (recording.reversedPath != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
                             Button(
                                 onClick = {
-                                    onShare(recording.originalPath)
+                                    onShare(recording.reversedPath!!)
                                     showShareDialog = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Share Original")
+                                Text("Share Reversed")
                             }
-                            if (recording.reversedPath != null) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Button(
-                                    onClick = {
-                                        onShare(recording.reversedPath!!)
-                                        showShareDialog = false
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Share Reversed")
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = { },
-                    dismissButton = {
-                        Button(onClick = { showShareDialog = false }) {
-                            Text("Cancel")
                         }
                     }
-                )
-            }
+                },
+                confirmButton = { },
+                dismissButton = {
+                    Button(onClick = { showShareDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
@@ -911,14 +977,6 @@ class OctagonShape : Shape {
     }
 }
 
-// Global constants object
-object AudioConstants {
-    const val SAMPLE_RATE = 44100
-    const val CHANNEL_CONFIG = android.media.AudioFormat.CHANNEL_IN_MONO
-    const val AUDIO_FORMAT = android.media.AudioFormat.ENCODING_PCM_16BIT
-    const val MAX_WAVEFORM_SAMPLES = 200
-}
-
 // This is the NEW, UPGRADED Composable for renaming (from 2.0.2.e) a player's attempt
 @Composable
 fun AttemptItem(
@@ -931,7 +989,8 @@ fun AttemptItem(
     onStop: () -> Unit,
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null,
     onDeleteAttempt: ((PlayerAttempt) -> Unit)? = null,
-    onShareAttempt: ((String) -> Unit)? = null
+    onShareAttempt: ((String) -> Unit)? = null,
+    theme: AppTheme
 ) {
     val isPlayingThis = currentlyPlayingPath == (attempt.reversedAttemptFilePath ?: attempt.attemptFilePath)
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -941,9 +1000,10 @@ fun AttemptItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 40.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
+            .padding(start = 40.dp, end = 0.dp, top = 4.dp, bottom = 4.dp)  // <--- THIS LINE, change end = 8.dp to end = 0.dp
             .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(theme.cardBackground)  // CHANGE THIS
+            .border(1.dp, theme.cardBorder, MaterialTheme.shapes.medium)
             .padding(12.dp)
     ) {
         // Top row for Player Name and Score ONLY
@@ -955,9 +1015,14 @@ fun AttemptItem(
             Text(
                 text = attempt.playerName,
                 style = MaterialTheme.typography.bodyLarge,
+                color = theme.textPrimary,  // ADD THIS
                 modifier = Modifier.clickable { showRenameDialog = true }
             )
-            Text(text = "${attempt.score}%", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                text = "${attempt.score}%",
+                style = MaterialTheme.typography.headlineSmall,
+                color = theme.textSecondary  // ADD THIS
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))

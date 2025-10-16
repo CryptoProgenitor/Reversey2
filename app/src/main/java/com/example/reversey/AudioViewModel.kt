@@ -27,7 +27,8 @@ data class AudioUiState(
     val showEasterEgg: Boolean = false,
     val cpdTaps: Int = 0, // <-- ADD THIS NEW STATE
     val isRecordingAttempt: Boolean = false, // Are we currently recording a player's attempt?
-    val parentRecordingPath: String? = null // Which original recording are we making an attempt for?
+    val parentRecordingPath: String? = null, // Which original recording are we making an attempt for?
+    val attemptToRename: Pair<String, PlayerAttempt>? = null
 )
 
 
@@ -179,7 +180,6 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.d("AudioViewModel", "Attempt reversed: ${reversedAttemptFile?.absolutePath}")
 
                 // Calculate the score by comparing the parent's reversed file with the attempt
-                // Calculate the score by comparing the parent's reversed file with the attempt
                 val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
                 val score = if (parentRecording?.reversedPath != null) {
                     val parentReversedFile = File(parentRecording.reversedPath)
@@ -205,14 +205,20 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                     0
                 }
 
+// Calculate next player number based on existing attempts
+                val existingPlayerNumbers = parentRecording?.attempts
+                    ?.mapNotNull { it.playerName.removePrefix("Player ").toIntOrNull() }
+                    ?.maxOrNull() ?: 0
+                val nextPlayerNumber = existingPlayerNumbers + 1
+
                 val newAttempt = PlayerAttempt(
-                    playerName = "Player 1",
+                    playerName = "Player $nextPlayerNumber",  // Auto-increment name
                     attemptFilePath = lastRecordingFile.absolutePath,
                     reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
-                    score = score // Now using the calculated score!
+                    score = score  // Now 'score' is defined!
                 )
 
-                // Find the parent recording in the current state and add the new attempt to its list
+// Find the parent recording in the current state and add the new attempt to its list
                 val updatedRecordings = _uiState.value.recordings.map { recording ->
                     if (recording.originalPath == parentPath) {
                         recording.copy(attempts = recording.attempts + newAttempt)
@@ -221,17 +227,18 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                // SAVE THE ATTEMPTS TO JSON
+// SAVE THE ATTEMPTS TO JSON
                 val attemptsMap = updatedRecordings.associate {
                     it.originalPath to it.attempts
                 }.filterValues { it.isNotEmpty() }
                 attemptsRepository.saveAttempts(attemptsMap)
 
-                // Update the UI with the new list of recordings and a confirmation status
+// Update the UI with the new list of recordings and SET THE RENAME FLAG
                 _uiState.update {
                     it.copy(
                         recordings = updatedRecordings,
-                        statusText = "Attempt Saved!"
+                        statusText = "Attempt Saved!",
+                        attemptToRename = Pair(parentPath, newAttempt)  // ADD THIS LINE
                     )
                 }
 
@@ -456,6 +463,10 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             // Update UI
             _uiState.update { it.copy(recordings = updatedRecordings) }
         }
+    }
+
+    fun clearAttemptToRename() {
+        _uiState.update { it.copy(attemptToRename = null) }
     }
 
 } // This is the closing brace for the AudioViewModel class
