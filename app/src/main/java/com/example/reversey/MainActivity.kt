@@ -298,7 +298,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 2.0.2.f.claude", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 2.0.3.claude", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -471,6 +471,7 @@ fun AudioReverserApp(
 
                         // 2. Show all the child attempts for THIS recording
                         // 2. Show all the child attempts for THIS recording
+                        // 2. Show all the child attempts for THIS recording
                         items(
                             count = recording.attempts.size,
                             key = { index -> "attempt_${recording.originalPath}_${index}" }
@@ -487,9 +488,20 @@ fun AudioReverserApp(
                                 onStop = { viewModel.stopPlayback() },
                                 onRenamePlayer = { oldAttempt, newName ->
                                     viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
+                                },
+                                onDeleteAttempt = { attemptToDelete ->
+                                    viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
+                                },
+                                onShareAttempt = { path ->  // ADD THIS BLOCK
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "audio/wav"
+                                        putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
                                 }
                             )
-                         }
+                        }
                     }
                 }
 
@@ -911,33 +923,30 @@ object AudioConstants {
 @Composable
 fun AttemptItem(
     attempt: PlayerAttempt,
-    // We need to know the state of the media player
     currentlyPlayingPath: String?,
     isPaused: Boolean,
     progress: Float,
-    // We need to be able to call the playback functions
     onPlay: (String) -> Unit,
     onPause: () -> Unit,
     onStop: () -> Unit,
-    onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null
+    onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null,
+    onDeleteAttempt: ((PlayerAttempt) -> Unit)? = null,
+    onShareAttempt: ((String) -> Unit)? = null
 ) {
-    // Determine if this specific attempt is the one currently playing
     val isPlayingThis = currentlyPlayingPath == (attempt.reversedAttemptFilePath ?: attempt.attemptFilePath)
-
-    // State for the rename dialog
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
 
-    // A Column to hold the info and the buttons
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            // Indent the entire item from the left
             .padding(start = 40.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
             .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(12.dp) // Inner padding
+            .padding(12.dp)
     ) {
-        // Top row for Player Name and Score
+        // Top row for Player Name and Score ONLY
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -953,72 +962,92 @@ fun AttemptItem(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Progress bar for the attempt playback
+        // Progress bar
         if (isPlayingThis) {
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth()
             )
         } else {
-            // Show a static divider when not playing for consistent height
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Bottom row for the playback controls
+        // Bottom row: Share, Play controls, Delete (matching parent card layout)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center // Center the play buttons
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            if (isPlayingThis) {
-                // Show Pause and Stop buttons
-                Button(
-                    onClick = onPause,
-                    shape = CircleShape,
-                    modifier = Modifier.size(40.dp),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
-                    Icon(
-                        imageVector = pauseIcon,
-                        contentDescription = "Pause/Resume Attempt",
-                        tint = Color.White
-                    )
+            // Left: Share button
+            IconButton(onClick = { showShareDialog = true }) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "Share Attempt",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            // Center: Play controls
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                if (isPlayingThis) {
+                    Button(
+                        onClick = onPause,
+                        shape = CircleShape,
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
+                        Icon(
+                            imageVector = pauseIcon,
+                            contentDescription = "Pause/Resume Attempt",
+                            tint = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = onStop,
+                        shape = CircleShape,
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Stop,
+                            contentDescription = "Stop",
+                            tint = Color.White
+                        )
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            val pathToPlay = attempt.reversedAttemptFilePath ?: attempt.attemptFilePath
+                            onPlay(pathToPlay)
+                        },
+                        shape = CircleShape,
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play Attempt",
+                            tint = Color.White
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = onStop,
-                    shape = CircleShape,
-                    modifier = Modifier.size(40.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Stop,
-                        contentDescription = "Stop",
-                        tint = Color.White
-                    )
-                }
-            } else {
-                // Show Play button for the attempt
-                // Show Play button for the attempt (play the REVERSED attempt)
-                Button(
-                    onClick = {
-                        val pathToPlay = attempt.reversedAttemptFilePath ?: attempt.attemptFilePath
-                        onPlay(pathToPlay)
-                    },
-                    shape = CircleShape,
-                    modifier = Modifier.size(40.dp),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play Attempt",
-                        tint = Color.White
-                    )
-                }
+            }
+
+            // Right: Delete button
+            IconButton(onClick = { showDeleteDialog = true }) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete Attempt",
+                    tint = MaterialTheme.colorScheme.error
+                )
             }
         }
     }
@@ -1049,8 +1078,72 @@ fun AttemptItem(
             }
         )
     }
+
+    // Delete dialog
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Attempt?") },
+            text = { Text("Are you sure you want to delete ${attempt.playerName}'s attempt? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (onDeleteAttempt != null) {
+                            onDeleteAttempt(attempt)
+                        }
+                        showDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                Button(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Share dialog
+    if (showShareDialog) {
+        AlertDialog(
+            onDismissRequest = { showShareDialog = false },
+            title = { Text("Share Attempt") },
+            text = {
+                Column {
+                    Text("Which version would you like to share?")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            if (onShareAttempt != null) {
+                                onShareAttempt(attempt.attemptFilePath)
+                            }
+                            showShareDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Share Original (What ${attempt.playerName} Sang)")
+                    }
+                    if (attempt.reversedAttemptFilePath != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                if (onShareAttempt != null) {
+                                    onShareAttempt(attempt.reversedAttemptFilePath!!)
+                                }
+                                showShareDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Share Reversed (How It Sounds)")
+                        }
+                    }
+                }
+            },
+            confirmButton = { },
+            dismissButton = {
+                Button(onClick = { showShareDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
-
-
-
-

@@ -375,4 +375,39 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteAttempt(parentRecordingPath: String, attemptToDelete: PlayerAttempt) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Delete the attempt files from disk
+            try {
+                File(attemptToDelete.attemptFilePath).delete()
+                attemptToDelete.reversedAttemptFilePath?.let { reversedPath ->
+                    File(reversedPath).delete()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AudioViewModel", "Error deleting attempt files", e)
+            }
+
+            // Update the recordings list by removing this attempt
+            val updatedRecordings = _uiState.value.recordings.map { recording ->
+                if (recording.originalPath == parentRecordingPath) {
+                    val updatedAttempts = recording.attempts.filter {
+                        it.attemptFilePath != attemptToDelete.attemptFilePath
+                    }
+                    recording.copy(attempts = updatedAttempts)
+                } else {
+                    recording
+                }
+            }
+
+            // Save updated attempts to JSON
+            val attemptsMap = updatedRecordings.associate {
+                it.originalPath to it.attempts
+            }.filterValues { it.isNotEmpty() }
+            attemptsRepository.saveAttempts(attemptsMap)
+
+            // Update UI
+            _uiState.update { it.copy(recordings = updatedRecordings) }
+        }
+    }
+
 } // This is the closing brace for the AudioViewModel class
