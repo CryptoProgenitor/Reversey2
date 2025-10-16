@@ -178,11 +178,38 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.d("AudioViewModel", "Attempt original: ${lastRecordingFile.absolutePath}")
                 android.util.Log.d("AudioViewModel", "Attempt reversed: ${reversedAttemptFile?.absolutePath}")
 
+                // Calculate the score by comparing the parent's reversed file with the attempt
+                // Calculate the score by comparing the parent's reversed file with the attempt
+                val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
+                val score = if (parentRecording?.reversedPath != null) {
+                    val parentReversedFile = File(parentRecording.reversedPath)
+                    val attemptOriginalFile = lastRecordingFile
+
+                    android.util.Log.d("AudioViewModel", "=== SCORING DEBUG ===")
+                    android.util.Log.d("AudioViewModel", "Parent reversed: ${parentReversedFile.absolutePath}")
+                    android.util.Log.d("AudioViewModel", "Parent reversed exists: ${parentReversedFile.exists()}")
+                    android.util.Log.d("AudioViewModel", "Parent reversed size: ${parentReversedFile.length()} bytes")
+                    android.util.Log.d("AudioViewModel", "Attempt original: ${attemptOriginalFile.absolutePath}")
+                    android.util.Log.d("AudioViewModel", "Attempt original exists: ${attemptOriginalFile.exists()}")
+                    android.util.Log.d("AudioViewModel", "Attempt original size: ${attemptOriginalFile.length()} bytes")
+
+                    val comparer = AudioComparer()
+                    val calculatedScore = comparer.compareAudioFiles(parentReversedFile, attemptOriginalFile)
+
+                    android.util.Log.d("AudioViewModel", "Final score: $calculatedScore%")
+                    android.util.Log.d("AudioViewModel", "===================")
+
+                    calculatedScore
+                } else {
+                    android.util.Log.d("AudioViewModel", "Parent reversed path is null!")
+                    0
+                }
+
                 val newAttempt = PlayerAttempt(
                     playerName = "Player 1",
                     attemptFilePath = lastRecordingFile.absolutePath,
                     reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
-                    score = 0 // We will calculate this later
+                    score = score // Now using the calculated score!
                 )
 
                 // Find the parent recording in the current state and add the new attempt to its list
