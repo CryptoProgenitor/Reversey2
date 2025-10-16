@@ -298,7 +298,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 2.2", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 2.2.1 ", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",

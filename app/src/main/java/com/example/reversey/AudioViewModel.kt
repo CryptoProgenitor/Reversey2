@@ -330,8 +330,29 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun renameRecording(oldPath: String, newName: String) {
-        viewModelScope.launch {
-            repository.renameRecording(oldPath, newName)
+        viewModelScope.launch(Dispatchers.IO) {
+            // Get the new path after renaming
+            val oldFile = File(oldPath)
+            val newPath = File(oldFile.parent, newName).absolutePath
+
+            // Rename the file
+            val success = repository.renameRecording(oldPath, newName)
+
+            if (success) {
+                // Update attempts map with new parent path
+                val attemptsMap = attemptsRepository.loadAttempts().toMutableMap()
+                val attempts = attemptsMap[oldPath]
+
+                if (attempts != null) {
+                    // Remove old key and add with new key
+                    attemptsMap.remove(oldPath)
+                    attemptsMap[newPath] = attempts
+
+                    // Save updated map
+                    attemptsRepository.saveAttempts(attemptsMap)
+                }
+            }
+
             loadRecordings()
         }
     }
