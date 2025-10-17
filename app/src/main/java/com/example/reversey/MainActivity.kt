@@ -156,6 +156,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     val currentTheme by themeViewModel.theme.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
+    val audioViewModel: AudioViewModel = viewModel()  // ADD THIS LINE
 
     var showClearAllDialog by remember { mutableStateOf(false) }
 
@@ -171,10 +172,9 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     ) {
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
-                val audioViewModel: AudioViewModel = viewModel()
                 val currentAestheticTheme by themeViewModel.aestheticTheme.collectAsState()
                 AudioReverserApp(
-                    viewModel = audioViewModel,
+                    viewModel = audioViewModel,  // Now uses the hoisted one from MainApp
                     openDrawer = { scope.launch { drawerState.open() } },
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
@@ -310,7 +310,7 @@ fun AboutScreen(navController: NavController) {
             ) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Version 4.0.2a-backups ", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 4.0.3-bugfix ", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
