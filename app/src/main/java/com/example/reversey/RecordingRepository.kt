@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import android.os.Environment
 import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -15,7 +14,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import kotlin.experimental.and
-import kotlin.io.path.exists
 
 class RecordingRepository(private val context: Context) {
 
