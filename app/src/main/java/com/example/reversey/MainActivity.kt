@@ -41,6 +41,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
@@ -246,6 +247,7 @@ fun AppDrawerContent(
             }
         )
         NavigationDrawerItem(
+            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Themes") },
             label = { Text("Themes") },
             selected = navController.currentDestination?.route == "themes",
             onClick = {
@@ -318,7 +320,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 // You can bump this to your final version number when you commit
-                Text("Version 3.0.2 - theme-engine! ", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 3.1.0 - theme-engine! ", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -453,7 +455,11 @@ fun AudioReverserApp(
                     enter = fadeIn(animationSpec = tween(600, 100, LinearOutSlowInEasing)),
                     exit = fadeOut(animationSpec = tween(600, easing = LinearOutSlowInEasing))
                 ) {
-                    Text(text = uiState.statusText, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = uiState.statusText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = aestheticTheme.textPrimary  // ADD THIS LINE
+                    )
                 }
             }
 

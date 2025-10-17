@@ -286,14 +286,25 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     fun pause() {
         if (mediaPlayer?.isPlaying == true) {
+            // Pause playback
             mediaPlayer?.pause()
             playbackJob?.cancel()
             _uiState.update { it.copy(isPaused = true) }
-        } else {
+        } else if (mediaPlayer != null && _uiState.value.isPaused) {
+            // Resume playback from current position
             mediaPlayer?.start()
             _uiState.update { it.copy(isPaused = false) }
-            // Resume progress tracking
-            play(_uiState.value.currentlyPlayingPath ?: return)
+
+            // Restart progress tracking job
+            playbackJob = viewModelScope.launch {
+                while (isActive) {
+                    val currentPos = mediaPlayer?.currentPosition?.toFloat() ?: 0f
+                    val totalDuration = mediaPlayer?.duration?.toFloat() ?: 1f
+                    val progress = if (totalDuration > 0) currentPos / totalDuration else 0f
+                    _uiState.update { it.copy(playbackProgress = progress) }
+                    delay(100)
+                }
+            }
         }
     }
 

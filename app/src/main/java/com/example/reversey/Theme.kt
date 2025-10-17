@@ -193,10 +193,49 @@ object ThemeRepository {
             0 to "📼"
         )
     )
+
+    // Jeoseung Shadows Theme (Korean Grim Reaper)
+    val jeoseungShadowsTheme = AppTheme(
+        id = "jeoseung_shadows",
+        name = "Jeoseung Shadows",
+        description = "💀 Dark reaper energy, golden souls and mysteries",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF0A0A0A),
+                Color(0xFF1C1C1C),
+                Color(0xFF2D2D2D)
+            )
+        ),
+        cardBackground = Color(0x1AFFFFFF), // 10% white
+        cardBorder = Color(0x66FFD700), // 40% gold
+        textPrimary = Color(0xFFFFD700),
+        textSecondary = Color(0xFFE6E6E6),
+        buttonGradient = Brush.horizontalGradient(
+            colors = listOf(
+                Color(0xFFFFD700),
+                Color(0xFFB8860B)
+            )
+        ),
+        accentColor = Color(0xFFFFD700),
+        useGlassmorphism = true,
+        glowIntensity = 0.7f,
+        useSerifFont = true,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "💀",
+        scoreEmojis = mapOf(
+            90 to "🔥",
+            80 to "👻",
+            70 to "🌙",
+            60 to "⚡",
+            0 to "💀"
+        )
+    )
+
     val allThemes = listOf(
         y2kCyberTheme,
         cottagecoredTheme,
         darkAcademiaTheme,
-        vaporwaveTheme
+        vaporwaveTheme,
+        jeoseungShadowsTheme
     )
 }

@@ -72,7 +72,7 @@ fun SettingsScreen(
             // Theme Color Section (Unchanged)
             item {
                 Text(
-                    "Theme Color",
+                    "Icon Colour",
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
                 )
