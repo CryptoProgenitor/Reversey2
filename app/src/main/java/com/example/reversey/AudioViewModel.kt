@@ -26,6 +26,7 @@ data class AudioUiState(
     val isPaused: Boolean = false,
     val amplitudes: List<Float> = emptyList(),
     val showEasterEgg: Boolean = false,
+    val showTutorial: Boolean = false,  // ← ADD THIS LINE
     val cpdTaps: Int = 0, // <-- ADD THIS NEW STATE
     val isRecordingAttempt: Boolean = false, // Are we currently recording a player's attempt?
     val parentRecordingPath: String? = null, // Which original recording are we making an attempt for?
@@ -46,6 +47,16 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadRecordings()
+
+        // Check if tutorial should be shown
+        viewModelScope.launch {
+            val settingsDataStore = SettingsDataStore(getApplication())
+            settingsDataStore.tutorialCompleted.collect { completed ->
+                if (!completed) {
+                    _uiState.update { it.copy(showTutorial = true) }
+                }
+            }
+        }
     }
 
     //claude's loadRecordings
@@ -454,6 +465,22 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearAttemptToRename() {
         _uiState.update { it.copy(attemptToRename = null) }
+    }
+
+    fun completeTutorial() {
+        viewModelScope.launch {
+            val settingsDataStore = SettingsDataStore(getApplication())
+            settingsDataStore.setTutorialCompleted(true)
+            _uiState.update { it.copy(showTutorial = false) }
+        }
+    }
+
+    fun dismissTutorial() {
+        viewModelScope.launch {
+            val settingsDataStore = SettingsDataStore(getApplication())
+            settingsDataStore.setTutorialCompleted(true)
+            _uiState.update { it.copy(showTutorial = false) }
+        }
     }
 
 } // This is the closing brace for the AudioViewModel class

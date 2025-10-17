@@ -21,6 +21,7 @@ class SettingsDataStore(context: Context) {
         val DARK_MODE_KEY = stringPreferencesKey("dark_mode_preference")
         val GAME_MODE_KEY = booleanPreferencesKey("game_mode_enabled")
         val AESTHETIC_THEME_KEY = stringPreferencesKey("aesthetic_theme") // NEW
+        val TUTORIAL_COMPLETED_KEY = booleanPreferencesKey("tutorial_completed")
     }
 
     val getTheme: Flow<String> = dataStore.data.map { preferences ->
@@ -47,6 +48,10 @@ class SettingsDataStore(context: Context) {
         preferences[GAME_MODE_KEY] ?: false
     }
 
+    val tutorialCompleted: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[TUTORIAL_COMPLETED_KEY] ?: false
+    }
+
     suspend fun saveGameMode(isEnabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[GAME_MODE_KEY] = isEnabled
@@ -61,6 +66,12 @@ class SettingsDataStore(context: Context) {
     suspend fun saveAestheticTheme(themeId: String) {
         dataStore.edit { preferences ->
             preferences[AESTHETIC_THEME_KEY] = themeId
+        }
+    }
+
+    suspend fun setTutorialCompleted(completed: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[TUTORIAL_COMPLETED_KEY] = completed
         }
     }
 }

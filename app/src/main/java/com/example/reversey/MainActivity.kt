@@ -560,8 +560,21 @@ fun AudioReverserApp(
                 }
             )
         }
-    }
-}
+        // ADD THIS - Tutorial Overlay
+        if (uiState.showTutorial) {
+            TutorialOverlay(
+                onDismiss = {
+                    viewModel.dismissTutorial()
+                },
+                onComplete = {
+                    viewModel.completeTutorial()
+                }
+            )
+        }
+    }  // ← This closes the outer Box
+}  // ← This closes the AudioReverserApp function
+
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

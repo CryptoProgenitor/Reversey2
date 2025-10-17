@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info  // ADD THIS
+import androidx.compose.material3.Button  // ADD THIS
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -23,10 +25,14 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember  // ADD THIS
+import androidx.compose.runtime.rememberCoroutineScope  // ADD THIS
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext  // ADD THIS
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch  // ADD THIS
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +50,8 @@ fun SettingsScreen(
     val themes = listOf("Purple", "Blue", "Green", "Orange")
     // NEW: Options for the dark mode toggle
     val darkModeOptions = listOf("Light", "Dark", "System")
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -134,6 +142,35 @@ fun SettingsScreen(
                     Text(text = preference, style = MaterialTheme.typography.bodyLarge)
                 }
             }
-        }
-    }
-}
+
+            // ADD THIS - Tutorial Section
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                Text(
+                    "Help",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                )
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val settingsDataStore = SettingsDataStore(context)
+                            settingsDataStore.setTutorialCompleted(false)
+                            navController.navigate("home")
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text("View Tutorial")
+                }
+            }
+        }  // ← This closes LazyColumn
+    }  // ← This closes Scaffold
+}  // ← This closes SettingsScreen function
