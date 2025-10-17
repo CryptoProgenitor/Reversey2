@@ -3,8 +3,7 @@
     <!-- Backup settings and app data -->
     <include domain="sharedpref" path="."/>
     <include domain="file" path="datastore/"/>
-    <include domain="file" path="recordings/attempts.json"/>
 
-    <!-- Exclude audio files by default to save space -->
-    <exclude domain="file" path="recordings/"/>
+    <!-- Backup attempts data but not audio files -->
+    <include domain="file" path="recordings/attempts.json"/>
 </full-backup-content>
