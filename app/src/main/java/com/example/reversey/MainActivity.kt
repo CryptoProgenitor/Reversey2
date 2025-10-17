@@ -175,14 +175,14 @@ fun MainApp(themeViewModel: ThemeViewModel) {
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
                 val audioViewModel: AudioViewModel = viewModel()
-                val currentAestheticTheme by themeViewModel.aestheticTheme.collectAsState()  // ADD THIS
+                val currentAestheticTheme by themeViewModel.aestheticTheme.collectAsState()
                 AudioReverserApp(
                     viewModel = audioViewModel,
                     openDrawer = { scope.launch { drawerState.open() } },
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
-                    aestheticTheme = currentAestheticTheme  // ADD THIS
+                    aestheticTheme = currentAestheticTheme
                 )
             }
             composable("about") {
@@ -264,8 +264,6 @@ fun AppDrawerContent(
     }
 }
 
-// PASTE THIS ENTIRE, CORRECTED AboutScreen FUNCTION
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(navController: NavController) {
@@ -273,7 +271,6 @@ fun AboutScreen(navController: NavController) {
     val audioViewModel: AudioViewModel = viewModel()
     val uiState by audioViewModel.uiState.collectAsState()
 
-    // --- ONE ImageLoader, defined once. This is correct. ---
     val imageLoader = remember {
         ImageLoader.Builder(context)
             .components {
@@ -286,10 +283,7 @@ fun AboutScreen(navController: NavController) {
             .build()
     }
 
-    // This Box will contain both the screen content AND the GIF overlay
     Box(modifier = Modifier.fillMaxSize()) {
-
-        // --- The Original Screen Content (This part is fine) ---
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -315,7 +309,6 @@ fun AboutScreen(navController: NavController) {
             ) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                // You can bump this to your final version number when you commit
                 Text("Version 3.1.1 - theme-engine! ", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -323,34 +316,25 @@ fun AboutScreen(navController: NavController) {
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.clickable {
-                        // Play the sound directly here, as it needs the context.
-                        // We check if the *next* tap will be the 5th one.
                         if (uiState.cpdTaps + 1 == 5) {
                             val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
                             mediaPlayer?.start()
                             mediaPlayer?.setOnCompletionListener { mp -> mp.release() }
                         }
-                        // Tell the ViewModel that a tap occurred. The ViewModel handles ALL state changes.
                         audioViewModel.onCpdTapped()
                     }
                 )
             }
         }
-        // --- The CORRECTED GIF Overlay ---
         if (uiState.showEasterEgg) {
-            // Use a LaunchedEffect to give the UI a moment to compose before dismissing
             LaunchedEffect(Unit) {
-                // Wait for the animation to play. A simple delay works well here.
-                // We'll use a duration slightly longer than the GIF's animation.
-                // Let's assume the GIF is about 1.5 seconds long.
-                delay(1500L) // 1.5 seconds
+                delay(1500L)
                 audioViewModel.dismissEasterEgg()
             }
 
             AsyncImage(
-                model = R.drawable.cracking_egg, // The model can be simple
+                model = R.drawable.cracking_egg,
                 contentDescription = "Easter Egg GIF",
-                // Use the imageLoader you already defined at the top of the function
                 imageLoader = imageLoader,
                 modifier = Modifier
                     .fillMaxSize()
@@ -360,8 +344,6 @@ fun AboutScreen(navController: NavController) {
     }
 }
 
-
-// NEW, "DUMB" UI COMPOSABLE
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AudioReverserApp(
@@ -369,9 +351,8 @@ fun AudioReverserApp(
     openDrawer: () -> Unit,
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
-    isGameModeEnabled: Boolean, // <-- ADD THIS
-    aestheticTheme: AppTheme  // ADDS THEMES
-
+    isGameModeEnabled: Boolean,
+    aestheticTheme: AppTheme
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
@@ -386,7 +367,7 @@ fun AudioReverserApp(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.clearAllRecordings() // Call ViewModel function
+                        viewModel.clearAllRecordings()
                         onClearAllDialogDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -401,168 +382,160 @@ fun AudioReverserApp(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(aestheticTheme.primaryGradient)  // ADD GRADIENT BACKGROUND
+            .background(aestheticTheme.primaryGradient)
     ) {
         Scaffold(
-            containerColor = Color.Transparent,  // Make scaffold transparent
+            containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { Text("ReVerseY", color = aestheticTheme.textPrimary) },  // Use theme text color
+                    title = { Text("ReVerseY", color = aestheticTheme.textPrimary) },
                     navigationIcon = {
                         IconButton(onClick = openDrawer) {
                             Icon(Icons.Default.Menu, "Menu", tint = aestheticTheme.textPrimary)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent  // Transparent so gradient shows through
+                        containerColor = Color.Transparent
                     )
                 )
             }
         ) { paddingValues ->
             Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(20.dp))
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(20.dp))
 
-            RecordButton(
-                isRecording = uiState.isRecording,
-                hasPermission = recordAudioPermissionState.status.isGranted,
-                onRequestPermission = { recordAudioPermissionState.launchPermissionRequest() },
-                onStartRecording = { viewModel.startRecording() },
-                onStopRecording = { viewModel.stopRecording() }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (uiState.isRecording) {
-                WaveformVisualizer(
-                    amplitudes = uiState.amplitudes,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
+                RecordButton(
+                    isRecording = uiState.isRecording,
+                    hasPermission = recordAudioPermissionState.status.isGranted,
+                    onRequestPermission = { recordAudioPermissionState.launchPermissionRequest() },
+                    onStartRecording = { viewModel.startRecording() },
+                    onStopRecording = { viewModel.stopRecording() }
                 )
-            } else {
-                AnimatedVisibility(
-                    visible = uiState.statusText.isNotEmpty(),
-                    enter = fadeIn(animationSpec = tween(600, 100, LinearOutSlowInEasing)),
-                    exit = fadeOut(animationSpec = tween(600, easing = LinearOutSlowInEasing))
-                ) {
-                    Text(
-                        text = uiState.statusText,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = aestheticTheme.textPrimary  // ADD THIS LINE
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (uiState.isRecording) {
+                    WaveformVisualizer(
+                        amplitudes = uiState.amplitudes,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
                     )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Box(modifier = Modifier.fillMaxSize()) {
-                val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
-                val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
-
-                // Start LazyColumn block
-                LazyColumn(
-                    state = listState,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(MaterialTheme.shapes.medium)
-                ) {
-                    // Use forEach to have access to the 'recording' variable for both items
-                    uiState.recordings.forEach { recording ->
-                        // 1. Show the parent recording item
-                        item(key = "parent_${recording.originalPath}") {
-                            RecordingItem(
-                                recording = recording,
-                                isPlaying = uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath,
-                                isPaused = uiState.isPaused,
-                                progress = if (uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
-                                onPlay = { path: String -> viewModel.play(path) },  // Add explicit type
-                                onPause = { viewModel.pause() },
-                                onStop = { viewModel.stopPlayback() },
-                                onDelete = { viewModel.deleteRecording(recording) },
-                                onShare = { path: String ->  // Add explicit type
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "audio/wav"
-                                        putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
-                                },
-                                onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },  // Add explicit types
-                                isGameModeEnabled = isGameModeEnabled,
-                                onStartAttempt = { rec: Recording -> viewModel.startAttemptRecording(rec) },  // Add explicit type
-                                theme = aestheticTheme
-                            )
-                        }
-
-                        // 2. Show all the child attempts for THIS recording
-                        // 2. Show all the child attempts for THIS recording
-                        // 2. Show all the child attempts for THIS recording
-                        items(
-                            count = recording.attempts.size,
-                            key = { index -> "attempt_${recording.originalPath}_${index}" }
-                        ) { index ->
-                            val attempt = recording.attempts[index]
-                            val attemptPlaybackPath = attempt.reversedAttemptFilePath ?: attempt.attemptFilePath
-                            AttemptItem(
-                                attempt = attempt,
-                                currentlyPlayingPath = uiState.currentlyPlayingPath,
-                                isPaused = uiState.isPaused,
-                                progress = if (uiState.currentlyPlayingPath == attemptPlaybackPath) uiState.playbackProgress else 0f,
-                                onPlay = { path -> viewModel.play(path) },
-                                onPause = { viewModel.pause() },
-                                onStop = { viewModel.stopPlayback() },
-                                onRenamePlayer = { oldAttempt, newName ->
-                                    viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
-                                },
-                                onDeleteAttempt = { attemptToDelete ->
-                                    viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
-                                },
-                                onShareAttempt = { path ->  // ADD THIS BLOCK
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "audio/wav"
-                                        putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
-                                },
-                                theme = aestheticTheme
-                            )
-                        }
+                } else {
+                    AnimatedVisibility(
+                        visible = uiState.statusText.isNotEmpty(),
+                        enter = fadeIn(animationSpec = tween(600, 100, LinearOutSlowInEasing)),
+                        exit = fadeOut(animationSpec = tween(600, easing = LinearOutSlowInEasing))
+                    ) {
+                        Text(
+                            text = uiState.statusText,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = aestheticTheme.textPrimary
+                        )
                     }
                 }
 
-                val topGradient = Brush.verticalGradient(0.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), 1.0f to Color.Transparent)
-                val bottomGradient = Brush.verticalGradient(0.0f to Color.Transparent, 1.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                if (showTopFade) {
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
-                        .height(24.dp)
-                        .align(Alignment.TopCenter)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(topGradient))
-                }
-                if (showBottomFade) {
-                    Box(
+                Box(modifier = Modifier.fillMaxSize()) {
+                    val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
+                    val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
+
+                    LazyColumn(
+                        state = listState,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
+                            .fillMaxSize()
+                            .clip(MaterialTheme.shapes.medium)
+                    ) {
+                        uiState.recordings.forEach { recording ->
+                            item(key = "parent_${recording.originalPath}") {
+                                RecordingItem(
+                                    recording = recording,
+                                    isPlaying = uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath,
+                                    isPaused = uiState.isPaused,
+                                    progress = if (uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
+                                    onPlay = { path: String -> viewModel.play(path) },
+                                    onPause = { viewModel.pause() },
+                                    onStop = { viewModel.stopPlayback() },
+                                    onDelete = { viewModel.deleteRecording(recording) },
+                                    onShare = { path: String ->
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "audio/wav"
+                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
+                                    },
+                                    onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
+                                    isGameModeEnabled = isGameModeEnabled,
+                                    onStartAttempt = { rec: Recording -> viewModel.startAttemptRecording(rec) },
+                                    theme = aestheticTheme
+                                )
+                            }
+
+                            items(
+                                count = recording.attempts.size,
+                                key = { index -> "attempt_${recording.originalPath}_${index}" }
+                            ) { index ->
+                                val attempt = recording.attempts[index]
+                                AttemptItem(
+                                    attempt = attempt,
+                                    currentlyPlayingPath = uiState.currentlyPlayingPath,
+                                    isPaused = uiState.isPaused,
+                                    progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath || uiState.currentlyPlayingPath == attempt.reversedAttemptFilePath) uiState.playbackProgress else 0f,
+                                    onPlay = { path -> viewModel.play(path) },
+                                    onPause = { viewModel.pause() },
+                                    onStop = { viewModel.stopPlayback() },
+                                    onRenamePlayer = { oldAttempt, newName ->
+                                        viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
+                                    },
+                                    onDeleteAttempt = { attemptToDelete ->
+                                        viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
+                                    },
+                                    onShareAttempt = { path ->
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "audio/wav"
+                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
+                                    },
+                                    theme = aestheticTheme
+                                )
+                            }
+                        }
+                    }
+
+                    val topGradient = Brush.verticalGradient(0.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), 1.0f to Color.Transparent)
+                    val bottomGradient = Brush.verticalGradient(0.0f to Color.Transparent, 1.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+
+                    if (showTopFade) {
+                        Box(modifier = Modifier
                             .fillMaxWidth()
                             .height(24.dp)
-                            .align(Alignment.BottomCenter)
+                            .align(Alignment.TopCenter)
                             .clip(MaterialTheme.shapes.medium)
-                            .background(bottomGradient)
-                    )
+                            .background(topGradient))
+                    }
+                    if (showBottomFade) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(24.dp)
+                                .align(Alignment.BottomCenter)
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(bottomGradient)
+                        )
+                    }
                 }
-            }  // Closes the Box containing LazyColumn and gradients
-            }  // Closes the Column
-        }  // Closes the Scaffold paddingValues lambda
-        // ADD THIS BLOCK - Automatic rename dialog for new attempts
+            }
+        }
         uiState.attemptToRename?.let { (parentPath, attempt) ->
             var newPlayerName by remember { mutableStateOf(attempt.playerName) }
             AlertDialog(
@@ -590,10 +563,9 @@ fun AudioReverserApp(
                 }
             )
         }
-    }  // Closes the Box with gradient background
-}  // Closes AudioReverserApp function
+    }
+}
 
-// RecordingItem should be here as a separate top-level function
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecordingItem(
@@ -621,13 +593,11 @@ fun RecordingItem(
         ),
         border = androidx.compose.foundation.BorderStroke(2.dp, theme.cardBorder)
     ) {
-        // ADD THIS COLUMN WRAPPER WITH PADDING
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)  // Add padding around all content
+                .padding(16.dp)
         ) {
-            // --- TOP ROW: Name and Rename Logic ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -644,7 +614,6 @@ fun RecordingItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- MIDDLE: Progress Bar ---
             LinearProgressIndicator(
                 progress = { if (isPlaying) progress else 0f },
                 modifier = Modifier.fillMaxWidth()
@@ -652,13 +621,11 @@ fun RecordingItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- BOTTOM ROW: All Action Buttons ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Left Group: Share
                 IconButton(onClick = { showShareDialog = true }) {
                     Icon(
                         imageVector = Icons.Default.Share,
@@ -667,7 +634,6 @@ fun RecordingItem(
                     )
                 }
 
-                // Center Group: Playback
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isPlaying) {
                         Button(
@@ -728,7 +694,6 @@ fun RecordingItem(
                     }
                 }
 
-                // Right Group: Game and Delete
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isGameModeEnabled) {
                         Button(
@@ -754,9 +719,8 @@ fun RecordingItem(
                     }
                 }
             }
-        }  // CLOSE THE NEW COLUMN HERE
+        }
 
-        // Dialogs remain outside the Column but inside the Card
         if (showRenameDialog) {
             var newName by remember { mutableStateOf(recording.name) }
             AlertDialog(
@@ -846,7 +810,6 @@ fun RecordingItem(
     }
 }
 
-// NEW, SIMPLER RecordButton that is just UI
 @Composable
 fun RecordButton(
     isRecording: Boolean,
@@ -881,14 +844,13 @@ fun WaveformVisualizer(
     amplitudes: List<Float>,
     modifier: Modifier = Modifier,
     barColor: Color = MaterialTheme.colorScheme.primary,
-    barWidth: Dp = 4.dp, // Changed from Float
-    barGap: Dp = 2.dp     // Changed from Float
+    barWidth: Dp = 4.dp,
+    barGap: Dp = 2.dp
 ) {
     Canvas(modifier = modifier) {
         val canvasHeight = size.height
         val maxAmplitude = 1.0f
 
-        // FIX: Convert Dp to raw pixels (Float) before using them
         val barWidthPx = barWidth.toPx()
         val barGapPx = barGap.toPx()
 
@@ -909,7 +871,6 @@ fun WaveformVisualizer(
     }
 }
 
-// --- GLOBAL HELPER FUNCTIONS can remain here ---
 fun getRecordingsDir(context: Context): File {
     return File(context.filesDir, "recordings").apply { mkdirs() }
 }
@@ -979,7 +940,6 @@ class OctagonShape : Shape {
     }
 }
 
-// This is the NEW, UPGRADED Composable for renaming (from 2.0.2.e) a player's attempt
 @Composable
 fun AttemptItem(
     attempt: PlayerAttempt,
@@ -994,7 +954,7 @@ fun AttemptItem(
     onShareAttempt: ((String) -> Unit)? = null,
     theme: AppTheme
 ) {
-    val isPlayingThis = currentlyPlayingPath == (attempt.reversedAttemptFilePath ?: attempt.attemptFilePath)
+    val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
@@ -1002,13 +962,12 @@ fun AttemptItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 40.dp, end = 0.dp, top = 4.dp, bottom = 4.dp)  // <--- THIS LINE, change end = 8.dp to end = 0.dp
+            .padding(start = 40.dp, end = 0.dp, top = 4.dp, bottom = 4.dp)
             .clip(MaterialTheme.shapes.medium)
-            .background(theme.cardBackground)  // CHANGE THIS
+            .background(theme.cardBackground)
             .border(1.dp, theme.cardBorder, MaterialTheme.shapes.medium)
             .padding(12.dp)
     ) {
-        // Top row for Player Name and Score ONLY
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -1017,19 +976,18 @@ fun AttemptItem(
             Text(
                 text = attempt.playerName,
                 style = MaterialTheme.typography.bodyLarge,
-                color = theme.textPrimary,  // ADD THIS
+                color = theme.textPrimary,
                 modifier = Modifier.clickable { showRenameDialog = true }
             )
             Text(
                 text = "${attempt.score}%",
                 style = MaterialTheme.typography.headlineSmall,
-                color = theme.textSecondary  // ADD THIS
+                color = theme.textSecondary
             )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Progress bar
         if (isPlayingThis) {
             LinearProgressIndicator(
                 progress = { progress },
@@ -1041,13 +999,11 @@ fun AttemptItem(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Bottom row: Share, Play controls, Delete (matching parent card layout)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left: Share button
             IconButton(onClick = { showShareDialog = true }) {
                 Icon(
                     imageVector = Icons.Default.Share,
@@ -1056,10 +1012,10 @@ fun AttemptItem(
                 )
             }
 
-            // Center: Play controls
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.weight(1f)
             ) {
                 if (isPlayingThis) {
                     Button(
@@ -1090,10 +1046,10 @@ fun AttemptItem(
                         )
                     }
                 } else {
+                    // Play original attempt (what they sang - sounds reversed)
                     Button(
                         onClick = {
-                            val pathToPlay = attempt.reversedAttemptFilePath ?: attempt.attemptFilePath
-                            onPlay(pathToPlay)
+                            onPlay(attempt.attemptFilePath)
                         },
                         shape = CircleShape,
                         modifier = Modifier.size(40.dp),
@@ -1101,14 +1057,30 @@ fun AttemptItem(
                     ) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play Attempt",
+                            contentDescription = "Play Original (What They Sang)",
+                            tint = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    // Play reversed attempt (how it should sound - normal speech/song)
+                    Button(
+                        onClick = {
+                            attempt.reversedAttemptFilePath?.let { onPlay(it) }
+                        },
+                        enabled = attempt.reversedAttemptFilePath != null,
+                        shape = CircleShape,
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Replay,
+                            contentDescription = "Play Reversed (How It Sounds)",
                             tint = Color.White
                         )
                     }
                 }
             }
 
-            // Right: Delete button
             IconButton(onClick = { showDeleteDialog = true }) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -1119,7 +1091,6 @@ fun AttemptItem(
         }
     }
 
-    // Rename player dialog
     if (showRenameDialog) {
         var newPlayerName by remember { mutableStateOf(attempt.playerName) }
         AlertDialog(
@@ -1146,7 +1117,6 @@ fun AttemptItem(
         )
     }
 
-    // Delete dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -1169,7 +1139,6 @@ fun AttemptItem(
         )
     }
 
-    // Share dialog
     if (showShareDialog) {
         AlertDialog(
             onDismissRequest = { showShareDialog = false },
