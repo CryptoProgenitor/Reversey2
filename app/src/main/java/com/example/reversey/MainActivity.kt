@@ -875,25 +875,9 @@ fun getRecordingsDir(context: Context): File {
     return File(context.filesDir, "recordings").apply { mkdirs() }
 }
 
-fun createAudioFile(context: Context): File {
-    val timeStamp = SimpleDateFormat("dd MMM yy - HH.mm.ss", Locale.US).format(Date())
-    val fileName = "REC-$timeStamp.wav"
-    return File(getRecordingsDir(context), fileName)
-}
 
 fun formatFileName(fileName: String): String {
     return fileName.removeSuffix(".wav")
-}
-
-fun shareRecording(context: Context, file: File) {
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-    val shareIntent = Intent().apply {
-        action = Intent.ACTION_SEND
-        putExtra(Intent.EXTRA_STREAM, uri)
-        type = "audio/wav"
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
 }
 
 @Throws(IOException::class)

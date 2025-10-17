@@ -383,29 +383,6 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         mediaPlayer?.release()
     }
 
-
-    //Add this temporary function to your AudioViewModel to reset everything:
-    fun resetAttemptsData() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                // Delete the JSON file
-                val attemptsJsonFile = File(getApplication<Application>().filesDir, "attempts.json")
-                if (attemptsJsonFile.exists()) {
-                    attemptsJsonFile.delete()
-                }
-
-                // Clear the attempts directory
-                val attemptsDir = File(getApplication<Application>().filesDir, "recordings/attempts")
-                attemptsDir.listFiles()?.forEach { it.delete() }
-
-                android.util.Log.d("AudioViewModel", "Reset complete")
-                loadRecordings()
-            } catch (e: Exception) {
-                android.util.Log.e("AudioViewModel", "Error resetting", e)
-            }
-        }
-    }
-
     //Now add a new function (from 2.0.2.e) to your AudioViewModel to handle renaming:
     fun renamePlayer(parentRecordingPath: String, oldAttempt: PlayerAttempt, newPlayerName: String) {
         viewModelScope.launch(Dispatchers.IO) {
