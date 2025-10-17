@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -20,6 +19,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+// Centralised styling for consistency
+private object TutorialDefaults {
+    val magenta = Color(0xFFFF00FF)
+    val cyan = Color(0xFF00FFFF)
+    val white = Color.White
+    val black = Color.Black
+
+    val primaryGradient = Brush.horizontalGradient(listOf(magenta, cyan))
+    val titleGradient = Brush.linearGradient(listOf(magenta, cyan, magenta))
+    val cyanBrush = Brush.linearGradient(listOf(cyan, cyan))
+    val magentaBrush = Brush.linearGradient(listOf(magenta, magenta))
+}
 
 // Tutorial Step Data Class
 data class TutorialSlide(
@@ -36,7 +48,6 @@ fun TutorialOverlay(
     onComplete: () -> Unit
 ) {
     var currentSlide by remember { mutableStateOf(0) }
-    val totalSlides = 3
 
     val slides = remember {
         listOf(
@@ -49,7 +60,7 @@ fun TutorialOverlay(
                 Text(
                     text = "Your voice backwards has\nnever been this fun!",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = TutorialDefaults.white.copy(alpha = 0.9f),
                     textAlign = TextAlign.Center
                 )
             },
@@ -72,23 +83,25 @@ fun TutorialOverlay(
         )
     }
 
+    // Total slides is now derived from the list, making it more robust.
+    val totalSlides = slides.size
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.92f))
+            .background(TutorialDefaults.black.copy(alpha = 0.92f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 30.dp)
-                .padding(top = 60.dp, bottom = 40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(top = 60.dp, bottom = 100.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Carousel Container
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(1f) // This pushes the controls group down
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
@@ -110,87 +123,90 @@ fun TutorialOverlay(
                 }
             }
 
-            // Navigation Dots
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(vertical = 20.dp)
+            // Group for navigation dots and buttons
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                repeat(totalSlides) { index ->
-                    NavigationDot(
-                        isActive = index == currentSlide,
-                        onClick = { currentSlide = index }
-                    )
-                }
-            }
-
-            // Button Group
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(15.dp),
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Skip Button
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(30.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF00FFFF)
-                    ),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        width = 2.dp,
-                        brush = Brush.linearGradient(
-                            listOf(Color(0xFF00FFFF), Color(0xFF00FFFF))
+                // Navigation Dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(vertical = 20.dp)
+                ) {
+                    repeat(totalSlides) { index ->
+                        NavigationDot(
+                            isActive = index == currentSlide,
+                            onClick = { currentSlide = index }
                         )
-                    )
-                ) {
-                    Text(
-                        "SKIP",
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        modifier = Modifier.padding(vertical = 6.dp)
-                    )
+                    }
                 }
 
-                // Next/Start Button
-                Button(
-                    onClick = {
-                        if (currentSlide < totalSlides - 1) {
-                            currentSlide++
-                        } else {
-                            onComplete()
-                        }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .shadow(
-                            elevation = 20.dp,
-                            shape = RoundedCornerShape(30.dp),
-                            spotColor = Color(0xFFFF00FF)
-                        ),
-                    shape = RoundedCornerShape(30.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent
-                    )
+                // Button Group
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(15.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush = Brush.horizontalGradient(
-                                    listOf(Color(0xFFFF00FF), Color(0xFF00FFFF))
-                                ),
-                                shape = RoundedCornerShape(30.dp)
-                            )
-                            .padding(vertical = 6.dp),
-                        contentAlignment = Alignment.Center
+                    // Skip Button
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(30.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = TutorialDefaults.cyan
+                        ),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            width = 2.dp,
+                            brush = TutorialDefaults.cyanBrush
+                        )
                     ) {
                         Text(
-                            text = if (currentSlide == totalSlides - 1) "LET'S GO! 🚀" else "NEXT",
-                            color = Color.Black,
+                            "SKIP",
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.padding(vertical = 6.dp)
                         )
+                    }
+
+                    // Next/Start Button
+                    Button(
+                        onClick = {
+                            if (currentSlide < totalSlides - 1) {
+                                currentSlide++
+                            } else {
+                                onComplete()
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .shadow(
+                                elevation = 20.dp,
+                                shape = RoundedCornerShape(30.dp),
+                                spotColor = TutorialDefaults.magenta
+                            ),
+                        shape = RoundedCornerShape(30.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent
+                        ),
+                        contentPadding = PaddingValues(0.dp) // Remove default padding
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    brush = TutorialDefaults.primaryGradient,
+                                    shape = RoundedCornerShape(30.dp)
+                                )
+                                .padding(vertical = 8.dp), // Adjust padding on inner box
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (currentSlide == totalSlides - 1) "LET'S GO! 🚀" else "NEXT",
+                                color = TutorialDefaults.black,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        }
                     }
                 }
             }
@@ -234,13 +250,7 @@ fun SlideContent(slide: TutorialSlide) {
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.headlineLarge.copy(
-                brush = Brush.linearGradient(
-                    listOf(
-                        Color(0xFFFF00FF),
-                        Color(0xFF00FFFF),
-                        Color(0xFFFF00FF)
-                    )
-                )
+                brush = TutorialDefaults.titleGradient
             ),
             modifier = Modifier.padding(bottom = 10.dp)
         )
@@ -250,7 +260,7 @@ fun SlideContent(slide: TutorialSlide) {
             Text(
                 text = slide.subtitle,
                 fontSize = 18.sp,
-                color = Color(0xFF00FFFF),
+                color = TutorialDefaults.cyan,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 30.dp)
             )
@@ -268,13 +278,11 @@ fun GameModeContent() {
             .fillMaxWidth()
             .border(
                 width = 2.dp,
-                brush = Brush.linearGradient(
-                    listOf(Color(0xFFFF00FF), Color(0xFFFF00FF))
-                ),
+                brush = TutorialDefaults.magentaBrush,
                 shape = RoundedCornerShape(20.dp)
             )
             .background(
-                color = Color(0xFFFF00FF).copy(alpha = 0.1f),
+                color = TutorialDefaults.magenta.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(20.dp)
             )
             .padding(25.dp),
@@ -303,7 +311,7 @@ fun GameStep(icon: String, text: String) {
         Text(
             text = text,
             fontSize = 15.sp,
-            color = Color.White,
+            color = TutorialDefaults.white,
             style = MaterialTheme.typography.bodyMedium
         )
     }
@@ -321,11 +329,11 @@ fun ExampleContent() {
                 .fillMaxWidth()
                 .border(
                     width = 2.dp,
-                    color = Color(0xFF00FFFF),
+                    color = TutorialDefaults.cyan,
                     shape = RoundedCornerShape(15.dp)
                 )
                 .background(
-                    color = Color(0xFF00FFFF).copy(alpha = 0.1f),
+                    color = TutorialDefaults.cyan.copy(alpha = 0.1f),
                     shape = RoundedCornerShape(15.dp)
                 )
                 .padding(15.dp),
@@ -341,16 +349,14 @@ fun ExampleContent() {
                     .align(Alignment.CenterHorizontally)
                     .padding(top = 10.dp)
                     .background(
-                        brush = Brush.linearGradient(
-                            listOf(Color(0xFFFF00FF), Color(0xFF00FFFF))
-                        ),
+                        brush = TutorialDefaults.primaryGradient,
                         shape = RoundedCornerShape(20.dp)
                     )
                     .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
                 Text(
                     text = "Your Score: 87% 🌟",
-                    color = Color.Black,
+                    color = TutorialDefaults.black,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
@@ -362,7 +368,7 @@ fun ExampleContent() {
         Text(
             text = "The better your backwards attempt,\nthe higher your score!",
             fontSize = 14.sp,
-            color = Color.White.copy(alpha = 0.9f),
+            color = TutorialDefaults.white.copy(alpha = 0.9f),
             textAlign = TextAlign.Center,
             lineHeight = 20.sp
         )
@@ -375,20 +381,20 @@ fun ExampleText(label: String, value: String) {
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = Color.Black.copy(alpha = 0.3f),
+                color = TutorialDefaults.black.copy(alpha = 0.3f),
                 shape = RoundedCornerShape(8.dp)
             )
             .padding(8.dp)
     ) {
         Text(
             text = "$label ",
-            color = Color(0xFF00FFFF),
+            color = TutorialDefaults.cyan,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp
         )
         Text(
             text = value,
-            color = Color.White,
+            color = TutorialDefaults.white,
             fontSize = 14.sp
         )
     }
@@ -409,12 +415,12 @@ fun NavigationDot(
         modifier = Modifier
             .size(10.dp * scale)
             .background(
-                color = if (isActive) Color(0xFFFF00FF) else Color.White.copy(alpha = 0.3f),
+                color = if (isActive) TutorialDefaults.magenta else TutorialDefaults.white.copy(alpha = 0.3f),
                 shape = CircleShape
             )
             .border(
                 width = 2.dp,
-                color = Color(0xFFFF00FF).copy(alpha = 0.5f),
+                color = TutorialDefaults.magenta.copy(alpha = 0.5f),
                 shape = CircleShape
             )
             .then(
@@ -422,7 +428,7 @@ fun NavigationDot(
                     Modifier.shadow(
                         elevation = 15.dp,
                         shape = CircleShape,
-                        spotColor = Color(0xFFFF00FF)
+                        spotColor = TutorialDefaults.magenta
                     )
                 } else Modifier
             )
