@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -85,20 +88,18 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     // In AudioViewModel.kt
 
-    private fun createAudioFile(context: Application, isAttempt: Boolean = false): java.io.File {
-        val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+    private fun createAudioFile(context: Application, isAttempt: Boolean = false): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val storageDir = if (isAttempt) {
-            File(context.filesDir, "recordings/attempts")
+            File(context.filesDir, "recordings/attempts")  // Remove parent= and child=
         } else {
-            File(context.filesDir, "recordings")
+            File(context.filesDir, "recordings")  // Remove parent= and child=
         }
-        // Ensure the directory exists
         if (!storageDir.exists()) {
             storageDir.mkdirs()
         }
-        return java.io.File(storageDir, "REC_${timeStamp}.wav")
+        return File(storageDir, "REC_${timeStamp}.wav")  // Remove parent= and child=
     }
-
 
     fun startRecording() {
         _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }

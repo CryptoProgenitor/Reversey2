@@ -786,7 +786,7 @@ fun RecordingItem(
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(
                                 onClick = {
-                                    recording.reversedPath?.let { onShare(it) }  // CHANGED THIS LINE
+                                    onShare(recording.reversedPath)  // Remove ?.let, just use it directly
                                     showShareDialog = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -1143,9 +1143,7 @@ fun AttemptItem(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                attempt.reversedAttemptFilePath?.let { path ->  // CHANGED THIS LINE
-                                    onShareAttempt?.let { it(path) }
-                                }
+                                onShareAttempt?.invoke(attempt.reversedAttemptFilePath)  // Simplified
                                 showShareDialog = false
                             },
                             modifier = Modifier.fillMaxWidth()
