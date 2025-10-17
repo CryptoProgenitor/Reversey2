@@ -21,8 +21,6 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = "Purple"
     )
 
-
-
     // Function to change the theme color
     fun setTheme(themeName: String) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -30,27 +28,25 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // NEW: Expose the dark mode preference as a StateFlow
+    // Expose the dark mode preference as a StateFlow
     val darkModePreference: StateFlow<String> = settingsDataStore.getDarkModePreference.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = "System"
     )
 
-    // NEW: Function to change the dark mode preference
+    // Function to change the dark mode preference
     fun setDarkModePreference(preference: String) {
         viewModelScope.launch(Dispatchers.IO) {
             settingsDataStore.saveDarkModePreference(preference)
         }
     }
 
-    // --- Add this block for Game Mode ---
-
     // Expose the game mode setting as a StateFlow
     val gameModeEnabled: StateFlow<Boolean> = settingsDataStore.getGameModeEnabled.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false // Default to false
+        initialValue = true
     )
 
     // Function to change the game mode setting
@@ -59,6 +55,7 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
             settingsDataStore.saveGameMode(isEnabled)
         }
     }
+
     // Expose the aesthetic theme as a StateFlow
     val aestheticTheme: StateFlow<AppTheme> = settingsDataStore.getAestheticTheme
         .map { themeId -> ThemeRepository.getThemeById(themeId) }
@@ -75,4 +72,17 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Expose the backup recordings setting as a StateFlow
+    val backupRecordingsEnabled: StateFlow<Boolean> = settingsDataStore.backupRecordingsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    // Function to change the backup recordings setting
+    fun setBackupRecordingsEnabled(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsDataStore.setBackupRecordingsEnabled(enabled)
+        }
+    }
 }

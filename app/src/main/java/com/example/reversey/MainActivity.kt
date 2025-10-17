@@ -186,6 +186,8 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                 AboutScreen(navController = navController)
             }
             composable("settings") {
+                val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
+
                 SettingsScreen(
                     navController = navController,
                     currentTheme = currentTheme,
@@ -193,7 +195,9 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     currentDarkModePreference = darkModePreference,
                     onDarkModePreferenceChange = { preference -> themeViewModel.setDarkModePreference(preference) },
                     isGameModeEnabled = isGameModeEnabled,
-                    onGameModeChange = { isEnabled -> themeViewModel.setGameMode(isEnabled) }
+                    onGameModeChange = { isEnabled -> themeViewModel.setGameMode(isEnabled) },
+                    backupRecordingsEnabled = backupRecordingsEnabled,
+                    onBackupRecordingsChange = { enabled -> themeViewModel.setBackupRecordingsEnabled(enabled) }
                 )
             }
             composable("themes") {
@@ -306,7 +310,7 @@ fun AboutScreen(navController: NavController) {
             ) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Version 4.0.1-tutorial ", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 4.0.2-backups ", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",

@@ -22,6 +22,7 @@ class SettingsDataStore(context: Context) {
         val GAME_MODE_KEY = booleanPreferencesKey("game_mode_enabled")
         val AESTHETIC_THEME_KEY = stringPreferencesKey("aesthetic_theme") // NEW
         val TUTORIAL_COMPLETED_KEY = booleanPreferencesKey("tutorial_completed")
+        val BACKUP_RECORDINGS_KEY = booleanPreferencesKey("backup_recordings_enabled")
     }
 
     val getTheme: Flow<String> = dataStore.data.map { preferences ->
@@ -38,6 +39,10 @@ class SettingsDataStore(context: Context) {
         preferences[DARK_MODE_KEY] ?: "System"
     }
 
+    val backupRecordingsEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[BACKUP_RECORDINGS_KEY] ?: false  // Default: don't backup recordings
+    }
+
     suspend fun saveDarkModePreference(preference: String) {
         dataStore.edit { preferences ->
             preferences[DARK_MODE_KEY] = preference
@@ -45,7 +50,7 @@ class SettingsDataStore(context: Context) {
     }
 
     val getGameModeEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[GAME_MODE_KEY] ?: false
+        preferences[GAME_MODE_KEY] ?: true
     }
 
     val tutorialCompleted: Flow<Boolean> = dataStore.data.map { preferences ->
@@ -66,6 +71,12 @@ class SettingsDataStore(context: Context) {
     suspend fun saveAestheticTheme(themeId: String) {
         dataStore.edit { preferences ->
             preferences[AESTHETIC_THEME_KEY] = themeId
+        }
+    }
+
+    suspend fun setBackupRecordingsEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[BACKUP_RECORDINGS_KEY] = enabled
         }
     }
 
