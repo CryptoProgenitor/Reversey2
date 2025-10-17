@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -85,18 +88,17 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     // In AudioViewModel.kt
 
-    private fun createAudioFile(context: Application, isAttempt: Boolean = false): java.io.File {
-        val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+    private fun createAudioFile(context: Application, isAttempt: Boolean = false): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val storageDir = if (isAttempt) {
             File(context.filesDir, "recordings/attempts")
         } else {
             File(context.filesDir, "recordings")
         }
-        // Ensure the directory exists
         if (!storageDir.exists()) {
             storageDir.mkdirs()
         }
-        return java.io.File(storageDir, "REC_${timeStamp}.wav")
+        return File(storageDir, "REC_${timeStamp}.wav")
     }
 
 
@@ -381,29 +383,6 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
-    }
-
-
-    //Add this temporary function to your AudioViewModel to reset everything:
-    fun resetAttemptsData() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                // Delete the JSON file
-                val attemptsJsonFile = File(getApplication<Application>().filesDir, "attempts.json")
-                if (attemptsJsonFile.exists()) {
-                    attemptsJsonFile.delete()
-                }
-
-                // Clear the attempts directory
-                val attemptsDir = File(getApplication<Application>().filesDir, "recordings/attempts")
-                attemptsDir.listFiles()?.forEach { it.delete() }
-
-                android.util.Log.d("AudioViewModel", "Reset complete")
-                loadRecordings()
-            } catch (e: Exception) {
-                android.util.Log.e("AudioViewModel", "Error resetting", e)
-            }
-        }
     }
 
     //Now add a new function (from 2.0.2.e) to your AudioViewModel to handle renaming:
