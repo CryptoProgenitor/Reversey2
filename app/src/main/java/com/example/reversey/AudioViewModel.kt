@@ -30,7 +30,8 @@ data class AudioUiState(
     val cpdTaps: Int = 0, // <-- ADD THIS NEW STATE
     val isRecordingAttempt: Boolean = false, // Are we currently recording a player's attempt?
     val parentRecordingPath: String? = null, // Which original recording are we making an attempt for?
-    val attemptToRename: Pair<String, PlayerAttempt>? = null
+    val attemptToRename: Pair<String, PlayerAttempt>? = null,
+    val scrollToIndex: Int? = null  // ← ADD THIS LINE
 )
 
 
@@ -151,12 +152,9 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     //2. Update stopRecording() in AudioViewModel.kt to reverse attempts:
     //Replace your stopRecording() function with this:
     fun stopRecording() {
-        // First, check if this was a game attempt BEFORE we update the state
         val wasRecordingAttempt = _uiState.value.isRecordingAttempt
         val parentPath = _uiState.value.parentRecordingPath
 
-
-        // Update UI immediately to stop showing the recording state
         _uiState.update {
             it.copy(
                 isRecording = false,
@@ -167,11 +165,8 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            // Cancel the recording job and wait for it to finish cleaning up
             recordingJob?.cancel()
             recordingJob?.join()
-
-            // Give the file system a moment to finalize the file
             delay(200)
 
             val lastRecordingFile = repository.getLatestFile(isAttempt = wasRecordingAttempt)
@@ -182,53 +177,30 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             if (wasRecordingAttempt && parentPath != null) {
-                // This was a GAME ATTEMPT recording.
-                // Reverse the attempt file so it can be played back
+                // This was a GAME ATTEMPT recording
                 val reversedAttemptFile = repository.reverseWavFile(lastRecordingFile)
 
-                android.util.Log.d("AudioViewModel", "Attempt original: ${lastRecordingFile.absolutePath}")
-                android.util.Log.d("AudioViewModel", "Attempt reversed: ${reversedAttemptFile?.absolutePath}")
-
-                // Calculate the score by comparing the parent's reversed file with the attempt
                 val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
                 val score = if (parentRecording?.reversedPath != null) {
                     val parentReversedFile = File(parentRecording.reversedPath)
-                    val attemptOriginalFile = lastRecordingFile
-
-                    android.util.Log.d("AudioViewModel", "=== SCORING DEBUG ===")
-                    android.util.Log.d("AudioViewModel", "Parent reversed: ${parentReversedFile.absolutePath}")
-                    android.util.Log.d("AudioViewModel", "Parent reversed exists: ${parentReversedFile.exists()}")
-                    android.util.Log.d("AudioViewModel", "Parent reversed size: ${parentReversedFile.length()} bytes")
-                    android.util.Log.d("AudioViewModel", "Attempt original: ${attemptOriginalFile.absolutePath}")
-                    android.util.Log.d("AudioViewModel", "Attempt original exists: ${attemptOriginalFile.exists()}")
-                    android.util.Log.d("AudioViewModel", "Attempt original size: ${attemptOriginalFile.length()} bytes")
-
                     val comparer = AudioComparer()
-                    val calculatedScore = comparer.compareAudioFiles(parentReversedFile, attemptOriginalFile)
-
-                    android.util.Log.d("AudioViewModel", "Final score: $calculatedScore%")
-                    android.util.Log.d("AudioViewModel", "===================")
-
-                    calculatedScore
+                    comparer.compareAudioFiles(parentReversedFile, lastRecordingFile)
                 } else {
-                    android.util.Log.d("AudioViewModel", "Parent reversed path is null!")
                     0
                 }
 
-// Calculate next player number based on existing attempts
                 val existingPlayerNumbers = parentRecording?.attempts
                     ?.mapNotNull { it.playerName.removePrefix("Player ").toIntOrNull() }
                     ?.maxOrNull() ?: 0
                 val nextPlayerNumber = existingPlayerNumbers + 1
 
                 val newAttempt = PlayerAttempt(
-                    playerName = "Player $nextPlayerNumber",  // Auto-increment name
+                    playerName = "Player $nextPlayerNumber",
                     attemptFilePath = lastRecordingFile.absolutePath,
                     reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
-                    score = score  // Now 'score' is defined!
+                    score = score
                 )
 
-// Find the parent recording in the current state and add the new attempt to its list
                 val updatedRecordings = _uiState.value.recordings.map { recording ->
                     if (recording.originalPath == parentPath) {
                         recording.copy(attempts = recording.attempts + newAttempt)
@@ -237,29 +209,46 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-// SAVE THE ATTEMPTS TO JSON
                 val attemptsMap = updatedRecordings.associate {
                     it.originalPath to it.attempts
                 }.filterValues { it.isNotEmpty() }
                 attemptsRepository.saveAttempts(attemptsMap)
 
-// Update the UI with the new list of recordings and SET THE RENAME FLAG
+                // Calculate scroll index for the new attempt
+                var scrollIndex = 0
+                for (recording in updatedRecordings) {
+                    scrollIndex++ // Count the parent item
+                    if (recording.originalPath == parentPath) {
+                        // This is our parent, the new attempt is at the end of its attempts list
+                        scrollIndex += recording.attempts.size - 1
+                        break
+                    }
+                    scrollIndex += recording.attempts.size // Count all attempts for other parents
+                }
+
                 _uiState.update {
                     it.copy(
                         recordings = updatedRecordings,
                         statusText = "Attempt Saved!",
-                        attemptToRename = Pair(parentPath, newAttempt)  // ADD THIS LINE
+                        attemptToRename = Pair(parentPath, newAttempt),
+                        scrollToIndex = scrollIndex  // ADD THIS
                     )
                 }
 
             } else {
-                // This was a NORMAL recording, so we reverse it, just like before.
+                // This was a NORMAL recording
                 val reversedFile = repository.reverseWavFile(lastRecordingFile)
-                val newStatus =
-                    if (reversedFile != null) "Reversed successfully!" else "Error: Reversing failed."
-                _uiState.update { it.copy(statusText = newStatus) }
-                // For a normal recording, we DO reload from disk to get the new file.
+                val newStatus = if (reversedFile != null) "Reversed successfully!" else "Error: Reversing failed."
+
                 loadRecordings()
+
+                // Scroll to top (index 0) for new parent recording
+                _uiState.update {
+                    it.copy(
+                        statusText = newStatus,
+                        scrollToIndex = 0  // ADD THIS
+                    )
+                }
             }
         }
     }
@@ -481,6 +470,10 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             settingsDataStore.setTutorialCompleted(true)
             _uiState.update { it.copy(showTutorial = false) }
         }
+    }
+
+    fun clearScrollToIndex() {
+        _uiState.update { it.copy(scrollToIndex = null) }
     }
 
 } // This is the closing brace for the AudioViewModel class

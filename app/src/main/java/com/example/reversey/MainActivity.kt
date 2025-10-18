@@ -1,6 +1,5 @@
 package com.example.reversey
 
-
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
@@ -310,7 +309,7 @@ fun AboutScreen(navController: NavController) {
             ) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Version 4.0.4 ", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 4.0.4.scroll ", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -359,6 +358,47 @@ fun AudioReverserApp(
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
     val listState = rememberLazyListState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()  // ADD THIS LINE
+
+        // AUTO-SCROLL HANDLING - Scroll to show attempt at bottom of viewport and original at the top
+    // AUTO-SCROLL HANDLING
+    LaunchedEffect(uiState.scrollToIndex) {
+        uiState.scrollToIndex?.let { targetIndex ->
+            scope.launch {
+                delay(300)
+
+                if (targetIndex == 0) {
+                    // Always scroll to top for new parent recordings
+                    listState.animateScrollToItem(0)
+                } else {
+                    // For attempts: scroll to show at bottom of viewport
+                    val layoutInfo = listState.layoutInfo
+                    val visibleItems = layoutInfo.visibleItemsInfo
+                    val lastVisibleIndex = visibleItems.lastOrNull()?.index ?: -1
+
+                    // Only scroll if the target is below the visible area
+                    if (targetIndex > lastVisibleIndex) {
+                        // Calculate how many items are visible
+                        val firstVisibleIndex = visibleItems.firstOrNull()?.index ?: 0
+                        val visibleCount = lastVisibleIndex - firstVisibleIndex + 1
+
+                        // Scroll to a position where target item appears at bottom
+                        val scrollToIndex = (targetIndex - visibleCount + 1).coerceAtLeast(0)
+
+                        // Add negative offset to give padding at bottom (prevents cutoff)
+                        listState.animateScrollToItem(
+                            index = scrollToIndex,
+                            scrollOffset = +300  // 100px padding at bottom
+                        )
+                    }
+                }
+
+                viewModel.clearScrollToIndex()
+            }
+        }
+    }
+
+    // Rest of the function continues here...
 
     if (showClearAllDialog) {
         AlertDialog(
