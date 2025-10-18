@@ -1,5 +1,6 @@
 package com.example.reversey
 
+
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
@@ -105,6 +106,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
+import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.ui.theme.ReVerseYTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -160,6 +162,12 @@ fun MainApp(themeViewModel: ThemeViewModel) {
 
     var showClearAllDialog by remember { mutableStateOf(false) }
 
+    // --- ADD THESE THREE LINES ---
+    val context = LocalContext.current
+    val scoringEngine = remember { ScoringEngine(context.applicationContext) }
+    var showDebugPanel by remember { mutableStateOf(false) }
+
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -188,6 +196,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
             composable("settings") {
                 val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
 
+                // --- REPLACE THE OLD SettingsScreen CALL WITH THIS ---
                 SettingsScreen(
                     navController = navController,
                     currentTheme = currentTheme,
@@ -197,9 +206,15 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     isGameModeEnabled = isGameModeEnabled,
                     onGameModeChange = { isEnabled -> themeViewModel.setGameMode(isEnabled) },
                     backupRecordingsEnabled = backupRecordingsEnabled,
-                    onBackupRecordingsChange = { enabled -> themeViewModel.setBackupRecordingsEnabled(enabled) }
+                    onBackupRecordingsChange = { enabled -> themeViewModel.setBackupRecordingsEnabled(enabled) },
+
+                    // Pass the new engine and state down to the settings screen
+                    scoringEngine = scoringEngine,
+                    showDebugPanel = showDebugPanel,
+                    onShowDebugPanelChange = { showDebugPanel = it }
                 )
             }
+
             composable("themes") {
                 ThemeSelectionScreen(navController = navController)
             }
@@ -310,7 +325,7 @@ fun AboutScreen(navController: NavController) {
             ) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Version 4.0.5.waveform 🌊 ", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 5.0.0q.MFCCs.audio_engine_patched 👂🔉 ", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",

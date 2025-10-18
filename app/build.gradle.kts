@@ -38,6 +38,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // This line enables the BuildConfig.DEBUG variable used in SettingsScreen.kt
+        buildConfig = true
     }
 }
 
@@ -64,8 +66,9 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
     implementation(libs.volley)
-    implementation("com.github.wendykierp:JTransforms:3.1")
+    implementation("com.github.wendykierp:JTransforms:3.1")  // For FFT
     implementation("com.google.code.gson:gson:2.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -73,5 +76,9 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // For visualization (optional but recommended)
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+    implementation("be.tarsos.dsp:core:2.5")
+    implementation("be.tarsos.dsp:jvm:2.5")
 
 }

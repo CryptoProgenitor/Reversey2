@@ -1,5 +1,7 @@
 package com.example.reversey
 
+
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +47,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.reversey.scoring.ScoringEngine
+import com.example.reversey.ui.debug.DebugPanel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,7 +62,10 @@ fun SettingsScreen(
     isGameModeEnabled: Boolean,
     onGameModeChange: (Boolean) -> Unit,
     backupRecordingsEnabled: Boolean,
-    onBackupRecordingsChange: (Boolean) -> Unit
+    onBackupRecordingsChange: (Boolean) -> Unit,
+    scoringEngine: ScoringEngine, // <-- ADD THIS //ClaudeGeminiNewCodeV5
+    showDebugPanel: Boolean, // <-- ADD THIS //ClaudeGeminiNewCodeV5
+    onShowDebugPanelChange: (Boolean) -> Unit // <-- ADD THIS //ClaudeGeminiNewCodeV5
 ) {
     val themes = listOf("Purple", "Blue", "Green", "Orange")
     val darkModeOptions = listOf("Light", "Dark", "System")
@@ -316,6 +323,39 @@ fun SettingsScreen(
                         Text("View Tutorial")
                     }
                 }
+
+                // --- ADD THIS NEW ITEM AT THE END OF THE LAZYCOLUMN ---
+                item { //ClaudeGeminiNewCodeV5
+                    // Only show this section in debug builds //ClaudeGeminiNewCodeV5
+                    if (BuildConfig.DEBUG) { //ClaudeGeminiNewCodeV5
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp)) //ClaudeGeminiNewCodeV5
+                        Text( //ClaudeGeminiNewCodeV5
+                            "Developer Options", //ClaudeGeminiNewCodeV5
+                            style = MaterialTheme.typography.titleLarge, //ClaudeGeminiNewCodeV5
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp) //ClaudeGeminiNewCodeV5
+                        ) //ClaudeGeminiNewCodeV5
+                        Card( //ClaudeGeminiNewCodeV5
+                            modifier = Modifier //ClaudeGeminiNewCodeV5
+                                .fillMaxWidth() //ClaudeGeminiNewCodeV5
+                                .padding(horizontal = 16.dp, vertical = 8.dp) //ClaudeGeminiNewCodeV5
+                        ) { //ClaudeGeminiNewCodeV5
+                            Row( //ClaudeGeminiNewCodeV5
+                                modifier = Modifier //ClaudeGeminiNewCodeV5
+                                    .fillMaxWidth() //ClaudeGeminiNewCodeV5
+                                    .clickable { onShowDebugPanelChange(!showDebugPanel) } //ClaudeGeminiNewCodeV5
+                                    .padding(16.dp), //ClaudeGeminiNewCodeV5
+                                horizontalArrangement = Arrangement.SpaceBetween, //ClaudeGeminiNewCodeV5
+                                verticalAlignment = Alignment.CenterVertically //ClaudeGeminiNewCodeV5
+                            ) { //ClaudeGeminiNewCodeV5
+                                Text("Debug Scoring Panel") //ClaudeGeminiNewCodeV5
+                                Switch( //ClaudeGeminiNewCodeV5
+                                    checked = showDebugPanel, //ClaudeGeminiNewCodeV5
+                                    onCheckedChange = onShowDebugPanelChange //ClaudeGeminiNewCodeV5
+                                ) //ClaudeGeminiNewCodeV5
+                            } //ClaudeGeminiNewCodeV5
+                        } //ClaudeGeminiNewCodeV5
+                    } //ClaudeGeminiNewCodeV5
+                } //ClaudeGeminiNewCodeV5
             }
 
             // Scroll glow effects
@@ -349,6 +389,12 @@ fun SettingsScreen(
                         .background(bottomGradient)
                 )
             }
+            // --- ADD THIS AT THE END OF THE COMPOSABLE, AFTER THE LAZYCOLUMN ---
+            DebugPanel( //ClaudeGeminiNewCodeV5
+                scoringEngine = scoringEngine, //ClaudeGeminiNewCodeV5
+                isVisible = showDebugPanel, //ClaudeGeminiNewCodeV5
+                onDismiss = { onShowDebugPanelChange(false) } //ClaudeGeminiNewCodeV5
+            ) //ClaudeGeminiNewCodeV5
         }
     }
 }

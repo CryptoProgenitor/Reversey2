@@ -10,6 +10,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+        maven {
+            name = "TarsosDSP repository"
+            url = uri("https://mvn.0110.be/releases")
+        }
     }
 }
 
