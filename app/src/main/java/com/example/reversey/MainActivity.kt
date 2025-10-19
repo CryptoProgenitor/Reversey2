@@ -1,6 +1,5 @@
 package com.example.reversey
 
-
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
@@ -39,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
@@ -325,7 +325,7 @@ fun AboutScreen(navController: NavController) {
             ) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Version 5.0.1 👂🔉 ", style = MaterialTheme.typography.bodyMedium)
+                Text("Version 5.0.3-JumpToParent", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
@@ -564,7 +564,18 @@ fun AudioReverserApp(
                                         }
                                         context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
                                     },
-                                    theme = aestheticTheme
+                                    theme = aestheticTheme,
+                                    onJumpToParent = {
+                                        scope.launch {
+                                            // Find the parent recording index (always comes before attempts)
+                                            val parentIndex = uiState.recordings.indexOfFirst {
+                                                it.originalPath == recording.originalPath
+                                            }
+                                            if (parentIndex >= 0) {
+                                                listState.animateScrollToItem(parentIndex)
+                                            }
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -1018,7 +1029,8 @@ fun AttemptItem(
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null,
     onDeleteAttempt: ((PlayerAttempt) -> Unit)? = null,
     onShareAttempt: ((String) -> Unit)? = null,
-    theme: AppTheme
+    theme: AppTheme,
+    onJumpToParent: (() -> Unit)? = null,
 ) {
     val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -1070,6 +1082,15 @@ fun AttemptItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            // Jump to parent button (leftmost)
+            IconButton(onClick = { onJumpToParent?.invoke() }) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = "Go to Original",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+
             IconButton(onClick = { showShareDialog = true }) {
                 Icon(
                     imageVector = Icons.Default.Share,

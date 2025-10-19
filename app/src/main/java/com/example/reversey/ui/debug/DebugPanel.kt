@@ -51,27 +51,22 @@ fun DebugPanel(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Text("Weights (must sum to 1.0)", fontWeight = FontWeight.Medium)
+            Text("Pitch vs MFCC Balance", fontWeight = FontWeight.Medium)
 
             ParameterSlider(
-                label = "Pitch Weight",
+                label = "What matters most?\n(left=sounding similar,\nright=hitting notes)",
                 value = parameters.pitchWeight,
-                onValueChange = {
-                    scoringEngine.updateParameters(parameters.copy(pitchWeight = it)); refreshParams()
+                valueRange = 0f..1f,
+                onValueChange = { pitchWeight ->
+                    val mfccWeight = 1f - pitchWeight
+                    scoringEngine.updateParameters(
+                        parameters.copy(
+                            pitchWeight = pitchWeight,
+                            mfccWeight = mfccWeight
+                        )
+                    )
+                    refreshParams()
                 }
-            )
-            ParameterSlider(
-                label = "MFCC (Timbre) Weight",
-                value = parameters.mfccWeight,
-                onValueChange = {
-                    scoringEngine.updateParameters(parameters.copy(mfccWeight = it)); refreshParams()
-                }
-            )
-
-            val totalWeight = parameters.pitchWeight + parameters.mfccWeight
-            Text(
-                "Total Weight: %.2f".format(totalWeight),
-                color = if (abs(totalWeight - 1f) < 0.01f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
