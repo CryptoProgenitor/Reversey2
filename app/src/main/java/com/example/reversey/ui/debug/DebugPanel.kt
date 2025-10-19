@@ -92,9 +92,9 @@ fun DebugPanel(
                 }
             )
             ParameterSlider(
-                label = "DTW Normalization",
+                label = "DTW Normalization\n(lower=stricter on gibberish)",
                 value = parameters.dtwNormalizationFactor,
-                valueRange = 10f..200f,
+                valueRange = 10f..80f,
                 onValueChange = {
                     scoringEngine.updateParameters(parameters.copy(dtwNormalizationFactor = it)); refreshParams()
                 }

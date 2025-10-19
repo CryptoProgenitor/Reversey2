@@ -169,21 +169,54 @@ class ScoringEngine(private val context: Context) {
     private fun calculatePitchVariancePenalty(originalPitches: List<Float>, attemptPitches: List<Float>): Float {
         if (originalPitches.size < 5 || attemptPitches.size < 5) return 1f
 
+        // Debug: Check what the pitch values actually are
+        Log.d("ScoringEngine", "Original pitches sample: ${originalPitches.take(10)}")
+        Log.d("ScoringEngine", "Attempt pitches sample: ${attemptPitches.take(10)}")
+        Log.d("ScoringEngine", "Original range: ${originalPitches.minOrNull()} to ${originalPitches.maxOrNull()}")
+        Log.d("ScoringEngine", "Attempt range: ${attemptPitches.minOrNull()} to ${attemptPitches.maxOrNull()}")
+
+        // rest of your function...
+
         fun calculateVariance(pitches: List<Float>): Float {
-            val activePitches = pitches.filter { it > 0 }
+            val activePitches = pitches.filter { it != 0f }
             if (activePitches.size < 2) return 0f
-            val mean = activePitches.average().toFloat()
-            return activePitches.sumOf { (it - mean).pow(2).toDouble() }.toFloat() / activePitches.size
+
+            Log.d("ScoringEngine", "Active pitches count: ${activePitches.size} / ${pitches.size}")
+
+            // Add outlier filtering
+            val sorted = activePitches.sorted()
+            val q1 = sorted[sorted.size / 4]
+            val q3 = sorted[sorted.size * 3 / 4]
+            val iqr = q3 - q1
+            val lowerBound = q1 - 1.5f * iqr
+            val upperBound = q3 + 1.5f * iqr
+
+            val filteredPitches = activePitches.filter { it in lowerBound..upperBound }
+            Log.d("ScoringEngine", "Filtered outliers: ${activePitches.size} -> ${filteredPitches.size}")
+
+            if (filteredPitches.size < 2) return 0f
+
+            val mean = filteredPitches.average().toFloat()
+            val variance = filteredPitches.sumOf { (it - mean).pow(2).toDouble() }.toFloat() / filteredPitches.size
+
+            Log.d("ScoringEngine", "First 5 pitches: ${activePitches.take(5)}")
+            Log.d("ScoringEngine", "Mean: $mean, Raw variance: $variance")
+            return variance
         }
 
         val originalVariance = calculateVariance(originalPitches)
         val attemptVariance = calculateVariance(attemptPitches)
-        Log.d("ScoringEngine", String.format("Pitch Variance: Original=%.2f, Attempt=%.2f", originalVariance, attemptVariance))
+        Log.d("ScoringEngine", String.format("Pitch Variance: Original=%.6f, Attempt=%.6f", originalVariance, attemptVariance))
 
-        if (originalVariance > 0.5f && attemptVariance < (originalVariance * 0.3f)) {
-            val ratio = if(originalVariance > 0) attemptVariance / originalVariance else 0f
-            return (1f - parameters.variancePenalty * (1f - ratio)).coerceIn(0.1f, 1f)
+        // NEW LOGIC: Penalize DIFFERENCE in variance, not low variance
+        val varianceRatio = when {
+            originalVariance < 0.15f && attemptVariance < 0.15f -> 1f  // Both flat = OK
+            originalVariance < 0.05f || attemptVariance < 0.05f -> 0.5f  // One truly flat = bad
+            else -> minOf(attemptVariance / originalVariance, originalVariance / attemptVariance)
         }
+        //EDITS HERE!!!
+        // Apply penalty based on the variance penalty parameter
+        // Temporarily disable variance penalty
         return 1f
     }
 
@@ -255,20 +288,20 @@ class ScoringEngine(private val context: Context) {
     }
 
     private fun loadParameters() {
+        val defaults = ScoringParameters()
         parameters = ScoringParameters(
-            // --- CALIBRATION: Shifted default weight towards MFCC ---
-            pitchWeight = prefs.getFloat("pitchWeight", 0.5f),      // OLD: 0.6f
-            mfccWeight = prefs.getFloat("mfccWeight", 0.5f),        // OLD: 0.4f
-            pitchTolerance = prefs.getFloat("pitchTolerance", 1.5f),
-            pitchContourWeight = prefs.getFloat("pitchContourWeight", 0.8f),
-            variancePenalty = prefs.getFloat("variancePenalty", 0.5f),
-            dtwNormalizationFactor = prefs.getFloat("dtwNormalizationFactor", 40f),
-            silenceThreshold = prefs.getFloat("silenceThreshold", 0.02f),
-            minScoreThreshold = prefs.getFloat("minScoreThreshold", 0.35f),
-            perfectScoreThreshold = prefs.getFloat("perfectScoreThreshold", 0.85f),
-            scoreCurve = prefs.getFloat("scoreCurve", 1.2f),
-            consistencyBonus = prefs.getFloat("consistencyBonus", 0.05f),
-            confidenceBonus = prefs.getFloat("confidenceBonus", 0.05f)
+            pitchWeight = prefs.getFloat("pitchWeight", defaults.pitchWeight),
+            mfccWeight = prefs.getFloat("mfccWeight", defaults.mfccWeight),
+            pitchTolerance = prefs.getFloat("pitchTolerance", defaults.pitchTolerance),
+            pitchContourWeight = prefs.getFloat("pitchContourWeight", defaults.pitchContourWeight),
+            variancePenalty = prefs.getFloat("variancePenalty", defaults.variancePenalty),
+            dtwNormalizationFactor = prefs.getFloat("dtwNormalizationFactor", defaults.dtwNormalizationFactor),
+            silenceThreshold = prefs.getFloat("silenceThreshold", defaults.silenceThreshold),
+            minScoreThreshold = prefs.getFloat("minScoreThreshold", defaults.minScoreThreshold),
+            perfectScoreThreshold = prefs.getFloat("perfectScoreThreshold", defaults.perfectScoreThreshold),
+            scoreCurve = prefs.getFloat("scoreCurve", defaults.scoreCurve),
+            consistencyBonus = prefs.getFloat("consistencyBonus", defaults.consistencyBonus),
+            confidenceBonus = prefs.getFloat("confidenceBonus", defaults.confidenceBonus)
         )
     }
 }
