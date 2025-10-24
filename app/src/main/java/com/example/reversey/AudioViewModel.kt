@@ -103,6 +103,12 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startRecording() {
+        // --- ADD THIS GUARD ---
+        if (uiState.value.isRecording || recordingJob != null) {
+            Log.w("AudioViewModel", "Refusing to start new recording while one is active.")
+            return
+        }
+        // --- END GUARD ---
         _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
         val file = createAudioFile(getApplication(), isAttempt = false)
         recordingJob = viewModelScope.launch(Dispatchers.IO) {
@@ -116,6 +122,12 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startAttemptRecording(recording: Recording, challengeType: ChallengeType) {
+        // --- ADD THIS GUARD ---
+        if (uiState.value.isRecording || recordingJob != null) {
+            Log.w("AudioViewModel", "Refusing to start new recording while one is active.")
+            return
+        }
+        // --- END GUARD ---
         _uiState.update {
             it.copy(
                 isRecordingAttempt = true,
