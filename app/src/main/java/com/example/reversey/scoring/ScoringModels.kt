@@ -32,6 +32,7 @@ data class ScoringParameters(
     var intensityPenaltyMultiplier: Float = 0.2f  // Harsh penalty factor was 0.3
 )
 
+
 data class ScoringResult(
     val score: Int,           // 0-100
     val rawScore: Float,      // 0-1
@@ -42,4 +43,26 @@ data class ScoringResult(
 data class SimilarityMetrics(
     val pitch: Float,
     val mfcc: Float
+)
+
+/**
+ * Represents the melodic "DNA" of an audio recording
+ */
+data class MelodySignature(
+    val pitchContour: List<Float>,       // Relative pitch changes (semitones)
+    val intervalSequence: List<Float>,   // Musical intervals between notes
+    val phraseBreaks: List<Int>,         // Indices where melodic phrases end
+    val rhythmPattern: List<Float>,      // Duration ratios between vocal segments
+    val vocalDensity: Float             // Percentage of audio that contains voice
+)
+
+/**
+ * Content similarity metrics for debugging
+ */
+data class ContentMetrics(
+    val contourSimilarity: Float,        // How similar are the melody shapes
+    val intervalSimilarity: Float,       // How similar are the musical intervals
+    val phraseSimilarity: Float,         // How similar are the phrase structures
+    val rhythmSimilarity: Float,         // How similar are the timing patterns
+    val overallContentScore: Float       // Combined content similarity score
 )

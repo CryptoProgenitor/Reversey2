@@ -154,14 +154,98 @@ class ScoringEngine(private val context: Context) {
         Log.d("ScoringEngine", "--- PITCH ANALYSIS ---")
         Log.d("ScoringEngine", String.format("Absolute Similarity: %.3f", absoluteSimilarity))
 
-        Log.d("ScoringEngine", "🔍 ABOUT TO CALL: calculateTemporalSimilarity")
-        val contentSimilarity = calculateVocalEffortSimilarity(originalPitches, attemptPitches)
-        Log.d("ScoringEngine", "🔍 RETURNED FROM: calculateTemporalSimilarity with result: $contentSimilarity")
+        Log.d("ScoringEngine", "🔍 EXTRACTING MELODY SIGNATURES")
+        val originalSignature = extractMelodySignature(originalPitches)
+        val attemptSignature = extractMelodySignature(attemptPitches)
+
+// NEW: Melodic Requirement Analysis
+        val originalMelodicVariation = calculateMelodicVariation(originalPitches)
+        val attemptMelodicVariation = calculateMelodicVariation(attemptPitches)
+
+        Log.d("ScoringEngine", "🎵 MELODIC VARIATION ANALYSIS")
+        Log.d("ScoringEngine", "Original melodic variation: ${String.format("%.3f", originalMelodicVariation)}")
+        Log.d("ScoringEngine", "Attempt melodic variation: ${String.format("%.3f", attemptMelodicVariation)}")
+
+        Log.d("ScoringEngine", "🔍 CALCULATING CONTENT SIMILARITY")
+        val baseContentMetrics = calculateContentSimilarity(originalSignature, attemptSignature)
+
+
+        // NEW: Content-Aware Melodic Penalty System
+        val contentIndicators = listOf(
+            baseContentMetrics.contourSimilarity,
+            baseContentMetrics.intervalSimilarity,
+            baseContentMetrics.phraseSimilarity,
+            baseContentMetrics.rhythmSimilarity
+        )
+        val bestContentScore = contentIndicators.maxOrNull() ?: 0f
+        val avgContentScore = contentIndicators.average().toFloat()
+
+        val melodicRequirementPenalty = when {
+            // CONTENT SEEMS RIGHT: Apply light melody-only penalties
+            bestContentScore > 0.35f || avgContentScore > 0.25f -> { // was bestContentScore > 0.5f || avgContentScore > 0.4f
+                when {
+                    originalMelodicVariation > 0.6f && attemptMelodicVariation < 0.3f -> {
+                        Log.d("ScoringEngine", "📝 RIGHT CONTENT, FLAT DELIVERY: Light penalty (words correct, needs melody)")
+                        0.2f // 20% penalty - you got the content, just sing it more!
+                    }
+                    originalMelodicVariation > 0.4f && attemptMelodicVariation < 0.5f -> {
+                        Log.d("ScoringEngine", "🎵 RIGHT CONTENT, DIFFERENT MELODY: Minor penalty (words right, melody different)")
+                        0.1f // 10% penalty - content right, melody just different style
+                    }
+                    else -> {
+                        Log.d("ScoringEngine", "✅ RIGHT CONTENT, GOOD MELODY: No penalty")
+                        0f
+                    }
+                }
+            }
+            // CONTENT SEEMS WRONG: Apply harsh penalties
+            originalMelodicVariation > 0.6f && attemptMelodicVariation < 0.3f -> {
+                Log.d("ScoringEngine", "🚨 WRONG CONTENT + FLAT DELIVERY: Severe penalty")
+                0.75f // 75% penalty (was 60%)
+            }
+            originalMelodicVariation > 0.4f && attemptMelodicVariation < 0.5f -> {
+                Log.d("ScoringEngine", "❌ WRONG CONTENT + INSUFFICIENT MELODY: Heavy penalty")
+                0.6f // 60% penalty (was 40%)
+            }
+            else -> {
+                Log.d("ScoringEngine", "❌ WRONG CONTENT: Standard penalty for wrong words")
+                0.5f // 50% penalty for any wrong content attempt
+            }
+        }
+
+        Log.d("ScoringEngine", "🧠 CONTENT ANALYSIS: Best=${String.format("%.3f", bestContentScore)}, Avg=${String.format("%.3f", avgContentScore)}")
+
+// Apply penalty to content metrics
+        val contentMetrics = ContentMetrics(
+            contourSimilarity = baseContentMetrics.contourSimilarity,
+            intervalSimilarity = baseContentMetrics.intervalSimilarity,
+            phraseSimilarity = baseContentMetrics.phraseSimilarity,
+            rhythmSimilarity = baseContentMetrics.rhythmSimilarity,
+            overallContentScore = (baseContentMetrics.overallContentScore * (1f - melodicRequirementPenalty)).coerceIn(0f, 1f)
+        )
+
+        Log.d("ScoringEngine", "📊 MELODIC PENALTY: Base=${String.format("%.3f", baseContentMetrics.overallContentScore)}, Penalty=${String.format("%.1f", melodicRequirementPenalty * 100)}%, Final=${String.format("%.3f", contentMetrics.overallContentScore)}")
+
+        Log.d("ScoringEngine", "🔍 CALCULATING VOCAL EFFORT SIMILARITY (for comparison)")
+        val vocalEffortSimilarity = calculateVocalEffortSimilarity(originalPitches, attemptPitches)
+
+// Combine melody signature content with vocal effort (weighted)
+        val hybridContentScore = (contentMetrics.overallContentScore * 0.7f) + (vocalEffortSimilarity * 0.3f)
+
         Log.d("ScoringEngine", "--- PITCH ANALYSIS ---")
         Log.d("ScoringEngine", String.format("Absolute Similarity: %.3f", absoluteSimilarity))
-        Log.d("ScoringEngine", String.format("Content Similarity: %.3f", contentSimilarity))
-        Log.d("ScoringEngine", String.format("Final Pitch Score: %.3f", contentSimilarity))
-        return contentSimilarity
+        Log.d("ScoringEngine", String.format("Content Similarity (Melody): %.3f", contentMetrics.overallContentScore))
+        Log.d("ScoringEngine", String.format("Content Similarity (Vocal Effort): %.3f", vocalEffortSimilarity))
+        Log.d("ScoringEngine", String.format("Hybrid Content Score: %.3f", hybridContentScore))
+        Log.d("ScoringEngine", String.format("Final Pitch Score: %.3f", hybridContentScore))
+
+        Log.d("ScoringEngine", "--- DETAILED CONTENT METRICS ---")
+        Log.d("ScoringEngine", String.format("Contour Similarity: %.3f", contentMetrics.contourSimilarity))
+        Log.d("ScoringEngine", String.format("Interval Similarity: %.3f", contentMetrics.intervalSimilarity))
+        Log.d("ScoringEngine", String.format("Phrase Similarity: %.3f", contentMetrics.phraseSimilarity))
+        Log.d("ScoringEngine", String.format("Rhythm Similarity: %.3f", contentMetrics.rhythmSimilarity))
+
+        return hybridContentScore
     }
 
     private fun calculatePitchVariance(pitches: List<Float>): Float {
@@ -339,6 +423,241 @@ class ScoringEngine(private val context: Context) {
         return segments
     }
     //END private fun extractVocalSegments
+
+    // START: Melody Signature Extraction Functions
+    private fun extractMelodySignature(pitches: List<Float>): MelodySignature {
+        Log.d("ScoringEngine", "🎵 Extracting melody signature from ${pitches.size} pitch frames")
+
+        // 1. Extract pitch contour (relative changes)
+        val pitchContour = extractPitchContour(pitches)
+        Log.d("ScoringEngine", "Pitch contour: ${pitchContour.take(10)}")
+
+        // 2. Calculate musical intervals
+        val intervalSequence = extractIntervalSequence(pitches)
+        Log.d("ScoringEngine", "Intervals: ${intervalSequence.take(10)}")
+
+        // 3. Detect phrase breaks
+        val phraseBreaks = detectPhraseBreaks(pitches)
+        Log.d("ScoringEngine", "Phrase breaks at indices: $phraseBreaks")
+
+        // 4. Extract rhythm pattern
+        val rhythmPattern = extractRhythmPattern(pitches)
+        Log.d("ScoringEngine", "Rhythm pattern: $rhythmPattern")
+
+        // 5. Calculate vocal density
+        val vocalDensity = pitches.count { it != 0f }.toFloat() / pitches.size
+        Log.d("ScoringEngine", "Vocal density: $vocalDensity")
+
+        return MelodySignature(
+            pitchContour = pitchContour,
+            intervalSequence = intervalSequence,
+            phraseBreaks = phraseBreaks,
+            rhythmPattern = rhythmPattern,
+            vocalDensity = vocalDensity
+        )
+    }
+
+
+    private fun extractPitchContour(pitches: List<Float>): List<Float> {
+        val activePitches = pitches.filter { it != 0f }
+        if (activePitches.size < 2) return emptyList()
+
+        // Convert to relative pitch changes (normalized to semitones)
+        return activePitches.zipWithNext { current, next ->
+            val change = next - current
+            // Clamp large jumps to prevent octave errors from dominating
+            change.coerceIn(-12f, 12f)
+        }
+    }
+
+    private fun extractIntervalSequence(pitches: List<Float>): List<Float> {
+        val activePitches = pitches.filter { it != 0f }
+        if (activePitches.size < 2) return emptyList()
+
+        // Calculate musical intervals between consecutive notes
+        return activePitches.zipWithNext { current, next ->
+            abs(next - current) // Absolute interval size (ignore direction)
+        }.filter { it > 0.5f } // Ignore micro-variations, focus on real melodic movement
+    }
+
+    private fun detectPhraseBreaks(pitches: List<Float>): List<Int> {
+        val phraseBreaks = mutableListOf<Int>()
+        var silenceCount = 0
+        val phraseBreakThreshold = 8 // Frames of silence to indicate phrase boundary
+
+        for (i in pitches.indices) {
+            if (pitches[i] == 0f) {
+                silenceCount++
+            } else {
+                if (silenceCount >= phraseBreakThreshold) {
+                    phraseBreaks.add(i) // Mark end of silence as phrase break
+                }
+                silenceCount = 0
+            }
+        }
+
+        return phraseBreaks
+    }
+
+    private fun extractRhythmPattern(pitches: List<Float>): List<Float> {
+        val segments = extractVocalSegments(pitches)
+        if (segments.size < 2) return emptyList()
+
+        // Calculate duration ratios between consecutive segments
+        val durations = segments.map { (start, end) -> (end - start + 1).toFloat() }
+
+        return durations.zipWithNext { current, next ->
+            if (current > 0) next / current else 1f
+        }.map { it.coerceIn(0.1f, 10f) } // Clamp extreme ratios
+    }
+// END: Melody Signature Extraction Functions
+
+    // START: Content Similarity Comparison Functions
+    private fun calculateContentSimilarity(
+        originalSignature: MelodySignature,
+        attemptSignature: MelodySignature
+    ): ContentMetrics {
+        Log.d("ScoringEngine", "🎯 Calculating content similarity between melody signatures")
+
+        // 1. Compare pitch contours (melody shape)
+        val contourSim = comparePitchContours(originalSignature.pitchContour, attemptSignature.pitchContour)
+        Log.d("ScoringEngine", "Contour similarity: $contourSim")
+
+        // 2. Compare musical intervals
+        val intervalSim = compareIntervalSequences(originalSignature.intervalSequence, attemptSignature.intervalSequence)
+        Log.d("ScoringEngine", "Interval similarity: $intervalSim")
+
+        // 3. Compare phrase structures
+        val phraseSim = comparePhraseStructures(originalSignature.phraseBreaks, attemptSignature.phraseBreaks)
+        Log.d("ScoringEngine", "Phrase similarity: $phraseSim")
+
+        // 4. Compare rhythm patterns
+        val rhythmSim = compareMelodyRhythms(originalSignature.rhythmPattern, attemptSignature.rhythmPattern)
+        Log.d("ScoringEngine", "Rhythm similarity: $rhythmSim")
+
+        // 5. Calculate weighted overall content score
+        val overallScore = (contourSim * 0.1f + intervalSim * 0.8f + phraseSim * 0.05f + rhythmSim * 0.05f)
+        Log.d("ScoringEngine", "Overall content score: $overallScore")
+
+        return ContentMetrics(
+            contourSimilarity = contourSim,
+            intervalSimilarity = intervalSim,
+            phraseSimilarity = phraseSim,
+            rhythmSimilarity = rhythmSim,
+            overallContentScore = overallScore
+        )
+    }
+
+    private fun comparePitchContours(contour1: List<Float>, contour2: List<Float>): Float {
+        if (contour1.isEmpty() || contour2.isEmpty()) return 0f
+
+        // Use Dynamic Time Warping on the contours to handle timing differences
+        val minLength = min(contour1.size, contour2.size)
+        val maxLength = max(contour1.size, contour2.size)
+
+        // If length difference is too extreme, penalize heavily
+        if (minLength.toFloat() / maxLength < 0.5f) return 0.2f
+
+        // Compare corresponding points with tolerance for small differences
+        val similarities = (0 until minLength).map { i ->
+            val diff = abs(contour1[i] - contour2[i])
+            exp(-diff / 3f) // Exponential decay for differences
+        }
+
+        return similarities.average().toFloat()
+    }
+
+    /**
+     * Detects if an attempt has sufficient melodic variation for a melodic challenge
+     * @param pitches The pitch sequence to analyze
+     * @return Float between 0.0 (completely flat) and 1.0 (highly melodic)
+     */
+    private fun calculateMelodicVariation(pitches: List<Float>): Float {
+        val vocalPitches = pitches.filter { it != 0f }
+        if (vocalPitches.size < 3) return 0f
+
+        // 1. Calculate pitch range (how much the voice moves up/down)
+        val pitchRange = vocalPitches.maxOrNull()!! - vocalPitches.minOrNull()!!
+        val rangeScore = (pitchRange / 12f).coerceAtMost(1f) // 12 semitones = full melodic range
+
+        // 2. Calculate pitch transitions (how often pitch changes)
+        var transitions = 0
+        for (i in 1 until vocalPitches.size) {
+            if (abs(vocalPitches[i] - vocalPitches[i-1]) > 0.5f) { // 0.5 semitone threshold
+                transitions++
+            }
+        }
+        val transitionScore = (transitions.toFloat() / vocalPitches.size).coerceAtMost(1f)
+
+        // 3. Calculate pitch variance (how much variation exists)
+        val variance = calculatePitchVariance(pitches)
+        val varianceScore = (variance / 10f).coerceAtMost(1f) // 10 is reasonably melodic
+
+        // Weighted combination - all three factors must be present for melodic singing
+        return (rangeScore * 0.4f + transitionScore * 0.35f + varianceScore * 0.25f).coerceIn(0f, 1f)
+    }
+
+    private fun compareIntervalSequences(intervals1: List<Float>, intervals2: List<Float>): Float {
+        if (intervals1.isEmpty() || intervals2.isEmpty()) return 0f
+
+        val minLength = min(intervals1.size, intervals2.size)
+        if (minLength == 0) return 0f
+
+        // Compare musical intervals with tolerance for microtonal differences
+        val similarities = (0 until minLength).map { i ->
+            val diff = abs(intervals1[i] - intervals2[i])
+            when {
+                diff < 0.5f -> 1f      // Essentially same interval
+                diff < 1f -> 0.8f      // Close interval
+                diff < 2f -> 0.5f      // Somewhat similar
+                else -> 0.1f           // Very different interval
+            }
+        }
+
+        return similarities.average().toFloat()
+    }
+
+    private fun comparePhraseStructures(phrases1: List<Int>, phrases2: List<Int>): Float {
+        // If both have no phrases, they're similar in structure
+        if (phrases1.isEmpty() && phrases2.isEmpty()) return 1f
+        if (phrases1.isEmpty() || phrases2.isEmpty()) return 0.3f
+
+        // Compare number of phrases (phrase count similarity)
+        val countSimilarity = min(phrases1.size, phrases2.size).toFloat() / max(phrases1.size, phrases2.size)
+
+        // If phrase counts are very different, return early with low score
+        if (countSimilarity < 0.5f) return countSimilarity * 0.5f
+
+        // Compare relative phrase positions (normalized)
+        val normalizedPhrases1 = if (phrases1.isNotEmpty()) phrases1.map { it.toFloat() / phrases1.maxOrNull()!! } else emptyList()
+        val normalizedPhrases2 = if (phrases2.isNotEmpty()) phrases2.map { it.toFloat() / phrases2.maxOrNull()!! } else emptyList()
+
+        val minPhrases = min(normalizedPhrases1.size, normalizedPhrases2.size)
+        val positionSimilarity = if (minPhrases > 0) {
+            (0 until minPhrases).map { i ->
+                1f - abs(normalizedPhrases1[i] - normalizedPhrases2[i])
+            }.average().toFloat()
+        } else 1f
+
+        return (countSimilarity + positionSimilarity) / 2f
+    }
+
+    private fun compareMelodyRhythms(rhythm1: List<Float>, rhythm2: List<Float>): Float {
+        if (rhythm1.isEmpty() && rhythm2.isEmpty()) return 1f
+        if (rhythm1.isEmpty() || rhythm2.isEmpty()) return 0.2f
+
+        val minLength = min(rhythm1.size, rhythm2.size)
+        if (minLength == 0) return 0f
+
+        // Compare rhythm ratios with tolerance
+        val similarities = (0 until minLength).map { i ->
+            val ratio = min(rhythm1[i], rhythm2[i]) / max(rhythm1[i], rhythm2[i])
+            ratio.pow(0.5f) // Less harsh penalty for rhythm differences
+        }
+
+        return similarities.average().toFloat()
+    }
+// END: Content Similarity Comparison Functions
 
     private fun calculateRhythmPattern(segments: List<Pair<Int, Int>>): List<Int> {
         return segments.map { (start, end) -> end - start + 1 } // Duration of each segment
