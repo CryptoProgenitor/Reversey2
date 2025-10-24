@@ -17,6 +17,7 @@ import kotlin.experimental.and
 
 class RecordingRepository(private val context: Context) {
 
+
     suspend fun loadRecordings(): List<Recording> = withContext(Dispatchers.IO) {
         val dir = getRecordingsDir(context)
         val originalFiles = dir.listFiles { _, name -> name.endsWith(".wav") && !name.contains("_reversed") } ?: emptyArray()
@@ -26,10 +27,12 @@ class RecordingRepository(private val context: Context) {
             .mapNotNull { file ->
                 try {
                     val reversedFile = File(dir, file.name.replace(".wav", "_reversed.wav"))
+
                     Recording(
                         name = formatFileName(file.name),
                         originalPath = file.absolutePath,
-                        reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null
+                        reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null,
+                        attempts = emptyList() // Attempts will be loaded and merged in ViewModel
                     )
                 } catch (_: Exception) {
                     null // Skip invalid files
@@ -130,6 +133,7 @@ class RecordingRepository(private val context: Context) {
             addWavHeader(file)
         }
     }
+
 
     suspend fun reverseWavFile(originalFile: File?): File? = withContext(Dispatchers.IO) {
         if (originalFile == null || !originalFile.exists() || originalFile.length() < 44) {

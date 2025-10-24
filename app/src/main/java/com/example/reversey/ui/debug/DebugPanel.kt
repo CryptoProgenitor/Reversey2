@@ -51,7 +51,7 @@ fun DebugPanel(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Text("Pitch vs MFCC Balance", fontWeight = FontWeight.Medium)
+            Text("Pitch Weight/n(vs MFCC Weight)", fontWeight = FontWeight.Medium)
 
             ParameterSlider(
                 label = "What matters most?\n(left=sounding similar,\nright=hitting notes)",
@@ -73,13 +73,6 @@ fun DebugPanel(
 
             Text("Pitch Analysis", fontWeight = FontWeight.Medium)
             ParameterSlider(
-                label = "Pitch Contour Weight",
-                value = parameters.pitchContourWeight,
-                onValueChange = {
-                    scoringEngine.updateParameters(parameters.copy(pitchContourWeight = it)); refreshParams()
-                }
-            )
-            ParameterSlider(
                 label = "Variance Penalty",
                 value = parameters.variancePenalty,
                 onValueChange = {
@@ -95,9 +88,10 @@ fun DebugPanel(
                 }
             )
             ParameterSlider(
-                label = "Pitch Tolerance (semitones)",
+                label = "Pitch Tolerance (semitones)\n(higher=more forgiving\n" +
+                        "to voice differences)",
                 value = parameters.pitchTolerance,
-                valueRange = 0.5f..5f,
+                valueRange = 0.5f..13f,
                 onValueChange = {
                     scoringEngine.updateParameters(parameters.copy(pitchTolerance = it)); refreshParams()
                 }
@@ -114,6 +108,52 @@ fun DebugPanel(
                     scoringEngine.updateParameters(parameters.copy(silenceThreshold = it)); refreshParams()
                 }
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Text("Vocal Effort Similarity", fontWeight = FontWeight.Medium)
+            ParameterSlider(
+                label = "Effort Weight\n(vocal density similarity)",
+                value = parameters.effortWeight,
+                onValueChange = {
+                    scoringEngine.updateParameters(parameters.copy(effortWeight = it)); refreshParams()
+                }
+            )
+            ParameterSlider(
+                label = "Intensity Weight\n(pitch variation similarity)",
+                value = parameters.intensityWeight,
+                onValueChange = {
+                    scoringEngine.updateParameters(parameters.copy(intensityWeight = it)); refreshParams()
+                }
+            )
+            ParameterSlider(
+                label = "Range Weight\n(pitch range similarity)",
+                value = parameters.rangeWeight,
+                onValueChange = {
+                    scoringEngine.updateParameters(parameters.copy(rangeWeight = it)); refreshParams()
+                }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Text("Wrong Content Penalty", fontWeight = FontWeight.Medium)
+            ParameterSlider(
+                label = "Intensity Penalty Threshold\n(below this triggers penalty)",
+                value = parameters.intensityPenaltyThreshold,
+                valueRange = 0f..0.5f,
+                onValueChange = {
+                    scoringEngine.updateParameters(parameters.copy(intensityPenaltyThreshold = it)); refreshParams()
+                }
+            )
+            ParameterSlider(
+                label = "Intensity Penalty Multiplier\n(harsh penalty factor)",
+                value = parameters.intensityPenaltyMultiplier,
+                valueRange = 0.1f..1f,
+                onValueChange = {
+                    scoringEngine.updateParameters(parameters.copy(intensityPenaltyMultiplier = it)); refreshParams()
+                }
+            )
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             Text("Score Scaling", fontWeight = FontWeight.Medium)

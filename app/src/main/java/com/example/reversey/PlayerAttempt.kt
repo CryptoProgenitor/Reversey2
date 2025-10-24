@@ -15,5 +15,6 @@ data class PlayerAttempt(
     val playerName: String,
     val attemptFilePath: String,
     val reversedAttemptFilePath: String? = null,
-    val score: Int = 0 // Default score to 0 until it's calculated
+    val score: Int = 0, // Default score to 0 until it's calculated
+    val challengeType: ChallengeType // <-- ADD THIS LINE
 )

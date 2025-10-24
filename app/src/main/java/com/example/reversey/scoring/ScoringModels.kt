@@ -1,27 +1,35 @@
 package com.example.reversey.scoring
 
 data class ScoringParameters(
-    // --- NEW SIMPLIFIED WEIGHTS ---
-    var pitchWeight: Float = 0.85f, //was 0.6f
-    var mfccWeight: Float = 0.15f, //was 0.4f
+    // --- PITCH-FOCUSED WEIGHTS (since pitch is more important than timbre) ---
+    var pitchWeight: Float = 0.85f,    // Content similarity - DOMINANT
+    var mfccWeight: Float = 0.15f,     // Voice similarity - MINIMAL
 
-    // Pitch analysis parameters
-    var pitchTolerance: Float = 1.5f,        // semitones
-    var pitchContourWeight: Float = 0.7f,    // 0-1 range, how much to prioritise melodic shape
-    var variancePenalty: Float = 0.5f,       // 0-1 range, penalty for unnaturally flat tones
-    var dtwNormalizationFactor: Float = 15f,  //  from 20f Lower is stricter on gibberish
+    // Pitch analysis parameters - MODERATELY STRICT
+    var pitchTolerance: Float = 15f,              // was 10f - wider pitch tolerance
+    var variancePenalty: Float = 0.5f,       // unchanged
+    var dtwNormalizationFactor: Float = 35f,     // was 25f - more forgiving DTW
 
     // Detection
-    var silenceThreshold: Float = 0.01f,     // RMS level below which audio is considered silent - was 0.02f
+    var silenceThreshold: Float = 0.01f,     // unchanged
 
-    // Score scaling
-    var minScoreThreshold: Float = 0.47f,  // from 0.42f ##
-    var perfectScoreThreshold: Float = 0.85f,
-    var scoreCurve: Float = 2.3f,  // Down from 1.2f
+    // Score scaling - MORE FORGIVING
+    var minScoreThreshold: Float = 0.20f,    // was 0.35f - much lower minimum
+    var perfectScoreThreshold: Float = 0.80f, // was 0.85f - slightly easier to get perfect
+    var scoreCurve: Float = 2.0f,                 // was 1.8f - MORE generous scaling
 
-    // Bonuses (de-emphasized, keep them small)
+    // Bonuses (keep small)
     var consistencyBonus: Float = 0.05f,
-    var confidenceBonus: Float = 0.05f
+    var confidenceBonus: Float = 0.05f,
+
+    // Vocal effort similarity weights
+    var effortWeight: Float = 0.35f,           // Vocal density similarity was 0.4
+    var intensityWeight: Float = 0.45f,        // Pitch variation similarity was 0.4
+    var rangeWeight: Float = 0.2f,            // Pitch range similarity
+
+    // Intensity penalty for wrong content
+    var intensityPenaltyThreshold: Float = 0.15f,  // Below this triggers penalty
+    var intensityPenaltyMultiplier: Float = 0.2f  // Harsh penalty factor was 0.3
 )
 
 data class ScoringResult(
@@ -32,8 +40,6 @@ data class ScoringResult(
 )
 
 data class SimilarityMetrics(
-    // --- NEW SIMPLIFIED METRICS ---
     val pitch: Float,
     val mfcc: Float
 )
-

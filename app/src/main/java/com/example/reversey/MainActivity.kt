@@ -1,10 +1,12 @@
 package com.example.reversey
 
+
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -47,6 +49,7 @@ import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -120,6 +123,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import androidx.compose.ui.res.painterResource // <-- ADD or VERIFY this import
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -325,8 +329,14 @@ fun AboutScreen(navController: NavController) {
             ) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Version 5.0.3-JumpToParent", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "Version 7.1.2_option3",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
                 Spacer(modifier = Modifier.height(16.dp))
+
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
                     textAlign = TextAlign.Center,
@@ -461,7 +471,7 @@ fun AudioReverserApp(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(16.dp),
+                    .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -515,7 +525,9 @@ fun AudioReverserApp(
                             item(key = "parent_${recording.originalPath}") {
                                 RecordingItem(
                                     recording = recording,
-                                    isPlaying = uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath,
+                                    isPlaying = uiState.currentlyPlayingPath != null &&
+                                            (uiState.currentlyPlayingPath == recording.originalPath ||
+                                                    uiState.currentlyPlayingPath == recording.reversedPath),
                                     isPaused = uiState.isPaused,
                                     progress = if (uiState.currentlyPlayingPath == recording.originalPath || uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
                                     onPlay = { path: String -> viewModel.play(path) },
@@ -532,7 +544,9 @@ fun AudioReverserApp(
                                     },
                                     onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
                                     isGameModeEnabled = isGameModeEnabled,
-                                    onStartAttempt = { rec: Recording -> viewModel.startAttemptRecording(rec) },
+                                    onStartAttempt = { rec: Recording, type: ChallengeType ->
+                                        viewModel.startAttemptRecording(rec, type)
+                                    },
                                     theme = aestheticTheme
                                 )
                             }
@@ -646,8 +660,6 @@ fun AudioReverserApp(
     }  // ← This closes the outer Box
 }  // ← This closes the AudioReverserApp function
 
-
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecordingItem(
@@ -661,7 +673,7 @@ fun RecordingItem(
     onShare: (String) -> Unit,
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
-    onStartAttempt: (Recording) -> Unit,
+    onStartAttempt: (Recording, ChallengeType) -> Unit,
     theme: AppTheme
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -777,20 +789,62 @@ fun RecordingItem(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // REPLACE IT WITH THIS NEW BLOCK:
                     if (isGameModeEnabled) {
+                        // FORWARD Challenge Button
                         Button(
-                            onClick = { onStartAttempt(recording) },
+                            onClick = { onStartAttempt(recording, ChallengeType.FORWARD) },
+                            shape = CircleShape,
+                            modifier = Modifier.size(50.dp),
+                            contentPadding = PaddingValues(0.dp), // Keep padding tight
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center // Center content vertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = null, // Description is now on Text
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp) // Explicit size for icon
+                                )
+                                Text(
+                                    text = "FWD",
+                                    color = Color.White,
+                                    fontSize = 10.sp, // Small font size
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // REVERSE Challenge Button
+                        Button(
+                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
                             shape = CircleShape,
                             modifier = Modifier.size(50.dp),
                             contentPadding = PaddingValues(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Sing Along",
-                                tint = Color.White
-                            )
-                        }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center // Center content vertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = null, // Description is now on Text
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp) // Explicit size for icon
+                                )//close icon
+                                Text(
+                                    text = "REV",
+                                    color = Color.White,
+                                    fontSize = 10.sp, // Small font size
+                                    fontWeight = FontWeight.Bold
+                                )//close text
+                            }//close column
+                        }//close button
                     }
                     IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(
@@ -1051,16 +1105,37 @@ fun AttemptItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = attempt.playerName,
-                style = MaterialTheme.typography.bodyLarge,
-                color = theme.textPrimary,
-                modifier = Modifier.clickable { showRenameDialog = true }
-            )
+            // This new inner Row groups the icon and name
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .weight(1f) // Allow this side to grow
+                    .clickable { showRenameDialog = true }
+            ) {
+                // Add the challenge type icon
+                val challengeIcon = if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
+                Text(
+                    text = challengeIcon,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                // Add the player name
+                Text(
+                    text = attempt.playerName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = theme.textPrimary
+                    // The clickable modifier is now on the parent Row
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp)) // Add a spacer
+
+            // The score Text
             Text(
                 text = "${attempt.score}%",
                 style = MaterialTheme.typography.headlineSmall,
-                color = theme.textSecondary
+                color = theme.textSecondary,
+                textAlign = TextAlign.End // Ensure score stays aligned to the right
             )
         }
 
@@ -1150,9 +1225,16 @@ fun AttemptItem(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     // Play reversed attempt (how it should sound - normal speech/song)
+                    // Play reversed attempt (how it should sound - normal speech/song)
                     Button(
                         onClick = {
-                            attempt.reversedAttemptFilePath?.let { onPlay(it) }
+                            Log.d("AttemptItem", "Circular arrow clicked for: ${attempt.playerName}")
+                            Log.d("AttemptItem", "Reversed path: ${attempt.reversedAttemptFilePath}")
+                            Log.d("AttemptItem", "Path exists: ${attempt.reversedAttemptFilePath?.let { File(it).exists() }}")
+                            attempt.reversedAttemptFilePath?.let {
+                                Log.d("AttemptItem", "Calling onPlay with: $it")
+                                onPlay(it)
+                            } ?: Log.d("AttemptItem", "No reversed path available!")
                         },
                         enabled = attempt.reversedAttemptFilePath != null,
                         shape = CircleShape,

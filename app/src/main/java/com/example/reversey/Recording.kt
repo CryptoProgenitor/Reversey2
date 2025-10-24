@@ -12,10 +12,16 @@ import androidx.compose.runtime.Immutable
  * @param reversedPath The absolute file path to the reversed version of the audio.
  * @param attempts A list of attempts made by players in game mode.
  */
+
+enum class ChallengeType {
+    REVERSE,
+    FORWARD
+}
+
 @Immutable
 data class Recording(
     val name: String,
     val originalPath: String,
     val reversedPath: String? = null,
     val attempts: List<PlayerAttempt> = emptyList()
-)
+    )

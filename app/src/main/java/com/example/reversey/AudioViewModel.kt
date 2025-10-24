@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.reversey.scoring.ScoringEngine
+import com.example.reversey.scoring.ScoringParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -14,7 +15,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.text.SimpleDateFormat
@@ -36,8 +39,9 @@ data class AudioUiState(
     val isRecordingAttempt: Boolean = false,
     val parentRecordingPath: String? = null,
     val attemptToRename: Pair<String, PlayerAttempt>? = null,
-    val scrollToIndex: Int? = null
-)
+    val scrollToIndex: Int? = null,
+    val pendingChallengeType: ChallengeType? = null
+    )
 
 
 class AudioViewModel(application: Application) : AndroidViewModel(application) {
@@ -68,7 +72,7 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val loadedRecordingsFromDisk = repository.loadRecordings()
             val attemptsMap = attemptsRepository.loadAttempts()
-            val mergedRecordings = loadedRecordingsFromDisk.map { diskRecording ->
+            val mergedRecordings = loadedRecordingsFromDisk.map { diskRecording: Recording ->
                 attemptsMap[diskRecording.originalPath]?.let { savedAttempts ->
                     diskRecording.copy(attempts = savedAttempts)
                 } ?: diskRecording
@@ -111,13 +115,14 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startAttemptRecording(recording: Recording) {
+    fun startAttemptRecording(recording: Recording, challengeType: ChallengeType) {
         _uiState.update {
             it.copy(
                 isRecordingAttempt = true,
                 parentRecordingPath = recording.originalPath,
+                pendingChallengeType = challengeType, // <-- ADD THIS LINE
                 isRecording = true,
-                statusText = "Recording attempt...",
+                statusText = "Recording ${challengeType.name} challenge...", // <-- UPDATE THIS LINE
                 amplitudes = emptyList()
             )
         }
@@ -142,103 +147,255 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         return floats
     }
 
-    fun stopRecording() {
-        val wasRecordingAttempt = _uiState.value.isRecordingAttempt
-        val parentPath = _uiState.value.parentRecordingPath
+    // ADD THE NEW METHOD HERE:
+    private suspend fun readAudioFile(filePath: String): FloatArray = withContext(Dispatchers.IO) {
+        try {
+            val file = File(filePath)
+            if (!file.exists() || file.length() < 44) return@withContext floatArrayOf()
 
-        _uiState.update {
-            it.copy(
-                isRecording = false,
-                isRecordingAttempt = false,
-                parentRecordingPath = null,
-                statusText = "Processing..."
-            )
-        }
+            val bytes = file.readBytes()
+            val pcmData = bytes.drop(44).toByteArray()
+            val samples = ShortArray(pcmData.size / 2)
 
-        viewModelScope.launch(Dispatchers.IO) {
-            recordingJob?.cancel()
-            recordingJob?.join()
-            delay(200)
-
-            val lastRecordingFile = repository.getLatestFile(isAttempt = wasRecordingAttempt)
-            if (lastRecordingFile == null) {
-                _uiState.update { it.copy(statusText = "Error: No recording file found.") }
-                return@launch
+            for (i in samples.indices) {
+                val low = pcmData[i * 2].toInt() and 0xFF
+                val high = pcmData[i * 2 + 1].toInt() and 0xFF
+                samples[i] = ((high shl 8) or low).toShort()
             }
 
-            if (wasRecordingAttempt && parentPath != null) {
-                // --- ADDED SAFETY "CIRCUIT BREAKER" ---
-                try {
-                    val reversedAttemptFile = repository.reverseWavFile(lastRecordingFile)
-                    val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
+            // Convert to FloatArray and normalize
+            samples.map { it.toFloat() / Short.MAX_VALUE }.toFloatArray()
+        } catch (e: Exception) {
+            Log.e("AudioViewModel", "Error reading audio file: $filePath", e)
+            floatArrayOf()
+        }
+    }
 
-                    val score = if (parentRecording?.reversedPath != null) {
-                        val parentReversedFile = File(parentRecording.reversedPath)
-                        if (parentReversedFile.exists() && lastRecordingFile.exists()) {
-                            val originalAudioBytes = parentReversedFile.readBytes().drop(44).toByteArray()
-                            val attemptAudioBytes = lastRecordingFile.readBytes().drop(44).toByteArray()
-                            val originalAudioFloats = convertByteArrayToFloatArray(originalAudioBytes)
-                            val attemptAudioFloats = convertByteArrayToFloatArray(attemptAudioBytes)
-                            scoringEngine.scoreAttempt(
-                                reversedOriginal = originalAudioFloats,
-                                playerAttempt = attemptAudioFloats
-                            ).score
-                        } else { 0 }
-                    } else { 0 }
 
-                    val existingPlayerNumbers = parentRecording?.attempts?.mapNotNull { it.playerName.removePrefix("Player ").toIntOrNull() }?.maxOrNull() ?: 0
-                    val nextPlayerNumber = existingPlayerNumbers + 1
-                    val newAttempt = PlayerAttempt(
-                        playerName = "Player $nextPlayerNumber",
-                        attemptFilePath = lastRecordingFile.absolutePath,
-                        reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
-                        score = score
-                    )
+    // AudioViewModel.kt
 
-                    val updatedRecordings = _uiState.value.recordings.map { recording ->
-                        if (recording.originalPath == parentPath) {
-                            recording.copy(attempts = recording.attempts + newAttempt)
-                        } else {
-                            recording
-                        }
-                    }
+    fun stopRecording() {
+        // Cancel the recording job and wait for it to complete
+        recordingJob?.cancel()
 
-                    val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
-                    attemptsRepository.saveAttempts(attemptsMap)
+        viewModelScope.launch(Dispatchers.IO) {
+            // Wait for the recording job to actually finish
+            recordingJob?.join()
+            recordingJob = null
 
-                    var scrollIndex = updatedRecordings.indexOfFirst { it.originalPath == parentPath }
-                        .takeIf { it != -1 }
-                        ?.let { parentIndex ->
-                            updatedRecordings.take(parentIndex).sumOf { 1 + it.attempts.size } + 1 + (updatedRecordings.getOrNull(parentIndex)?.attempts?.size ?: 0) -1
-                        }
+            // Small delay to ensure file is fully written
+            delay(100)
 
-                    _uiState.update {
-                        it.copy(
-                            recordings = updatedRecordings,
-                            statusText = "Attempt Saved! Score: $score%",
-                            attemptToRename = Pair(parentPath, newAttempt),
-                            scrollToIndex = scrollIndex
-                        )
-                    }
-                } catch (e: Exception) {
-                    Log.e("AudioViewModel", "Scoring failed", e)
-                    _uiState.update { it.copy(statusText = "Error: Scoring failed. See logs.") }
+            // Get the latest recorded file
+            val latestFile = repository.getLatestFile(isAttempt = _uiState.value.isRecordingAttempt)
+
+            Log.d("AudioViewModel", "=== STOP RECORDING ===")
+            Log.d("AudioViewModel", "Is attempt: ${_uiState.value.isRecordingAttempt}")
+            Log.d("AudioViewModel", "Latest file: ${latestFile?.absolutePath}")
+
+            if (_uiState.value.isRecordingAttempt) {
+                // Handle attempt completion (this logic is in a later step)
+                withContext(Dispatchers.Main) {
+                    handleAttemptCompletion(latestFile)
                 }
-                // --- END OF SAFETY "CIRCUIT BREAKER" ---
             } else {
-                val reversedFile = repository.reverseWavFile(lastRecordingFile)
-                val newStatus = if (reversedFile != null) "Reversed successfully!" else "Error: Reversing failed."
-                loadRecordings()
-                _uiState.update {
-                    it.copy(
-                        statusText = newStatus,
-                        scrollToIndex = 0
-                    )
+                // --- NEW PARENT RECORDING LOGIC ---
+                if (latestFile != null && latestFile.exists()) {
+                    val recordingName = "Recording_${SimpleDateFormat("dd-MMM-yyyy_HH-mm-ss", Locale.UK).format(Date())}.wav"
+
+                    try {
+                        // Step 1: Create reversed version
+                        Log.d("AudioViewModel", "Creating reversed version...")
+                        val reversedFile = repository.reverseWavFile(latestFile)
+                        Log.d("AudioViewModel", "Reversed file created: ${reversedFile?.absolutePath}")
+
+                        // Step 2: Rename original file to final name
+                        val recordingsDir = getRecordingsDir(getApplication())
+                        val finalFile = File(recordingsDir, recordingName)
+
+                        val renameSuccess = latestFile.renameTo(finalFile)
+                        if (!renameSuccess || !finalFile.exists()) {
+                            throw IOException("Failed to rename or move original file to final destination.")
+                        }
+
+                        // Step 3: Rename reversed file to match
+                        val updatedReversedPath = if (reversedFile != null) {
+                            val finalReversedFile = File(finalFile.absolutePath.replace(".wav", "_reversed.wav"))
+                            if (reversedFile.renameTo(finalReversedFile)) {
+                                finalReversedFile.absolutePath
+                            } else {
+                                reversedFile.absolutePath // Fallback
+                            }
+                        } else null
+
+                        Log.d("AudioViewModel", "Recording saved: ${finalFile.absolutePath}")
+                        Log.d("AudioViewModel", "Reversed recording saved: $updatedReversedPath")
+
+                        // Step 4: Update UI and reload
+                        withContext(Dispatchers.Main) {
+                            stopPlayback()
+                            _uiState.update { currentState ->
+                                currentState.copy(
+                                    isRecording = false,
+                                    statusText = "Recording saved!",
+                                    scrollToIndex = 0,
+                                    currentlyPlayingPath = null,
+                                    isPaused = false,
+                                    playbackProgress = 0f
+                                )
+                            }
+                            delay(200) // Delay for UI update
+                            loadRecordings()
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AudioViewModel", "Error saving new recording", e)
+                        withContext(Dispatchers.Main) {
+                            _uiState.update { it.copy(
+                                isRecording = false,
+                                statusText = "Error saving recording: ${e.message}"
+                            )}
+                        }
+                    }
+                } else {
+                    // Handle recording failure
+                    withContext(Dispatchers.Main) {
+                        _uiState.update { it.copy(
+                            isRecording = false,
+                            statusText = "Recording failed - no file created"
+                        )}
+                    }
                 }
             }
         }
     }
 
+    private fun handleAttemptCompletion(attemptFile: File?) {
+        val parentPath = _uiState.value.parentRecordingPath
+        // Get the challenge type we stored when recording started
+        val challengeType = _uiState.value.pendingChallengeType
+
+        if (attemptFile != null && parentPath != null && challengeType != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    // Create reversed version of attempt
+                    Log.d("AudioViewModel", "Creating reversed version of attempt: ${attemptFile.absolutePath}")
+                    val reversedAttemptFile = repository.reverseWavFile(attemptFile)
+                    Log.d("AudioViewModel", "Reversed attempt file created: ${reversedAttemptFile?.absolutePath}")
+
+                    val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
+
+                    if (parentRecording != null) {
+                        scoringEngine.updateParameters(ScoringParameters()) // Force update
+                        val score = when (challengeType) {
+                            ChallengeType.REVERSE -> {
+                                Log.d("AudioViewModel", "REVERSE scoring - parentReversedPath: ${parentRecording.reversedPath}")
+                                parentRecording.reversedPath?.let { reversedParentPath ->
+                                    try {
+                                        val reversedParentAudio = readAudioFile(reversedParentPath)
+                                        // NOTE: We compare to the *attempt's* reversed file for REVERSE challenge
+                                        val attemptAudioPath = reversedAttemptFile?.absolutePath ?: attemptFile.absolutePath
+                                        val attemptAudio = readAudioFile(attemptAudioPath)
+
+                                        if (reversedParentAudio.isNotEmpty() && attemptAudio.isNotEmpty()) {
+                                            // Pass challengeType to scoring engine
+                                            val result = scoringEngine.scoreAttempt(reversedParentAudio, attemptAudio, ChallengeType.REVERSE)
+                                            Log.d("AudioViewModel", "Scoring result: ${result.score}")
+                                            result.score
+                                        } else {
+                                            Log.d("AudioViewModel", "One or both audio arrays are empty for REVERSE score")
+                                            0
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("AudioViewModel", "Exception in REVERSE scoring: ${e.message}", e)
+                                        0
+                                    }
+                                } ?: run {
+                                    Log.d("AudioViewModel", "Parent reversed path is null")
+                                    0
+                                }
+                            }
+                            ChallengeType.FORWARD -> {
+                                Log.d("AudioViewModel", "FORWARD scoring - parentOriginalPath: ${parentRecording.originalPath}")
+                                val originalParentAudio = readAudioFile(parentRecording.originalPath)
+                                // NOTE: We compare to the *attempt's* original file for FORWARD challenge
+                                val attemptAudio = readAudioFile(attemptFile.absolutePath)
+
+                                if (originalParentAudio.isNotEmpty() && attemptAudio.isNotEmpty()) {
+                                    // Pass challengeType to scoring engine
+                                    val result = scoringEngine.scoreAttempt(originalParentAudio, attemptAudio, ChallengeType.FORWARD)
+                                    Log.d("AudioViewModel", "Scoring result: ${result.score}")
+                                    result.score
+                                } else {
+                                    Log.d("AudioViewModel", "One or both audio arrays are empty for FORWARD score")
+                                    0
+                                }
+                            }
+                        }
+
+                        // Create player attempt WITH the challengeType
+                        val attempt = PlayerAttempt(
+                            playerName = "Player ${parentRecording.attempts.size + 1}",
+                            attemptFilePath = attemptFile.absolutePath,
+                            reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
+                            score = score,
+                            challengeType = challengeType // <-- SAVE THE TYPE
+                        )
+
+                        Log.d("AudioViewModel", "Created attempt with reversedPath: ${attempt.reversedAttemptFilePath}")
+
+                        val updatedRecordings = _uiState.value.recordings.map { recording ->
+                            if (recording.originalPath == parentPath) {
+                                recording.copy(attempts = recording.attempts + attempt)
+                            } else {
+                                recording
+                            }
+                        }
+
+                        val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+                        attemptsRepository.saveAttempts(attemptsMap)
+
+                        val parentIndex = updatedRecordings.indexOfFirst { it.originalPath == parentPath }
+                        val scrollToIndex = if (parentIndex >= 0) {
+                            parentIndex + updatedRecordings[parentIndex].attempts.size
+                        } else null
+
+                        _uiState.update {
+                            it.copy(
+                                recordings = updatedRecordings,
+                                isRecording = false,
+                                isRecordingAttempt = false,
+                                parentRecordingPath = null,
+                                pendingChallengeType = null, // <-- Clear pending type
+                                statusText = "Attempt scored: ${score}%",
+                                scrollToIndex = scrollToIndex,
+                                attemptToRename = if (score > 70) Pair(parentPath, attempt) else null
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    _uiState.update {
+                        it.copy(
+                            isRecording = false,
+                            isRecordingAttempt = false,
+                            parentRecordingPath = null,
+                            pendingChallengeType = null, // <-- Clear pending type
+                            statusText = "Error processing attempt: ${e.message}"
+                        )
+                    }
+                }
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    isRecording = false,
+                    isRecordingAttempt = false,
+                    parentRecordingPath = null,
+                    pendingChallengeType = null, // <-- Clear pending type
+                    statusText = "Attempt recording failed"
+                )
+            }
+        }
+    }
 
     fun play(path: String) {
         mediaPlayer?.release()
