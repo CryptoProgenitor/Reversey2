@@ -40,8 +40,10 @@ data class AudioUiState(
     val parentRecordingPath: String? = null,
     val attemptToRename: Pair<String, PlayerAttempt>? = null,
     val scrollToIndex: Int? = null,
-    val pendingChallengeType: ChallengeType? = null
-    )
+    val pendingChallengeType: ChallengeType? = null,
+    val showQualityWarning: Boolean = false,
+    val qualityWarningMessage: String = ""
+)
 
 
 class AudioViewModel(application: Application) : AndroidViewModel(application) {
@@ -182,7 +184,12 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             floatArrayOf()
         }
     }
-
+    //Detect and reject silent originals
+    private fun calculateRMS(audio: FloatArray): Float {
+        if (audio.isEmpty()) return 0f
+        val sumSquares = audio.map { it * it }.sum()
+        return kotlin.math.sqrt(sumSquares / audio.size)
+    }
 
     // AudioViewModel.kt
 
@@ -214,6 +221,17 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                 // --- NEW PARENT RECORDING LOGIC ---
                 if (latestFile != null && latestFile.exists()) {
                     val recordingName = "Recording_${SimpleDateFormat("dd-MMM-yyyy_HH-mm-ss", Locale.UK).format(Date())}.wav"
+
+                    // Check original recording quality before processing
+                    val originalAudio = readAudioFile(latestFile.absolutePath)
+                    val originalRMS = calculateRMS(originalAudio)
+                    val qualityThreshold = scoringEngine.getParameters().silenceThreshold * 2f  // 2x the silence threshold from scoring parameters
+
+                    Log.d("AudioViewModel", "Original recording quality check: RMS=$originalRMS, Threshold=$qualityThreshold")
+
+                    val isLowQuality = originalRMS < qualityThreshold
+
+                    // ADD QUALITY CHECK HERE:
 
                     try {
                         // Step 1: Create reversed version
@@ -253,7 +271,9 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                                     scrollToIndex = 0,
                                     currentlyPlayingPath = null,
                                     isPaused = false,
-                                    playbackProgress = 0f
+                                    playbackProgress = 0f,
+                                    showQualityWarning = isLowQuality,
+                                    qualityWarningMessage = if (isLowQuality) "⚠️ Recording seems quite quiet. Consider re-recording for better challenge quality!" else ""
                                 )
                             }
                             delay(200) // Delay for UI update
@@ -578,6 +598,15 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearScrollToIndex() {
         _uiState.update { it.copy(scrollToIndex = null) }
+    }
+
+    fun dismissQualityWarning() {
+        _uiState.update {
+            it.copy(
+                showQualityWarning = false,
+                qualityWarningMessage = ""
+            )
+        }
     }
 
 }

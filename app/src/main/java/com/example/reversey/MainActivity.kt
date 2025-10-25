@@ -330,7 +330,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Version 8.0.1c_content-detection",
+                    text = "Version 8.1.0_content-detection",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -657,8 +657,45 @@ fun AudioReverserApp(
                 }
             )
         }
-    }  // ← This closes the outer Box
-}  // ← This closes the AudioReverserApp function
+
+        // Quality Warning Dialog
+        if (uiState.showQualityWarning) {
+            AlertDialog(
+                onDismissRequest = { viewModel.dismissQualityWarning() },
+                title = {
+                    Text(
+                        "Recording Too Quiet",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                },
+                text = {
+                    Text(
+                        uiState.qualityWarningMessage,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = { viewModel.dismissQualityWarning() }) {
+                        Text("Got it")
+                    }
+                },
+                dismissButton = {
+                    Button(onClick = { viewModel.dismissQualityWarning() }) {
+                        Text("Re-record")
+                    }
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Warning",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
+        }
+
+    } // ← This closes the outer Box
+} // ← This closes the AudioReverserApp function
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,8 +47,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.reversey.scoring.ScoringEngine
+import com.example.reversey.scoring.ScoringPresets
+import com.example.reversey.scoring.applyPreset
 import com.example.reversey.ui.debug.DebugPanel
 import kotlinx.coroutines.launch
 
@@ -119,16 +123,148 @@ fun SettingsScreen(
                             onCheckedChange = onGameModeChange
                         )
                     }
+                }
+// Scoring Difficulty Section
+                item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                    Text(
+                        "Scoring Difficulty",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                    )
+
+                    Text(
+                        "Choose how strict the app is when scoring your singing",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                    )
+
+                    // Difficulty Presets
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                scoringEngine.applyPreset(ScoringPresets.easyMode())
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Easy", fontWeight = FontWeight.Bold)
+                                Text("Forgiving", fontSize = 10.sp)
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                scoringEngine.applyPreset(ScoringPresets.normalMode())
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Normal", fontWeight = FontWeight.Bold)
+                                Text("Balanced", fontSize = 10.sp)
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                scoringEngine.applyPreset(ScoringPresets.hardMode())
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Hard", fontWeight = FontWeight.Bold)
+                                Text("Strict", fontSize = 10.sp)
+                            }
+                        }
+                    }
+
+                    // Style Focus Presets
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                scoringEngine.applyPreset(ScoringPresets.contentFocusedMode())
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary
+                            )
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Content Focus", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Rewards right words", fontSize = 9.sp)
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                scoringEngine.applyPreset(ScoringPresets.melodyFocusedMode())
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary
+                            )
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Melody Focus", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Rewards exact tune", fontSize = 9.sp)
+                            }
+                        }
+                    }
+
+                    // Info card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(
+                                "Presets instantly change how the app scores your singing. Advanced users can fine-tune individual parameters in Developer Options.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
 
                 item {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                     Text(
                         "Icon Colour",
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                     )
                 }
+
 
                 items(themes) { themeName ->
                     Row(
@@ -295,6 +431,8 @@ fun SettingsScreen(
                     }
                 }
 
+
+
                 // Help Section
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -347,7 +485,7 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween, //ClaudeGeminiNewCodeV5
                                 verticalAlignment = Alignment.CenterVertically //ClaudeGeminiNewCodeV5
                             ) { //ClaudeGeminiNewCodeV5
-                                Text("Debug Scoring Panel") //ClaudeGeminiNewCodeV5
+                                Text("Advanced Settings Panel") //ClaudeGeminiNewCodeV5
                                 Switch( //ClaudeGeminiNewCodeV5
                                     checked = showDebugPanel, //ClaudeGeminiNewCodeV5
                                     onCheckedChange = onShowDebugPanelChange //ClaudeGeminiNewCodeV5

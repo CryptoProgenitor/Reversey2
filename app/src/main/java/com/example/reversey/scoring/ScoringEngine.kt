@@ -17,6 +17,11 @@ class ScoringEngine(private val context: Context) {
 
     private val audioProcessor = AudioProcessor()
     private var parameters = ScoringParameters()
+    private var audioParams = AudioProcessingParameters()
+    private var contentParams = ContentDetectionParameters()
+    private var melodicParams = MelodicAnalysisParameters()
+    private var musicalParams = MusicalSimilarityParameters()
+    private var scalingParams = ScoreScalingParameters()
 
     fun scoreAttempt(
         originalAudio: FloatArray, // Renamed for clarity
@@ -73,7 +78,7 @@ class ScoringEngine(private val context: Context) {
         Log.d("ScoringEngine", String.format("Score after Variance Penalty (%.2fx): %.3f", variancePenalty, rawScore))
 
         val consistency = (1 - abs(metrics.pitch - metrics.mfcc)) * parameters.consistencyBonus
-        val confidence = min(1f, attemptRMS * 5) * parameters.confidenceBonus
+        val confidence = min(1f, attemptRMS * scalingParams.rmsConfidenceMultiplier) * parameters.confidenceBonus
         val scoreWithBonuses = rawScore * (1 + consistency + confidence)
         Log.d("ScoringEngine", String.format("Score after Bonuses (Cons: %.2f, Conf: %.2f): %.3f", consistency, confidence, scoreWithBonuses))
 
@@ -86,8 +91,8 @@ class ScoringEngine(private val context: Context) {
     }
 
     private fun getPitchSequence(audio: FloatArray, sampleRate: Int): List<Float> {
-        val frameSize = 4096
-        val hopSize = 1024
+        val frameSize = audioParams.pitchFrameSize
+        val hopSize = audioParams.pitchHopSize
         val pitches = mutableListOf<Float>()
         val paddedAudio = if (audio.size < frameSize) audio.plus(FloatArray(frameSize - audio.size)) else audio
 
@@ -95,16 +100,15 @@ class ScoringEngine(private val context: Context) {
         while (i + frameSize <= paddedAudio.size) {
             val frame = paddedAudio.sliceArray(i until i + frameSize)
             val pitch = audioProcessor.extractPitchYIN(frame, sampleRate)
-            Log.d("ScoringEngine", "Frame ${i/hopSize}: Raw pitch=$pitch, Converted=${if (pitch > 0) 12 * log2(pitch / 440f) else 0f}")
-            pitches.add(if (pitch > 0) 12 * log2(pitch / 440f) else 0f)
+            Log.d("ScoringEngine", "Frame ${i/hopSize}: Raw pitch=$pitch, Converted=${if (pitch > 0) audioParams.semitonesPerOctave * log2(pitch / audioParams.pitchReferenceFreq) else 0f}")
+            pitches.add(if (pitch > 0) audioParams.semitonesPerOctave * log2(pitch / audioParams.pitchReferenceFreq) else 0f)
             i += hopSize
         }
         return pitches
     }
-
     private fun getMfccSequence(audio: FloatArray, sampleRate: Int): List<FloatArray> {
-        val frameSize = 2048
-        val hopSize = 1024
+        val frameSize = audioParams.mfccFrameSize
+        val hopSize = audioParams.mfccHopSize
         val mfccs = mutableListOf<FloatArray>()
         val paddedAudio = if (audio.size < frameSize) audio.plus(FloatArray(frameSize - audio.size)) else audio
 
@@ -131,7 +135,7 @@ class ScoringEngine(private val context: Context) {
         // Calculate pitch variance to detect monotone attempts
         val originalVariance = calculatePitchVariance(originalPitches)
         val attemptVariance = calculatePitchVariance(attemptPitches)
-        val monotonePenalty = if (originalVariance > 2.0f && attemptVariance < 0.5f) 0.3f else 1.0f
+        val monotonePenalty = if (originalVariance > melodicParams.monotoneDetectionThreshold && attemptVariance < melodicParams.flatSpeechThreshold) melodicParams.monotonePenalty else 1.0f
         Log.d("ScoringEngine", String.format("Variance: Orig=%.2f, Attempt=%.2f, Penalty=%.2f", originalVariance, attemptVariance, monotonePenalty))
 
         // Calculate similarity for ALL frames
@@ -143,9 +147,9 @@ class ScoringEngine(private val context: Context) {
                 original > 0 && attempt > 0 -> {
                     val diff = abs(original - attempt)
                     val toleratedDiff = max(0f, diff - parameters.pitchTolerance)
-                    exp(-toleratedDiff / 5f)
+                    exp(-toleratedDiff / melodicParams.pitchDifferenceDecayRate)
                 }
-                original == 0f && attempt == 0f -> 0.7f
+                original == 0f && attempt == 0f -> melodicParams.silenceToSilenceScore
                 else -> 0.0f
             }
         }
@@ -182,15 +186,15 @@ class ScoringEngine(private val context: Context) {
 
         val melodicRequirementPenalty = when {
             // CONTENT SEEMS RIGHT: Apply light melody-only penalties
-            bestContentScore > 0.35f || avgContentScore > 0.25f -> { // was bestContentScore > 0.5f || avgContentScore > 0.4f
+            bestContentScore > contentParams.contentDetectionBestThreshold || avgContentScore > contentParams.contentDetectionAvgThreshold -> {
                 when {
-                    originalMelodicVariation > 0.6f && attemptMelodicVariation < 0.3f -> {
+                    originalMelodicVariation > contentParams.highMelodicThreshold && attemptMelodicVariation < contentParams.lowMelodicThreshold -> {
                         Log.d("ScoringEngine", "📝 RIGHT CONTENT, FLAT DELIVERY: Light penalty (words correct, needs melody)")
-                        0.2f // 20% penalty - you got the content, just sing it more!
+                        contentParams.rightContentFlatPenalty
                     }
-                    originalMelodicVariation > 0.4f && attemptMelodicVariation < 0.5f -> {
+                    originalMelodicVariation > contentParams.mediumMelodicThreshold && attemptMelodicVariation < contentParams.insufficientMelodyThreshold -> {
                         Log.d("ScoringEngine", "🎵 RIGHT CONTENT, DIFFERENT MELODY: Minor penalty (words right, melody different)")
-                        0.1f // 10% penalty - content right, melody just different style
+                        contentParams.rightContentDifferentMelodyPenalty
                     }
                     else -> {
                         Log.d("ScoringEngine", "✅ RIGHT CONTENT, GOOD MELODY: No penalty")
@@ -199,17 +203,17 @@ class ScoringEngine(private val context: Context) {
                 }
             }
             // CONTENT SEEMS WRONG: Apply harsh penalties
-            originalMelodicVariation > 0.6f && attemptMelodicVariation < 0.3f -> {
+            originalMelodicVariation > contentParams.highMelodicThreshold && attemptMelodicVariation < contentParams.lowMelodicThreshold -> {
                 Log.d("ScoringEngine", "🚨 WRONG CONTENT + FLAT DELIVERY: Severe penalty")
-                0.75f // 75% penalty (was 60%)
+                contentParams.wrongContentFlatPenalty
             }
-            originalMelodicVariation > 0.4f && attemptMelodicVariation < 0.5f -> {
+            originalMelodicVariation > contentParams.mediumMelodicThreshold && attemptMelodicVariation < contentParams.insufficientMelodyThreshold -> {
                 Log.d("ScoringEngine", "❌ WRONG CONTENT + INSUFFICIENT MELODY: Heavy penalty")
-                0.6f // 60% penalty (was 40%)
+                contentParams.wrongContentInsufficientPenalty
             }
             else -> {
                 Log.d("ScoringEngine", "❌ WRONG CONTENT: Standard penalty for wrong words")
-                0.5f // 50% penalty for any wrong content attempt
+                contentParams.wrongContentStandardPenalty
             }
         }
 
@@ -578,12 +582,12 @@ class ScoringEngine(private val context: Context) {
 
         // 1. Calculate pitch range (how much the voice moves up/down)
         val pitchRange = vocalPitches.maxOrNull()!! - vocalPitches.minOrNull()!!
-        val rangeScore = (pitchRange / 12f).coerceAtMost(1f) // 12 semitones = full melodic range
+        val rangeScore = (pitchRange / melodicParams.melodicRangeSemitones).coerceAtMost(1f)
 
         // 2. Calculate pitch transitions (how often pitch changes)
         var transitions = 0
         for (i in 1 until vocalPitches.size) {
-            if (abs(vocalPitches[i] - vocalPitches[i-1]) > 0.5f) { // 0.5 semitone threshold
+            if (abs(vocalPitches[i] - vocalPitches[i - 1]) > melodicParams.melodicTransitionThreshold) {
                 transitions++
             }
         }
@@ -591,10 +595,10 @@ class ScoringEngine(private val context: Context) {
 
         // 3. Calculate pitch variance (how much variation exists)
         val variance = calculatePitchVariance(pitches)
-        val varianceScore = (variance / 10f).coerceAtMost(1f) // 10 is reasonably melodic
+        val varianceScore = (variance / melodicParams.melodicVarianceThreshold).coerceAtMost(1f)
 
         // Weighted combination - all three factors must be present for melodic singing
-        return (rangeScore * 0.4f + transitionScore * 0.35f + varianceScore * 0.25f).coerceIn(0f, 1f)
+        return (rangeScore * melodicParams.melodicRangeWeight + transitionScore * melodicParams.melodicTransitionWeight + varianceScore * melodicParams.melodicVarianceWeight).coerceIn(0f, 1f)
     }
 
     private fun compareIntervalSequences(intervals1: List<Float>, intervals2: List<Float>): Float {
@@ -607,10 +611,10 @@ class ScoringEngine(private val context: Context) {
         val similarities = (0 until minLength).map { i ->
             val diff = abs(intervals1[i] - intervals2[i])
             when {
-                diff < 0.5f -> 1f      // Essentially same interval
-                diff < 1f -> 0.8f      // Close interval
-                diff < 2f -> 0.5f      // Somewhat similar
-                else -> 0.1f           // Very different interval
+                diff < musicalParams.sameIntervalThreshold -> musicalParams.sameIntervalScore
+                diff < musicalParams.closeIntervalThreshold -> musicalParams.closeIntervalScore
+                diff < musicalParams.similarIntervalThreshold -> musicalParams.similarIntervalScore
+                else -> musicalParams.differentIntervalScore
             }
         }
 
@@ -620,13 +624,13 @@ class ScoringEngine(private val context: Context) {
     private fun comparePhraseStructures(phrases1: List<Int>, phrases2: List<Int>): Float {
         // If both have no phrases, they're similar in structure
         if (phrases1.isEmpty() && phrases2.isEmpty()) return 1f
-        if (phrases1.isEmpty() || phrases2.isEmpty()) return 0.3f
+        if (phrases1.isEmpty() || phrases2.isEmpty()) return musicalParams.emptyPhrasesPenalty
 
         // Compare number of phrases (phrase count similarity)
         val countSimilarity = min(phrases1.size, phrases2.size).toFloat() / max(phrases1.size, phrases2.size)
 
         // If phrase counts are very different, return early with low score
-        if (countSimilarity < 0.5f) return countSimilarity * 0.5f
+        if (countSimilarity < musicalParams.phraseCountDifferenceThreshold) return countSimilarity * musicalParams.phraseCountPenaltyMultiplier
 
         // Compare relative phrase positions (normalized)
         val normalizedPhrases1 = if (phrases1.isNotEmpty()) phrases1.map { it.toFloat() / phrases1.maxOrNull()!! } else emptyList()
@@ -639,12 +643,12 @@ class ScoringEngine(private val context: Context) {
             }.average().toFloat()
         } else 1f
 
-        return (countSimilarity + positionSimilarity) / 2f
+        return (countSimilarity + positionSimilarity) / musicalParams.phraseWeightBalance
     }
 
     private fun compareMelodyRhythms(rhythm1: List<Float>, rhythm2: List<Float>): Float {
         if (rhythm1.isEmpty() && rhythm2.isEmpty()) return 1f
-        if (rhythm1.isEmpty() || rhythm2.isEmpty()) return 0.2f
+        if (rhythm1.isEmpty() || rhythm2.isEmpty()) return musicalParams.emptyRhythmPenalty
 
         val minLength = min(rhythm1.size, rhythm2.size)
         if (minLength == 0) return 0f
@@ -652,7 +656,7 @@ class ScoringEngine(private val context: Context) {
         // Compare rhythm ratios with tolerance
         val similarities = (0 until minLength).map { i ->
             val ratio = min(rhythm1[i], rhythm2[i]) / max(rhythm1[i], rhythm2[i])
-            ratio.pow(0.5f) // Less harsh penalty for rhythm differences
+            ratio.pow(musicalParams.rhythmDifferenceSoftening)
         }
 
         return similarities.average().toFloat()
@@ -668,7 +672,7 @@ class ScoringEngine(private val context: Context) {
         if (originalCount == 0 || attemptCount == 0) return 0f
 
         val ratio = min(originalCount, attemptCount).toFloat() / max(originalCount, attemptCount)
-        return ratio.pow(0.5f) // Less harsh penalty for segment count differences
+        return ratio.pow(musicalParams.segmentCountSoftening)
     }
 
     private fun compareRhythmPatterns(originalRhythm: List<Int>, attemptRhythm: List<Int>): Float {
@@ -697,7 +701,7 @@ class ScoringEngine(private val context: Context) {
     }
 
     private fun alignAudio(original: FloatArray, attempt: FloatArray): Pair<FloatArray, FloatArray> {
-        val threshold = 0.005f
+        val threshold = audioParams.audioAlignmentThreshold
         val originalStart = original.indexOfFirst { abs(it) > threshold }.takeIf { it != -1 } ?: 0
         val attemptStart = attempt.indexOfFirst { abs(it) > threshold }.takeIf { it != -1 } ?: 0
         val minLength = min(original.size - originalStart, attempt.size - attemptStart)
@@ -708,7 +712,7 @@ class ScoringEngine(private val context: Context) {
     private fun scaleScore(rawScore: Float, challengeType: ChallengeType): Int {
         val clamped = rawScore.coerceIn(0f, 1f)
         val (min, perfect, curve) = if (challengeType == ChallengeType.REVERSE) {
-            Triple(parameters.minScoreThreshold * 0.9f, parameters.perfectScoreThreshold * 0.95f, parameters.scoreCurve * 1.1f)
+            Triple(parameters.minScoreThreshold * scalingParams.reverseMinScoreAdjustment, parameters.perfectScoreThreshold * scalingParams.reversePerfectScoreAdjustment, parameters.scoreCurve * scalingParams.reverseCurveAdjustment)
         } else {
             Triple(parameters.minScoreThreshold, parameters.perfectScoreThreshold, parameters.scoreCurve)
         }
@@ -722,7 +726,7 @@ class ScoringEngine(private val context: Context) {
                 val range = perfect - min
                 if (range <= 0f) return 0
                 val normalized = (clamped - min) / range
-                val curved = normalized.pow(1f / max(0.1f, curve))
+                val curved = normalized.pow(1f / max(scalingParams.minimumCurveProtection, curve))
                 (curved * 100).roundToInt()
             }
         }
@@ -731,13 +735,13 @@ class ScoringEngine(private val context: Context) {
     private fun generateFeedback(score: Int, metrics: SimilarityMetrics): List<String> {
         val feedback = mutableListOf<String>()
         feedback.add(when {
-            score >= 90 -> "🌟 Incredible! You're a reverse singing master!"
-            score >= 75 -> "🎯 Great job! You're really getting the hang of this!"
-            score >= 50 -> "👍 Good effort! Keep practicing!"
+            score >= scalingParams.incredibleFeedbackThreshold -> "🌟 Incredible! You're a reverse singing master!"
+            score >= scalingParams.greatJobFeedbackThreshold -> "🎯 Great job! You're really getting the hang of this!"
+            score >= scalingParams.goodEffortFeedbackThreshold -> "👍 Good effort! Keep practicing!"
             else -> "💪 Nice try! Reverse singing is tough!"
         })
         val weakestMetric = if (metrics.pitch < metrics.mfcc) "pitch" else "timbre"
-        if (min(metrics.pitch, metrics.mfcc) < 0.6f) {
+        if (min(metrics.pitch, metrics.mfcc) < scalingParams.additionalFeedbackThreshold) {
             feedback.add(when(weakestMetric) {
                 "pitch" -> "💡 Try to match the melody's shape more closely."
                 else -> "💡 Work on matching the vocal sound and quality."
@@ -750,5 +754,30 @@ class ScoringEngine(private val context: Context) {
         parameters = newParams
     }
 
+    fun updateAudioParameters(newParams: AudioProcessingParameters) {
+        audioParams = newParams
+    }
+
+    fun updateContentParameters(newParams: ContentDetectionParameters) {
+        contentParams = newParams
+    }
+
+    fun updateMelodicParameters(newParams: MelodicAnalysisParameters) {
+        melodicParams = newParams
+    }
+
+    fun updateMusicalParameters(newParams: MusicalSimilarityParameters) {
+        musicalParams = newParams
+    }
+
+    fun updateScalingParameters(newParams: ScoreScalingParameters) {
+        scalingParams = newParams
+    }
+
     fun getParameters(): ScoringParameters = parameters
+    fun getAudioParameters(): AudioProcessingParameters = audioParams
+    fun getContentParameters(): ContentDetectionParameters = contentParams
+    fun getMelodicParameters(): MelodicAnalysisParameters = melodicParams
+    fun getMusicalParameters(): MusicalSimilarityParameters = musicalParams
+    fun getScalingParameters(): ScoreScalingParameters = scalingParams
 }
