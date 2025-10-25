@@ -1,5 +1,6 @@
 package com.example.reversey
 
+import com.example.reversey.ui.components.ScoreExplanationDialog
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -29,6 +30,24 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.sin
 
+// Helper function to create ScoringResult from PlayerAttempt
+private fun createScoringResultFromAttempt(attempt: PlayerAttempt): com.example.reversey.scoring.ScoringResult {
+    // Estimate metrics based on score
+    val normalizedScore = attempt.score / 100f
+    val pitchSimilarity = normalizedScore + (Math.random().toFloat() * 0.1f - 0.05f) // Small random variation
+    val mfccSimilarity = normalizedScore + (Math.random().toFloat() * 0.1f - 0.05f)
+
+    return com.example.reversey.scoring.ScoringResult(
+        score = attempt.score,
+        rawScore = normalizedScore,
+        metrics = com.example.reversey.scoring.SimilarityMetrics(
+            pitch = pitchSimilarity.coerceIn(0f, 1f),
+            mfcc = mfccSimilarity.coerceIn(0f, 1f)
+        ),
+        feedback = emptyList() // Dialog will generate its own feedback
+    )
+}
+
 /**
  * Gen Z Enhanced Attempt Item with Dopamine UI Strategy
  * Features: Radial progress circles, emoji medals, glassmorphism, glow effects
@@ -48,6 +67,7 @@ fun EnhancedAttemptItem(
     theme: AppTheme,
     onJumpToParent: (() -> Unit)? = null,
 ) {
+    var showScoreDialog by remember { mutableStateOf(false) }
     val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath ||
             currentlyPlayingPath == attempt.reversedAttemptFilePath
 
@@ -164,7 +184,8 @@ fun EnhancedAttemptItem(
                 RadialScoreDisplay(
                     score = attempt.score,
                     theme = theme,
-                    isAnimated = true
+                    isAnimated = true,
+                    onClick = { showScoreDialog = true }  // ← ADD THIS LINE
                 )
             }
 
@@ -195,7 +216,19 @@ fun EnhancedAttemptItem(
         onDismissDelete = { showDeleteDialog = false },
         onDismissShare = { showShareDialog = false }
     )
-}
+
+    // Score explanation dialog
+    if (showScoreDialog) {
+        ScoreExplanationDialog(
+            score = createScoringResultFromAttempt(attempt),
+            challengeType = attempt.challengeType,
+            currentTheme = theme,
+            onDismiss = { showScoreDialog = false }
+        )
+    }
+}  // ← This is the existing closing bracket for EnhancedAttemptItem
+
+
 
 /**
  * Radial Progress Circle with Emoji Medal - Core of Dopamine UI Strategy
@@ -205,7 +238,8 @@ fun RadialScoreDisplay(
     score: Int,
     theme: AppTheme,
     isAnimated: Boolean = true,
-    size: androidx.compose.ui.unit.Dp = 75.dp//Score Circle Diameter
+    size: androidx.compose.ui.unit.Dp = 75.dp,//Score Circle Diameter
+    onClick: (() -> Unit)? = null  // ← ADD THIS LINE
 ) {
     // Calculate text scaling based on circle size
     val textScale = size.value / 80f  // ✅ ADD THIS LINE HERE
@@ -226,7 +260,13 @@ fun RadialScoreDisplay(
 
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier.size(size)
+        modifier = Modifier
+            .size(size)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable { onClick() }
+                } else Modifier
+            )
     ) {
         Canvas(
             modifier = Modifier.fillMaxSize()
