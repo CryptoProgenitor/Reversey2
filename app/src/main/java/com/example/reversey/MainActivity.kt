@@ -170,6 +170,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = false,  // ← Prevents accidental swipes
         drawerContent = {
             AppDrawerContent(
                 navController = navController,
@@ -320,7 +321,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Version 9.3.0_ScoreCards",
+                    text = "Version 9.4.0_ScoreCards+UI_tweak",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -463,7 +464,7 @@ fun AudioReverserApp(
                     .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Enhanced Record Button with theme integration
                 EnhancedRecordButton(

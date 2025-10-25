@@ -79,7 +79,7 @@ fun EnhancedAttemptItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 0.dp, top = 4.dp, bottom = 4.dp)
+            .padding(start = 25.dp, end = 0.dp, top = 4.dp, bottom = 4.dp)
             .then(
                 if (theme.useGlassmorphism && theme.glowIntensity > 0) {
                     Modifier.shadow(
@@ -132,6 +132,21 @@ fun EnhancedAttemptItem(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.clickable { showRenameDialog = true }
                     ) {
+                        // Go to Parent button (only show if onJumpToParent is provided)
+                        if (onJumpToParent != null) {
+                            IconButton(
+                                onClick = onJumpToParent,
+                                modifier = Modifier.size(32.dp)  // Compact size
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Home,
+                                    contentDescription = "Go to Parent",
+                                    tint = theme.accentColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
                         // Challenge type icon with glow
                         val challengeIcon = if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
                         Text(
@@ -172,7 +187,6 @@ fun EnhancedAttemptItem(
                         onPlay = onPlay,
                         onPause = onPause,
                         onStop = onStop,
-                        onJumpToParent = onJumpToParent,
                         onShare = { showShareDialog = true },
                         onDelete = { showDeleteDialog = true }
                     )
@@ -226,7 +240,8 @@ fun EnhancedAttemptItem(
             onDismiss = { showScoreDialog = false }
         )
     }
-}  // ← This is the existing closing bracket for EnhancedAttemptItem
+}
+//end of fun EnhancedAttemptItem
 
 
 
@@ -238,7 +253,7 @@ fun RadialScoreDisplay(
     score: Int,
     theme: AppTheme,
     isAnimated: Boolean = true,
-    size: androidx.compose.ui.unit.Dp = 75.dp,//Score Circle Diameter
+    size: androidx.compose.ui.unit.Dp = 80.dp,//Score Circle Diameter
     onClick: (() -> Unit)? = null  // ← ADD THIS LINE
 ) {
     // Calculate text scaling based on circle size
@@ -371,7 +386,7 @@ fun ControlButtonsRow(
     onPlay: (String) -> Unit,
     onPause: () -> Unit,
     onStop: () -> Unit,
-    onJumpToParent: (() -> Unit)?,
+    //onJumpToParent: (() -> Unit)?,//Relocated to top row! in v.9.4.0
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -379,20 +394,6 @@ fun ControlButtonsRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Jump to parent button
-        EnhancedGlowButton(
-            onClick = { onJumpToParent?.invoke() },
-            theme = theme,
-            size = 32.dp,
-            label = "Home"
-        ) {
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowUp,
-                contentDescription = "Go to Original",
-                tint = theme.textPrimary,
-                modifier = Modifier.size(16.dp)
-            )
-        }
 
         // Share button
         EnhancedGlowButton(

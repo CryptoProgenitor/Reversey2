@@ -4,7 +4,10 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,7 +45,6 @@ fun ScoreExplanationDialog(
         ),
         label = "glow_alpha"
     )
-
     val rotation by infiniteTransition.animateFloat(
         initialValue = -1f,
         targetValue = 1f,
@@ -97,23 +99,45 @@ fun ScoreExplanationDialog(
                         score = score,
                         challengeType = challengeType,
                         theme = currentTheme,
-                        rotation = rotation,
-                        onDismiss = onDismiss
+                        rotation = rotation
                     )
                     "y2k_cyber" -> Y2KScoreCard(
                         score = score,
                         challengeType = challengeType,
                         theme = currentTheme,
-                        glowAlpha = glowAlpha,
-                        onDismiss = onDismiss
+                        glowAlpha = glowAlpha
                     )
                     else -> DefaultScoreCard(
                         score = score,
                         challengeType = challengeType,
-                        theme = currentTheme,
-                        onDismiss = onDismiss
+                        theme = currentTheme
                     )
                 }
+            }
+
+            // FIXED CLOSE BUTTON - Always visible on small screens
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .size(40.dp)
+                    .background(
+                        color = Color.Black.copy(alpha = 0.8f),
+                        shape = CircleShape
+                    )
+                    .border(
+                        width = 2.dp,
+                        color = currentTheme.accentColor,
+                        shape = CircleShape
+                    )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }
@@ -124,15 +148,14 @@ private fun ScrapbookScoreCard(
     score: ScoringResult,
     challengeType: ChallengeType,
     theme: AppTheme,
-    rotation: Float,
-    onDismiss: () -> Unit
+    rotation: Float
 ) {
     val stickyColors = listOf(
         Color(0xFFFFEB3B), // Yellow
         Color(0xFFFFCDD2), // Light Pink
         Color(0xFFC8E6C9), // Light Green
         Color(0xFFBBDEFB), // Light Blue
-        Color(0xFFD1C4E9)  // Light Purple
+        Color(0xFFD1C4E9) // Light Purple
     )
 
     Card(
@@ -170,7 +193,6 @@ private fun ScrapbookScoreCard(
                 text = getScoreEmoji(score.score),
                 fontSize = 48.sp
             )
-
             Text(
                 text = "${score.score}%",
                 fontSize = 36.sp,
@@ -200,24 +222,6 @@ private fun ScrapbookScoreCard(
 
             // Tips section
             ScrapbookTips(score, challengeType, theme)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Close button as sticker
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFFF5722)
-                ),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.rotate(-2f)
-            ) {
-                Text(
-                    text = "Got it! ✨",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
         }
     }
 }
@@ -227,8 +231,7 @@ private fun Y2KScoreCard(
     score: ScoringResult,
     challengeType: ChallengeType,
     theme: AppTheme,
-    glowAlpha: Float,
-    onDismiss: () -> Unit
+    glowAlpha: Float
 ) {
     Card(
         modifier = Modifier
@@ -307,34 +310,6 @@ private fun Y2KScoreCard(
 
             // Cyber tips
             Y2KTips(score, challengeType, theme)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Glowing close button
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = theme.accentColor
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                theme.accentColor.copy(alpha = 0.3f),
-                                Color.Transparent
-                            )
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-            ) {
-                Text(
-                    text = "CLOSE",
-                    color = Color.Black,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
         }
     }
 }
@@ -343,8 +318,7 @@ private fun Y2KScoreCard(
 private fun DefaultScoreCard(
     score: ScoringResult,
     challengeType: ChallengeType,
-    theme: AppTheme,
-    onDismiss: () -> Unit
+    theme: AppTheme
 ) {
     Card(
         modifier = Modifier.padding(16.dp),
@@ -367,7 +341,6 @@ private fun DefaultScoreCard(
                 fontWeight = FontWeight.Bold,
                 color = theme.accentColor
             )
-
             Text(
                 text = getScoreEmoji(score.score),
                 fontSize = 32.sp
@@ -390,21 +363,6 @@ private fun DefaultScoreCard(
             Spacer(modifier = Modifier.height(20.dp))
 
             DefaultTips(score, challengeType, theme)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = theme.accentColor
-                )
-            ) {
-                Text(
-                    text = "Got it!",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
         }
     }
 }
@@ -419,9 +377,7 @@ private fun ScrapbookScoreBreakdown(score: ScoringResult, theme: AppTheme) {
             color = theme.textPrimary,
             modifier = Modifier.rotate(-0.5f)
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         // Simplified breakdown for scrapbook
         ScrapbookMetricRow("Melody Match", (score.metrics.pitch * 100).toInt(), "🎵")
         ScrapbookMetricRow("Voice Match", (score.metrics.mfcc * 100).toInt(), "🎤")
@@ -465,9 +421,7 @@ private fun Y2KScoreBreakdown(score: ScoringResult, theme: AppTheme) {
             color = theme.accentColor,
             letterSpacing = 1.sp
         )
-
         Spacer(modifier = Modifier.height(12.dp))
-
         Y2KMetricRow("PITCH_SYNC", (score.metrics.pitch * 100).toInt(), theme)
         Y2KMetricRow("VOICE_MATCH", (score.metrics.mfcc * 100).toInt(), theme)
         Y2KMetricRow("OVERALL", score.score, theme)
@@ -506,9 +460,7 @@ private fun DefaultScoreBreakdown(score: ScoringResult, theme: AppTheme) {
             fontWeight = FontWeight.Bold,
             color = theme.textPrimary
         )
-
         Spacer(modifier = Modifier.height(12.dp))
-
         DefaultMetricRow("Melody Matching", (score.metrics.pitch * 100).toInt(), theme)
         DefaultMetricRow("Voice Similarity", (score.metrics.mfcc * 100).toInt(), theme)
     }
@@ -546,9 +498,7 @@ private fun ScrapbookTips(score: ScoringResult, challengeType: ChallengeType, th
             color = theme.textPrimary,
             modifier = Modifier.rotate(0.5f)
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         val tips = generateEncouragingTips(score, challengeType)
         tips.forEach { tip ->
             Text(
@@ -571,9 +521,7 @@ private fun Y2KTips(score: ScoringResult, challengeType: ChallengeType, theme: A
             color = theme.accentColor,
             letterSpacing = 1.sp
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         val tips = generateEncouragingTips(score, challengeType)
         tips.forEach { tip ->
             Text(
@@ -596,9 +544,7 @@ private fun DefaultTips(score: ScoringResult, challengeType: ChallengeType, them
             fontWeight = FontWeight.Bold,
             color = theme.textPrimary
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         val tips = generateEncouragingTips(score, challengeType)
         tips.forEach { tip ->
             Text(
@@ -627,7 +573,6 @@ private fun getScoreEmoji(score: Int): String {
 
 private fun getEncouragingHeader(score: Int, challengeType: ChallengeType): String {
     val challengeText = if (challengeType == ChallengeType.REVERSE) "reverse singing" else "vocal mimicry"
-
     return when {
         score >= 95 -> "LEGENDARY $challengeText mastery!"
         score >= 90 -> "Incredible $challengeText skills!"
@@ -641,7 +586,6 @@ private fun getEncouragingHeader(score: Int, challengeType: ChallengeType): Stri
 
 private fun generateEncouragingTips(score: ScoringResult, challengeType: ChallengeType): List<String> {
     val tips = mutableListOf<String>()
-
     when {
         score.score >= 90 -> {
             tips.add("You're almost perfect! Try tiny adjustments to nail it 100%")
@@ -674,6 +618,5 @@ private fun generateEncouragingTips(score: ScoringResult, challengeType: Challen
             tips.add("You're brave for trying - improvement comes with practice!")
         }
     }
-
     return tips.take(3) // Limit to 3 tips max
 }
