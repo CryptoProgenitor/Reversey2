@@ -231,11 +231,49 @@ object ThemeRepository {
         )
     )
 
+    // Add this entire block before the allThemes list:
+    val scrapbookTheme = AppTheme(
+        id = "scrapbook",
+        name = "Scrapbook Vibes",
+        description = "📝 Sticky notes, hand-drawn fun, and playful chaos",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFF3E0),
+                Color(0xFFFFE0B2),
+                Color(0xFFFFCCBC)
+            )
+        ),
+        cardBackground = Color(0xFFFFEB3B),
+        cardBorder = Color(0xFF795548),
+        textPrimary = Color(0xFF212121),
+        textSecondary = Color(0xFF424242),
+        buttonGradient = Brush.horizontalGradient(
+            colors = listOf(
+                Color(0xFFFFCDD2),
+                Color(0xFFC8E6C9)
+            )
+        ),
+        accentColor = Color(0xFFFF5722),
+        useGlassmorphism = false,
+        glowIntensity = 0f,
+        useSerifFont = true,
+        useWideLetterSpacing = false,
+        recordButtonEmoji = "📝",
+        scoreEmojis = mapOf(
+            90 to "⭐",
+            80 to "😊",
+            70 to "👍",
+            60 to "😐",
+            0 to "😔"
+        )
+    )
+
     val allThemes = listOf(
         y2kCyberTheme,
         cottagecoredTheme,
         darkAcademiaTheme,
         vaporwaveTheme,
-        jeoseungShadowsTheme
+        jeoseungShadowsTheme,
+        scrapbookTheme
     )
-}
+} // <-- This closes the ThemeRepository object
