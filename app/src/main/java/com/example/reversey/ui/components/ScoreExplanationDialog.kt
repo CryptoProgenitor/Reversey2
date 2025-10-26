@@ -158,13 +158,17 @@ private fun ScrapbookScoreCard(
         Color(0xFFD1C4E9) // Light Purple
     )
 
+    // Remember the color so it doesn't flash on recomposition
+    val stickyNoteColor = remember { stickyColors.random() }
+
+
     Card(
         modifier = Modifier
             .rotate(rotation * 2f)
             .padding(16.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = stickyColors.random()
+            containerColor = stickyNoteColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {

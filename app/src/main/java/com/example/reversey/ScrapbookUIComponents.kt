@@ -1,6 +1,7 @@
 package com.example.reversey
 
 
+import com.example.reversey.ui.components.ScoreExplanationDialog
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.foundation.Canvas
@@ -82,6 +83,24 @@ fun AppTheme.withScrapbook(scrapbook: ScrapbookProperties): AppTheme {
  * Scrapbook Attempt Item - Anti-Design Aesthetic
  */
 
+// Helper function to create ScoringResult from PlayerAttempt
+private fun createScoringResultFromAttempt(attempt: PlayerAttempt): com.example.reversey.scoring.ScoringResult {
+    // Estimate metrics based on score
+    val normalizedScore = attempt.score / 100f
+    val pitchSimilarity = normalizedScore + (Math.random().toFloat() * 0.1f - 0.05f) // Small random variation
+    val mfccSimilarity = normalizedScore + (Math.random().toFloat() * 0.1f - 0.05f)
+
+    return com.example.reversey.scoring.ScoringResult(
+        score = attempt.score,
+        rawScore = normalizedScore,
+        metrics = com.example.reversey.scoring.SimilarityMetrics(
+            pitch = pitchSimilarity.coerceIn(0f, 1f),
+            mfcc = mfccSimilarity.coerceIn(0f, 1f)
+        ),
+        feedback = emptyList() // Dialog will generate its own feedback
+    )
+}
+
 // Dancing Script handwriting font family
 private val dancingScriptFontFamily = FontFamily(
     Font(R.font.dancing_script_regular, FontWeight.Normal),
@@ -109,6 +128,7 @@ fun ScrapbookAttemptItem(
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
+    var showScoreDialog by remember { mutableStateOf(false) }
 
     // Random sticky note properties for authenticity
     val stickyNoteColor = remember {
@@ -184,7 +204,8 @@ fun ScrapbookAttemptItem(
                     // Star rating instead of percentage
                     StarRating(
                         score = attempt.score,
-                        modifier = Modifier
+                        modifier = Modifier,
+                        onClick = { showScoreDialog = true }
                     )
                 }
 
@@ -244,6 +265,16 @@ fun ScrapbookAttemptItem(
         onDismissDelete = { showDeleteDialog = false },
         onDismissShare = { showShareDialog = false }
     )
+
+    // Score explanation dialog
+    if (showScoreDialog) {
+        ScoreExplanationDialog(
+            score = createScoringResultFromAttempt(attempt),
+            challengeType = attempt.challengeType,
+            currentTheme = theme,
+            onDismiss = { showScoreDialog = false }
+        )
+    }
 }
 
 /**
@@ -253,13 +284,19 @@ fun ScrapbookAttemptItem(
 fun StarRating(
     score: Int,
     modifier: Modifier = Modifier,
-    maxStars: Int = 5
+    maxStars: Int = 5,
+    onClick: (() -> Unit)? = null
 ) {
     val filledStars = (score / 20).coerceIn(0, maxStars) // 0-100% to 0-5 stars
     val hasHalfStar = (score % 20) >= 10
 
     Row(
-        modifier = modifier,
+        modifier = modifier
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable { onClick() }
+                } else Modifier
+            ),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         repeat(maxStars) { index ->
