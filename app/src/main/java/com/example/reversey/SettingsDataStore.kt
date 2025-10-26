@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,7 @@ class SettingsDataStore(context: Context) {
         val AESTHETIC_THEME_KEY = stringPreferencesKey("aesthetic_theme") // NEW
         val TUTORIAL_COMPLETED_KEY = booleanPreferencesKey("tutorial_completed")
         val BACKUP_RECORDINGS_KEY = booleanPreferencesKey("backup_recordings_enabled")
+        val CUSTOM_ACCENT_COLOR_KEY = intPreferencesKey("custom_accent_color") // 🎨 NEW
     }
 
     val getTheme: Flow<String> = dataStore.data.map { preferences ->
@@ -71,6 +73,23 @@ class SettingsDataStore(context: Context) {
     suspend fun saveAestheticTheme(themeId: String) {
         dataStore.edit { preferences ->
             preferences[AESTHETIC_THEME_KEY] = themeId
+        }
+    }
+
+    // 🎨 NEW: Custom accent color functions
+    val getCustomAccentColor: Flow<Int?> = dataStore.data.map { preferences ->
+        preferences[CUSTOM_ACCENT_COLOR_KEY]
+    }
+
+    suspend fun saveCustomAccentColor(colorInt: Int) {
+        dataStore.edit { preferences ->
+            preferences[CUSTOM_ACCENT_COLOR_KEY] = colorInt
+        }
+    }
+
+    suspend fun clearCustomAccentColor() {
+        dataStore.edit { preferences ->
+            preferences.remove(CUSTOM_ACCENT_COLOR_KEY)
         }
     }
 

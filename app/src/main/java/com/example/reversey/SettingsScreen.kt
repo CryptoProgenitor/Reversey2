@@ -35,6 +35,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +57,7 @@ import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.scoring.ScoringPresets
 import com.example.reversey.scoring.applyPreset
+import com.example.reversey.ui.components.ColorCirclePicker
 import com.example.reversey.ui.debug.DebugPanel
 import kotlinx.coroutines.launch
 import android.util.Log
@@ -75,7 +77,8 @@ fun SettingsScreen(
     scoringEngine: ScoringEngine, // <-- ADD THIS //ClaudeGeminiNewCodeV5
     audioViewModel: AudioViewModel,  // <-- ADD THIS LINE to sync difficulty levels with audioviewmodel
     showDebugPanel: Boolean, // <-- ADD THIS //ClaudeGeminiNewCodeV5
-    onShowDebugPanelChange: (Boolean) -> Unit // <-- ADD THIS //ClaudeGeminiNewCodeV5
+    onShowDebugPanelChange: (Boolean) -> Unit, // <-- ADD THIS //ClaudeGeminiNewCodeV5
+    themeViewModel: ThemeViewModel // 🎨 NEW: Add ThemeViewModel for accent color functionality
 ) {
     val themes = listOf("Purple", "Blue", "Green", "Orange")
     val darkModeOptions = listOf("Light", "Dark", "System")
@@ -83,6 +86,9 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
+    // 🎨 NEW: Get custom accent color states from ThemeViewModel
+    val customAccentColor by themeViewModel.customAccentColor.collectAsState()
+    val defaultAccentColor by themeViewModel.defaultAccentColor.collectAsState()
 
     // Get current difficulty for UI feedback with state management
     var currentDifficulty by remember { mutableStateOf(scoringEngine.getCurrentDifficulty()) }
@@ -177,12 +183,11 @@ fun SettingsScreen(
                         }
                     }
 
-                    // Difficulty Presets - Enhanced Grid Layout
+                    // Difficulty Selection Grid
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = 16.dp)
                     ) {
                         // First row: Easy, Normal, Hard
                         Row(
@@ -218,12 +223,15 @@ fun SettingsScreen(
                                 onDifficultyChanged = { currentDifficulty = it },
                                 modifier = Modifier.weight(1f)
                             )
+
                         }
 
-// Second row: Expert, Master
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Second row: Expert, Master (centered)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                         ) {
                             DifficultyButton(
                                 difficulty = DifficultyLevel.EXPERT,
@@ -245,12 +253,10 @@ fun SettingsScreen(
                                 modifier = Modifier.weight(1f)
                             )
 
-                            // Empty space to balance the row
-                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
 
-                    // Difficulty description for selected level
+                    // Difficulty Description Card
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -268,7 +274,7 @@ fun SettingsScreen(
                     }
                 }
 
-                // Theme Section
+                // 🎨 NEW: Custom Accent Color Section (replaces old radio buttons)
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                     Text(
@@ -276,25 +282,25 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                     )
-                }
 
-                // Theme Options
-                items(themes) { theme ->
-                    Row(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onThemeChange(theme) }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = currentTheme == theme,
-                            onClick = { onThemeChange(theme) }
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "$theme Theme",
-                            style = MaterialTheme.typography.bodyLarge
+                    ) {
+                        ColorCirclePicker(
+                            selectedColor = customAccentColor,
+                            defaultColor = defaultAccentColor,
+                            onColorSelected = { color ->
+                                themeViewModel.setCustomAccentColor(color)
+                            },
+                            onResetToDefault = {
+                                themeViewModel.clearCustomAccentColor()
+                            },
+                            modifier = Modifier.padding(16.dp)
                         )
                     }
                 }
@@ -360,64 +366,27 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
                             )
                         ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.padding(end = 8.dp)
-                                )
-                                Text(
-                                    "⚠️ Recordings will use Google Drive storage and may be restored when reinstalling the app.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                        Column {
                             Text(
-                                "Storage Location",
+                                text = "⚠️ Experimental Feature\n\n" +
+                                        "Your recordings will be automatically saved to Google Drive when you finish a challenge. " +
+                                        "This feature is currently in beta testing.\n\n" +
+                                        "Privacy: Your voice recordings are stored securely on your personal Google Drive account.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "Recordings are stored in app private storage and deleted when the app is uninstalled.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(16.dp)
                             )
                         }
                     }
                 }
 
-
-
-                // Help Section
+                // About Section
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                     Text(
-                        "Help",
+                        "About",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                     )

@@ -71,13 +71,13 @@ fun AppTheme.isScrapbookMode(): Boolean {
  */
 object ScrapbookConfig {
     val stickyNoteColors = listOf(
-        Color(0xFFFFEB3B), // Yellow
+        Color(0xAAFFE3A4), // Yellow
         Color(0xFFFFCDD2), // Light Pink
-        Color(0xFFC8E6C9), // Light Green
-        Color(0xFFBBDEFB), // Light Blue
+        Color(0xFFBFFFD8), // Light Green
+        Color(0xFFA4AAFF), // Light Blue
         Color(0xFFD1C4E9), // Light Purple
-        Color(0xFFFFE0B2), // Light Orange
-        Color(0xFFF8BBD0)  // Pink
+        Color(0xFFFFCC8F), // Peach
+        Color(0xFFFAA4FF)  // Pink
     )
 
     const val maxRotationDegrees = 3f

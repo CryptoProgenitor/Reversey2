@@ -26,6 +26,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.reversey.AppTheme
 import com.example.reversey.ChallengeType
 import com.example.reversey.scoring.ScoringResult
+import kotlin.math.sin
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -55,6 +56,39 @@ fun ScoreExplanationDialog(
         label = "rotation"
     )
 
+    // New animation for steampunk gears
+    val gearRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(10000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gear_rotation"
+    )
+
+    // New animation for cyberpunk scan lines
+    val scanLineOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "scan_line"
+    )
+
+    // New animation for graphite pencil strokes
+    val pencilStroke by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pencil_stroke"
+    )
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -76,21 +110,55 @@ fun ScoreExplanationDialog(
                     .fillMaxWidth(0.9f)
                     .clickable(enabled = false) { } // Prevent dismissing when clicking content
             ) {
-                // Background glow effect for Y2K theme
-                if (currentTheme.id == "y2k_cyber") {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .blur(20.dp)
-                            .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        currentTheme.accentColor.copy(alpha = glowAlpha),
-                                        Color.Transparent
+                // Background glow effects based on theme
+                when (currentTheme.id) {
+                    "y2k_cyber" -> {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .blur(20.dp)
+                                .background(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            currentTheme.accentColor.copy(alpha = glowAlpha),
+                                            Color.Transparent
+                                        )
                                     )
                                 )
-                            )
-                    )
+                        )
+                    }
+                    "steampunk" -> {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .blur(15.dp)
+                                .background(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            Color(0xFFFFD700).copy(alpha = glowAlpha * 0.6f), // Golden glow
+                                            Color(0xFFCD7F32).copy(alpha = glowAlpha * 0.3f), // Bronze
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                    "cyberpunk" -> {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .blur(25.dp)
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color(0xFF00FFFF).copy(alpha = glowAlpha), // Neon cyan
+                                            Color(0xFFFF0080).copy(alpha = glowAlpha * 0.7f), // Neon magenta
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+                    }
                 }
 
                 // Main content card
@@ -106,6 +174,25 @@ fun ScoreExplanationDialog(
                         challengeType = challengeType,
                         theme = currentTheme,
                         glowAlpha = glowAlpha
+                    )
+                    "steampunk" -> SteampunkScoreCard(
+                        score = score,
+                        challengeType = challengeType,
+                        theme = currentTheme,
+                        gearRotation = gearRotation
+                    )
+                    "cyberpunk" -> CyberpunkScoreCard(
+                        score = score,
+                        challengeType = challengeType,
+                        theme = currentTheme,
+                        scanLineOffset = scanLineOffset,
+                        glowAlpha = glowAlpha
+                    )
+                    "graphite_sketch" -> GraphiteSketchScoreCard(
+                        score = score,
+                        challengeType = challengeType,
+                        theme = currentTheme,
+                        pencilStroke = pencilStroke
                     )
                     else -> DefaultScoreCard(
                         score = score,
@@ -249,10 +336,10 @@ private fun Y2KScoreCard(
         ),
         border = BorderStroke(
             2.dp,
-            Brush.linearGradient(
+            brush = Brush.linearGradient(
                 colors = listOf(
                     theme.accentColor.copy(alpha = glowAlpha),
-                    theme.accentColor.copy(alpha = glowAlpha),
+                    Color.Cyan.copy(alpha = glowAlpha),
                     theme.accentColor.copy(alpha = glowAlpha)
                 )
             )
@@ -264,56 +351,423 @@ private fun Y2KScoreCard(
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Glowing score display
+            // Futuristic header
+            Text(
+                text = ">> VOCAL.ANALYSIS.EXE",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = theme.accentColor,
+                letterSpacing = 2.sp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Glowing score
             Box(
-                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(120.dp)
                     .background(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                theme.accentColor.copy(alpha = glowAlpha),
+                                theme.accentColor.copy(alpha = 0.2f),
                                 Color.Transparent
                             )
                         ),
-                        shape = RoundedCornerShape(60.dp)
+                        shape = CircleShape
                     )
+                    .padding(16.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "${score.score}%",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = theme.accentColor
+                        text = getScoreEmoji(score.score),
+                        fontSize = 48.sp
                     )
                     Text(
-                        text = getScoreEmoji(score.score),
-                        fontSize = 24.sp
+                        text = "${score.score}%",
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.accentColor
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Cyber-style header
+            // Status message
             Text(
-                text = "║ ${getEncouragingHeader(score.score, challengeType).uppercase()} ║",
+                text = ">> ${getEncouragingHeader(score.score, challengeType).uppercase()}",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = theme.accentColor,
                 textAlign = TextAlign.Center,
-                letterSpacing = 2.sp
+                color = Color.White,
+                letterSpacing = 1.sp
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Tech-style breakdown
+            // Performance breakdown
             Y2KScoreBreakdown(score, theme)
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Cyber tips
+            // Tips
             Y2KTips(score, challengeType, theme)
+        }
+    }
+}
+
+@Composable
+private fun SteampunkScoreCard(
+    score: ScoringResult,
+    challengeType: ChallengeType,
+    theme: AppTheme,
+    gearRotation: Float
+) {
+    Card(
+        modifier = Modifier
+            .padding(16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF2C1810) // Dark mahogany
+        ),
+        border = BorderStroke(
+            3.dp,
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    Color(0xFFCD7F32), // Bronze
+                    Color(0xFFD4AF37), // Brass gold
+                    Color(0xFFCD7F32)
+                )
+            )
+        )
+    ) {
+        Box {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Victorian header with brass corners
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Decorative brass corners
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(Color(0xFFD4AF37))
+                            .align(Alignment.TopStart)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(Color(0xFFD4AF37))
+                            .align(Alignment.TopEnd)
+                    )
+
+                    Text(
+                        text = "⚙️ VOCAL APPARATUS ANALYSIS ⚙️",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD4AF37),
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 1.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Ornate trophy section with gears
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Background gear animation
+                    Text(
+                        text = "⚙️",
+                        fontSize = 40.sp,
+                        color = Color(0xFFCD7F32).copy(alpha = 0.3f),
+                        modifier = Modifier
+                            .offset((-20).dp, (-10).dp)
+                            .rotate(gearRotation)
+                    )
+                    Text(
+                        text = "⚙️",
+                        fontSize = 30.sp,
+                        color = Color(0xFFD4AF37).copy(alpha = 0.4f),
+                        modifier = Modifier
+                            .offset(25.dp, 15.dp)
+                            .rotate(-gearRotation * 0.7f)
+                    )
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = getSteampunkEmoji(score.score),
+                            fontSize = 48.sp
+                        )
+                        Text(
+                            text = "${score.score}%",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFD4AF37)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Victorian proclamation
+                Text(
+                    text = getSteampunkHeader(score.score, challengeType),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFFF4A460), // Sandy brown
+                    letterSpacing = 0.5.sp
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Mechanical breakdown
+                SteampunkScoreBreakdown(score, theme)
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Victorian tips
+                SteampunkTips(score, challengeType, theme)
+            }
+
+            // Steam effects
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "💨",
+                    fontSize = 20.sp,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .offset(
+                            x = (sin(gearRotation * 0.01f) * 5).dp,
+                            y = (sin(gearRotation * 0.015f) * 3).dp
+                        )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CyberpunkScoreCard(
+    score: ScoringResult,
+    challengeType: ChallengeType,
+    theme: AppTheme,
+    scanLineOffset: Float,
+    glowAlpha: Float
+) {
+    Card(
+        modifier = Modifier
+            .padding(16.dp),
+        shape = RoundedCornerShape(4.dp), // Sharp edges for cyberpunk
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF0A0A0A) // Pure black
+        ),
+        border = BorderStroke(
+            2.dp,
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    Color(0xFF00FFFF), // Neon cyan
+                    Color(0xFFFF0080), // Neon magenta
+                    Color(0xFF00FFFF)
+                )
+            )
+        )
+    ) {
+        Box {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Matrix-style header
+                Text(
+                    text = "◤ NEURAL_VOICE_SCAN.exe ◥",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF00FFFF),
+                    letterSpacing = 2.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Holographic score display
+                Box(
+                    modifier = Modifier
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF00FFFF).copy(alpha = 0.1f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                        .border(
+                            1.dp,
+                            Color(0xFF00FFFF).copy(alpha = glowAlpha),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(16.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = getCyberpunkEmoji(score.score),
+                            fontSize = 48.sp
+                        )
+                        Text(
+                            text = "${score.score}%",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00FFFF),
+                            modifier = Modifier.graphicsLayer {
+                                shadowElevation = 10.dp.toPx()
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Digital underground message
+                Text(
+                    text = getCyberpunkHeader(score.score, challengeType),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFFFF0080),
+                    letterSpacing = 1.sp
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Data matrix breakdown
+                CyberpunkScoreBreakdown(score, theme)
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Hacker tips
+                CyberpunkTips(score, challengeType, theme)
+            }
+
+            // Animated scan lines
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(Color(0xFF00FFFF).copy(alpha = 0.8f))
+                    .offset(y = (scanLineOffset * 300).dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun GraphiteSketchScoreCard(
+    score: ScoringResult,
+    challengeType: ChallengeType,
+    theme: AppTheme,
+    pencilStroke: Float
+) {
+    Card(
+        modifier = Modifier
+            .padding(16.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFF8F8F8) // Paper white
+        ),
+        border = BorderStroke(
+            1.dp,
+            Color(0xFF2A2A2A) // Graphite gray
+        )
+    ) {
+        Box {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Hand-drawn header
+                Text(
+                    text = "✏️ Voice Sketch Analysis ✏️",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2A2A2A),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Sketchy score circle
+                Box(
+                    modifier = Modifier
+                        .size(120.dp)
+                        .background(
+                            Color.Transparent,
+                            CircleShape
+                        )
+                        .border(
+                            width = 3.dp,
+                            color = Color(0xFF666666),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = getGraphiteEmoji(score.score),
+                            fontSize = 36.sp
+                        )
+                        Text(
+                            text = "${score.score}%",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2A2A2A)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Hand-written message
+                Text(
+                    text = getGraphiteHeader(score.score, challengeType),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFF666666)
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Sketchy breakdown
+                GraphiteScoreBreakdown(score, theme)
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Penciled tips
+                GraphiteTips(score, challengeType, theme)
+            }
+
+            // Animated pencil strokes
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 0.3f }
+            ) {
+                // You could add custom drawing here for pencil stroke effects
+            }
         }
     }
 }
@@ -330,7 +784,7 @@ private fun DefaultScoreCard(
         colors = CardDefaults.cardColors(
             containerColor = theme.cardBackground
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        border = BorderStroke(1.dp, theme.cardBorder)
     ) {
         Column(
             modifier = Modifier
@@ -338,16 +792,15 @@ private fun DefaultScoreCard(
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Score display
+            Text(
+                text = getScoreEmoji(score.score),
+                fontSize = 48.sp
+            )
             Text(
                 text = "${score.score}%",
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 color = theme.accentColor
-            )
-            Text(
-                text = getScoreEmoji(score.score),
-                fontSize = 32.sp
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -375,16 +828,15 @@ private fun DefaultScoreCard(
 private fun ScrapbookScoreBreakdown(score: ScoringResult, theme: AppTheme) {
     Column {
         Text(
-            text = "Your Performance:",
+            text = "How you did:",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             color = theme.textPrimary,
             modifier = Modifier.rotate(-0.5f)
         )
         Spacer(modifier = Modifier.height(8.dp))
-        // Simplified breakdown for scrapbook
-        ScrapbookMetricRow("Melody Match", (score.metrics.pitch * 100).toInt(), "🎵")
-        ScrapbookMetricRow("Voice Match", (score.metrics.mfcc * 100).toInt(), "🎤")
+        ScrapbookMetricRow("Melody", (score.metrics.pitch * 100).toInt(), "🎵")
+        ScrapbookMetricRow("Voice", (score.metrics.mfcc * 100).toInt(), "🎤")
     }
 }
 
@@ -451,6 +903,125 @@ private fun Y2KMetricRow(label: String, value: Int, theme: AppTheme) {
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = theme.accentColor
+        )
+    }
+}
+
+@Composable
+private fun SteampunkScoreBreakdown(score: ScoringResult, theme: AppTheme) {
+    Column {
+        Text(
+            text = "⚙️ MECHANICAL PRECISION ⚙️",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFD4AF37),
+            letterSpacing = 1.sp,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        SteampunkMetricRow("Harmonic Resonance", (score.metrics.pitch * 100).toInt())
+        SteampunkMetricRow("Vocal Apparatus", (score.metrics.mfcc * 100).toInt())
+        SteampunkMetricRow("Overall Mastery", score.score)
+    }
+}
+
+@Composable
+private fun SteampunkMetricRow(label: String, value: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = Color(0xFFF4A460),
+            letterSpacing = 0.5.sp
+        )
+        Text(
+            text = "${value}%",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFD4AF37)
+        )
+    }
+}
+
+@Composable
+private fun CyberpunkScoreBreakdown(score: ScoringResult, theme: AppTheme) {
+    Column {
+        Text(
+            text = "◤ DATA_MATRIX_ANALYSIS ◥",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF00FFFF),
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        CyberpunkMetricRow("NEURAL_PITCH", (score.metrics.pitch * 100).toInt())
+        CyberpunkMetricRow("VOICE_PATTERN", (score.metrics.mfcc * 100).toInt())
+        CyberpunkMetricRow("TOTAL_HACK", score.score)
+    }
+}
+
+@Composable
+private fun CyberpunkMetricRow(label: String, value: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = Color(0xFFFF0080),
+            letterSpacing = 1.sp
+        )
+        Text(
+            text = "${value}%",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF00FFFF)
+        )
+    }
+}
+
+@Composable
+private fun GraphiteScoreBreakdown(score: ScoringResult, theme: AppTheme) {
+    Column {
+        Text(
+            text = "Sketch Notes:",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2A2A2A)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        GraphiteMetricRow("Melody Line", (score.metrics.pitch * 100).toInt())
+        GraphiteMetricRow("Voice Shade", (score.metrics.mfcc * 100).toInt())
+        GraphiteMetricRow("Overall", score.score)
+    }
+}
+
+@Composable
+private fun GraphiteMetricRow(label: String, value: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "• $label",
+            fontSize = 12.sp,
+            color = Color(0xFF666666)
+        )
+        Text(
+            text = "$value%",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2A2A2A)
         )
     }
 }
@@ -540,6 +1111,75 @@ private fun Y2KTips(score: ScoringResult, challengeType: ChallengeType, theme: A
 }
 
 @Composable
+private fun SteampunkTips(score: ScoringResult, challengeType: ChallengeType, theme: AppTheme) {
+    Column {
+        Text(
+            text = "⚗️ ALCHEMICAL IMPROVEMENTS ⚗️",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFD4AF37),
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        val tips = generateSteampunkTips(score, challengeType)
+        tips.forEach { tip ->
+            Text(
+                text = "• $tip",
+                fontSize = 11.sp,
+                color = Color(0xFFF4A460),
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CyberpunkTips(score: ScoringResult, challengeType: ChallengeType, theme: AppTheme) {
+    Column {
+        Text(
+            text = "◤ UPGRADE_PROTOCOLS ◥",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF00FFFF),
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        val tips = generateCyberpunkTips(score, challengeType)
+        tips.forEach { tip ->
+            Text(
+                text = ">> $tip",
+                fontSize = 10.sp,
+                color = Color(0xFFFF0080),
+                modifier = Modifier.padding(vertical = 2.dp),
+                letterSpacing = 0.5.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun GraphiteTips(score: ScoringResult, challengeType: ChallengeType, theme: AppTheme) {
+    Column {
+        Text(
+            text = "Sketch Notes:",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2A2A2A)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        val tips = generateGraphiteTips(score, challengeType)
+        tips.forEach { tip ->
+            Text(
+                text = "• $tip",
+                fontSize = 12.sp,
+                color = Color(0xFF666666),
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun DefaultTips(score: ScoringResult, challengeType: ChallengeType, theme: AppTheme) {
     Column {
         Text(
@@ -575,6 +1215,45 @@ private fun getScoreEmoji(score: Int): String {
     }
 }
 
+private fun getSteampunkEmoji(score: Int): String {
+    return when {
+        score >= 95 -> "🏆"
+        score >= 90 -> "⚗️"
+        score >= 80 -> "🎩"
+        score >= 70 -> "⚙️"
+        score >= 60 -> "🔧"
+        score >= 50 -> "📜"
+        score >= 40 -> "🕰️"
+        else -> "⚡"
+    }
+}
+
+private fun getCyberpunkEmoji(score: Int): String {
+    return when {
+        score >= 95 -> "👑"
+        score >= 90 -> "🤖"
+        score >= 80 -> "⚡"
+        score >= 70 -> "🔥"
+        score >= 60 -> "💎"
+        score >= 50 -> "🎮"
+        score >= 40 -> "💻"
+        else -> "🔌"
+    }
+}
+
+private fun getGraphiteEmoji(score: Int): String {
+    return when {
+        score >= 95 -> "⭐"
+        score >= 90 -> "😊"
+        score >= 80 -> "👍"
+        score >= 70 -> "😐"
+        score >= 60 -> "📝"
+        score >= 50 -> "✏️"
+        score >= 40 -> "📋"
+        else -> "😔"
+    }
+}
+
 private fun getEncouragingHeader(score: Int, challengeType: ChallengeType): String {
     val challengeText = if (challengeType == ChallengeType.REVERSE) "reverse singing" else "vocal mimicry"
     return when {
@@ -585,6 +1264,45 @@ private fun getEncouragingHeader(score: Int, challengeType: ChallengeType): Stri
         score >= 60 -> "Good $challengeText effort!"
         score >= 50 -> "Keep practicing $challengeText!"
         else -> "$challengeText is tough - you're learning!"
+    }
+}
+
+private fun getSteampunkHeader(score: Int, challengeType: ChallengeType): String {
+    val challengeText = if (challengeType == ChallengeType.REVERSE) "phonographic reversal" else "vocal apparatus mimicry"
+    return when {
+        score >= 95 -> "EXTRAORDINARY MASTERY of $challengeText!"
+        score >= 90 -> "Most splendid $challengeText performance!"
+        score >= 80 -> "Admirable $challengeText craftsmanship!"
+        score >= 70 -> "Decent $challengeText endeavour!"
+        score >= 60 -> "Respectable $challengeText attempt!"
+        score >= 50 -> "Continue perfecting your $challengeText!"
+        else -> "$challengeText requires mechanical precision!"
+    }
+}
+
+private fun getCyberpunkHeader(score: Int, challengeType: ChallengeType): String {
+    val challengeText = if (challengeType == ChallengeType.REVERSE) "audio_reverse_hack" else "voice_pattern_clone"
+    return when {
+        score >= 95 -> "NEURAL_LINK_PERFECTED: $challengeText"
+        score >= 90 -> "SYSTEM_HACKED: Elite $challengeText"
+        score >= 80 -> "ACCESS_GRANTED: Good $challengeText"
+        score >= 70 -> "FIREWALL_BYPASSED: $challengeText"
+        score >= 60 -> "CONNECTION_ESTABLISHED: $challengeText"
+        score >= 50 -> "UPLOADING_SKILLS: $challengeText"
+        else -> "SYSTEM_ERROR: $challengeText failed"
+    }
+}
+
+private fun getGraphiteHeader(score: Int, challengeType: ChallengeType): String {
+    val challengeText = if (challengeType == ChallengeType.REVERSE) "reverse melody sketch" else "voice drawing"
+    return when {
+        score >= 95 -> "Perfect $challengeText - frame worthy!"
+        score >= 90 -> "Beautiful $challengeText artwork!"
+        score >= 80 -> "Nice $challengeText drawing!"
+        score >= 70 -> "Good $challengeText sketch!"
+        score >= 60 -> "Decent $challengeText attempt!"
+        score >= 50 -> "Keep sketching that $challengeText!"
+        else -> "Every artist starts with rough $challengeText!"
     }
 }
 
@@ -623,4 +1341,94 @@ private fun generateEncouragingTips(score: ScoringResult, challengeType: Challen
         }
     }
     return tips.take(3) // Limit to 3 tips max
+}
+
+private fun generateSteampunkTips(score: ScoringResult, challengeType: ChallengeType): List<String> {
+    val tips = mutableListOf<String>()
+    when {
+        score.score >= 90 -> {
+            tips.add("Your vocal apparatus operates at peak efficiency!")
+            tips.add("Fine-tune the mechanical precision for perfection")
+        }
+        score.score >= 70 -> {
+            if (score.metrics.pitch < 0.8f) {
+                tips.add("Adjust harmonic resonance calibration")
+            }
+            if (score.metrics.mfcc < 0.8f) {
+                tips.add("Refine vocal apparatus settings")
+            }
+            tips.add("Your steam engine needs minor adjustments")
+        }
+        score.score >= 50 -> {
+            tips.add("Study the mechanical blueprints carefully")
+            tips.add("Oil your vocal gears for smoother operation")
+            tips.add("Practice builds steam pressure!")
+        }
+        else -> {
+            tips.add("Inspect the original phonographic recording")
+            tips.add("Ensure proper boiler pressure for projection")
+            tips.add("Every great inventor faces initial setbacks!")
+        }
+    }
+    return tips.take(3)
+}
+
+private fun generateCyberpunkTips(score: ScoringResult, challengeType: ChallengeType): List<String> {
+    val tips = mutableListOf<String>()
+    when {
+        score.score >= 90 -> {
+            tips.add("Neural interface operating at maximum efficiency")
+            tips.add("Minor code optimization will achieve perfection")
+        }
+        score.score >= 70 -> {
+            if (score.metrics.pitch < 0.8f) {
+                tips.add("Recalibrate pitch detection algorithms")
+            }
+            if (score.metrics.mfcc < 0.8f) {
+                tips.add("Update voice pattern recognition matrix")
+            }
+            tips.add("System requires debugging for optimal performance")
+        }
+        score.score >= 50 -> {
+            tips.add("Analyze source code before execution")
+            tips.add("Increase bandwidth for clearer signal")
+            tips.add("Practice enhances neural network training")
+        }
+        else -> {
+            tips.add("Download original audio files for reference")
+            tips.add("Boost signal strength for better transmission")
+            tips.add("Every hacker starts with basic code!")
+        }
+    }
+    return tips.take(3)
+}
+
+private fun generateGraphiteTips(score: ScoringResult, challengeType: ChallengeType): List<String> {
+    val tips = mutableListOf<String>()
+    when {
+        score.score >= 90 -> {
+            tips.add("Your sketch is nearly photorealistic!")
+            tips.add("Add subtle shading for perfection")
+        }
+        score.score >= 70 -> {
+            if (score.metrics.pitch < 0.8f) {
+                tips.add("Work on melody line accuracy")
+            }
+            if (score.metrics.mfcc < 0.8f) {
+                tips.add("Practice voice texture and shading")
+            }
+            tips.add("Your drawing skills are developing nicely")
+        }
+        score.score >= 50 -> {
+            tips.add("Study the reference image carefully")
+            tips.add("Use different pencil pressures for variation")
+            tips.add("Every sketch improves your technique")
+        }
+        else -> {
+            tips.add("Look at the original artwork closely")
+            tips.add("Press harder for darker, clearer lines")
+            tips.add("All great artists started with simple sketches!")
+        }
+    }
+    return tips.take(3)
 }

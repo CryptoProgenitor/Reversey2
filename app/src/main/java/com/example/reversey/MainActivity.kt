@@ -108,7 +108,7 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.ui.components.DifficultyIndicator
-import com.example.reversey.ui.theme.ReVerseYTheme
+import com.example.reversey.ui.theme.DynamicMaterialTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -127,14 +127,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val themeViewModel: ThemeViewModel = viewModel()
-            val currentTheme by themeViewModel.theme.collectAsState()
             val darkModePreference by themeViewModel.darkModePreference.collectAsState()
+            val customAccentColor by themeViewModel.customAccentColor.collectAsState()
+
             val useDarkTheme = when (darkModePreference) {
                 "Light" -> false
                 "Dark" -> true
                 else -> isSystemInDarkTheme()
             }
-            ReVerseYTheme(themeName = currentTheme, darkTheme = useDarkTheme) {
+
+            DynamicMaterialTheme(
+                customAccentColor = customAccentColor,
+                fallbackAccentColor = themeViewModel.aestheticTheme.collectAsState().value.accentColor,
+                darkTheme = useDarkTheme
+            ) {
                 MainApp(themeViewModel = themeViewModel)
             }
         }
@@ -206,7 +212,8 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     scoringEngine = scoringEngine,
                     audioViewModel = audioViewModel,  // <-- ADD THIS LINE
                     showDebugPanel = showDebugPanel,
-                    onShowDebugPanelChange = { showDebugPanel = it }
+                    onShowDebugPanelChange = { showDebugPanel = it },
+                    themeViewModel = themeViewModel
                 )
             }
             composable("themes") {
@@ -319,7 +326,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Version 9.5.1_FixedDiffLvls",
+                    text = "Version 10.0.0c_pro_themes_RGB_accents",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )

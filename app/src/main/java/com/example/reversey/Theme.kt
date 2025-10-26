@@ -268,12 +268,126 @@ object ThemeRepository {
         )
     )
 
+    // ⚙️ STEAMPUNK THEME - Victorian Industrial
+    val steampunkTheme = AppTheme(
+        id = "steampunk",
+        name = "Steampunk Victorian",
+        description = "⚙️ Brass gears, copper pipes, and steam power",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF2C1810), // Dark mahogany
+                Color(0xFF8B4513), // Saddle brown
+                Color(0xFFCD7F32)  // Bronze
+            )
+        ),
+        cardBackground = Color(0xFF8B4513), // Saddle brown
+        cardBorder = Color(0xFFD4AF37), // Brass gold
+        textPrimary = Color(0xFFD4AF37), // Brass gold
+        textSecondary = Color(0xFFF4A460), // Sandy brown
+        buttonGradient = Brush.horizontalGradient(
+            colors = listOf(
+                Color(0xFFCD7F32), // Bronze
+                Color(0xFFD4AF37)  // Brass gold
+            )
+        ),
+        accentColor = Color(0xFFD4AF37), // Brass gold
+        useGlassmorphism = false,
+        glowIntensity = 0.4f,
+        useSerifFont = true,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "⚙️",
+        scoreEmojis = mapOf(
+            90 to "🏆",
+            80 to "⚗️",
+            70 to "🎩",
+            60 to "⚙️",
+            0 to "🔧"
+        )
+    )
+
+    // 🤖 CYBERPUNK THEME - Digital Underground
+    val cyberpunkTheme = AppTheme(
+        id = "cyberpunk",
+        name = "Cyberpunk 2099",
+        description = "🤖 Neon lights, digital underground, matrix vibes",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF0A0A0A), // Pure black
+                Color(0xFF1A0033), // Dark purple
+                Color(0xFF000A1A)  // Dark blue
+            )
+        ),
+        cardBackground = Color(0xFF0A0A0A), // Pure black
+        cardBorder = Color(0xFF00FFFF), // Neon cyan
+        textPrimary = Color(0xFF00FFFF), // Neon cyan
+        textSecondary = Color(0xFFFF0080), // Neon magenta
+        buttonGradient = Brush.horizontalGradient(
+            colors = listOf(
+                Color(0xFF00FFFF), // Neon cyan
+                Color(0xFFFF0080)  // Neon magenta
+            )
+        ),
+        accentColor = Color(0xFF00FFFF), // Neon cyan
+        useGlassmorphism = true,
+        glowIntensity = 0.9f,
+        useSerifFont = false,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "🤖",
+        scoreEmojis = mapOf(
+            90 to "👑",
+            80 to "🤖",
+            70 to "⚡",
+            60 to "🔥",
+            0 to "💻"
+        )
+    )
+
+    // ✏️ GRAPHITE SKETCH THEME - Hand-Drawn Art
+    val graphiteSketchTheme = AppTheme(
+        id = "graphite_sketch",
+        name = "Graphite Sketch",
+        description = "✏️ Hand-drawn art, pencil textures, paper vibes",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFF8F8F8), // Paper white
+                Color(0xFFEEEEEE), // Light gray
+                Color(0xFFE0E0E0)  // Lighter gray
+            )
+        ),
+        cardBackground = Color(0xFFF8F8F8), // Paper white
+        cardBorder = Color(0xFF2A2A2A), // Graphite gray
+        textPrimary = Color(0xFF2A2A2A), // Graphite gray
+        textSecondary = Color(0xFF666666), // Medium gray
+        buttonGradient = Brush.horizontalGradient(
+            colors = listOf(
+                Color(0xFF8A8A8A), // Medium gray
+                Color(0xFF666666)  // Darker gray
+            )
+        ),
+        accentColor = Color(0xFF2A2A2A), // Graphite gray
+        useGlassmorphism = false,
+        glowIntensity = 0f,
+        useSerifFont = false,
+        useWideLetterSpacing = false,
+        recordButtonEmoji = "✏️",
+        scoreEmojis = mapOf(
+            90 to "⭐",
+            80 to "😊",
+            70 to "👍",
+            60 to "😐",
+            0 to "😔"
+        )
+    )
+
     val allThemes = listOf(
         y2kCyberTheme,
         cottagecoredTheme,
         darkAcademiaTheme,
         vaporwaveTheme,
         jeoseungShadowsTheme,
-        scrapbookTheme
+        scrapbookTheme,
+        steampunkTheme,
+        cyberpunkTheme,
+        graphiteSketchTheme
     )
 } // <-- This closes the ThemeRepository object
