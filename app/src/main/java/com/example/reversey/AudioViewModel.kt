@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.scoring.ScoringParameters
+import com.example.reversey.scoring.applyPreset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,7 +24,6 @@ import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -317,7 +317,7 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
                     val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
 
                     if (parentRecording != null) {
-                        scoringEngine.updateParameters(ScoringParameters()) // Force update
+                        //scoringEngine.updateParameters(ScoringParameters()) // Force update  <-- DELETE - or comment out -  THIS LINE (GEMINI PRESET BUG HYPOTHESIS)
                         val score = when (challengeType) {
                             ChallengeType.REVERSE -> {
                                 Log.d("AudioViewModel", "REVERSE scoring - parentReversedPath: ${parentRecording.reversedPath}")
@@ -609,4 +609,8 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Sync scoring parameters from settings
+    fun updateScoringEngine(preset: com.example.reversey.scoring.Presets) {
+        scoringEngine.applyPreset(preset)
+    }
 }

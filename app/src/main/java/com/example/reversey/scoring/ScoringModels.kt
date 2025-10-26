@@ -185,13 +185,24 @@ data class ContentMetrics(
     val overallContentScore: Float       // Combined content similarity score
 )
 
-// ===== PRESET CONFIGURATIONS =====
+// ===== NEW DIFFICULTY LEVEL ENUM =====
+
+enum class DifficultyLevel(val displayName: String, val emoji: String, val description: String) {
+    EASY("Easy", "😊", "Very forgiving - great for beginners"),
+    NORMAL("Normal", "🎵", "Balanced scoring - the default experience"),
+    HARD("Hard", "🔥", "Challenging - for experienced users"),
+    EXPERT("Expert", "💎", "Very strict - only for advanced singers"),
+    MASTER("Master", "🏆", "Perfection required - for the elite")
+}
+
+// ===== ENHANCED PRESET CONFIGURATIONS =====
 
 object ScoringPresets {
 
     // Easy Mode - Forgiving scoring for beginners
     fun easyMode(): Presets {
         return Presets(
+            difficulty = DifficultyLevel.EASY,
             scoring = ScoringParameters(
                 pitchWeight = 0.75f,         // Less strict on pitch accuracy
                 mfccWeight = 0.25f,
@@ -218,6 +229,7 @@ object ScoringPresets {
     // Normal Mode - Balanced scoring (current defaults)
     fun normalMode(): Presets {
         return Presets(
+            difficulty = DifficultyLevel.NORMAL,
             scoring = ScoringParameters(),
             content = ContentDetectionParameters(),
             melodic = MelodicAnalysisParameters(),
@@ -230,6 +242,7 @@ object ScoringPresets {
     // Hard Mode - Strict scoring for advanced users
     fun hardMode(): Presets {
         return Presets(
+            difficulty = DifficultyLevel.HARD,
             scoring = ScoringParameters(
                 pitchWeight = 0.9f,          // Very strict on pitch
                 mfccWeight = 0.1f,
@@ -253,9 +266,77 @@ object ScoringPresets {
         )
     }
 
+    // NEW: Expert Mode - Very strict for advanced singers
+    fun expertMode(): Presets {
+        return Presets(
+            difficulty = DifficultyLevel.EXPERT,
+            scoring = ScoringParameters(
+                pitchWeight = 0.95f,          // Extremely strict on pitch
+                mfccWeight = 0.05f,
+                pitchTolerance = 5f,          // Very tight pitch tolerance (quarter-tone precision)
+                minScoreThreshold = 0.4f,     // Very hard to get points
+                perfectScoreThreshold = 0.95f, // Near-impossible to get perfect
+                scoreCurve = 1.2f             // Much less generous curve
+            ),
+            content = ContentDetectionParameters(
+                contentDetectionBestThreshold = 0.6f,   // Very strict content detection
+                contentDetectionAvgThreshold = 0.45f,
+                rightContentFlatPenalty = 0.4f,         // Very harsh penalties
+                rightContentDifferentMelodyPenalty = 0.3f,
+                wrongContentStandardPenalty = 0.8f      // Extremely harsh on wrong content
+            ),
+            melodic = MelodicAnalysisParameters(
+                monotoneDetectionThreshold = 3.0f,      // Very strict monotone detection
+                flatSpeechThreshold = 0.2f,
+                monotonePenalty = 0.7f                   // Severe monotone penalty
+            ),
+            scaling = ScoreScalingParameters(
+                incredibleFeedbackThreshold = 95,       // Requires 95%+ for "incredible"
+                greatJobFeedbackThreshold = 85,         // Requires 85%+ for "great job"
+                goodEffortFeedbackThreshold = 70        // Requires 70%+ for "good effort"
+            )
+        )
+    }
+
+    // NEW: Master Mode - Perfection required for the elite
+    fun masterMode(): Presets {
+        return Presets(
+            difficulty = DifficultyLevel.MASTER,
+            scoring = ScoringParameters(
+                pitchWeight = 0.98f,          // Near-perfect pitch required
+                mfccWeight = 0.02f,
+                pitchTolerance = 3f,          // Micro-tonal precision required
+                minScoreThreshold = 0.5f,     // Extremely hard to get any points
+                perfectScoreThreshold = 0.98f, // Virtually impossible perfect score
+                scoreCurve = 1.0f             // Linear, unforgiving curve
+            ),
+            content = ContentDetectionParameters(
+                contentDetectionBestThreshold = 0.7f,   // Extreme content detection strictness
+                contentDetectionAvgThreshold = 0.55f,
+                rightContentFlatPenalty = 0.5f,         // Brutal penalties
+                rightContentDifferentMelodyPenalty = 0.4f,
+                wrongContentStandardPenalty = 0.9f      // Nearly complete penalty for wrong content
+            ),
+            melodic = MelodicAnalysisParameters(
+                monotoneDetectionThreshold = 4.0f,      // Extreme monotone detection
+                flatSpeechThreshold = 0.1f,
+                monotonePenalty = 0.9f                   // Devastating monotone penalty
+            ),
+            scaling = ScoreScalingParameters(
+                incredibleFeedbackThreshold = 98,       // Requires 98%+ for "incredible"
+                greatJobFeedbackThreshold = 90,         // Requires 90%+ for "great job"
+                goodEffortFeedbackThreshold = 80,       // Requires 80%+ for "good effort"
+                reverseMinScoreAdjustment = 1.0f,       // No easier adjustments for reverse
+                reversePerfectScoreAdjustment = 1.0f,
+                reverseCurveAdjustment = 1.0f
+            )
+        )
+    }
+
     // Content-Focused Mode - Rewards getting words right
     fun contentFocusedMode(): Presets {
         return Presets(
+            difficulty = DifficultyLevel.NORMAL, // Special mode, not a difficulty level
             scoring = ScoringParameters(
                 pitchWeight = 0.95f,         // Heavily prioritize content
                 mfccWeight = 0.05f,
@@ -274,6 +355,7 @@ object ScoringPresets {
     // Melody-Focused Mode - Rewards exact melody matching
     fun melodyFocusedMode(): Presets {
         return Presets(
+            difficulty = DifficultyLevel.NORMAL, // Special mode, not a difficulty level
             scoring = ScoringParameters(
                 pitchWeight = 0.95f,
                 mfccWeight = 0.05f,
@@ -293,10 +375,22 @@ object ScoringPresets {
             )
         )
     }
+
+    // Helper function to get all difficulty presets in order
+    fun getAllDifficultyPresets(): List<Pair<DifficultyLevel, () -> Presets>> {
+        return listOf(
+            DifficultyLevel.EASY to ::easyMode,
+            DifficultyLevel.NORMAL to ::normalMode,
+            DifficultyLevel.HARD to ::hardMode,
+            DifficultyLevel.EXPERT to ::expertMode,
+            DifficultyLevel.MASTER to ::masterMode
+        )
+    }
 }
 
-// Helper data class to group all parameters
+// Helper data class to group all parameters (ENHANCED)
 data class Presets(
+    val difficulty: DifficultyLevel = DifficultyLevel.NORMAL,
     val scoring: ScoringParameters = ScoringParameters(),
     val content: ContentDetectionParameters = ContentDetectionParameters(),
     val melodic: MelodicAnalysisParameters = MelodicAnalysisParameters(),
@@ -305,7 +399,7 @@ data class Presets(
     val scaling: ScoreScalingParameters = ScoreScalingParameters()
 )
 
-// Extension function to apply preset to ScoringEngine
+// Extension function to apply preset to ScoringEngine (ENHANCED)
 fun ScoringEngine.applyPreset(preset: Presets) {
     updateParameters(preset.scoring)
     updateContentParameters(preset.content)
@@ -313,4 +407,6 @@ fun ScoringEngine.applyPreset(preset: Presets) {
     updateMusicalParameters(preset.musical)
     updateAudioParameters(preset.audio)
     updateScalingParameters(preset.scaling)
+    // Store the current difficulty level for UI feedback
+    setCurrentDifficulty(preset.difficulty)
 }

@@ -1,12 +1,10 @@
 package com.example.reversey
 
-
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -23,7 +21,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,7 +38,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
@@ -50,7 +46,6 @@ import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -112,6 +107,7 @@ import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import com.example.reversey.scoring.ScoringEngine
+import com.example.reversey.ui.components.DifficultyIndicator
 import com.example.reversey.ui.theme.ReVerseYTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -188,7 +184,8 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
-                    aestheticTheme = currentAestheticTheme
+                    aestheticTheme = currentAestheticTheme,
+                    scoringEngine = scoringEngine  // <-- ADD THIS LINE
                 )
             }
             composable("about") {
@@ -207,6 +204,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     backupRecordingsEnabled = backupRecordingsEnabled,
                     onBackupRecordingsChange = { enabled -> themeViewModel.setBackupRecordingsEnabled(enabled) },
                     scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,  // <-- ADD THIS LINE
                     showDebugPanel = showDebugPanel,
                     onShowDebugPanelChange = { showDebugPanel = it }
                 )
@@ -321,7 +319,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Version 9.4.1_ScrapModal",
+                    text = "Version 9.5.1_FixedDiffLvls",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -367,7 +365,8 @@ fun AudioReverserApp(
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
     isGameModeEnabled: Boolean,
-    aestheticTheme: AppTheme
+    aestheticTheme: AppTheme,
+    scoringEngine: ScoringEngine  // <-- ADD THIS LINE
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
@@ -450,6 +449,13 @@ fun AudioReverserApp(
                         ) {
                             Icon(Icons.Default.Menu, "Menu", tint = aestheticTheme.textPrimary)
                         }
+                    },
+                    actions = {
+                        // NEW: Difficulty indicator in top-right
+                        DifficultyIndicator(
+                            difficulty = scoringEngine.getCurrentDifficulty(),
+                            modifier = Modifier.padding(end = 16.dp)
+                        )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent

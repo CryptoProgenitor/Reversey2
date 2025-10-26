@@ -595,11 +595,11 @@ private fun EnhancedDialogs(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = onDismissDelete,
-            title = { Text("Delete Attempt?", color = theme.textPrimary) },
+            title = { Text("Delete Attempt?", color = Color.Red) },
             text = {
                 Text(
                     "Are you sure you want to delete ${attempt.playerName}'s attempt? This action cannot be undone.",
-                    color = theme.textSecondary
+                    color = Color.Red
                 )
             },
             confirmButton = {

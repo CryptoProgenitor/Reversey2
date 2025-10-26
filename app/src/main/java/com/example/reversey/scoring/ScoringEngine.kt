@@ -23,17 +23,25 @@ class ScoringEngine(private val context: Context) {
     private var musicalParams = MusicalSimilarityParameters()
     private var scalingParams = ScoreScalingParameters()
 
+    // NEW: Track current difficulty level for UI feedback
+    private var currentDifficulty = DifficultyLevel.NORMAL
+
     fun scoreAttempt(
         originalAudio: FloatArray, // Renamed for clarity
         playerAttempt: FloatArray,
         challengeType: ChallengeType, // <-- ADD THIS
         sampleRate: Int = 44100
     ): ScoringResult {
-        Log.d("ScoringEngine", "--- USING PARAMETERS ---")
-        Log.d("ScoringEngine", "dtwNormalizationFactor: ${parameters.dtwNormalizationFactor}")
-        Log.d("ScoringEngine", "scoreCurve: ${parameters.scoreCurve}")
-        Log.d("ScoringEngine", "------------------------")
-
+        Log.d("ScoringEngine", "=== CRITICAL PARAMETER VERIFICATION ===")
+        Log.d("ScoringEngine", "🎯 Current Difficulty: ${currentDifficulty.displayName}")
+        Log.d("ScoringEngine", "🎵 1. PITCH TOLERANCE: ${parameters.pitchTolerance}f (Easy=20f, Master=3f)")
+        Log.d("ScoringEngine", "📊 2. SCORE RANGE: ${parameters.minScoreThreshold} to ${parameters.perfectScoreThreshold} (Easy=0.15-0.75, Master=0.5-0.98)")
+        Log.d("ScoringEngine", "📈 3. SCORE CURVE: ${parameters.scoreCurve}f (Easy=2.5f, Master=1.0f)")
+        Log.d("ScoringEngine", "⚖️ 4. PITCH vs VOICE: ${parameters.pitchWeight}/${parameters.mfccWeight} (Easy=0.75/0.25, Master=0.98/0.02)")
+        Log.d("ScoringEngine", "❌ 5. WRONG CONTENT PENALTY: ${contentParams.wrongContentStandardPenalty}f (Easy=0.3f, Master=0.9f)")
+        Log.d("ScoringEngine", "✅ 6. CONTENT DETECTION: ${contentParams.contentDetectionBestThreshold}f (Easy=0.25f, Master=0.7f)")
+        Log.d("ScoringEngine", "=======================================")
+        Log.d("ScoringEngine", "🎯 Scoring with difficulty: ${currentDifficulty.displayName}")
         val attemptRMS = audioProcessor.calculateRMS(playerAttempt)
         if (attemptRMS < parameters.silenceThreshold) {
             Log.d("ScoringEngine", "SILENCE DETECTED: RMS ($attemptRMS) < Threshold (${parameters.silenceThreshold})")
@@ -711,6 +719,12 @@ class ScoringEngine(private val context: Context) {
 
     private fun scaleScore(rawScore: Float, challengeType: ChallengeType): Int {
         val clamped = rawScore.coerceIn(0f, 1f)
+
+        Log.d("ScoringEngine", "🔢 SCORE SCALING VERIFICATION:")
+        Log.d("ScoringEngine", "   Raw Score: $rawScore → Clamped: $clamped")
+        Log.d("ScoringEngine", "   Using thresholds: ${parameters.minScoreThreshold} to ${parameters.perfectScoreThreshold}")
+        Log.d("ScoringEngine", "   Using curve: ${parameters.scoreCurve}")
+
         val (min, perfect, curve) = if (challengeType == ChallengeType.REVERSE) {
             Triple(parameters.minScoreThreshold * scalingParams.reverseMinScoreAdjustment, parameters.perfectScoreThreshold * scalingParams.reversePerfectScoreAdjustment, parameters.scoreCurve * scalingParams.reverseCurveAdjustment)
         } else {
@@ -751,7 +765,32 @@ class ScoringEngine(private val context: Context) {
     }
 
     fun updateParameters(newParams: ScoringParameters) {
+        Log.d("UPDATE_PARAMS", "=== STARTING updateParameters ===")
+        Log.d("PARAM_CHANGE", "🔄 PARAMETERS CHANGING ON THREAD: ${Thread.currentThread().name}")
+
+        if (newParams == null) {
+            Log.e("UPDATE_PARAMS", "ERROR: newParams is null!")
+            return
+        }
+
+        Log.d("UPDATE_PARAMS", "=== UPDATING PARAMETERS ===")
+        Log.d("UPDATE_PARAMS", "OLD pitchTolerance: ${parameters.pitchTolerance}")
+        Log.d("UPDATE_PARAMS", "NEW pitchTolerance: ${newParams.pitchTolerance}")
+        Log.d("UPDATE_PARAMS", "OLD score range: ${parameters.minScoreThreshold} to ${parameters.perfectScoreThreshold}")
+        Log.d("UPDATE_PARAMS", "NEW score range: ${newParams.minScoreThreshold} to ${newParams.perfectScoreThreshold}")
+
+        // AGGRESSIVE CALLER DETECTION
+        Log.d("PARAM_CHANGE", "🔍 FULL STACK TRACE (ALL FRAMES):")
+        Thread.currentThread().stackTrace.forEachIndexed { index, element ->
+            if (index > 1) { // Skip Thread.getStackTrace and this method
+                Log.d("PARAM_CHANGE", "     [$index] ${element.className}.${element.methodName}(${element.fileName}:${element.lineNumber})")
+            }
+        }
+
         parameters = newParams
+
+        Log.d("UPDATE_PARAMS", "AFTER UPDATE pitchTolerance: ${parameters.pitchTolerance}")
+        Log.d("UPDATE_PARAMS", "=== PARAMETERS UPDATED ===")
     }
 
     fun updateAudioParameters(newParams: AudioProcessingParameters) {
@@ -780,4 +819,35 @@ class ScoringEngine(private val context: Context) {
     fun getMelodicParameters(): MelodicAnalysisParameters = melodicParams
     fun getMusicalParameters(): MusicalSimilarityParameters = musicalParams
     fun getScalingParameters(): ScoreScalingParameters = scalingParams
+
+    // NEW: Difficulty level tracking methods
+    fun getCurrentDifficulty(): DifficultyLevel = currentDifficulty
+    fun setCurrentDifficulty(difficulty: DifficultyLevel) {
+        currentDifficulty = difficulty
+    }
+    // Apply a complete preset configuration
+    fun applyPreset(preset: Presets) {
+        Log.d("APPLY_PRESET", "=== APPLYING PRESET: ${preset.difficulty.displayName} ===")
+
+        try {
+            // Update all parameter categories
+            Log.d("APPLY_PRESET", "About to call updateParameters...")
+            updateParameters(preset.scoring)
+            Log.d("APPLY_PRESET", "updateParameters completed successfully")
+
+            Log.d("APPLY_PRESET", "About to call updateContentParameters...")
+            updateContentParameters(preset.content)
+            Log.d("APPLY_PRESET", "updateContentParameters completed successfully")
+
+            updateMelodicParameters(preset.melodic)
+            updateMusicalParameters(preset.musical)
+            updateScalingParameters(preset.scaling)
+            setCurrentDifficulty(preset.difficulty)
+        } catch (e: Exception) {
+            Log.e("APPLY_PRESET", "ERROR applying preset: ${e.message}")
+            Log.e("APPLY_PRESET", "Stack trace: ${e.stackTrace.joinToString("\n")}")
+        }
+
+        Log.d("APPLY_PRESET", "=== PRESET APPLIED ===")
+    }
 }

@@ -1,8 +1,8 @@
 package com.example.reversey
 
 
-
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,11 +17,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,11 +37,14 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -49,11 +52,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.scoring.ScoringPresets
 import com.example.reversey.scoring.applyPreset
 import com.example.reversey.ui.debug.DebugPanel
 import kotlinx.coroutines.launch
+import android.util.Log
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +73,7 @@ fun SettingsScreen(
     backupRecordingsEnabled: Boolean,
     onBackupRecordingsChange: (Boolean) -> Unit,
     scoringEngine: ScoringEngine, // <-- ADD THIS //ClaudeGeminiNewCodeV5
+    audioViewModel: AudioViewModel,  // <-- ADD THIS LINE to sync difficulty levels with audioviewmodel
     showDebugPanel: Boolean, // <-- ADD THIS //ClaudeGeminiNewCodeV5
     onShowDebugPanelChange: (Boolean) -> Unit // <-- ADD THIS //ClaudeGeminiNewCodeV5
 ) {
@@ -76,6 +82,12 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+
+
+    // Get current difficulty for UI feedback with state management
+    var currentDifficulty by remember { mutableStateOf(scoringEngine.getCurrentDifficulty()) }
+
+    // Update local state when difficulty changes
 
     Scaffold(
         topBar = {
@@ -124,7 +136,7 @@ fun SettingsScreen(
                         )
                     }
                 }
-// Scoring Difficulty Section
+// ENHANCED Scoring Difficulty Section
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                     Text(
@@ -140,95 +152,105 @@ fun SettingsScreen(
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                     )
 
-                    // Difficulty Presets
-                    Row(
+                    // Current Difficulty Indicator
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     ) {
-                        Button(
-                            onClick = {
-                                scoringEngine.applyPreset(ScoringPresets.easyMode())
-                            },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondary
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Current: ${currentDifficulty.emoji} ${currentDifficulty.displayName}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Easy", fontWeight = FontWeight.Bold)
-                                Text("Forgiving", fontSize = 10.sp)
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                scoringEngine.applyPreset(ScoringPresets.normalMode())
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Normal", fontWeight = FontWeight.Bold)
-                                Text("Balanced", fontSize = 10.sp)
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                scoringEngine.applyPreset(ScoringPresets.hardMode())
-                            },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Hard", fontWeight = FontWeight.Bold)
-                                Text("Strict", fontSize = 10.sp)
-                            }
                         }
                     }
 
-                    // Style Focus Presets
-                    Row(
+                    // Difficulty Presets - Enhanced Grid Layout
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
-                            onClick = {
-                                scoringEngine.applyPreset(ScoringPresets.contentFocusedMode())
-                            },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiary
-                            )
+                        // First row: Easy, Normal, Hard
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Content Focus", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text("Rewards right words", fontSize = 9.sp)
-                            }
+                            DifficultyButton(
+                                difficulty = DifficultyLevel.EASY,
+                                preset = ScoringPresets.easyMode(),
+                                isSelected = currentDifficulty == DifficultyLevel.EASY,
+                                scoringEngine = scoringEngine,
+                                audioViewModel = audioViewModel,  // <-- ADD THIS
+                                onDifficultyChanged = { currentDifficulty = it },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            DifficultyButton(
+                                difficulty = DifficultyLevel.NORMAL,
+                                preset = ScoringPresets.normalMode(),
+                                isSelected = currentDifficulty == DifficultyLevel.NORMAL,
+                                scoringEngine = scoringEngine,
+                                audioViewModel = audioViewModel,  // <-- ADD THIS
+                                onDifficultyChanged = { currentDifficulty = it },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            DifficultyButton(
+                                difficulty = DifficultyLevel.HARD,
+                                preset = ScoringPresets.hardMode(),
+                                isSelected = currentDifficulty == DifficultyLevel.HARD,
+                                scoringEngine = scoringEngine,
+                                audioViewModel = audioViewModel,  // <-- ADD THIS
+                                onDifficultyChanged = { currentDifficulty = it },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
 
-                        Button(
-                            onClick = {
-                                scoringEngine.applyPreset(ScoringPresets.melodyFocusedMode())
-                            },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiary
-                            )
+// Second row: Expert, Master
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Melody Focus", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text("Rewards exact tune", fontSize = 9.sp)
-                            }
+                            DifficultyButton(
+                                difficulty = DifficultyLevel.EXPERT,
+                                preset = ScoringPresets.expertMode(),
+                                isSelected = currentDifficulty == DifficultyLevel.EXPERT,
+                                scoringEngine = scoringEngine,
+                                audioViewModel = audioViewModel,  // <-- ADD THIS
+                                onDifficultyChanged = { currentDifficulty = it },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            DifficultyButton(
+                                difficulty = DifficultyLevel.MASTER,
+                                preset = ScoringPresets.masterMode(),
+                                isSelected = currentDifficulty == DifficultyLevel.MASTER,
+                                scoringEngine = scoringEngine,
+                                audioViewModel = audioViewModel,  // <-- ADD THIS
+                                onDifficultyChanged = { currentDifficulty = it },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            // Empty space to balance the row
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
 
-                    // Info card
+                    // Difficulty description for selected level
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -237,52 +259,47 @@ fun SettingsScreen(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Text(
-                                "Presets instantly change how the app scores your singing. Advanced users can fine-tune individual parameters in Developer Options.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = currentDifficulty.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp)
+                        )
                     }
                 }
 
+                // Theme Section
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                     Text(
-                        "Icon Colour",
+                        "Appearance",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                     )
                 }
 
-
-                items(themes) { themeName ->
+                // Theme Options
+                items(themes) { theme ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onThemeChange(themeName) }
-                            .padding(horizontal = 16.dp),
+                            .clickable { onThemeChange(theme) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = (themeName == currentTheme),
-                            onClick = { onThemeChange(themeName) }
+                            selected = currentTheme == theme,
+                            onClick = { onThemeChange(theme) }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = themeName, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = "$theme Theme",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
 
+                // Dark Mode Section
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                     Text(
@@ -292,62 +309,35 @@ fun SettingsScreen(
                     )
                 }
 
-                items(darkModeOptions) { preference ->
+                // Dark Mode Options
+                items(darkModeOptions) { option ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onDarkModePreferenceChange(preference) }
-                            .padding(horizontal = 16.dp),
+                            .clickable { onDarkModePreferenceChange(option) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = (preference == currentDarkModePreference),
-                            onClick = { onDarkModePreferenceChange(preference) }
+                            selected = currentDarkModePreference == option,
+                            onClick = { onDarkModePreferenceChange(option) }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = preference, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = option,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
 
-                // Backup & Storage Section
+                // Storage Section
                 item {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                     Text(
-                        "Backup & Storage",
+                        "Storage",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                     )
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                "About Backup",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "ReVerseY automatically backs up your settings, themes, and game scores to Google Drive. By default, your audio recordings are NOT backed up to save cloud storage space.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "💡 Tip: Use the Share button to save important recordings to your device or cloud storage manually.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         modifier = Modifier
@@ -357,17 +347,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Backup Audio Recordings",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                "Include recordings in Google Drive backup (uses more storage)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text("Backup Recordings to Google Drive", style = MaterialTheme.typography.bodyLarge)
                         Switch(
                             checked = backupRecordingsEnabled,
                             onCheckedChange = onBackupRecordingsChange
@@ -533,6 +513,84 @@ fun SettingsScreen(
                 isVisible = showDebugPanel, //ClaudeGeminiNewCodeV5
                 onDismiss = { onShowDebugPanelChange(false) } //ClaudeGeminiNewCodeV5
             ) //ClaudeGeminiNewCodeV5
+        }
+    }
+}
+
+@Composable
+private fun DifficultyButton(
+    difficulty: DifficultyLevel,
+    preset: com.example.reversey.scoring.Presets,
+    isSelected: Boolean,
+    scoringEngine: ScoringEngine,
+    audioViewModel: AudioViewModel,  // <-- ADD THIS LINE
+    onDifficultyChanged: (DifficultyLevel) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val glowColor = when (difficulty) {
+        DifficultyLevel.EASY -> Color(0xFF4CAF50)      // Green
+        DifficultyLevel.NORMAL -> Color(0xFF2196F3)    // Blue
+        DifficultyLevel.HARD -> Color(0xFFFF9800)      // Orange
+        DifficultyLevel.EXPERT -> Color(0xFF9C27B0)    // Purple
+        DifficultyLevel.MASTER -> Color(0xFFFFD700)    // Gold
+    }
+
+    val containerColor = if (isSelected) {
+        glowColor.copy(alpha = 0.2f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    Card(
+        modifier = modifier
+            .then(
+                if (isSelected) {
+                    Modifier
+                        .border(2.dp, glowColor, RoundedCornerShape(12.dp))
+                        .shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = glowColor, spotColor = glowColor)
+                } else {
+                    Modifier
+                }
+            )
+            .clickable {
+                Log.d("BEFORE_PRESET", "Before: ${scoringEngine.getCurrentDifficulty().displayName}")
+                // Update both ScoringEngine instances
+                scoringEngine.applyPreset(preset)
+                audioViewModel.updateScoringEngine(preset)
+                Log.d("AFTER_PRESET", "After: ${scoringEngine.getCurrentDifficulty().displayName}")
+                onDifficultyChanged(difficulty)
+            },
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Text(
+                text = difficulty.emoji,
+                fontSize = 24.sp,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            Text(
+                text = difficulty.displayName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = if (isSelected) glowColor else MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = when (difficulty) {
+                    DifficultyLevel.EASY -> "Forgiving"
+                    DifficultyLevel.NORMAL -> "Balanced"
+                    DifficultyLevel.HARD -> "Strict"
+                    DifficultyLevel.EXPERT -> "Very Strict"
+                    DifficultyLevel.MASTER -> "Perfection"
+                },
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

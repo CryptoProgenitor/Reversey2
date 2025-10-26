@@ -1,7 +1,13 @@
 package com.example.reversey.audio.processing
 
 import org.jtransforms.fft.FloatFFT_1D
-import kotlin.math.*
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.floor
+import kotlin.math.ln
+import kotlin.math.sqrt
 
 class AudioProcessor {
 
