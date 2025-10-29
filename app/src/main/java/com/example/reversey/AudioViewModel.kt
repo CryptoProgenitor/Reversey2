@@ -54,7 +54,8 @@ class AudioViewModel @Inject constructor(
     application: Application,
     private val repository: RecordingRepository,
     private val attemptsRepository: AttemptsRepository,
-    val scoringEngine: ScoringEngine
+    val scoringEngine: ScoringEngine,
+    private val settingsDataStore: SettingsDataStore  // ← ADD THIS LINE
 ) : AndroidViewModel(application) {
 
     init {
@@ -71,7 +72,6 @@ class AudioViewModel @Inject constructor(
     init {
         loadRecordings()
         viewModelScope.launch {
-            val settingsDataStore = SettingsDataStore(getApplication())
             settingsDataStore.tutorialCompleted.collect { completed ->
                 if (!completed) {
                     _uiState.update { it.copy(showTutorial = true) }
@@ -592,7 +592,6 @@ class AudioViewModel @Inject constructor(
 
     fun completeTutorial() {
         viewModelScope.launch {
-            val settingsDataStore = SettingsDataStore(getApplication())
             settingsDataStore.setTutorialCompleted(true)
             _uiState.update { it.copy(showTutorial = false) }
         }
@@ -600,7 +599,6 @@ class AudioViewModel @Inject constructor(
 
     fun dismissTutorial() {
         viewModelScope.launch {
-            val settingsDataStore = SettingsDataStore(getApplication())
             settingsDataStore.setTutorialCompleted(true)
             _uiState.update { it.copy(showTutorial = false) }
         }

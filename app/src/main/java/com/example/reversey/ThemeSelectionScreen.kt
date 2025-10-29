@@ -36,14 +36,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemeSelectionScreen(
     navController: NavController,
-    themeViewModel: ThemeViewModel = viewModel()
+    themeViewModel: ThemeViewModel = hiltViewModel()
 ) {
     val currentAestheticTheme by themeViewModel.aestheticTheme.collectAsState()
     val listState = rememberLazyListState()  // ADD THIS

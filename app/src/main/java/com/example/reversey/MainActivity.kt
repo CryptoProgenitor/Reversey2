@@ -97,6 +97,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
@@ -112,6 +113,7 @@ import com.example.reversey.ui.theme.DynamicMaterialTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -121,15 +123,13 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
-import dagger.hilt.android.AndroidEntryPoint  // ← ADD THIS IMPORT
-import androidx.hilt.navigation.compose.hiltViewModel
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val themeViewModel: ThemeViewModel = viewModel()
+            val themeViewModel: ThemeViewModel = hiltViewModel()
             val darkModePreference by themeViewModel.darkModePreference.collectAsState()
             val customAccentColor by themeViewModel.customAccentColor.collectAsState()
 
@@ -288,7 +288,7 @@ fun AppDrawerContent(
 @Composable
 fun AboutScreen(navController: NavController) {
     val context = LocalContext.current
-    val audioViewModel: AudioViewModel = viewModel()
+    val audioViewModel: AudioViewModel = hiltViewModel()  // ✅ HILT pattern
     val uiState by audioViewModel.uiState.collectAsState()
     val imageLoader = remember {
         ImageLoader.Builder(context)
@@ -329,7 +329,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Version 11.Refactor",
+                    text = "v11.1.0-complete-dicompleted",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )

@@ -18,7 +18,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ThemeViewModel @Inject constructor(
     application: Application,
-    private val settingsDataStore: SettingsDataStore
+    val settingsDataStore: SettingsDataStore
 ) : AndroidViewModel(application){
 
     // Expose the theme color as a StateFlow

@@ -393,8 +393,7 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             scope.launch {
-                                val settingsDataStore = SettingsDataStore(context)
-                                settingsDataStore.setTutorialCompleted(false)
+                                themeViewModel.settingsDataStore.setTutorialCompleted(false)
                                 navController.navigate("home")
                             }
                         },
