@@ -82,19 +82,14 @@ fun AppTheme.withScrapbook(scrapbook: ScrapbookProperties): AppTheme {
  * Scrapbook Attempt Item - Anti-Design Aesthetic
  */
 
-// Helper function to create ScoringResult from PlayerAttempt
+// Helper function to create ScoringResult from PlayerAttempt - USES REAL METRICS
 private fun createScoringResultFromAttempt(attempt: PlayerAttempt): com.example.reversey.scoring.ScoringResult {
-    // Estimate metrics based on score
-    val normalizedScore = attempt.score / 100f
-    val pitchSimilarity = normalizedScore + (Math.random().toFloat() * 0.1f - 0.05f) // Small random variation
-    val mfccSimilarity = normalizedScore + (Math.random().toFloat() * 0.1f - 0.05f)
-
     return com.example.reversey.scoring.ScoringResult(
         score = attempt.score,
-        rawScore = normalizedScore,
+        rawScore = attempt.rawScore,
         metrics = com.example.reversey.scoring.SimilarityMetrics(
-            pitch = pitchSimilarity.coerceIn(0f, 1f),
-            mfcc = mfccSimilarity.coerceIn(0f, 1f)
+            pitch = attempt.pitchSimilarity,
+            mfcc = attempt.mfccSimilarity
         ),
         feedback = emptyList() // Dialog will generate its own feedback
     )

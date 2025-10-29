@@ -325,10 +325,10 @@ class AudioViewModel @Inject constructor(
                     Log.d("AudioViewModel", "Reversed attempt file created: ${reversedAttemptFile?.absolutePath}")
 
                     val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
-
+                    //FROM HERE
                     if (parentRecording != null) {
                         //scoringEngine.updateParameters(ScoringParameters()) // Force update  <-- DELETE - or comment out -  THIS LINE (GEMINI PRESET BUG HYPOTHESIS)
-                        val score = when (challengeType) {
+                        val scoringResult = when (challengeType) {
                             ChallengeType.REVERSE -> {
                                 Log.d("AudioViewModel", "REVERSE scoring - parentReversedPath: ${parentRecording.reversedPath}")
                                 parentRecording.reversedPath?.let { reversedParentPath ->
@@ -341,19 +341,34 @@ class AudioViewModel @Inject constructor(
                                         if (reversedParentAudio.isNotEmpty() && attemptAudio.isNotEmpty()) {
                                             // Pass challengeType to scoring engine
                                             val result = scoringEngine.scoreAttempt(reversedParentAudio, attemptAudio, ChallengeType.REVERSE)
-                                            Log.d("AudioViewModel", "Scoring result: ${result.score}")
-                                            result.score
+                                            Log.d("AudioViewModel", "Scoring result: ${result.score}, pitch: ${result.metrics.pitch}, mfcc: ${result.metrics.mfcc}")
+                                            result
                                         } else {
                                             Log.d("AudioViewModel", "One or both audio arrays are empty for REVERSE score")
-                                            0
+                                            com.example.reversey.scoring.ScoringResult(
+                                                score = 0,
+                                                rawScore = 0f,
+                                                metrics = com.example.reversey.scoring.SimilarityMetrics(pitch = 0f, mfcc = 0f),
+                                                feedback = emptyList()
+                                            )
                                         }
                                     } catch (e: Exception) {
                                         Log.e("AudioViewModel", "Exception in REVERSE scoring: ${e.message}", e)
-                                        0
+                                        com.example.reversey.scoring.ScoringResult(
+                                            score = 0,
+                                            rawScore = 0f,
+                                            metrics = com.example.reversey.scoring.SimilarityMetrics(pitch = 0f, mfcc = 0f),
+                                            feedback = emptyList()
+                                        )
                                     }
                                 } ?: run {
                                     Log.d("AudioViewModel", "Parent reversed path is null")
-                                    0
+                                    com.example.reversey.scoring.ScoringResult(
+                                        score = 0,
+                                        rawScore = 0f,
+                                        metrics = com.example.reversey.scoring.SimilarityMetrics(pitch = 0f, mfcc = 0f),
+                                        feedback = emptyList()
+                                    )
                                 }
                             }
                             ChallengeType.FORWARD -> {
@@ -365,24 +380,32 @@ class AudioViewModel @Inject constructor(
                                 if (originalParentAudio.isNotEmpty() && attemptAudio.isNotEmpty()) {
                                     // Pass challengeType to scoring engine
                                     val result = scoringEngine.scoreAttempt(originalParentAudio, attemptAudio, ChallengeType.FORWARD)
-                                    Log.d("AudioViewModel", "Scoring result: ${result.score}")
-                                    result.score
+                                    Log.d("AudioViewModel", "Scoring result: ${result.score}, pitch: ${result.metrics.pitch}, mfcc: ${result.metrics.mfcc}")
+                                    result
                                 } else {
                                     Log.d("AudioViewModel", "One or both audio arrays are empty for FORWARD score")
-                                    0
+                                    com.example.reversey.scoring.ScoringResult(
+                                        score = 0,
+                                        rawScore = 0f,
+                                        metrics = com.example.reversey.scoring.SimilarityMetrics(pitch = 0f, mfcc = 0f),
+                                        feedback = emptyList()
+                                    )
                                 }
                             }
                         }
 
-                        // Create player attempt WITH the challengeType
+                        // Create player attempt WITH the challengeType AND real scoring metrics
                         val attempt = PlayerAttempt(
                             playerName = "Player ${parentRecording.attempts.size + 1}",
                             attemptFilePath = attemptFile.absolutePath,
                             reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
-                            score = score,
+                            score = scoringResult.score,
+                            pitchSimilarity = scoringResult.metrics.pitch,
+                            mfccSimilarity = scoringResult.metrics.mfcc,
+                            rawScore = scoringResult.rawScore,
                             challengeType = challengeType // <-- SAVE THE TYPE
                         )
-
+                        //TO HERE
                         Log.d("AudioViewModel", "Created attempt with reversedPath: ${attempt.reversedAttemptFilePath}")
 
                         val updatedRecordings = _uiState.value.recordings.map { recording ->
@@ -408,9 +431,9 @@ class AudioViewModel @Inject constructor(
                                 isRecordingAttempt = false,
                                 parentRecordingPath = null,
                                 pendingChallengeType = null, // <-- Clear pending type
-                                statusText = "Attempt scored: ${score}%",
+                                statusText = "Attempt scored: ${scoringResult.score}%",
                                 scrollToIndex = scrollToIndex,
-                                attemptToRename = if (score > 70) Pair(parentPath, attempt) else null
+                                attemptToRename = if (scoringResult.score > 70) Pair(parentPath, attempt) else null
                             )
                         }
                     }
