@@ -24,6 +24,9 @@ import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -46,11 +49,18 @@ data class AudioUiState(
 )
 
 
-class AudioViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class AudioViewModel @Inject constructor(
+    application: Application,
+    private val repository: RecordingRepository,
+    private val attemptsRepository: AttemptsRepository,
+    val scoringEngine: ScoringEngine
+) : AndroidViewModel(application) {
 
-    private val repository = RecordingRepository(application)
-    private val attemptsRepository = AttemptsRepository(application)
-    private val scoringEngine = ScoringEngine(application)
+    init {
+        Log.d("HILT_VERIFY", "📱 AudioViewModel created - ScoringEngine instance: ${scoringEngine.hashCode()}")
+    }
+
     private var mediaPlayer: MediaPlayer? = null
     private var recordingJob: Job? = null
     private var playbackJob: Job? = null

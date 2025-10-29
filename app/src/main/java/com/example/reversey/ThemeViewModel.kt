@@ -12,10 +12,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class ThemeViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val settingsDataStore = SettingsDataStore(application)
+@HiltViewModel
+class ThemeViewModel @Inject constructor(
+    application: Application,
+    private val settingsDataStore: SettingsDataStore
+) : AndroidViewModel(application){
 
     // Expose the theme color as a StateFlow
     val theme: StateFlow<String> = settingsDataStore.getTheme.stateIn(

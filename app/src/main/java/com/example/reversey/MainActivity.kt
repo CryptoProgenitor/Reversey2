@@ -121,7 +121,10 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import dagger.hilt.android.AndroidEntryPoint  // ← ADD THIS IMPORT
+import androidx.hilt.navigation.compose.hiltViewModel
 
+@AndroidEntryPoint  // ← ADD THIS ANNOTATION
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -163,11 +166,11 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     val currentTheme by themeViewModel.theme.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
-    val audioViewModel: AudioViewModel = viewModel()
+    val audioViewModel: AudioViewModel = hiltViewModel()
     var showClearAllDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val scoringEngine = remember { ScoringEngine(context.applicationContext) }
+    val scoringEngine = audioViewModel.scoringEngine
     var showDebugPanel by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(
@@ -326,7 +329,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Version 10.0.0c_pro_themes_RGB_accents",
+                    text = "Version 11.Refactor",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )

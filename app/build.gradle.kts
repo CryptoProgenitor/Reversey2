@@ -2,20 +2,25 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    //alias(libs.plugins.ksp)
+    //alias(libs.plugins.hilt)
+    id("com.google.devtools.ksp")              // No version - inherits from top-level
+    id("com.google.dagger.hilt.android")       // No version - inherits from top-level
 }
 
 android {
     namespace = "com.example.reversey"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
+    //compileSdk {
+    //    version = release(36)// was version = release(36)
+    //}
 
     defaultConfig {
         applicationId = "com.example.reversey"
         minSdk = 26
         targetSdk = 36
-        versionCode = 58
-        versionName = "9.3.0"
+        versionCode = 60
+        versionName = "11.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -69,6 +74,13 @@ dependencies {
     implementation("com.github.wendykierp:JTransforms:3.1")  // For FFT
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    //HILT - https://developer.android.com/training/dependency-injection/hilt-android#kts
+    // Hilt dependencies
+    implementation("com.google.dagger:hilt-android:2.57.1")
+    ksp("com.google.dagger:hilt-android-compiler:2.57.1")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -80,5 +92,6 @@ dependencies {
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("be.tarsos.dsp:core:2.5")
     implementation("be.tarsos.dsp:jvm:2.5")
+
 
 }

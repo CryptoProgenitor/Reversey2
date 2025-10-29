@@ -12,8 +12,15 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class ScoringEngine(private val context: Context) {
+@Singleton
+class ScoringEngine @Inject constructor(@ApplicationContext private val context: Context) {
+    init {
+        Log.d("HILT_VERIFY", "🎯 ScoringEngine created - Instance: ${this.hashCode()}")
+    }
 
     private val audioProcessor = AudioProcessor()
     private var parameters = ScoringParameters()
