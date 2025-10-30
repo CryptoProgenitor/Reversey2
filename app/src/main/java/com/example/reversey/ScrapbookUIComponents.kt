@@ -140,6 +140,32 @@ fun HandwrittenLine(
 }
 
 /**
+ * 📎 PROPER TAPE CORNER - Like v10, extends beyond card boundaries
+ */
+@Composable
+private fun ProperTapeCorner(
+    modifier: Modifier = Modifier,
+    offsetX: androidx.compose.ui.unit.Dp = 0.dp,
+    offsetY: androidx.compose.ui.unit.Dp = 0.dp,
+    rotation: Float = 0f
+) {
+    Box(
+        modifier = modifier
+            .offset(x = offsetX, y = offsetY)
+            .rotate(rotation)
+            .size(width = 24.dp, height = 16.dp)
+            .background(
+                color = Color.Gray.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(2.dp)
+            )
+            //.shadow(
+            //    elevation = 2.dp,
+            //    shape = RoundedCornerShape(2.dp)
+            //)
+    )
+}
+
+/**
  * 🎨 COMPACT SCRAPBOOK BUTTON - Exact match to original design
  */
 @Composable
@@ -198,7 +224,7 @@ private fun CompactScrapbookButton(
 }
 
 /**
- * 🎨 MAIN SCRAPBOOK ATTEMPT ITEM - Restored original compact design
+ * 🎨 MAIN SCRAPBOOK ATTEMPT ITEM - Proper tape corners like v10
  */
 @Composable
 fun ScrapbookAttemptItem(
@@ -245,10 +271,14 @@ fun ScrapbookAttemptItem(
         (stableId % 7 - 3).toFloat() // -3 to +3 degrees
     }
 
+    // Tape corner rotations (independent of card rotation)
+    val tapeRotation1 = remember(stableId) { (stableId % 31 - 15).toFloat() }
+    val tapeRotation2 = remember(stableId) { ((stableId * 17) % 31 - 15).toFloat() }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 48.dp, end = 16.dp, top = 6.dp, bottom = 6.dp) // Added start padding for indentation
+            .padding(start = 48.dp, end = 16.dp, top = 12.dp, bottom = 12.dp) // More padding for tape visibility
     ) {
         // Main sticky note card
         Card(
@@ -285,7 +315,8 @@ fun ScrapbookAttemptItem(
                             .weight(1f)
                             .clickable { showRenameDialog = true }
                     ) {
-                        val challengeIcon = if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
+                        val challengeIcon =
+                            if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
                         Text(
                             text = challengeIcon,
                             style = MaterialTheme.typography.bodyLarge,
@@ -340,13 +371,19 @@ fun ScrapbookAttemptItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(3.dp)
-                            .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(2.dp))
+                            .background(
+                                Color.Black.copy(alpha = 0.2f),
+                                RoundedCornerShape(2.dp)
+                            )
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(progress)
                                 .height(3.dp)
-                                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
+                                .background(
+                                    Color.Black.copy(alpha = 0.6f),
+                                    RoundedCornerShape(2.dp)
+                                )
                         )
                     }
 
@@ -415,6 +452,20 @@ fun ScrapbookAttemptItem(
                 }
             }
         }
+
+        // PROPER TAPE CORNERS: Positioned outside card, extend to background, rotate with card
+        ProperTapeCorner(
+            offsetX = (-8).dp,
+            offsetY = (-8).dp,
+            rotation = rotation + tapeRotation1
+        )
+
+        ProperTapeCorner(
+            modifier = Modifier.align(Alignment.TopEnd),
+            offsetX = 8.dp,
+            offsetY = (-8).dp,
+            rotation = rotation + tapeRotation2
+        )
     }
 
     // Dialogs
@@ -435,7 +486,7 @@ fun ScrapbookAttemptItem(
 }
 
 /**
- * 🎨 SCRAPBOOK RECORDING ITEM - Restored original compact design
+ * 🎨 SCRAPBOOK RECORDING ITEM - Proper tape corners like v10
  */
 @Composable
 fun ScrapbookRecordingItem(
@@ -469,10 +520,14 @@ fun ScrapbookRecordingItem(
         (stableId % 5 - 2).toFloat() // -2 to +2 degrees for recordings
     }
 
+    // Tape corner rotations (independent of card rotation)
+    val tapeRotation1 = remember(stableId) { (stableId % 23 - 11).toFloat() }
+    val tapeRotation2 = remember(stableId) { ((stableId * 13) % 23 - 11).toFloat() }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp) // More padding for tape visibility
     ) {
         Card(
             modifier = Modifier
@@ -625,6 +680,20 @@ fun ScrapbookRecordingItem(
                 }
             }
         }
+
+        // PROPER TAPE CORNERS: Positioned outside card, extend to background, rotate with card
+        ProperTapeCorner(
+            offsetX = (-8).dp,
+            offsetY = (-8).dp,
+            rotation = rotation + tapeRotation1
+        )
+
+        ProperTapeCorner(
+            modifier = Modifier.align(Alignment.TopEnd),
+            offsetX = 8.dp,
+            offsetY = (-8).dp,
+            rotation = rotation + tapeRotation2
+        )
     }
 
     // Dialogs
