@@ -328,7 +328,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v11.7.0_scrapbook_fixed-final",
+                    text = "v12.0.0_Unified_Theming-Engine",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -595,99 +595,53 @@ fun AudioReverserApp(
                                 key = { index -> "attempt_${recording.originalPath}_${index}" }
                             ) { index ->
                                 val attempt = recording.attempts[index]
-
-                                if (aestheticTheme().id == "scrapbook") {
-                                    ScrapbookAttemptItem(
-                                        attempt = attempt,
-                                        currentlyPlayingPath = uiState.currentlyPlayingPath,
-                                        isPaused = uiState.isPaused,
-                                        progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath ||
-                                            uiState.currentlyPlayingPath == attempt.reversedAttemptFilePath) uiState.playbackProgress else 0f,
-                                        onPlay = { path -> viewModel.play(path) },
-                                        onPause = { viewModel.pause() },
-                                        onStop = { viewModel.stopPlayback() },
-                                        onRenamePlayer = { oldAttempt, newName ->
-                                            viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
-                                        },
-                                        onDeleteAttempt = { attemptToDelete ->
-                                            viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
-                                        },
-                                        onShareAttempt = { path ->
-                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "audio/wav"
-                                                putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context,
-                                                    "${context.packageName}.provider", File(path)))
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                            context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
-                                        },
-                                        onJumpToParent = {
-                                            scope.launch {
-                                                // Calculate the correct index in the flattened LazyColumn
-                                                var flatIndex = 0
-                                                for (i in uiState.recordings.indices) {
-                                                    val rec = uiState.recordings[i]
-                                                    if (rec.originalPath == recording.originalPath) {
-                                                        // Found the parent recording - scroll to its position
-                                                        listState.animateScrollToItem(
-                                                            index = flatIndex,
-                                                            scrollOffset = 0  // Position at top of view
-                                                        )
-                                                        break
-                                                    }
-                                                    // Add 1 for the recording item + its attempts count
-                                                    flatIndex += 1 + rec.attempts.size
+//START HERE
+                                // 🎯 GLUTE: Unified component for all themes
+                                UnifiedAttemptItem(
+                                    attempt = attempt,
+                                    currentlyPlayingPath = uiState.currentlyPlayingPath,
+                                    isPaused = uiState.isPaused,
+                                    progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath ||
+                                        uiState.currentlyPlayingPath == attempt.reversedAttemptFilePath) uiState.playbackProgress else 0f,
+                                    onPlay = { path -> viewModel.play(path) },
+                                    onPause = { viewModel.pause() },
+                                    onStop = { viewModel.stopPlayback() },
+                                    onRenamePlayer = { oldAttempt, newName ->
+                                        viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
+                                    },
+                                    onDeleteAttempt = { attemptToDelete ->
+                                        viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
+                                    },
+                                    onShareAttempt = { path ->
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "audio/wav"
+                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context,
+                                                "${context.packageName}.provider", File(path)))
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
+                                    },
+                                    onJumpToParent = {
+                                        scope.launch {
+                                            // Calculate the correct index in the flattened LazyColumn
+                                            var flatIndex = 0
+                                            for (i in uiState.recordings.indices) {
+                                                val rec = uiState.recordings[i]
+                                                if (rec.originalPath == recording.originalPath) {
+                                                    // Found the parent recording - scroll to its position
+                                                    listState.animateScrollToItem(
+                                                        index = flatIndex,
+                                                        scrollOffset = 0  // Position at top of view
+                                                    )
+                                                    break
                                                 }
+                                                // Add 1 for the recording item + its attempts count
+                                                flatIndex += 1 + rec.attempts.size
                                             }
                                         }
-                                    )
-                                } else {
-                                    EnhancedAttemptItem(
-                                        attempt = attempt,
-                                        currentlyPlayingPath = uiState.currentlyPlayingPath,
-                                        isPaused = uiState.isPaused,
-                                        progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath ||
-                                            uiState.currentlyPlayingPath == attempt.reversedAttemptFilePath) uiState.playbackProgress else 0f,
-                                        onPlay = { path -> viewModel.play(path) },
-                                        onPause = { viewModel.pause() },
-                                        onStop = { viewModel.stopPlayback() },
-                                        onRenamePlayer = { oldAttempt, newName ->
-                                            viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
-                                        },
-                                        onDeleteAttempt = { attemptToDelete ->
-                                            viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
-                                        },
-                                        onShareAttempt = { path ->
-                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "audio/wav"
-                                                putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context,
-                                                    "${context.packageName}.provider", File(path)))
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                            context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
-                                        },
-                                        onJumpToParent = {
-                                            scope.launch {
-                                                // Calculate the correct index in the flattened LazyColumn
-                                                var flatIndex = 0
-                                                for (i in uiState.recordings.indices) {
-                                                    val rec = uiState.recordings[i]
-                                                    if (rec.originalPath == recording.originalPath) {
-                                                        // Found the parent recording - scroll to its position
-                                                        listState.animateScrollToItem(
-                                                            index = flatIndex,
-                                                            scrollOffset = 0  // Position at top of view
-                                                        )
-                                                        break
-                                                    }
-                                                    // Add 1 for the recording item + its attempts count
-                                                    flatIndex += 1 + rec.attempts.size
-                                                }
-                                            }
-                                        }
-                                    )
-                                }
-                            }
+                                    }
+                                )
+                            }//KEEP ME! for GLUE drop in
                         }//KEEP ME!
                     }
 
