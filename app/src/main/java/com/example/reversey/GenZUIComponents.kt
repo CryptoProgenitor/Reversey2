@@ -335,14 +335,17 @@ private fun ControlButtonsRow(
     onDelete: () -> Unit
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,  // This spreads them out!
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Share button
         EnhancedGlowButton(
             onClick = onShare,
+            isPrimary = true,
             size = 32.dp,
             label = "Share"
+
         ) {
             Icon(
                 imageVector = Icons.Default.Share,

@@ -328,7 +328,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v11.4.1_issue2.3_theme_fixed_final",
+                    text = "v11.4.2_UI_tweaks",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -452,6 +452,7 @@ fun AudioReverserApp(
                     navigationIcon = {
                         EnhancedGlowButton(
                             onClick = openDrawer,
+                            isPrimary = true,
                             size = 48.dp
                         ) {
                             Icon(Icons.Default.Menu, "Menu", tint = Color.White)
@@ -1044,6 +1045,7 @@ fun EnhancedRecordingItem(
                 ) {
                     EnhancedGlowButton(
                         onClick = { showShareDialog = true },
+                        isPrimary = true,
                         size = 40.dp,
                         label = "Share"
                     ) {
