@@ -5,6 +5,7 @@ import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -79,6 +80,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -109,7 +111,7 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.ui.components.DifficultyIndicator
-import com.example.reversey.ui.theme.DynamicMaterialTheme
+import com.example.reversey.ui.theme.ReVerseYTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -124,6 +126,9 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
+import com.example.reversey.ui.theme.aestheticTheme
+import com.example.reversey.ui.theme.materialColors
+
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -131,7 +136,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themeViewModel: ThemeViewModel = hiltViewModel()
             val darkModePreference by themeViewModel.darkModePreference.collectAsState()
-            val customAccentColor by themeViewModel.customAccentColor.collectAsState()
+            val currentThemeId by themeViewModel.currentThemeId.collectAsState()
+            val customAccentColor by themeViewModel.customAccentColor.collectAsState()  // ⚡ ADD THIS
+
 
             val useDarkTheme = when (darkModePreference) {
                 "Light" -> false
@@ -139,9 +146,9 @@ class MainActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            DynamicMaterialTheme(
-                customAccentColor = customAccentColor,
-                fallbackAccentColor = themeViewModel.aestheticTheme.collectAsState().value.accentColor,
+            ReVerseYTheme(
+                aestheticThemeId = currentThemeId,
+                customAccentColor = customAccentColor,  // ⚡ ADD THIS LINE
                 darkTheme = useDarkTheme
             ) {
                 MainApp(themeViewModel = themeViewModel)
@@ -163,7 +170,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val currentTheme by themeViewModel.theme.collectAsState()
+    val currentThemeId by themeViewModel.currentThemeId.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
     val audioViewModel: AudioViewModel = hiltViewModel()
@@ -186,14 +193,14 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     ) {
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
-                val currentAestheticTheme by themeViewModel.aestheticTheme.collectAsState()
+                val currentThemeId by themeViewModel.currentThemeId.collectAsState()
+                val customAccentColor by themeViewModel.customAccentColor.collectAsState()  // 🎯 ADD CUSTOM ACCENT COLOR SUPPORT
                 AudioReverserApp(
                     viewModel = audioViewModel,
                     openDrawer = { scope.launch { drawerState.open() } },
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
-                    aestheticTheme = currentAestheticTheme,
                     scoringEngine = scoringEngine  // <-- ADD THIS LINE
                 )
             }
@@ -204,19 +211,11 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                 val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
                 SettingsScreen(
                     navController = navController,
-                    currentTheme = currentTheme,
-                    onThemeChange = { themeName -> themeViewModel.setTheme(themeName) },
-                    currentDarkModePreference = darkModePreference,
-                    onDarkModePreferenceChange = { preference -> themeViewModel.setDarkModePreference(preference) },
-                    isGameModeEnabled = isGameModeEnabled,
-                    onGameModeChange = { isEnabled -> themeViewModel.setGameMode(isEnabled) },
-                    backupRecordingsEnabled = backupRecordingsEnabled,
-                    onBackupRecordingsChange = { enabled -> themeViewModel.setBackupRecordingsEnabled(enabled) },
+                    themeViewModel = themeViewModel,
                     scoringEngine = scoringEngine,
-                    audioViewModel = audioViewModel,  // <-- ADD THIS LINE
+                    audioViewModel = audioViewModel,
                     showDebugPanel = showDebugPanel,
-                    onShowDebugPanelChange = { showDebugPanel = it },
-                    themeViewModel = themeViewModel
+                    onShowDebugPanelChange = { showDebugPanel = it }
                 )
             }
             composable("themes") {
@@ -329,7 +328,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v11.2.0-fake_scores_fixed_(issue2.2)",
+                    text = "v11.4.1_issue2.3_theme_fixed_final",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -375,7 +374,6 @@ fun AudioReverserApp(
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
     isGameModeEnabled: Boolean,
-    aestheticTheme: AppTheme,
     scoringEngine: ScoringEngine  // <-- ADD THIS LINE
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -435,7 +433,7 @@ fun AudioReverserApp(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(aestheticTheme.primaryGradient)
+            .background(aestheticTheme().primaryGradient)
     ) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -444,9 +442,9 @@ fun AudioReverserApp(
                     title = {
                         Text(
                             "ReVerseY",
-                            color = aestheticTheme.textPrimary,
+                            color = MaterialTheme.colorScheme.onBackground,
                             style = MaterialTheme.typography.headlineSmall.copy(
-                                letterSpacing = if (aestheticTheme.useWideLetterSpacing) 2.sp else 0.sp,
+                                letterSpacing = if (aestheticTheme().useWideLetterSpacing) 2.sp else 0.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         )
@@ -454,10 +452,9 @@ fun AudioReverserApp(
                     navigationIcon = {
                         EnhancedGlowButton(
                             onClick = openDrawer,
-                            theme = aestheticTheme,
                             size = 48.dp
                         ) {
-                            Icon(Icons.Default.Menu, "Menu", tint = aestheticTheme.textPrimary)
+                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
                         }
                     },
                     actions = {
@@ -489,7 +486,6 @@ fun AudioReverserApp(
                     onRequestPermission = { recordAudioPermissionState.launchPermissionRequest() },
                     onStartRecording = { viewModel.startRecording() },
                     onStopRecording = { viewModel.stopRecording() },
-                    theme = aestheticTheme
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -497,7 +493,6 @@ fun AudioReverserApp(
                 if (uiState.isRecording) {
                     EnhancedWaveformVisualizer(
                         amplitudes = uiState.amplitudes,
-                        theme = aestheticTheme,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(100.dp)
@@ -511,9 +506,9 @@ fun AudioReverserApp(
                         Text(
                             text = uiState.statusText,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                letterSpacing = if (aestheticTheme.useWideLetterSpacing) 1.sp else 0.sp
+                                letterSpacing = if (aestheticTheme().useWideLetterSpacing) 1.sp else 0.sp
                             ),
-                            color = aestheticTheme.textPrimary
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 }
@@ -533,7 +528,7 @@ fun AudioReverserApp(
                     ) {
                         uiState.recordings.forEach { recording ->
                             item(key = "parent_${recording.originalPath}") {
-                                if (aestheticTheme.id == "scrapbook") {
+                                if (aestheticTheme().id == "scrapbook") {
                                     ScrapbookRecordingItem(
                                         recording = recording,
                                         isPlaying = uiState.currentlyPlayingPath != null &&
@@ -560,7 +555,6 @@ fun AudioReverserApp(
                                         onStartAttempt = { rec: Recording, type: ChallengeType ->
                                             viewModel.startAttemptRecording(rec, type)
                                         },
-                                        theme = aestheticTheme
                                     )
                                 } else {
                                     EnhancedRecordingItem(
@@ -589,7 +583,6 @@ fun AudioReverserApp(
                                         onStartAttempt = { rec: Recording, type: ChallengeType ->
                                             viewModel.startAttemptRecording(rec, type)
                                         },
-                                        theme = aestheticTheme
                                     )
                                 }
                             }
@@ -602,7 +595,7 @@ fun AudioReverserApp(
                             ) { index ->
                                 val attempt = recording.attempts[index]
 
-                                if (aestheticTheme.id == "scrapbook") {
+                                if (aestheticTheme().id == "scrapbook") {
                                     ScrapbookAttemptItem(
                                         attempt = attempt,
                                         currentlyPlayingPath = uiState.currentlyPlayingPath,
@@ -627,7 +620,6 @@ fun AudioReverserApp(
                                             }
                                             context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
                                         },
-                                        theme = aestheticTheme,
                                         onJumpToParent = {
                                             scope.launch {
                                                 val parentIndex = uiState.recordings.indexOfFirst {
@@ -664,7 +656,6 @@ fun AudioReverserApp(
                                             }
                                             context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
                                         },
-                                        theme = aestheticTheme,
                                         onJumpToParent = {
                                             scope.launch {
                                                 val parentIndex = uiState.recordings.indexOfFirst {
@@ -791,70 +782,113 @@ fun AudioReverserApp(
 /**
  * Enhanced Record Button with theme integration and glow effects
  */
+/**
+ * ALSO REPLACE: The EnhancedRecordButton function - Remove theme parameter
+ */
 @Composable
 fun EnhancedRecordButton(
     isRecording: Boolean,
     hasPermission: Boolean,
     onRequestPermission: () -> Unit,
     onStartRecording: () -> Unit,
-    onStopRecording: () -> Unit,
-    theme: AppTheme
+    onStopRecording: () -> Unit
 ) {
-    val buttonShape = if (isRecording) OctagonShape() else CircleShape
-    val buttonColor = if (isRecording) Color.Red else theme.accentColor
+    val aesthetic = aestheticTheme()
+    val colors = materialColors()
 
-    Button(
-        onClick = {
-            if (!hasPermission) {
-                onRequestPermission()
-                return@Button
-            }
-            if (isRecording) onStopRecording() else onStartRecording()
-        },
-        modifier = Modifier
-            .size(120.dp)
-            .then(
-                if (theme.glowIntensity > 0) {
-                    Modifier.shadow(
-                        elevation = (theme.glowIntensity * 25).dp,
-                        shape = buttonShape,
-                        spotColor = buttonColor
-                    )
-                } else Modifier
-            ),
-        shape = buttonShape,
-        colors = ButtonDefaults.buttonColors(containerColor = buttonColor)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    // 🐛 TEMPORARY DEBUG - Remove after testing
+    Log.d("ThemeDebug", "Theme ID: ${aesthetic.id}")
+    Log.d("ThemeDebug", "Border Width: ${aesthetic.borderWidth}")
+    Log.d("ThemeDebug", "Card Border Color: ${aesthetic.cardBorder}")
+    Log.d("ThemeDebug", "Max Card Rotation: ${aesthetic.maxCardRotation}")
+
+    val buttonText = if (isRecording) "Stop Recording" else "Start Recording"
+    val buttonColor = if (isRecording) colors.error else colors.primary
+    val iconVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic
+
+    if (!hasPermission) {
+        Button(
+            onClick = onRequestPermission,
+            modifier = Modifier
+                .size(120.dp)
+                .then(
+                    if (aesthetic.glowIntensity > 0) {
+                        Modifier.shadow(
+                            elevation = (aesthetic.glowIntensity * 15).dp,
+                            shape = CircleShape,
+                            spotColor = colors.primary
+                        )
+                    } else Modifier
+                ),
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
         ) {
-            Text(
-                text = theme.recordButtonEmoji,
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Text(
-                text = if (isRecording) "STOP" else "REC",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = if (theme.useWideLetterSpacing) 2.sp else 0.sp,
-                color = Color.White
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Request Permission",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+                Text(
+                    text = "Grant\nPermission",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    } else {
+        Button(
+            onClick = if (isRecording) onStopRecording else onStartRecording,
+            modifier = Modifier
+                .size(120.dp)
+                .then(
+                    if (aesthetic.glowIntensity > 0) {
+                        Modifier.shadow(
+                            elevation = (aesthetic.glowIntensity * 15).dp,
+                            shape = CircleShape,
+                            spotColor = buttonColor
+                        )
+                    } else Modifier
+                ),
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = buttonColor)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = buttonText,
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+                Text(
+                    text = if (isRecording) "Stop" else "Record",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
 
 /**
- * Enhanced Waveform Visualizer with improved theming
+ * Enhanced Waveform Visualizer with standardized theming
  */
 @Composable
 fun EnhancedWaveformVisualizer(
     amplitudes: List<Float>,
-    theme: AppTheme,
     modifier: Modifier = Modifier,
     barWidth: Dp = 8.dp,
     barGap: Dp = 4.dp
 ) {
+    val aesthetic = aestheticTheme()
+    val materialColors = materialColors()
     Canvas(modifier = modifier) {
         val canvasHeight = size.height
         val maxAmplitude = 1.0f
@@ -869,12 +903,12 @@ fun EnhancedWaveformVisualizer(
             val x = index * totalBarWidth
             val y = (canvasHeight - barHeight) / 2
 
-            // Enhanced gradient with more vibrant colors
+            // Enhanced gradient with more vibrant colors using standardized theming
             val gradient = Brush.verticalGradient(
                 colors = listOf(
-                    theme.accentColor.copy(alpha = 0.3f),
-                    theme.accentColor.copy(alpha = 0.8f),
-                    theme.accentColor
+                    materialColors.primary.copy(alpha = 0.3f),
+                    materialColors.primary.copy(alpha = 0.8f),
+                    materialColors.primary
                 ),
                 startY = y,
                 endY = y + barHeight
@@ -892,7 +926,8 @@ fun EnhancedWaveformVisualizer(
 }
 
 /**
- * Enhanced Recording Item - keeping existing functionality but with improved styling
+ * Enhanced Recording Item - FIXED VERSION with Material 3 theming
+ * Replace the EnhancedRecordingItem function in your MainActivity.kt with this version
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -908,9 +943,19 @@ fun EnhancedRecordingItem(
     onShare: (String) -> Unit,
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
-    onStartAttempt: (Recording, ChallengeType) -> Unit,
-    theme: AppTheme
+    onStartAttempt: (Recording, ChallengeType) -> Unit
 ) {
+    // Use Material 3 theming system consistently
+    val aesthetic = aestheticTheme()
+    val colors = materialColors()
+
+    // 🐛 TEMPORARY DEBUG - ADD THESE LINES
+    println("🎨 Theme ID: ${aesthetic.id}")
+    println("🎨 Border Width: ${aesthetic.borderWidth}")
+    println("🎨 Card Border: ${aesthetic.cardBorder}")
+    println("🎨 Use Glassmorphism: ${aesthetic.useGlassmorphism}")
+
+
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
@@ -918,19 +963,20 @@ fun EnhancedRecordingItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .rotate(aesthetic.maxCardRotation)  // ✅ GEMINI-APPROVED: Property-driven styling
             .then(
-                if (theme.useGlassmorphism && theme.glowIntensity > 0) {
+                if (aesthetic.useGlassmorphism && aesthetic.glowIntensity > 0) {
                     Modifier.shadow(
-                        elevation = (theme.glowIntensity * 15).dp,
+                        elevation = (aesthetic.glowIntensity * 15).dp,
                         shape = RoundedCornerShape(20.dp),
-                        spotColor = theme.accentColor
+                        spotColor = colors.primary
                     )
                 } else Modifier
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (theme.useGlassmorphism) {
-                theme.cardBackground.copy(alpha = 0.8f)
-            } else theme.cardBackground
+            containerColor = if (aesthetic.useGlassmorphism) {
+                colors.surface.copy(alpha = 0.8f)
+            } else colors.surface
         ),
         shape = RoundedCornerShape(20.dp)
     ) {
@@ -938,7 +984,7 @@ fun EnhancedRecordingItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
-                    if (theme.useGlassmorphism) {
+                    if (aesthetic.useGlassmorphism) {
                         Modifier
                             .background(
                                 brush = Brush.linearGradient(
@@ -954,7 +1000,11 @@ fun EnhancedRecordingItem(
                                 color = Color.White.copy(alpha = 0.3f),
                                 shape = RoundedCornerShape(20.dp)
                             )
-                    } else Modifier.border(2.dp, theme.cardBorder, RoundedCornerShape(20.dp))
+                    } else Modifier.border(
+                        width = aesthetic.borderWidth.dp,  // ✅ Uses 3f for scrapbook, 2f for others
+                        color = aesthetic.cardBorder,      // ✅ Brown for scrapbook
+                        shape = RoundedCornerShape(20.dp)
+                    )
                 )
                 .padding(16.dp)
         ) {
@@ -969,9 +1019,9 @@ fun EnhancedRecordingItem(
                         text = recording.name,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = if (theme.useWideLetterSpacing) 1.sp else 0.sp
+                            letterSpacing = if (aesthetic.useWideLetterSpacing) 1.sp else 0.sp
                         ),
-                        color = getThemeAwareTextColor(theme, TextType.PRIMARY),  // <-- CHANGE TO THIS
+                        color = colors.onSurface,
                         modifier = Modifier
                             .weight(1f)
                             .clickable { showRenameDialog = true }
@@ -982,11 +1032,11 @@ fun EnhancedRecordingItem(
                 LinearProgressIndicator(
                     progress = { if (isPlaying) progress else 0f },
                     modifier = Modifier.fillMaxWidth(),
-                    color = theme.accentColor,
-                    trackColor = theme.cardBorder.copy(alpha = 0.3f)
+                    color = colors.primary,
+                    trackColor = colors.surfaceVariant.copy(alpha = 0.3f)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                //Replace from here
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -994,14 +1044,13 @@ fun EnhancedRecordingItem(
                 ) {
                     EnhancedGlowButton(
                         onClick = { showShareDialog = true },
-                        theme = theme,
                         size = 40.dp,
                         label = "Share"
                     ) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "Share Recording",
-                            tint = theme.textPrimary,
+                            tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -1010,7 +1059,6 @@ fun EnhancedRecordingItem(
                         if (isPlaying) {
                             EnhancedGlowButton(
                                 onClick = { onPause() },
-                                theme = theme,
                                 isPrimary = true,
                                 size = 50.dp,
                                 label = if (isPaused) "Resume" else "Pause"
@@ -1025,7 +1073,6 @@ fun EnhancedRecordingItem(
                             Spacer(modifier = Modifier.width(8.dp))
                             EnhancedGlowButton(
                                 onClick = { onStop() },
-                                theme = theme,
                                 isDestructive = true,
                                 size = 50.dp,
                                 label = "Stop"
@@ -1039,7 +1086,6 @@ fun EnhancedRecordingItem(
                         } else {
                             EnhancedGlowButton(
                                 onClick = { onPlay(recording.originalPath) },
-                                theme = theme,
                                 isPrimary = true,
                                 size = 50.dp,
                                 label = "Play"
@@ -1054,7 +1100,6 @@ fun EnhancedRecordingItem(
                             EnhancedGlowButton(
                                 onClick = { onPlay(recording.reversedPath!!) },
                                 enabled = recording.reversedPath != null,
-                                theme = theme,
                                 isPrimary = true,
                                 size = 50.dp,
                                 label = "Rewind"
@@ -1072,7 +1117,6 @@ fun EnhancedRecordingItem(
                         if (isGameModeEnabled) {
                             EnhancedGlowButton(
                                 onClick = { onStartAttempt(recording, ChallengeType.FORWARD) },
-                                theme = theme,
                                 isPrimary = true,
                                 size = 50.dp,
                                 label = "FWD"
@@ -1087,7 +1131,6 @@ fun EnhancedRecordingItem(
                             Spacer(modifier = Modifier.width(8.dp))
                             EnhancedGlowButton(
                                 onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
-                                theme = theme,
                                 isPrimary = true,
                                 size = 50.dp,
                                 label = "REV"
@@ -1103,7 +1146,6 @@ fun EnhancedRecordingItem(
                         Spacer(modifier = Modifier.width(8.dp))
                         EnhancedGlowButton(
                             onClick = { showDeleteDialog = true },
-                            theme = theme,
                             isDestructive = true,
                             size = 40.dp,
                             label = "Delete"
@@ -1117,7 +1159,7 @@ fun EnhancedRecordingItem(
                         }
                     }
                 }
-            }//Leave this! replace all above!
+            }
         }
     }
 
@@ -1152,7 +1194,7 @@ fun EnhancedRecordingItem(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Recording?") },
+            title = { Text("Delete Recording?", color = colors.error) },
             text = { Text("Are you sure you want to delete '${recording.name}'? This action cannot be undone.") },
             confirmButton = {
                 Button(
@@ -1160,8 +1202,8 @@ fun EnhancedRecordingItem(
                         onDelete(recording)
                         showDeleteDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete") }
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.error)
+                ) { Text("Delete", color = Color.White) }
             },
             dismissButton = {
                 Button(onClick = { showDeleteDialog = false }) { Text("Cancel") }
@@ -1182,29 +1224,29 @@ fun EnhancedRecordingItem(
                             onShare(recording.originalPath)
                             showShareDialog = false
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                     ) {
-                        Text("Share Original")
+                        Text("Share Original", color = Color.White)
                     }
                     if (recording.reversedPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                onShare(recording.reversedPath)
+                                onShare(recording.reversedPath!!)
                                 showShareDialog = false
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                         ) {
-                            Text("Share Reversed")
+                            Text("Share Reversed", color = Color.White)
                         }
                     }
                 }
             },
             confirmButton = { },
             dismissButton = {
-                Button(onClick = { showShareDialog = false }) {
-                    Text("Cancel")
-                }
+                Button(onClick = { showShareDialog = false }) { Text("Cancel") }
             }
         )
     }

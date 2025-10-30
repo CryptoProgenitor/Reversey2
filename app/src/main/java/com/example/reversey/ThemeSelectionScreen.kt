@@ -38,6 +38,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.reversey.ui.theme.AestheticThemes
+import com.example.reversey.ui.theme.AestheticThemeData
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,8 +47,9 @@ fun ThemeSelectionScreen(
     navController: NavController,
     themeViewModel: ThemeViewModel = hiltViewModel()
 ) {
-    val currentAestheticTheme by themeViewModel.aestheticTheme.collectAsState()
-    val listState = rememberLazyListState()  // ADD THIS
+    // 🎨 CLEAN: Single source of truth for current theme
+    val currentThemeId by themeViewModel.currentThemeId.collectAsState()
+    val listState = rememberLazyListState()
 
     Scaffold(
         topBar = {
@@ -60,7 +63,7 @@ fun ThemeSelectionScreen(
             )
         }
     ) { paddingValues ->
-        Box(  // WRAP LazyColumn in Box
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -70,20 +73,20 @@ fun ThemeSelectionScreen(
             val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
 
             LazyColumn(
-                state = listState,  // ADD THIS
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(ThemeRepository.allThemes) { theme ->
+                items(AestheticThemes.allThemes.values.toList()) { theme ->
                     ThemeCard(
                         theme = theme,
-                        isSelected = theme.id == currentAestheticTheme.id,
-                        onClick = { themeViewModel.setAestheticTheme(theme.id) }
+                        isSelected = theme.id == currentThemeId, // 🎨 CLEAN: Simple comparison
+                        onClick = { themeViewModel.setTheme(theme.id) } // 🎨 CLEAN: Single method
                     )
                 }
             }
 
-            // ADD GRADIENTS
+            // Scroll fade gradients
             val topGradient = Brush.verticalGradient(
                 0.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                 1.0f to Color.Transparent
@@ -99,7 +102,7 @@ fun ThemeSelectionScreen(
                         .fillMaxWidth()
                         .height(24.dp)
                         .align(Alignment.TopCenter)
-                        .clip(MaterialTheme.shapes.medium)  // Rounds corners
+                        .clip(MaterialTheme.shapes.medium)
                         .background(topGradient)
                 )
             }
@@ -109,7 +112,7 @@ fun ThemeSelectionScreen(
                         .fillMaxWidth()
                         .height(24.dp)
                         .align(Alignment.BottomCenter)
-                        .clip(MaterialTheme.shapes.medium)  // Rounds corners
+                        .clip(MaterialTheme.shapes.medium)
                         .background(bottomGradient)
                 )
             }
@@ -119,7 +122,7 @@ fun ThemeSelectionScreen(
 
 @Composable
 fun ThemeCard(
-    theme: AppTheme,
+    theme: AestheticThemeData,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -151,7 +154,7 @@ fun ThemeCard(
                 Text(
                     text = theme.name,
                     style = MaterialTheme.typography.headlineSmall,
-                    color = theme.textPrimary
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 if (isSelected) {
                     Text("✓", style = MaterialTheme.typography.headlineMedium, color = Color.White)
@@ -161,7 +164,7 @@ fun ThemeCard(
             Text(
                 text = theme.description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = theme.textSecondary
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             // Preview buttons
@@ -172,7 +175,7 @@ fun ThemeCard(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(theme.buttonGradient),
+                        .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("REC", color = Color.White, style = MaterialTheme.typography.labelSmall)
@@ -182,10 +185,18 @@ fun ThemeCard(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(theme.cardBackground)
+                        .background(MaterialTheme.colorScheme.surface)
                         .border(1.dp, theme.cardBorder, RoundedCornerShape(10.dp))
                 )
             }
         }
     }
 }
+
+// 🗑️ ELIMINATED COMPLEXITY:
+// ❌ No more multiple theme state management
+// ❌ No more competing systems
+// ❌ No more aestheticTheme vs theme confusion
+// ✅ Single currentTheme source of truth
+// ✅ Single setTheme() method
+// ✅ Clean, predictable behavior

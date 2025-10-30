@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.sin
+import com.example.reversey.ui.theme.aestheticTheme
+import com.example.reversey.ui.theme.materialColors
 
 // Helper function to create ScoringResult from PlayerAttempt - USES REAL METRICS
 private fun createScoringResultFromAttempt(attempt: PlayerAttempt): com.example.reversey.scoring.ScoringResult {
@@ -59,9 +61,10 @@ fun EnhancedAttemptItem(
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null,
     onDeleteAttempt: ((PlayerAttempt) -> Unit)? = null,
     onShareAttempt: ((String) -> Unit)? = null,
-    theme: AppTheme,
     onJumpToParent: (() -> Unit)? = null,
 ) {
+    val aesthetic = aestheticTheme()
+    val colors = materialColors()
     var showScoreDialog by remember { mutableStateOf(false) }
     val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath ||
             currentlyPlayingPath == attempt.reversedAttemptFilePath
@@ -76,18 +79,18 @@ fun EnhancedAttemptItem(
             .fillMaxWidth()
             .padding(start = 25.dp, end = 0.dp, top = 4.dp, bottom = 4.dp)
             .then(
-                if (theme.useGlassmorphism && theme.glowIntensity > 0) {
+                if (aesthetic.useGlassmorphism && aesthetic.glowIntensity > 0) {
                     Modifier.shadow(
-                        elevation = (theme.glowIntensity * 20).dp,
+                        elevation = (aesthetic.glowIntensity * 20).dp,
                         shape = RoundedCornerShape(16.dp),
-                        spotColor = theme.accentColor
+                        spotColor = colors.primary
                     )
                 } else Modifier
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (theme.useGlassmorphism) {
-                theme.cardBackground.copy(alpha = 0.7f)
-            } else theme.cardBackground
+            containerColor = if (aesthetic.useGlassmorphism) {
+                colors.surface.copy(alpha = aesthetic.cardAlpha)
+            } else colors.surface
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -95,7 +98,7 @@ fun EnhancedAttemptItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
-                    if (theme.useGlassmorphism) {
+                    if (aesthetic.useGlassmorphism) {
                         Modifier
                             .background(
                                 brush = Brush.linearGradient(
@@ -111,7 +114,7 @@ fun EnhancedAttemptItem(
                                 color = Color.White.copy(alpha = 0.2f),
                                 shape = RoundedCornerShape(16.dp)
                             )
-                    } else Modifier.border(1.dp, theme.cardBorder, RoundedCornerShape(16.dp))
+                    } else Modifier.border(1.dp, aesthetic.cardBorder, RoundedCornerShape(16.dp))
                 )
                 .padding(16.dp)
         ) {
@@ -136,7 +139,7 @@ fun EnhancedAttemptItem(
                                 Icon(
                                     imageVector = Icons.Default.Home,
                                     contentDescription = "Go to Parent",
-                                    tint = theme.accentColor,
+                                    tint = colors.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -150,11 +153,11 @@ fun EnhancedAttemptItem(
                             modifier = Modifier
                                 .padding(end = 8.dp)
                                 .then(
-                                    if (theme.glowIntensity > 0) {
+                                    if (aesthetic.glowIntensity > 0) {
                                         Modifier.shadow(
-                                            elevation = (theme.glowIntensity * 10).dp,
+                                            elevation = (aesthetic.glowIntensity * 10).dp,
                                             shape = CircleShape,
-                                            spotColor = theme.accentColor
+                                            spotColor = colors.primary
                                         )
                                     } else Modifier
                                 )
@@ -165,9 +168,9 @@ fun EnhancedAttemptItem(
                             text = attempt.playerName,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = if (theme.useWideLetterSpacing) 1.2.sp else 0.sp
+                                letterSpacing = if (aesthetic.useWideLetterSpacing) 1.2.sp else 0.sp
                             ),
-                            color = getThemeAwareTextColor(theme, TextType.ACCENT),  // <-- CHANGE TO THIS
+                            color = colors.onSurface,
                         )
                     }
 
@@ -178,7 +181,6 @@ fun EnhancedAttemptItem(
                         isPlayingThis = isPlayingThis,
                         isPaused = isPaused,
                         attempt = attempt,
-                        theme = theme,
                         onPlay = onPlay,
                         onPause = onPause,
                         onStop = onStop,
@@ -192,9 +194,8 @@ fun EnhancedAttemptItem(
                 // Right side: Radial progress score with emoji medal
                 RadialScoreDisplay(
                     score = attempt.score,
-                    theme = theme,
                     isAnimated = true,
-                    onClick = { showScoreDialog = true }  // ← ADD THIS LINE
+                    onClick = { showScoreDialog = true }
                 )
             }
 
@@ -204,20 +205,28 @@ fun EnhancedAttemptItem(
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier.fillMaxWidth(),
-                    color = theme.accentColor,
-                    trackColor = theme.cardBorder
+                    color = colors.primary,
+                    trackColor = colors.surfaceVariant.copy(alpha = 0.3f)
                 )
             }
         }
     }
 
-    // Dialogs (same as before but with enhanced styling)
+    // Score explanation dialog
+    if (showScoreDialog) {
+        ScoreExplanationDialog(
+            score = createScoringResultFromAttempt(attempt),
+            challengeType = attempt.challengeType,
+            onDismiss = { showScoreDialog = false }
+        )
+    }
+
+    // Other dialogs
     EnhancedDialogs(
         showRenameDialog = showRenameDialog,
         showDeleteDialog = showDeleteDialog,
         showShareDialog = showShareDialog,
         attempt = attempt,
-        theme = theme,
         onRenamePlayer = onRenamePlayer,
         onDeleteAttempt = onDeleteAttempt,
         onShareAttempt = onShareAttempt,
@@ -225,163 +234,103 @@ fun EnhancedAttemptItem(
         onDismissDelete = { showDeleteDialog = false },
         onDismissShare = { showShareDialog = false }
     )
-
-    // Score explanation dialog
-    if (showScoreDialog) {
-        ScoreExplanationDialog(
-            score = createScoringResultFromAttempt(attempt),
-            challengeType = attempt.challengeType,
-            currentTheme = theme,
-            onDismiss = { showScoreDialog = false }
-        )
-    }
 }
-//end of fun EnhancedAttemptItem
-
-
 
 /**
- * Radial Progress Circle with Emoji Medal - Core of Dopamine UI Strategy
+ * Radial Score Display with Glass Effect
  */
 @Composable
 fun RadialScoreDisplay(
     score: Int,
-    theme: AppTheme,
     isAnimated: Boolean = true,
-    size: androidx.compose.ui.unit.Dp = 80.dp,//Score Circle Diameter
-    onClick: (() -> Unit)? = null  // ← ADD THIS LINE
+    onClick: (() -> Unit)? = null
 ) {
-    // Calculate text scaling based on circle size
-    val textScale = size.value / 80f  // ✅ ADD THIS LINE HERE
-    // Get emoji for score
-    val emoji = theme.scoreEmojis.entries
-        .sortedByDescending { it.key }
-        .firstOrNull { score >= it.key }?.value ?: "💪"
+    val aesthetic = aestheticTheme()
+    val colors = materialColors()
 
-    // Animation for the progress
-    val animatedScore by animateFloatAsState(
+    val animatedProgress by animateFloatAsState(
         targetValue = if (isAnimated) score / 100f else score / 100f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "score_animation"
+        animationSpec = tween(durationMillis = 1500, easing = LinearOutSlowInEasing),
+        label = "score_progress"
     )
 
+    val scoreEmoji = when {
+        score >= 90 -> aesthetic.recordButtonEmoji
+        score >= 80 -> "😊"
+        score >= 70 -> "👍"
+        score >= 60 -> "😐"
+        else -> "😔"
+    }
+
     Box(
-        contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(size)
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable { onClick() }
-                } else Modifier
-            )
+            .size(80.dp)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        contentAlignment = Alignment.Center
     ) {
-        Canvas(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            drawRadialProgress(
-                progress = animatedScore,
-                theme = theme,
-                size = this.size
+        // Radial progress background
+        Canvas(modifier = Modifier.size(80.dp)) {
+            val center = this.center
+            val radius = 30.dp.toPx()
+            val strokeWidth = 6.dp.toPx()
+
+            // Background circle
+            drawCircle(
+                color = colors.surfaceVariant,
+                radius = radius,
+                center = center,
+                style = Stroke(width = strokeWidth)
+            )
+
+            // Progress arc
+            val sweepAngle = animatedProgress * 360f
+            drawArc(
+                brush = Brush.sweepGradient(
+                    colors = listOf(
+                        colors.primary,
+                        colors.secondary,
+                        colors.tertiary
+                    )
+                ),
+                startAngle = -90f,
+                sweepAngle = sweepAngle,
+                useCenter = false,
+                topLeft = Offset(center.x - radius, center.y - radius),
+                size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
             )
         }
 
-        // Center content: Emoji and score
+        // Score content
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = emoji,
-                fontSize = (20 * textScale).sp,
-                modifier = Modifier
-                    .then(
-                        if (theme.glowIntensity > 0) {
-                            Modifier.shadow(
-                                elevation = (theme.glowIntensity * 15).dp,
-                                shape = CircleShape,
-                                spotColor = theme.accentColor
-                            )
-                        } else Modifier
-                    )
+                text = scoreEmoji,
+                style = MaterialTheme.typography.bodyLarge
             )
             Text(
-                text = "${score}%",
-                fontSize = (12 * textScale).sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = if (theme.useWideLetterSpacing) 0.8.sp else 0.sp,
-                color = theme.textPrimary,
-                textAlign = TextAlign.Center
+                text = "$score",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = colors.onSurface
             )
         }
     }
 }
 
 /**
- * Draws the radial progress circle with theme-aware gradients
- */
-private fun DrawScope.drawRadialProgress(
-    progress: Float,
-    theme: AppTheme,
-    size: androidx.compose.ui.geometry.Size
-) {
-    val strokeWidth = 8.dp.toPx()
-    val radius = (size.minDimension / 2) - strokeWidth / 2
-    val center = size.center
-
-    // Background track
-    drawCircle(
-        color = theme.cardBorder.copy(alpha = 0.3f),
-        radius = radius,
-        center = center,
-        style = Stroke(strokeWidth)
-    )
-
-    // Progress arc with gradient
-    val sweepAngle = 360f * progress
-    val startAngle = -90f // Start at top
-
-    // Create gradient brush
-    val progressBrush = Brush.sweepGradient(
-        colors = listOf(
-            theme.accentColor,
-            theme.accentColor.copy(alpha = 0.7f),
-            theme.accentColor
-        ),
-        center = center
-    )
-
-    drawArc(
-        brush = progressBrush,
-        startAngle = startAngle,
-        sweepAngle = sweepAngle,
-        useCenter = false,
-        style = Stroke(
-            width = strokeWidth,
-            cap = StrokeCap.Round
-        ),
-        topLeft = Offset(
-            center.x - radius,
-            center.y - radius
-        ),
-        size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
-    )
-}
-
-/**
- * Enhanced control buttons with glow effects and glassmorphism
+ * Enhanced Control Buttons Row
  */
 @Composable
-fun ControlButtonsRow(
+private fun ControlButtonsRow(
     isPlayingThis: Boolean,
     isPaused: Boolean,
     attempt: PlayerAttempt,
-    theme: AppTheme,
     onPlay: (String) -> Unit,
     onPause: () -> Unit,
     onStop: () -> Unit,
-    //onJumpToParent: (() -> Unit)?,//Relocated to top row! in v.9.4.0
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -389,73 +338,76 @@ fun ControlButtonsRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-
         // Share button
         EnhancedGlowButton(
             onClick = onShare,
-            theme = theme,
             size = 32.dp,
             label = "Share"
         ) {
             Icon(
                 imageVector = Icons.Default.Share,
-                contentDescription = "Share Attempt",
-                tint = theme.textPrimary,
+                contentDescription = "Share",
+                tint = Color.White,
                 modifier = Modifier.size(16.dp)
             )
         }
 
         // Play controls
         if (isPlayingThis) {
+            // Pause/Resume button
             EnhancedGlowButton(
                 onClick = onPause,
-                theme = theme,
                 isPrimary = true,
+                size = 32.dp,
                 label = if (isPaused) "Resume" else "Pause"
             ) {
                 val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
                 Icon(
                     imageVector = pauseIcon,
-                    contentDescription = "Pause/Resume",
-                    tint = Color.White
+                    contentDescription = if (isPaused) "Resume" else "Pause",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
+            // Stop button
             EnhancedGlowButton(
                 onClick = onStop,
-                theme = theme,
                 isDestructive = true,
+                size = 32.dp,
                 label = "Stop"
             ) {
                 Icon(
                     imageVector = Icons.Default.Stop,
                     contentDescription = "Stop",
-                    tint = Color.White
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         } else {
-            // Play original
+            // Play Original button
             EnhancedGlowButton(
                 onClick = { onPlay(attempt.attemptFilePath) },
-                theme = theme,
                 isPrimary = true,
+                size = 32.dp,
                 label = "Play"
             ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Play Original",
-                    tint = Color.White
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
-            // Play reversed
+            // Play Reversed button
             EnhancedGlowButton(
                 onClick = {
                     attempt.reversedAttemptFilePath?.let { onPlay(it) }
                 },
                 enabled = attempt.reversedAttemptFilePath != null,
-                theme = theme,
                 isPrimary = true,
+                size = 32.dp,
                 label = "Rev"
             ) {
                 Icon(
@@ -469,7 +421,6 @@ fun ControlButtonsRow(
         // Delete button
         EnhancedGlowButton(
             onClick = onDelete,
-            theme = theme,
             isDestructive = true,
             size = 32.dp,
             label = "Del"
@@ -485,47 +436,65 @@ fun ControlButtonsRow(
 }
 
 /**
- * Themed button with glow effects and glassmorphism
+ * Enhanced Glow Button - Material 3 Compatible
  */
 @Composable
-fun GlowButton(
+fun EnhancedGlowButton(
     onClick: () -> Unit,
-    theme: AppTheme,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isPrimary: Boolean = false,
     isDestructive: Boolean = false,
     size: androidx.compose.ui.unit.Dp = 40.dp,
+    label: String? = null,
     content: @Composable () -> Unit
 ) {
+    val aesthetic = aestheticTheme()
+    val colors = materialColors()
+
     val backgroundColor = when {
-        isDestructive -> Color(0xFFFF1744)
-        isPrimary -> theme.accentColor
-        else -> theme.cardBackground
+        isDestructive -> colors.error
+        isPrimary -> colors.primary
+        else -> colors.surface
     }
 
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier
-            .size(size)
-            .then(
-                if (theme.glowIntensity > 0) {
-                    Modifier.shadow(
-                        elevation = (theme.glowIntensity * 12).dp,
-                        shape = CircleShape,
-                        spotColor = if (isPrimary) theme.accentColor else Color.Gray
-                    )
-                } else Modifier
-            ),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = backgroundColor,
-            disabledContainerColor = backgroundColor.copy(alpha = 0.5f)
-        ),
-        contentPadding = PaddingValues(0.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        content()
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier
+                .size(size)
+                .then(
+                    if (aesthetic.glowIntensity > 0) {
+                        Modifier.shadow(
+                            elevation = (aesthetic.glowIntensity * 12).dp,
+                            shape = CircleShape,
+                            spotColor = if (isPrimary) colors.primary else colors.surfaceVariant
+                        )
+                    } else Modifier
+                ),
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = backgroundColor,
+                disabledContainerColor = backgroundColor.copy(alpha = 0.5f)
+            ),
+            contentPadding = PaddingValues(0.dp)
+        ) {
+            content()
+        }
+
+        // Text label below button
+        if (label != null) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
     }
 }
 
@@ -538,7 +507,6 @@ private fun EnhancedDialogs(
     showDeleteDialog: Boolean,
     showShareDialog: Boolean,
     attempt: PlayerAttempt,
-    theme: AppTheme,
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
     onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
     onShareAttempt: ((String) -> Unit)?,
@@ -546,6 +514,9 @@ private fun EnhancedDialogs(
     onDismissDelete: () -> Unit,
     onDismissShare: () -> Unit
 ) {
+    val aesthetic = aestheticTheme()
+    val colors = materialColors()
+
     // Rename Dialog
     if (showRenameDialog) {
         var newPlayerName by remember { mutableStateOf(attempt.playerName) }
@@ -554,9 +525,9 @@ private fun EnhancedDialogs(
             title = {
                 Text(
                     "Rename Player",
-                    color = theme.textPrimary,
+                    color = colors.onSurface,
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        letterSpacing = if (theme.useWideLetterSpacing) 1.sp else 0.sp
+                        letterSpacing = if (aesthetic.useWideLetterSpacing) 1.sp else 0.sp
                     )
                 )
             },
@@ -575,7 +546,7 @@ private fun EnhancedDialogs(
                         }
                         onDismissRename()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = theme.accentColor)
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                 ) {
                     Text("Rename", color = Color.White)
                 }
@@ -590,11 +561,11 @@ private fun EnhancedDialogs(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = onDismissDelete,
-            title = { Text("Delete Attempt?", color = Color.Red) },
+            title = { Text("Delete Attempt?", color = colors.error) },
             text = {
                 Text(
                     "Are you sure you want to delete ${attempt.playerName}'s attempt? This action cannot be undone.",
-                    color = Color.Red
+                    color = colors.error
                 )
             },
             confirmButton = {
@@ -603,7 +574,7 @@ private fun EnhancedDialogs(
                         onDeleteAttempt?.invoke(attempt)
                         onDismissDelete()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744))
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.error)
                 ) {
                     Text("Delete", color = Color.White)
                 }
@@ -618,10 +589,10 @@ private fun EnhancedDialogs(
     if (showShareDialog) {
         AlertDialog(
             onDismissRequest = onDismissShare,
-            title = { Text("Share Attempt", color = theme.textPrimary) },
+            title = { Text("Share Attempt", color = colors.onSurface) },
             text = {
                 Column {
-                    Text("Which version would you like to share?", color = theme.textSecondary)
+                    Text("Which version would you like to share?", color = colors.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
@@ -630,7 +601,7 @@ private fun EnhancedDialogs(
                             onDismissShare()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = theme.accentColor)
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                     ) {
                         Text("Share Original (What ${attempt.playerName} Sang)", color = Color.White)
                     }
@@ -643,7 +614,7 @@ private fun EnhancedDialogs(
                                 onDismissShare()
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = theme.accentColor)
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                         ) {
                             Text("Share Reversed (How It Sounds)", color = Color.White)
                         }

@@ -1,0 +1,322 @@
+package com.example.reversey.ui.theme
+
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+
+/**
+ * Aesthetic Theme Data - Non-color properties for visual themes
+ * Works alongside Material 3 ColorScheme for complete theming
+ */
+@Immutable
+data class AestheticThemeData(
+    val id: String,
+    val name: String,
+    val description: String,
+
+    // Visual Effects
+    val useGlassmorphism: Boolean = false,
+    val glowIntensity: Float = 0f,
+
+    // Typography Style
+    val useSerifFont: Boolean = false,
+    val useWideLetterSpacing: Boolean = false,
+
+    // Theme-specific decorations
+    val recordButtonEmoji: String = "🎤",
+    val scoreEmojis: Map<Int, String> = mapOf(
+        90 to "🔥",
+        80 to "💕",
+        70 to "✨",
+        60 to "👍",
+        0 to "💪"
+    ),
+
+    // Background gradients (used for non-M3 backgrounds)
+    val primaryGradient: Brush,
+    val cardBorder: Color,
+
+    // Additional M3 overrides
+    val cardAlpha: Float = 1f, // For glassmorphism effect
+    val shadowElevation: Float = 0f, // For glow effects
+    val cardRotation: Float = 0f,     // Card rotation in degrees
+    val useHandDrawnBorders: Boolean = false,  // Hand-drawn style borders
+    val borderWidth: Float = 2f,        // Border thickness
+    val useScrapbookElements: Boolean = false,
+    val maxCardRotation: Float = 0f,
+    val showTapeEffects: Boolean = false,
+    val useStarRatings: Boolean = false
+)
+
+/**
+ * Predefined Aesthetic Themes
+ * Each corresponds to Material 3 color scheme + aesthetic properties
+ */
+object AestheticThemes {
+
+    val Y2KCyber = AestheticThemeData(
+        id = "y2k_cyber",
+        name = "Y2K Cyber Pop",
+        description = "⚡ Hot pink, chrome, and early 2000s vibes",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFF6EC7),
+                Color(0xFF7873F5),
+                Color(0xFF4FACFE)
+            )
+        ),
+        cardBorder = Color(0x4DFFFFFF),
+        useGlassmorphism = true,
+        glowIntensity = 0.8f,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "⚡",
+        scoreEmojis = mapOf(
+            90 to "💖",
+            80 to "✨",
+            70 to "💫",
+            60 to "🌟",
+            0 to "💪"
+        ),
+        cardAlpha = 0.7f,
+        shadowElevation = 16f
+    )
+
+    val Scrapbook = AestheticThemeData(
+        id = "scrapbook",
+        name = "Scrapbook Vibes",
+        description = "📝 Sticky notes, hand-drawn fun, and playful chaos",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFF3E0),
+                Color(0xFFFFE0B2),
+                Color(0xFFFFCCBC)
+            )
+        ),
+        cardBorder = Color(0xFF795548),
+        useGlassmorphism = false,
+        glowIntensity = 0f,
+        useSerifFont = true,
+        useWideLetterSpacing = false,
+        recordButtonEmoji = "📝",
+        scoreEmojis = mapOf(
+            90 to "⭐",
+            80 to "😊",
+            70 to "👍",
+            60 to "😐",
+            0 to "😔"
+        ),
+        cardAlpha = 1f,
+        shadowElevation = 0f,
+        useScrapbookElements = true,
+        maxCardRotation = 3f,    // Slight rotation for hand-placed look
+        showTapeEffects = true,   // Sticky tape in corners
+        useStarRatings = true,     // Hand-drawn star ratings
+        borderWidth = 3f           // Thicker borders for scrapbook feel
+    )
+
+    val Cottagecore = AestheticThemeData(
+        id = "cottagecore",
+        name = "Cottagecore Dreams",
+        description = "🌸 Soft pastels, florals, and cozy vibes",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFEEEF8),
+                Color(0xFFFFF4E6),
+                Color(0xFFE8F5E9)
+            )
+        ),
+        cardBorder = Color(0xFFF8BBD0),
+        useGlassmorphism = false,
+        glowIntensity = 0f,
+        useSerifFont = true,
+        recordButtonEmoji = "🌸",
+        scoreEmojis = mapOf(
+            90 to "🦋",
+            80 to "🌷",
+            70 to "🌼",
+            60 to "🌿",
+            0 to "🌱"
+        )
+    )
+
+    val DarkAcademia = AestheticThemeData(
+        id = "dark_academia",
+        name = "Dark Academia Glam",
+        description = "📖 Moody gold, mysterious and sophisticated",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF1A1A2E),
+                Color(0xFF16213E),
+                Color(0xFF0F3460)
+            )
+        ),
+        cardBorder = Color(0x4DFFD700),
+        useGlassmorphism = true,
+        glowIntensity = 0.5f,
+        useSerifFont = true,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "📖",
+        scoreEmojis = mapOf(
+            90 to "⭐",
+            80 to "✒️",
+            70 to "📚",
+            60 to "🕯️",
+            0 to "📝"
+        ),
+        cardAlpha = 0.05f,
+        shadowElevation = 8f
+    )
+
+    val Vaporwave = AestheticThemeData(
+        id = "vaporwave",
+        name = "Neon Vaporwave",
+        description = "🌴 Cyan and magenta, retro-futuristic aesthetic",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF2E003E),
+                Color(0xFF3D0066),
+                Color(0xFFFF6EC7)
+            )
+        ),
+        cardBorder = Color(0xFF00FFFF),
+        useGlassmorphism = true,
+        glowIntensity = 0.6f,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "🌴",
+        scoreEmojis = mapOf(
+            90 to "💎",
+            80 to "🌊",
+            70 to "🎭",
+            60 to "🎮",
+            0 to "📼"
+        ),
+        cardAlpha = 0.1f,
+        shadowElevation = 12f
+    )
+
+    val JeoseungShadows = AestheticThemeData(
+        id = "jeoseung_shadows",
+        name = "Jeoseung Shadows",
+        description = "💀 Dark reaper energy, golden souls and mysteries",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF0A0A0A),
+                Color(0xFF1C1C1C),
+                Color(0xFF2D2D2D)
+            )
+        ),
+        cardBorder = Color(0x66FFD700),
+        useGlassmorphism = true,
+        glowIntensity = 0.7f,
+        useSerifFont = true,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "💀",
+        scoreEmojis = mapOf(
+            90 to "🔥",
+            80 to "👻",
+            70 to "🌙",
+            60 to "⚡",
+            0 to "💀"
+        ),
+        cardAlpha = 0.1f,
+        shadowElevation = 14f
+    )
+
+    val Steampunk = AestheticThemeData(
+        id = "steampunk",
+        name = "Steampunk Victorian",
+        description = "⚙️ Brass gears, copper pipes, and steam power",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF2C1810),
+                Color(0xFF8B4513),
+                Color(0xFFCD7F32)
+            )
+        ),
+        cardBorder = Color(0xFFD4AF37),
+        useGlassmorphism = false,
+        glowIntensity = 0.4f,
+        useSerifFont = true,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "⚙️",
+        scoreEmojis = mapOf(
+            90 to "🏆",
+            80 to "⚗️",
+            70 to "🎩",
+            60 to "⚙️",
+            0 to "🔧"
+        ),
+        shadowElevation = 6f
+    )
+
+    val Cyberpunk = AestheticThemeData(
+        id = "cyberpunk",
+        name = "Cyberpunk 2099",
+        description = "🤖 Neon lights, digital underground, matrix vibes",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF0A0A0A),
+                Color(0xFF1A0033),
+                Color(0xFF000A1A)
+            )
+        ),
+        cardBorder = Color(0xFF00FFFF),
+        useGlassmorphism = true,
+        glowIntensity = 0.9f,
+        useSerifFont = false,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "🤖",
+        scoreEmojis = mapOf(
+            90 to "👑",
+            80 to "🤖",
+            70 to "⚡",
+            60 to "🔥",
+            0 to "💻"
+        ),
+        cardAlpha = 0f,
+        shadowElevation = 18f
+    )
+
+    val GraphiteSketch = AestheticThemeData(
+        id = "graphite_sketch",
+        name = "Graphite Sketch",
+        description = "✏️ Hand-drawn art, pencil textures, paper vibes",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFF8F8F8),
+                Color(0xFFEEEEEE),
+                Color(0xFFE0E0E0)
+            )
+        ),
+        cardBorder = Color(0xFF2A2A2A),
+        useGlassmorphism = false,
+        glowIntensity = 0f,
+        useSerifFont = false,
+        useWideLetterSpacing = false,
+        recordButtonEmoji = "✏️",
+        scoreEmojis = mapOf(
+            90 to "⭐",
+            80 to "😊",
+            70 to "👍",
+            60 to "😐",
+            0 to "😔"
+        )
+    )
+
+    // Map for easy lookup
+    val allThemes = mapOf(
+        "y2k_cyber" to Y2KCyber,
+        "scrapbook" to Scrapbook,
+        "cottagecore" to Cottagecore,
+        "dark_academia" to DarkAcademia,
+        "vaporwave" to Vaporwave,
+        "jeoseung_shadows" to JeoseungShadows,
+        "steampunk" to Steampunk,
+        "cyberpunk" to Cyberpunk,
+        "graphite_sketch" to GraphiteSketch
+    )
+
+    fun getThemeById(id: String): AestheticThemeData {
+        return allThemes[id] ?: Y2KCyber
+    }
+}
