@@ -328,7 +328,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v11.4.2_UI_tweaks",
+                    text = "v11.6.0_scrapbook_fixed",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -623,11 +623,20 @@ fun AudioReverserApp(
                                         },
                                         onJumpToParent = {
                                             scope.launch {
-                                                val parentIndex = uiState.recordings.indexOfFirst {
-                                                    it.originalPath == recording.originalPath
-                                                }
-                                                if (parentIndex >= 0) {
-                                                    listState.animateScrollToItem(parentIndex)
+                                                // Calculate the correct index in the flattened LazyColumn
+                                                var flatIndex = 0
+                                                for (i in uiState.recordings.indices) {
+                                                    val rec = uiState.recordings[i]
+                                                    if (rec.originalPath == recording.originalPath) {
+                                                        // Found the parent recording - scroll to its position
+                                                        listState.animateScrollToItem(
+                                                            index = flatIndex,
+                                                            scrollOffset = 0  // Position at top of view
+                                                        )
+                                                        break
+                                                    }
+                                                    // Add 1 for the recording item + its attempts count
+                                                    flatIndex += 1 + rec.attempts.size
                                                 }
                                             }
                                         }
@@ -659,11 +668,20 @@ fun AudioReverserApp(
                                         },
                                         onJumpToParent = {
                                             scope.launch {
-                                                val parentIndex = uiState.recordings.indexOfFirst {
-                                                    it.originalPath == recording.originalPath
-                                                }
-                                                if (parentIndex >= 0) {
-                                                    listState.animateScrollToItem(parentIndex)
+                                                // Calculate the correct index in the flattened LazyColumn
+                                                var flatIndex = 0
+                                                for (i in uiState.recordings.indices) {
+                                                    val rec = uiState.recordings[i]
+                                                    if (rec.originalPath == recording.originalPath) {
+                                                        // Found the parent recording - scroll to its position
+                                                        listState.animateScrollToItem(
+                                                            index = flatIndex,
+                                                            scrollOffset = 0  // Position at top of view
+                                                        )
+                                                        break
+                                                    }
+                                                    // Add 1 for the recording item + its attempts count
+                                                    flatIndex += 1 + rec.attempts.size
                                                 }
                                             }
                                         }
