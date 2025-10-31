@@ -230,7 +230,7 @@ class AudioViewModel @Inject constructor(
             } else {
                 // --- NEW PARENT RECORDING LOGIC ---
                 if (latestFile != null && latestFile.exists()) {
-                    val recordingName = "Recording_${SimpleDateFormat("dd-MMM-yyyy_HH-mm-ss", Locale.UK).format(Date())}.wav"
+                    val recordingName = "Rec_${SimpleDateFormat("dd-MMM-yyyy_HH-mm-ss", Locale.UK).format(Date())}.wav"
 
                     // Check original recording quality before processing
                     val originalAudio = readAudioFile(latestFile.absolutePath)

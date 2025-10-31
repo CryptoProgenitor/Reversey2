@@ -908,9 +908,10 @@ fun ScrapbookRecordingItem(
                 ) {
                     Text(
                         text = "🎤 ${recording.name}",
-                        style = MaterialTheme.typography.headlineSmall.copy(
+                        style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = dancingScriptFontFamily,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
                         ),
                         color = Color.Black.copy(alpha = 0.9f),
                         modifier = Modifier
