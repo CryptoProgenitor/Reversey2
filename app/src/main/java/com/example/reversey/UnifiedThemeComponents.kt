@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -25,12 +24,17 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.random.Random
 import com.example.reversey.ui.theme.aestheticTheme
 import com.example.reversey.ui.theme.materialColors
 import com.example.reversey.ui.components.ScoreExplanationDialog
+import com.example.reversey.ui.icons.EggIcons
+import com.example.reversey.ui.theme.EggButtonStyle
+import com.example.reversey.ui.theme.AestheticThemeData
+import com.example.reversey.ui.components.egg.EggStylePlayerCard
+import com.example.reversey.ui.components.unified.UnifiedRecordButton
 
 // Dancing Script handwriting font family for scrapbook theme
 private val dancingScriptFontFamily = FontFamily(
@@ -68,50 +72,219 @@ fun UnifiedAttemptItem(
     var showShareDialog by remember { mutableStateOf(false) }
 
     // Route to appropriate theme implementation
-    if (aesthetic.useScrapbookElements) {
-        ScrapbookStyleAttemptItem(
-            attempt = attempt,
-            isPlayingThis = isPlayingThis,
-            progress = progress,
-            showScoreDialog = showScoreDialog,
-            showRenameDialog = showRenameDialog,
-            showDeleteDialog = showDeleteDialog,
-            showShareDialog = showShareDialog,
-            onPlay = onPlay,
-            onPause = onPause,
-            onStop = onStop,
-            onRenamePlayer = onRenamePlayer,
-            onDeleteAttempt = onDeleteAttempt,
-            onShareAttempt = onShareAttempt,
-            onJumpToParent = onJumpToParent,
-            onShowScoreDialog = { showScoreDialog = it },
-            onShowRenameDialog = { showRenameDialog = it },
-            onShowDeleteDialog = { showDeleteDialog = it },
-            onShowShareDialog = { showShareDialog = it },
-            isPaused = isPaused
-        )
-    } else {
-        ModernStyleAttemptItem(
-            attempt = attempt,
-            isPlayingThis = isPlayingThis,
-            progress = progress,
-            showScoreDialog = showScoreDialog,
-            showRenameDialog = showRenameDialog,
-            showDeleteDialog = showDeleteDialog,
-            showShareDialog = showShareDialog,
-            onPlay = onPlay,
-            onPause = onPause,
-            onStop = onStop,
-            onRenamePlayer = onRenamePlayer,
-            onDeleteAttempt = onDeleteAttempt,
-            onShareAttempt = onShareAttempt,
-            onJumpToParent = onJumpToParent,
-            onShowScoreDialog = { showScoreDialog = it },
-            onShowRenameDialog = { showRenameDialog = it },
-            onShowDeleteDialog = { showDeleteDialog = it },
-            onShowShareDialog = { showShareDialog = it },
-            isPaused = isPaused
-        )
+    // 🥚 GLUTE: Route to appropriate theme implementation
+    when {
+        // EGG THEME DETECTION
+        aesthetic.id == "egg" -> {
+            EggStylePlayerCard(
+                playerName = attempt.playerName,
+                score = "${attempt.score.toInt()}%",
+                eggEmoji = aesthetic.scoreEmojis.entries
+                    .sortedByDescending { it.key }
+                    .firstOrNull { attempt.score.toInt() >= it.key }?.value ?: "🥚",
+                //onShare = {
+                //    println("🥚 SHARE: Calling onShareAttempt")
+                //    onShareAttempt?.invoke(attempt.attemptFilePath ?: "")  // ← Correct: passing String path
+                //},
+
+                onShare = {//<---GEMINI CODE
+                    println("🥚 SHARE: Setting showShareDialog = true")
+                    showShareDialog = true
+                },
+
+                onPlay = {
+                    println("🥚 PLAY BUTTON CLICKED!") // ← Add this debug line
+                    if (isPlayingThis && !isPaused) onPause()
+                    else onPlay(attempt.attemptFilePath ?: "")
+                },
+                onReverse = {
+                    println("🥚 REVERSE BUTTON CLICKED!")
+                    attempt.reversedAttemptFilePath?.let { onPlay(it) }
+                },
+                onNavigateToParent = {
+                    onJumpToParent?.invoke()
+                },
+                onShowRenameDialog = {
+                    showRenameDialog = true
+                },
+                onShowDeleteDialog = {
+                    println("🥚 DELETE DIALOG: Setting showDeleteDialog to $it")
+                    showDeleteDialog = it
+                },
+                onScoreClick = { showScoreDialog = true }
+            )
+
+            // Score dialog for egg theme
+            if (showScoreDialog) {
+                val scoringResult = remember {
+                    com.example.reversey.scoring.ScoringResult(
+                        score = attempt.score,
+                        rawScore = attempt.rawScore,
+                        metrics = com.example.reversey.scoring.SimilarityMetrics(
+                            pitch = attempt.pitchSimilarity,
+                            mfcc = attempt.mfccSimilarity
+                        ),
+                        feedback = emptyList()
+                    )
+                }
+
+                ScoreExplanationDialog(
+                    score = scoringResult,
+                    challengeType = attempt.challengeType,
+                    onDismiss = { showScoreDialog = false }
+                )
+            }
+
+            // ✅ Share dialog for egg theme //<---GEMINI CODE
+            if (showShareDialog && onShareAttempt != null) {
+                AlertDialog(
+                    onDismissRequest = { showShareDialog = false },
+                    title = { Text("Share Attempt 📤") },
+                    text = {
+                        Column {
+                            Text("Which version would you like to share?")
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = {
+                                    onShareAttempt(attempt.attemptFilePath)
+                                    showShareDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Share Fresh Egg 🥚")
+                            }
+                            if (attempt.reversedAttemptFilePath != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = {
+                                        onShareAttempt(attempt.reversedAttemptFilePath!!)
+                                        showShareDialog = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Share Scrambled Egg🍳")
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = { },
+                    dismissButton = {
+                        Button(onClick = { showShareDialog = false }) { Text("Cancel") }
+                    }
+                )
+            }
+
+            // DELETE DIALOG FOR EGG THEME - FIXED!
+            if (showDeleteDialog && onDeleteAttempt != null) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Delete Egg Attempt? 🥚💔", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) },
+                    text = { Text("Are you sure you want to crack ${attempt.playerName}'s attempt? This cannot be undone!", color = Color(0xFF2E2E2E)) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onDeleteAttempt(attempt)
+                                showDeleteDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+                        ) { Text("Crack It! 🔨", color = Color.White, fontWeight = FontWeight.Bold) }
+                    },
+                    dismissButton = {
+                        Button(
+                            onClick = { showDeleteDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E2E2E))
+                        ) { Text("Keep Egg Safe 🥚", color = Color.White, fontWeight = FontWeight.Bold) }
+                    }
+                )
+            }
+
+            // ✅ RENAME DIALOG FOR EGG THEME
+            if (showRenameDialog && onRenamePlayer != null) {
+                var newName by remember { mutableStateOf(attempt.playerName) }
+                AlertDialog(
+                    onDismissRequest = { showRenameDialog = false },
+                    title = { Text("Rename Player 🥚✏️", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) },
+                    text = {
+                        OutlinedTextField(
+                            value = newName,
+                            onValueChange = { newName = it },
+                            label = { Text("Player Name") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFFFD54F),
+                                focusedLabelColor = Color(0xFF2E2E2E)
+                            )
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (newName.isNotBlank()) {
+                                    onRenamePlayer(attempt, newName)
+                                }
+                                showRenameDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD54F))
+                        ) { Text("Rename Egg 🥚", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) }
+                    },
+                    dismissButton = {
+                        Button(
+                            onClick = { showRenameDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E2E2E))
+                        ) { Text("Cancel", color = Color.White) }
+                    }
+                )
+            }
+        }
+        // SCRAPBOOK THEMES
+        aesthetic.useScrapbookElements -> {
+            ScrapbookStyleAttemptItem(
+                aesthetic = aesthetic,
+                attempt = attempt,
+                isPlayingThis = isPlayingThis,
+                progress = progress,
+                showScoreDialog = showScoreDialog,
+                showRenameDialog = showRenameDialog,
+                showDeleteDialog = showDeleteDialog,
+                showShareDialog = showShareDialog,
+                onPlay = onPlay,
+                onPause = onPause,
+                onStop = onStop,
+                onRenamePlayer = onRenamePlayer,
+                onDeleteAttempt = onDeleteAttempt,
+                onShareAttempt = onShareAttempt,
+                onJumpToParent = onJumpToParent,
+                onShowScoreDialog = { showScoreDialog = it },
+                onShowRenameDialog = { showRenameDialog = it },
+                onShowDeleteDialog = { showDeleteDialog = it },
+                onShowShareDialog = { showShareDialog = it },
+                isPaused = isPaused
+            )
+        }
+        // MODERN THEMES
+        else -> {
+            ModernStyleAttemptItem(
+                attempt = attempt,
+                isPlayingThis = isPlayingThis,
+                progress = progress,
+                showScoreDialog = showScoreDialog,
+                showRenameDialog = showRenameDialog,
+                showDeleteDialog = showDeleteDialog,
+                showShareDialog = showShareDialog,
+                onPlay = onPlay,
+                onPause = onPause,
+                onStop = onStop,
+                onRenamePlayer = onRenamePlayer,
+                onDeleteAttempt = onDeleteAttempt,
+                onShareAttempt = onShareAttempt,
+                onJumpToParent = onJumpToParent,
+                onShowScoreDialog = { showScoreDialog = it },
+                onShowRenameDialog = { showRenameDialog = it },
+                onShowDeleteDialog = { showDeleteDialog = it },
+                onShowShareDialog = { showShareDialog = it },
+                isPaused = isPaused
+            )
+        }
     }
 }
 
@@ -120,6 +293,7 @@ fun UnifiedAttemptItem(
  */
 @Composable
 private fun ScrapbookStyleAttemptItem(
+    aesthetic: AestheticThemeData,
     attempt: PlayerAttempt,
     isPlayingThis: Boolean,
     progress: Float,
@@ -278,38 +452,74 @@ private fun ScrapbookStyleAttemptItem(
 
                     // Play controls (THIRD)
                     if (isPlayingThis && !isPaused) {
-                        ScrapbookButton(
-                            onClick = onPause,
-                            icon = Icons.Default.Pause,
-                            label = "Pause",
-                            iconColor = Color(0xFF4CAF50)
-                        )
+                        if (aesthetic.useEggElements) {
+                            EggScrapbookButton(
+                                onClick = onPause,
+                                eggType = "cracked",
+                                label = "Pause",
+                                iconColor = Color(0xFF4CAF50)
+                            )
+                        } else {
+                            ScrapbookButton(
+                                onClick = onPause,
+                                icon = Icons.Default.Pause,
+                                label = "Pause",
+                                iconColor = Color(0xFF4CAF50)
+                            )
+                        }
                     } else {
-                        ScrapbookButton(
-                            onClick = { onPlay(attempt.attemptFilePath) },
-                            icon = Icons.Default.PlayArrow,
-                            label = "Play",
-                            iconColor = Color(0xFF2196F3)
-                        )
+                        if (aesthetic.useEggElements) {
+                            EggScrapbookButton(
+                                onClick = { onPlay(attempt.attemptFilePath) },
+                                eggType = "whole",
+                                label = "Play",
+                                iconColor = Color(0xFF2196F3)
+                            )
+                        } else {
+                            ScrapbookButton(
+                                onClick = { onPlay(attempt.attemptFilePath) },
+                                icon = Icons.Default.PlayArrow,
+                                label = "Play",
+                                iconColor = Color(0xFF2196F3)
+                            )
+                        }
                     }
 
                     // Rev button (FOURTH)
                     if (attempt.reversedAttemptFilePath != null) {
-                        ScrapbookButton(
-                            onClick = { onPlay(attempt.reversedAttemptFilePath!!) },
-                            icon = Icons.Default.FastForward,
-                            label = "Reverse",
-                            iconColor = Color(0xFFFF9800)
-                        )
+                        if (aesthetic.useEggElements) {
+                            EggScrapbookButton(
+                                onClick = { onPlay(attempt.reversedAttemptFilePath!!) },
+                                eggType = "fried",
+                                label = "Reverse",
+                                iconColor = Color(0xFFFF9800)
+                            )
+                        } else {
+                            ScrapbookButton(
+                                onClick = { onPlay(attempt.reversedAttemptFilePath!!) },
+                                icon = Icons.Default.FastForward,
+                                label = "Reverse",
+                                iconColor = Color(0xFFFF9800)
+                            )
+                        }
                     }
 
                     // Delete button (LAST)
-                    ScrapbookButton(
-                        onClick = { onShowDeleteDialog(true) },
-                        icon = Icons.Default.Delete,
-                        label = "Del",
-                        iconColor = Color(0xFFFF1744)
-                    )
+                    if (aesthetic.useEggElements) {
+                        EggScrapbookButton(
+                            onClick = { onShowDeleteDialog(true) },
+                            eggType = "cracked",
+                            label = "Del",
+                            iconColor = Color(0xFFFF1744)
+                        )
+                    } else {
+                        ScrapbookButton(
+                            onClick = { onShowDeleteDialog(true) },
+                            icon = Icons.Default.Delete,
+                            label = "Del",
+                            iconColor = Color(0xFFFF1744)
+                        )
+                    }
                 }
 
                 // Progress indicator
@@ -503,12 +713,19 @@ private fun ModernStyleAttemptItem(
                                 isPrimary = true,
                                 label = "Pause"
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Pause,
-                                    contentDescription = "Pause",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                if (aesthetic.useEggElements) {
+                                    EggIcons.CrackedEggIcon(
+                                        size = 16.dp,
+                                        tint = Color.White
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Pause,
+                                        contentDescription = "Pause",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         } else {
                             EnhancedGlowButton(
@@ -516,12 +733,19 @@ private fun ModernStyleAttemptItem(
                                 isPrimary = true,
                                 label = "Play"
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Play",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                if (aesthetic.useEggElements) {
+                                    EggIcons.WholeEggIcon(
+                                        size = 16.dp,
+                                        tint = Color.White
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = "Play",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
 
@@ -532,12 +756,19 @@ private fun ModernStyleAttemptItem(
                                 isSecondary = true,
                                 label = "Rev"
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Repeat,
-                                    contentDescription = "Reverse",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                if (aesthetic.useEggElements) {
+                                    EggIcons.FriedEggIcon(
+                                        size = 16.dp,
+                                        tint = Color.White
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Repeat,
+                                        contentDescription = "Reverse",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
 
@@ -547,12 +778,19 @@ private fun ModernStyleAttemptItem(
                             isDestructive = true,
                             label = "Del"
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            if (aesthetic.useEggElements) {
+                                EggIcons.CrackedEggIcon(
+                                    size = 16.dp,
+                                    tint = Color.White
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -662,7 +900,7 @@ fun ScrapbookRecordingItem(
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                // Header with recording name
+                // Header with recording name AND delete button (like GenZ UI)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -678,14 +916,25 @@ fun ScrapbookRecordingItem(
                         modifier = Modifier
                             .weight(1f)
                             .clickable { showRenameDialog = true }
+                            .padding(end = 12.dp), // Add padding so text doesn't touch delete button
+                        overflow = TextOverflow.Ellipsis, // Add ellipsis for long names
+                        maxLines = 1 // Ensure single line with ellipsis
+                    )
+
+                    // Delete button moved to header (GenZ UI style)
+                    ScrapbookButton(
+                        onClick = { showDeleteDialog = true },
+                        icon = Icons.Default.Delete,
+                        label = "Del",
+                        iconColor = Color(0xFFFF1744)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Control buttons - Share first!
+                // Control buttons - IMPROVED SPACING like GenZ UI (no delete button here anymore)
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp), // Increased from 12.dp to 16.dp for better spacing
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Share button (FIRST)
@@ -740,13 +989,7 @@ fun ScrapbookRecordingItem(
                         )
                     }
 
-                    // Delete button (LAST)
-                    ScrapbookButton(
-                        onClick = { showDeleteDialog = true },
-                        icon = Icons.Default.Delete,
-                        label = "Del",
-                        iconColor = Color(0xFFFF1744)
-                    )
+                    // DELETE BUTTON REMOVED FROM HERE - Now in header row!
                 }
 
                 // Progress indicator
@@ -937,14 +1180,22 @@ private fun RadialScoreDisplay(
     val colors = materialColors()
     val aesthetic = aestheticTheme()
 
-    // Score-based emoji
-    val emoji = when {
-        score >= 90 -> "🤩"
-        score >= 80 -> "😊"
-        score >= 70 -> "🙂"
-        score >= 60 -> "😐"
-        score >= 50 -> "😕"
-        else -> "😞"
+    // Score-based emoji - use egg emojis when egg theme is active
+    val emoji = if (aesthetic.useEggElements) {
+        // Use egg emojis from aesthetic.scoreEmojis
+        aesthetic.scoreEmojis.entries
+            .sortedByDescending { it.key }
+            .firstOrNull { score >= it.key }?.value ?: "🥚"
+    } else {
+        // Standard emojis
+        when {
+            score >= 90 -> "🤩"
+            score >= 80 -> "😊"
+            score >= 70 -> "🙂"
+            score >= 60 -> "😐"
+            score >= 50 -> "😕"
+            else -> "😞"
+        }
     }
 
     Box(
@@ -1344,4 +1595,252 @@ private fun ScrapbookRecordingDialogs(
             }
         )
     }
+}
+
+/**
+ * Egg-themed record button for when theme.useEggElements = true
+ */
+@Composable
+fun EggThemedRecordButton(
+    isRecording: Boolean,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val aesthetic = aestheticTheme()
+
+    Box(
+        modifier = modifier
+            .size(80.dp)
+            .clickable {
+                if (isRecording) onStopRecording() else onStartRecording()
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // Background circle with egg styling
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val radius = size.minDimension / 2
+
+            if (isRecording) {
+                // Pulsing effect when recording
+                drawCircle(
+                    color = Color(0xFFFFD700).copy(alpha = 0.3f),
+                    radius = radius * 1.2f
+                )
+            }
+
+            // Main button circle with egg theme colors
+            drawCircle(
+                color = Color(0xFFFFF8E1),
+                radius = radius * 0.9f,
+                style = Stroke(
+                    width = if (aesthetic.useHandDrawnBorders) 4.dp.toPx() else 2.dp.toPx()
+                )
+            )
+        }
+
+        // Egg icon in center
+        when (aesthetic.eggButtonStyle) {
+            EggButtonStyle.FriedEgg -> {
+                EggIcons.FriedEggIcon(
+                    size = 40.dp,
+                    tint = if (isRecording) Color(0xFFFF6B6B) else Color(0xFF2E2E2E)
+                )
+            }
+            EggButtonStyle.CrackedEgg -> {
+                EggIcons.CrackedEggIcon(
+                    size = 40.dp,
+                    tint = if (isRecording) Color(0xFFFF6B6B) else Color(0xFF2E2E2E)
+                )
+            }
+            else -> {
+                EggIcons.EggMicIcon(
+                    size = 40.dp,
+                    tint = if (isRecording) Color(0xFFFF6B6B) else Color(0xFF2E2E2E)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Egg-themed play button for attempt items
+ */
+@Composable
+fun EggThemedPlayButton(
+    isPlaying: Boolean,
+    isPaused: Boolean,
+    onPlay: () -> Unit,
+    onPause: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(56.dp)
+            .background(
+                color = Color(0xFFFFF8E1),
+                shape = CircleShape
+            )
+            .border(
+                width = 2.dp,
+                color = Color(0xFF2E2E2E),
+                shape = CircleShape
+            )
+            .clickable {
+                if (isPlaying && !isPaused) onPause() else onPlay()
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // Use egg icon instead of regular play/pause
+        if (isPlaying && !isPaused) {
+            EggIcons.CrackedEggIcon(
+                size = 24.dp,
+                tint = Color(0xFF2E2E2E)
+            )
+        } else {
+            EggIcons.WholeEggIcon(
+                size = 24.dp,
+                tint = Color(0xFF2E2E2E)
+            )
+        }
+    }
+}
+
+/**
+ * Egg-themed score display
+ */
+@Composable
+fun EggThemedScoreChip(
+    score: Int,
+    isAnimated: Boolean = false,
+    onClick: () -> Unit
+) {
+    val aesthetic = aestheticTheme()
+
+    // Get the appropriate egg emoji for the score
+    val emoji = aesthetic.scoreEmojis.entries
+        .sortedByDescending { it.key }
+        .firstOrNull { score >= it.key }?.value ?: "🥚"
+
+    Box(
+        modifier = Modifier
+            .background(
+                color = Color(0xFFFFF8E1),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .border(
+                width = 2.dp,
+                color = Color(0xFF2E2E2E),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = emoji,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = "$score%",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFF2E2E2E),
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+/**
+ * Egg-themed scrapbook button
+ */
+@Composable
+private fun EggScrapbookButton(
+    onClick: () -> Unit,
+    eggType: String, // "whole", "fried", "cracked"
+    label: String,
+    iconColor: Color,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clickable(enabled = enabled) { onClick() }
+            .padding(2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = Color(0xFFFFF8E1), // Egg shell color
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFF8D6E63).copy(alpha = 0.8f), // Brown border
+                    shape = RoundedCornerShape(8.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            when (eggType) {
+                "whole" -> EggIcons.WholeEggIcon(
+                    size = 24.dp,
+                    tint = iconColor
+                )
+                "fried" -> EggIcons.FriedEggIcon(
+                    size = 24.dp,
+                    tint = iconColor
+                )
+                "cracked" -> EggIcons.CrackedEggIcon(
+                    size = 24.dp,
+                    tint = iconColor
+                )
+                else -> EggIcons.WholeEggIcon(
+                    size = 24.dp,
+                    tint = iconColor
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(3.dp))
+
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = dancingScriptFontFamily,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = Color.Black.copy(alpha = 0.8f),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * GLUTE-compliant recording button for your daughter's egg theme! 🥚
+ */
+@Composable
+fun UnifiedRecordingButton(
+    isRecording: Boolean,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    UnifiedRecordButton(
+        isRecording = isRecording,
+        onClick = {
+            if (isRecording) {
+                onStopRecording()
+            } else {
+                onStartRecording()
+            }
+        },
+        modifier = modifier
+    )
 }

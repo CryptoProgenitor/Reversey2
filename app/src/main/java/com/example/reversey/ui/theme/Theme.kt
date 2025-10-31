@@ -110,8 +110,13 @@ private val DarkOrangeColorScheme = darkColorScheme(
     onSurface = Color(0xFFF0DFD1)
 )
 
+/**
+ * LEGACY THEME COMPOSABLE
+ * This is kept for backward compatibility but the new unified theme system
+ * in Create ReVerseYTheme.kt should be used instead
+ */
 @Composable
-fun ReVerseYTheme(
+fun LegacyReVerseYTheme(
     darkTheme: Boolean,
     themeName: String,
     content: @Composable () -> Unit

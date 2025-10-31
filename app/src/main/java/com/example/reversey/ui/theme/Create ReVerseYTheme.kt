@@ -64,6 +64,7 @@ private fun getThemeAccentColor(themeId: String): Color {
         "steampunk" -> Color(0xFFD4AF37)           // Brass gold
         "cyberpunk" -> Color(0xFF00FFFF)           // Neon cyan
         "graphite_sketch" -> Color(0xFF2A2A2A)     // Graphite gray
+        "egg" -> Color(0xFFFF8A65)                 // 🥚 Coral orange (your daughter's design!)
         else -> Color(0xFFFF6EC7)                  // Default to Y2K pink
     }
 }

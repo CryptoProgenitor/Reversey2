@@ -26,6 +26,16 @@ class ThemeViewModel @Inject constructor(
         initialValue = "y2k_cyber"
     )
 
+    // 🥚 Available themes for UI selection
+    val availableThemes = mapOf(
+        "y2k_cyber" to "Y2K Cyber Pop",
+        "scrapbook" to "Scrapbook Vibes", // ← ADD THIS LINE!
+        "cottagecore" to "Cottagecore Dreams",
+        "dark_academia" to "Dark Academia",
+        "vaporwave" to "Neon Vaporwave",
+        "egg" to "Egg Theme" // 🥚 NEW!
+    )
+
     // 🎨 Function to change theme
     fun setTheme(themeId: String) {
         viewModelScope.launch(Dispatchers.IO) {

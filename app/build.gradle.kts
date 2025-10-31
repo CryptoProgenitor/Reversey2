@@ -19,8 +19,8 @@ android {
         applicationId = "com.example.reversey"
         minSdk = 26
         targetSdk = 36
-        versionCode = 68
-        versionName = "12.0.0"
+        versionCode = 70
+        versionName = "12.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -78,6 +78,9 @@ dependencies {
     //HILT - https://developer.android.com/training/dependency-injection/hilt-android#kts
     // Hilt dependencies
     implementation("com.google.dagger:hilt-android:2.57.1")
+    implementation(libs.androidx.compose.ui.geometry)
+    implementation(libs.androidx.compose.ui.unit)
+    implementation(libs.androidx.compose.ui.text)
     ksp("com.google.dagger:hilt-android-compiler:2.57.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 

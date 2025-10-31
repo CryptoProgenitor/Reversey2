@@ -1,5 +1,6 @@
 package com.example.reversey
 
+import com.example.reversey.ui.components.UnifiedRecordingItem
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
@@ -128,6 +129,8 @@ import kotlin.math.sin
 
 import com.example.reversey.ui.theme.aestheticTheme
 import com.example.reversey.ui.theme.materialColors
+
+import com.example.reversey.UnifiedRecordingButton
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
 class MainActivity : ComponentActivity() {
@@ -328,7 +331,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v12.0.0_Unified_Theming-Engine",
+                    text = "v12.3.0_GLUTE_final",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -526,67 +529,38 @@ fun AudioReverserApp(
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(MaterialTheme.shapes.medium)
-                    ) {
+                    ) {//keep me
                         uiState.recordings.forEach { recording ->
                             item(key = "parent_${recording.originalPath}") {
-                                if (aestheticTheme().id == "scrapbook") {
-                                    ScrapbookRecordingItem(
-                                        recording = recording,
-                                        isPlaying = uiState.currentlyPlayingPath != null &&
-                                                (uiState.currentlyPlayingPath == recording.originalPath ||
-                                                        uiState.currentlyPlayingPath == recording.reversedPath),
-                                        isPaused = uiState.isPaused,
-                                        progress = if (uiState.currentlyPlayingPath == recording.originalPath ||
-                                            uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
-                                        onPlay = { path: String -> viewModel.play(path) },
-                                        onPause = { viewModel.pause() },
-                                        onStop = { viewModel.stopPlayback() },
-                                        onDelete = { viewModel.deleteRecording(recording) },
-                                        onShare = { path: String ->
-                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "audio/wav"
-                                                putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context,
-                                                    "${context.packageName}.provider", File(path)))
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                            context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
-                                        },
-                                        onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
-                                        isGameModeEnabled = isGameModeEnabled,
-                                        onStartAttempt = { rec: Recording, type: ChallengeType ->
-                                            viewModel.startAttemptRecording(rec, type)
-                                        },
-                                    )
-                                } else {
-                                    EnhancedRecordingItem(
-                                        recording = recording,
-                                        isPlaying = uiState.currentlyPlayingPath != null &&
-                                                (uiState.currentlyPlayingPath == recording.originalPath ||
-                                                        uiState.currentlyPlayingPath == recording.reversedPath),
-                                        isPaused = uiState.isPaused,
-                                        progress = if (uiState.currentlyPlayingPath == recording.originalPath ||
-                                            uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
-                                        onPlay = { path: String -> viewModel.play(path) },
-                                        onPause = { viewModel.pause() },
-                                        onStop = { viewModel.stopPlayback() },
-                                        onDelete = { viewModel.deleteRecording(recording) },
-                                        onShare = { path: String ->
-                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "audio/wav"
-                                                putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context,
-                                                    "${context.packageName}.provider", File(path)))
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                            context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
-                                        },
-                                        onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
-                                        isGameModeEnabled = isGameModeEnabled,
-                                        onStartAttempt = { rec: Recording, type: ChallengeType ->
-                                            viewModel.startAttemptRecording(rec, type)
-                                        },
-                                    )
-                                }
-                            }
+                                UnifiedRecordingItem(
+                                    recording = recording,
+                                    aesthetic = aestheticTheme(),
+                                    isPlaying = uiState.currentlyPlayingPath != null &&
+                                            (uiState.currentlyPlayingPath == recording.originalPath ||
+                                                    uiState.currentlyPlayingPath == recording.reversedPath),
+                                    isPaused = uiState.isPaused,
+                                    progress = if (uiState.currentlyPlayingPath == recording.originalPath ||
+                                        uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
+                                    onPlay = { path: String -> viewModel.play(path) },
+                                    onPause = { viewModel.pause() },
+                                    onStop = { viewModel.stopPlayback() },
+                                    onDelete = { viewModel.deleteRecording(recording) },
+                                    onShare = { path: String ->
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "audio/wav"
+                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context,
+                                                "${context.packageName}.provider", File(path)))
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
+                                    },
+                                    onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
+                                    isGameModeEnabled = isGameModeEnabled,
+                                    onStartAttempt = { rec: Recording, type: ChallengeType ->
+                                        viewModel.startAttemptRecording(rec, type)
+                                    }
+                                )
+                            }//keep me
 
                             // Use the new EnhancedAttemptItem instead of AttemptItem
                             // Use the new EnhancedAttemptItem instead of AttemptItem
@@ -769,84 +743,26 @@ fun EnhancedRecordButton(
     val aesthetic = aestheticTheme()
     val colors = materialColors()
 
-    // 🐛 TEMPORARY DEBUG - Remove after testing
-    Log.d("ThemeDebug", "Theme ID: ${aesthetic.id}")
-    Log.d("ThemeDebug", "Border Width: ${aesthetic.borderWidth}")
-    Log.d("ThemeDebug", "Card Border Color: ${aesthetic.cardBorder}")
-    Log.d("ThemeDebug", "Max Card Rotation: ${aesthetic.maxCardRotation}")
-
-    val buttonText = if (isRecording) "Stop Recording" else "Start Recording"
-    val buttonColor = if (isRecording) colors.error else colors.primary
-    val iconVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic
-
     if (!hasPermission) {
+        // Keep existing permission button code exactly as-is
         Button(
             onClick = onRequestPermission,
-            modifier = Modifier
-                .size(120.dp)
-                .then(
-                    if (aesthetic.glowIntensity > 0) {
-                        Modifier.shadow(
-                            elevation = (aesthetic.glowIntensity * 15).dp,
-                            shape = CircleShape,
-                            spotColor = colors.primary
-                        )
-                    } else Modifier
-                ),
+            modifier = Modifier.size(120.dp),
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Request Permission",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-                Text(
-                    text = "Grant\nPermission",
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelSmall,
-                    textAlign = TextAlign.Center
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Mic, "Request Permission", tint = Color.White, modifier = Modifier.size(32.dp))
+                Text("Grant\nPermission", color = Color.White, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }
     } else {
-        Button(
-            onClick = if (isRecording) onStopRecording else onStartRecording,
-            modifier = Modifier
-                .size(120.dp)
-                .then(
-                    if (aesthetic.glowIntensity > 0) {
-                        Modifier.shadow(
-                            elevation = (aesthetic.glowIntensity * 15).dp,
-                            shape = CircleShape,
-                            spotColor = buttonColor
-                        )
-                    } else Modifier
-                ),
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = buttonColor)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = iconVector,
-                    contentDescription = buttonText,
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-                Text(
-                    text = if (isRecording) "Stop" else "Record",
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelMedium,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
+        // 🥚 BEAUTIFUL EGG BUTTON!
+        UnifiedRecordingButton(
+            isRecording = isRecording,
+            onStartRecording = onStartRecording,
+            onStopRecording = onStopRecording
+        )
     }
 }
 

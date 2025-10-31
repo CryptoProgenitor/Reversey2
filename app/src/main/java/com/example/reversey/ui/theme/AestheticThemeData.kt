@@ -45,8 +45,22 @@ data class AestheticThemeData(
     val useScrapbookElements: Boolean = false,
     val maxCardRotation: Float = 0f,
     val showTapeEffects: Boolean = false,
-    val useStarRatings: Boolean = false
+    val useStarRatings: Boolean = false,
+
+    // In your AestheticThemeData.kt, ADD these EGG 🥚 properties:
+    val useEggElements: Boolean = false,
+    val useFriedEggDecorations: Boolean = false,
+    val useHandDrawnStyle: Boolean = false,
+    val eggButtonStyle: EggButtonStyle = EggButtonStyle.Normal,
+    val showBackgroundEggs: Boolean = false,
+    val crackAnimation: Boolean = false,
+
 )
+enum class EggButtonStyle {
+    Normal,
+    FriedEgg,
+    CrackedEgg
+}
 
 /**
  * Predefined Aesthetic Themes
@@ -303,6 +317,44 @@ object AestheticThemes {
         )
     )
 
+    val Egg = AestheticThemeData(
+        id = "egg",
+        name = "Egg Theme",
+        description = "🥚 CPD's adorable breakfast-inspired design!",
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFF8E1), // Cream background
+                Color(0xFFFFF3E0), // Slightly warmer cream
+                Color(0xFFFFE0B2)  // Light orange
+            )
+        ),
+        cardBorder = Color(0xFF2E2E2E), // Black borders like her sketch
+        useGlassmorphism = false,
+        glowIntensity = 0f,
+        useSerifFont = false,
+        useWideLetterSpacing = true,
+        recordButtonEmoji = "🥚",
+        scoreEmojis = mapOf(
+            90 to "🍳", // Fried egg for perfect!
+            80 to "🥚", // Whole egg for great
+            70 to "🐣", // Hatching for good
+            60 to "🐥", // Chick for okay
+            0 to "🥀"   // Wilted for poor
+        ),
+        // EGG-SPECIFIC PROPERTIES
+        useEggElements = true,
+        useFriedEggDecorations = true,
+        useHandDrawnStyle = true,
+        eggButtonStyle = EggButtonStyle.FriedEgg,
+        showBackgroundEggs = true,
+        crackAnimation = true,
+        // Card styling
+        cardAlpha = 1f,
+        shadowElevation = 6f, // Nice shadow like her sketch
+        useHandDrawnBorders = true,
+        borderWidth = 4f // Thick black borders
+    )
+
     // Map for easy lookup
     val allThemes = mapOf(
         "y2k_cyber" to Y2KCyber,
@@ -313,7 +365,8 @@ object AestheticThemes {
         "jeoseung_shadows" to JeoseungShadows,
         "steampunk" to Steampunk,
         "cyberpunk" to Cyberpunk,
-        "graphite_sketch" to GraphiteSketch
+        "graphite_sketch" to GraphiteSketch,
+        "egg" to Egg  // 🥚 ADD THIS LINE!
     )
 
     fun getThemeById(id: String): AestheticThemeData {

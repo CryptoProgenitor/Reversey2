@@ -16,7 +16,10 @@ datastorePreferences = "1.1.7"
 lifecycleViewmodelCompose = "2.9.4"
 navigationCompose = "2.9.5" # Let's update this to a recent stable version
 composeMaterial = "1.9.3"
-volley = "1.2.1" # And this one too
+volley = "1.2.1"
+uiGeometry = "1.9.4"
+uiUnit = "1.9.4"
+uiText = "1.9.4" # And this one too
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -58,6 +61,9 @@ androidx-compose-material = { group = "androidx.compose.material", name = "mater
 # Material Icons Extended (This doesn't need a version if it's part of the Compose BOM)
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 volley = { group = "com.android.volley", name = "volley", version.ref = "volley" }
+androidx-compose-ui-geometry = { group = "androidx.compose.ui", name = "ui-geometry", version.ref = "uiGeometry" }
+androidx-compose-ui-unit = { group = "androidx.compose.ui", name = "ui-unit", version.ref = "uiUnit" }
+androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
 
 
 
