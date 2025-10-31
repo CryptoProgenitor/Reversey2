@@ -82,6 +82,9 @@ fun UnifiedAttemptItem(
                 eggEmoji = aesthetic.scoreEmojis.entries
                     .sortedByDescending { it.key }
                     .firstOrNull { attempt.score.toInt() >= it.key }?.value ?: "🥚",
+                isPlaying = isPlayingThis, // 🔧 ADD THIS LINE to show progress bar on attempt card
+                isPaused = isPaused,       // 🔧 ADD THIS LINE to show progress bar on attempt card
+                progress = progress,       // 🔧 ADD THIS LINE to show progress bar on attempt card
                 //onShare = {
                 //    println("🥚 SHARE: Calling onShareAttempt")
                 //    onShareAttempt?.invoke(attempt.attemptFilePath ?: "")  // ← Correct: passing String path

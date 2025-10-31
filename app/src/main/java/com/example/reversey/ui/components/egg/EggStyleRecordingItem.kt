@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
 import com.example.reversey.Recording
 import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.ChallengeType
@@ -103,15 +105,18 @@ fun EggStyleRecordingItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Progress bar with hand-drawn style
-            LinearProgressIndicator(
-                progress = if (isPlaying) progress else 0f,
+            // Progress bar with traveling egg! 🥚✨
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp)),
-                color = Color(0xFFFF8A65),
-                trackColor = Color(0xFFFFE0B2)
-            )
+                    .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp))
+                    .padding(2.dp) // Inner padding so progress bar doesn't touch border
+            ) {
+                EggTravelProgressBar(
+                    progress = if (isPlaying) progress else 0f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -589,5 +594,90 @@ fun CrackedEggIcon() {
             lineTo(size.width * 0.45f, size.height * 0.8f)
         }
         drawPath(crackPath, Color(0xFF2E2E2E), style = Stroke(strokeWidth))
+    }
+}
+/**
+ * Custom progress bar with a traveling egg! 🥚✨
+ */
+@Composable
+fun EggTravelProgressBar(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    height: Dp = 10.dp // Thinner progress bar for better proportion
+) {
+    BoxWithConstraints(modifier = modifier.height(height)) {
+        val trackWidth = maxWidth
+
+        // Background track (light orange)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Color(0xFFFFE0B2), // Light orange track
+                    RoundedCornerShape(height / 2)
+                )
+        )
+
+        // Progress fill (orange)
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .background(
+                    Color(0xFFFF8A65), // Orange progress
+                    RoundedCornerShape(height / 2)
+                )
+        )
+
+        // Traveling egg! 🥚 (ORIGINAL WORKING VERSION!)
+        if (progress > 0f) {
+            val eggSize = 120.dp // 1.5x bigger than the working 80.dp
+            val eggPosition = progress.coerceIn(0f, 1f).times(trackWidth - eggSize)
+
+            Box(
+                modifier = Modifier
+                    .size(eggSize)
+                    .offset(x = eggPosition, y = -2.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Original working hand-drawn egg! 🥚
+                Canvas(
+                    modifier = Modifier.size(90.dp) // 1.5x bigger than working 60.dp
+                ) {
+                    val center = this.center
+                    val radius = this.size.minDimension / 2
+
+                    // Egg white (oval shape) - ORIGINAL WORKING
+                    drawOval(
+                        color = Color(0xFFFFF8E1),
+                        topLeft = Offset(center.x - radius * 0.7f, center.y - radius * 0.9f),
+                        size = androidx.compose.ui.geometry.Size(radius * 1.4f, radius * 1.8f)
+                    )
+
+                    // Egg border - ORIGINAL WORKING
+                    drawOval(
+                        color = Color(0xFF2E2E2E),
+                        topLeft = Offset(center.x - radius * 0.7f, center.y - radius * 0.9f),
+                        size = androidx.compose.ui.geometry.Size(radius * 1.4f, radius * 1.8f),
+                        style = Stroke(2.dp.toPx()) // Original working thickness
+                    )
+
+                    // Yolk (yellow circle) - ORIGINAL WORKING
+                    drawCircle(
+                        color = Color(0xFFFFD700),
+                        radius = radius * 0.4f,
+                        center = center
+                    )
+
+                    // Yolk border - ORIGINAL WORKING
+                    drawCircle(
+                        color = Color(0xFF2E2E2E),
+                        radius = radius * 0.4f,
+                        center = center,
+                        style = Stroke(1.dp.toPx()) // Original working thickness
+                    )
+                }
+            }
+        }
     }
 }
