@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,7 +92,9 @@ fun EggStyleRecordingItem(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         ),
-                        color = Color(0xFF2E2E2E)
+                        color = Color(0xFF2E2E2E),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = "Fresh from the nest! 🍳",

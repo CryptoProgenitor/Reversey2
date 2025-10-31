@@ -2,6 +2,7 @@ package com.example.reversey.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,10 +29,12 @@ import com.example.reversey.scoring.DifficultyLevel
 /**
  * Difficulty indicator for the top-right corner of the home screen
  * Shows current difficulty level with emoji and text
+ * Now clickable to navigate to difficulty settings! 🔧
  */
 @Composable
 fun DifficultyIndicator(
     difficulty: DifficultyLevel,
+    onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler for navigation
     modifier: Modifier = Modifier
 ) {
     val indicatorColor = when (difficulty) {
@@ -44,7 +47,8 @@ fun DifficultyIndicator(
 
     Card(
         modifier = modifier
-            .border(1.dp, indicatorColor, RoundedCornerShape(16.dp))
+            .clickable { onClick() } // 🔧 ADD THIS - make it clickable
+            .border(width = 1.dp, color = indicatorColor, shape = RoundedCornerShape(16.dp))
             .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = indicatorColor.copy(alpha = 0.3f)),
         colors = CardDefaults.cardColors(
             containerColor = indicatorColor.copy(alpha = 0.15f)
@@ -72,10 +76,12 @@ fun DifficultyIndicator(
 
 /**
  * Compact difficulty indicator for smaller spaces
+ * Now also clickable! 🔧
  */
 @Composable
 fun CompactDifficultyIndicator(
     difficulty: DifficultyLevel,
+    onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler
     modifier: Modifier = Modifier
 ) {
     val indicatorColor = when (difficulty) {
@@ -90,8 +96,9 @@ fun CompactDifficultyIndicator(
         modifier = modifier
             .size(32.dp)
             .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() } // 🔧 ADD THIS - make it clickable
             .background(indicatorColor.copy(alpha = 0.2f))
-            .border(1.dp, indicatorColor, RoundedCornerShape(16.dp)),
+            .border(width = 1.dp, color = indicatorColor, shape = RoundedCornerShape(16.dp)),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -103,10 +110,12 @@ fun CompactDifficultyIndicator(
 
 /**
  * Detailed difficulty card for settings or info screens
+ * Also clickable for consistency! 🔧
  */
 @Composable
 fun DetailedDifficultyCard(
     difficulty: DifficultyLevel,
+    onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler
     modifier: Modifier = Modifier
 ) {
     val indicatorColor = when (difficulty) {
@@ -120,7 +129,8 @@ fun DetailedDifficultyCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .border(2.dp, indicatorColor, RoundedCornerShape(12.dp))
+            .clickable { onClick() } // 🔧 ADD THIS - make it clickable
+            .border(width = 2.dp, color = indicatorColor, shape = RoundedCornerShape(12.dp))
             .shadow(6.dp, RoundedCornerShape(12.dp), ambientColor = indicatorColor.copy(alpha = 0.3f)),
         colors = CardDefaults.cardColors(
             containerColor = indicatorColor.copy(alpha = 0.1f)

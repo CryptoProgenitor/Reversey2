@@ -204,7 +204,8 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
-                    scoringEngine = scoringEngine  // <-- ADD THIS LINE
+                    scoringEngine = scoringEngine,  // <-- ADD THIS LINE
+                    navController = navController // 🔧 ADD THIS - pass navController down
                 )
             }
             composable("about") {
@@ -331,7 +332,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v12.4.0_UI_tweaks",
+                    text = "v12.5.0_UI_tweaks",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -377,7 +378,8 @@ fun AudioReverserApp(
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
     isGameModeEnabled: Boolean,
-    scoringEngine: ScoringEngine  // <-- ADD THIS LINE
+    scoringEngine: ScoringEngine,  // <-- ADD THIS LINE
+    navController: NavController // 🔧 ADD THIS - so DifficultyIndicator can navigate
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
@@ -465,6 +467,7 @@ fun AudioReverserApp(
                         // NEW: Difficulty indicator in top-right
                         DifficultyIndicator(
                             difficulty = scoringEngine.getCurrentDifficulty(),
+                            onClick = { navController.navigate("settings") }, // 🔧 ADD THIS - navigate to settings
                             modifier = Modifier.padding(end = 16.dp)
                         )
                     },
