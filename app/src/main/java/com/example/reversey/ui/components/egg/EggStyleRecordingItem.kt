@@ -194,7 +194,8 @@ fun EggStyleRecordingItem(
                 if (isGameModeEnabled) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         HandDrawnEggButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(0) ?: return@HandDrawnEggButton) },
+                            //onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(0) ?: return@HandDrawnEggButton) }, // broken -reversed sense!
+                            onClick = { onStartAttempt(recording, ChallengeType.FORWARD) }, //fixed - uses explicit enum value
                             backgroundColor = Color(0xFFFF8A65),
                             size = 50.dp
                         ) {
@@ -212,7 +213,8 @@ fun EggStyleRecordingItem(
                 if (isGameModeEnabled) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         HandDrawnEggButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(1) ?: return@HandDrawnEggButton) },
+                            //onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(1) ?: return@HandDrawnEggButton) }, // broken -reversed sense!
+                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }, //fixed - uses explicit enum value
                             backgroundColor = Color(0xFFFF8A65),
                             size = 50.dp
                         ) {

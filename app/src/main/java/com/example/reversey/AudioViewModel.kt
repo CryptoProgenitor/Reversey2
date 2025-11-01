@@ -1,8 +1,10 @@
 package com.example.reversey
 
 import android.app.Application
+import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.util.Log
+import androidx.core.app.ActivityCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.reversey.scoring.ScoringEngine
@@ -69,6 +71,16 @@ class AudioViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AudioUiState())
     val uiState = _uiState.asStateFlow()
 
+    // SURGICAL FIX #1: Add error message helper
+    private fun showUserMessage(message: String) {
+        _uiState.update { it.copy(statusText = message) }
+    }
+
+    // SURGICAL FIX #2: Add file validation helper
+    private fun validateRecordedFile(file: File?): Boolean {
+        return file != null && file.exists() && file.length() > 100
+    }
+
     init {
         loadRecordings()
         viewModelScope.launch {
@@ -114,48 +126,83 @@ class AudioViewModel @Inject constructor(
         return File(storageDir, "REC_${timeStamp}.wav")
     }
 
+    // SURGICAL FIX #3: Improved startRecording with user feedback and permission checking
     fun startRecording() {
-        // --- ADD THIS GUARD ---
+        // Check if already recording
         if (uiState.value.isRecording || recordingJob != null) {
-            Log.w("AudioViewModel", "Refusing to start new recording while one is active.")
+            showUserMessage("Recording already in progress")
             return
         }
-        // --- END GUARD ---
+
+        // Check permissions
+        if (ActivityCompat.checkSelfPermission(getApplication(), android.Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            showUserMessage("Microphone permission is required to record")
+            return
+        }
+
         _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
         val file = createAudioFile(getApplication(), isAttempt = false)
         recordingJob = viewModelScope.launch(Dispatchers.IO) {
-            repository.startRecording(file) { amplitude ->
-                _uiState.update {
-                    val newAmplitudes = it.amplitudes + amplitude
-                    it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
+            try {
+                repository.startRecording(file) { amplitude ->
+                    _uiState.update {
+                        val newAmplitudes = it.amplitudes + amplitude
+                        it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showUserMessage("Recording failed: ${e.message}")
+                    _uiState.update { it.copy(isRecording = false) }
                 }
             }
         }
     }
 
+    // SURGICAL FIX #4: Improved startAttemptRecording with user feedback and permission checking
     fun startAttemptRecording(recording: Recording, challengeType: ChallengeType) {
-        // --- ADD THIS GUARD ---
+        // Check if already recording
         if (uiState.value.isRecording || recordingJob != null) {
-            Log.w("AudioViewModel", "Refusing to start new recording while one is active.")
+            showUserMessage("Recording already in progress")
             return
         }
-        // --- END GUARD ---
+
+        // Check permissions
+        if (ActivityCompat.checkSelfPermission(getApplication(), android.Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            showUserMessage("Microphone permission is required to record")
+            return
+        }
+
         _uiState.update {
             it.copy(
                 isRecordingAttempt = true,
                 parentRecordingPath = recording.originalPath,
-                pendingChallengeType = challengeType, // <-- ADD THIS LINE
+                pendingChallengeType = challengeType,
                 isRecording = true,
-                statusText = "Recording ${challengeType.name} challenge...", // <-- UPDATE THIS LINE
+                statusText = "Recording ${challengeType.name} challenge...",
                 amplitudes = emptyList()
             )
         }
         val file = createAudioFile(getApplication(), isAttempt = true)
         recordingJob = viewModelScope.launch(Dispatchers.IO) {
-            repository.startRecording(file) { amplitude ->
-                _uiState.update {
-                    val newAmplitudes = it.amplitudes + amplitude
-                    it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
+            try {
+                repository.startRecording(file) { amplitude ->
+                    _uiState.update {
+                        val newAmplitudes = it.amplitudes + amplitude
+                        it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showUserMessage("Recording failed: ${e.message}")
+                    _uiState.update { it.copy(
+                        isRecording = false,
+                        isRecordingAttempt = false,
+                        parentRecordingPath = null,
+                        pendingChallengeType = null
+                    )}
                 }
             }
         }
@@ -171,29 +218,44 @@ class AudioViewModel @Inject constructor(
         return floats
     }
 
-    // ADD THE NEW METHOD HERE:
+    // SURGICAL FIX #5: Improved readAudioFile with retry logic
     private suspend fun readAudioFile(filePath: String): FloatArray = withContext(Dispatchers.IO) {
-        try {
-            val file = File(filePath)
-            if (!file.exists() || file.length() < 44) return@withContext floatArrayOf()
+        // Retry logic for file operations
+        repeat(2) { attempt ->
+            try {
+                delay(if (attempt == 0) 0 else 100) // Small delay on retry
 
-            val bytes = file.readBytes()
-            val pcmData = bytes.drop(44).toByteArray()
-            val samples = ShortArray(pcmData.size / 2)
+                val file = File(filePath)
+                if (!file.exists() || file.length() < 44) {
+                    if (attempt == 0) return@repeat // Retry once
+                    return@withContext floatArrayOf()
+                }
 
-            for (i in samples.indices) {
-                val low = pcmData[i * 2].toInt() and 0xFF
-                val high = pcmData[i * 2 + 1].toInt() and 0xFF
-                samples[i] = ((high shl 8) or low).toShort()
+                val bytes = file.readBytes()
+                val pcmData = bytes.drop(44).toByteArray()
+                if (pcmData.isEmpty()) {
+                    if (attempt == 0) return@repeat // Retry once
+                    return@withContext floatArrayOf()
+                }
+
+                val samples = ShortArray(pcmData.size / 2)
+
+                for (i in samples.indices) {
+                    val low = pcmData[i * 2].toInt() and 0xFF
+                    val high = pcmData[i * 2 + 1].toInt() and 0xFF
+                    samples[i] = ((high shl 8) or low).toShort()
+                }
+
+                // Convert to FloatArray and normalize
+                return@withContext samples.map { it.toFloat() / Short.MAX_VALUE }.toFloatArray()
+            } catch (e: Exception) {
+                Log.e("AudioViewModel", "Error reading audio file (attempt ${attempt + 1}): $filePath", e)
+                if (attempt == 1) return@withContext floatArrayOf() // Last attempt failed
             }
-
-            // Convert to FloatArray and normalize
-            samples.map { it.toFloat() / Short.MAX_VALUE }.toFloatArray()
-        } catch (e: Exception) {
-            Log.e("AudioViewModel", "Error reading audio file: $filePath", e)
-            floatArrayOf()
         }
+        return@withContext floatArrayOf()
     }
+
     //Detect and reject silent originals
     private fun calculateRMS(audio: FloatArray): Float {
         if (audio.isEmpty()) return 0f
@@ -201,8 +263,12 @@ class AudioViewModel @Inject constructor(
         return kotlin.math.sqrt(sumSquares / audio.size)
     }
 
-    // AudioViewModel.kt
+    // Helper function for getting recordings directory
+    private fun getRecordingsDir(context: Application): File {
+        return File(context.filesDir, "recordings").apply { mkdirs() }
+    }
 
+    // SURGICAL FIX #6: Improved stopRecording with better file validation
     fun stopRecording() {
         // Cancel the recording job and wait for it to complete
         recordingJob?.cancel()
@@ -228,20 +294,18 @@ class AudioViewModel @Inject constructor(
                     handleAttemptCompletion(latestFile)
                 }
             } else {
-                // --- NEW PARENT RECORDING LOGIC ---
-                if (latestFile != null && latestFile.exists()) {
+                // IMPROVED PARENT RECORDING LOGIC with validation
+                if (validateRecordedFile(latestFile)) {
                     val recordingName = "Rec_${SimpleDateFormat("dd-MMM-yyyy_HH-mm-ss", Locale.UK).format(Date())}.wav"
 
                     // Check original recording quality before processing
-                    val originalAudio = readAudioFile(latestFile.absolutePath)
+                    val originalAudio = readAudioFile(latestFile!!.absolutePath)
                     val originalRMS = calculateRMS(originalAudio)
-                    val qualityThreshold = scoringEngine.getParameters().silenceThreshold * 2f  // 2x the silence threshold from scoring parameters
+                    val qualityThreshold = scoringEngine.getParameters().silenceThreshold * 2f
 
                     Log.d("AudioViewModel", "Original recording quality check: RMS=$originalRMS, Threshold=$qualityThreshold")
 
                     val isLowQuality = originalRMS < qualityThreshold
-
-                    // ADD QUALITY CHECK HERE:
 
                     try {
                         // Step 1: Create reversed version
@@ -277,7 +341,7 @@ class AudioViewModel @Inject constructor(
                             _uiState.update { currentState ->
                                 currentState.copy(
                                     isRecording = false,
-                                    statusText = "Recording saved!",
+                                    statusText = if (isLowQuality) "Recording saved (⚠️ quality warning)" else "Recording saved!",
                                     scrollToIndex = 0,
                                     currentlyPlayingPath = null,
                                     isPaused = false,
@@ -292,19 +356,15 @@ class AudioViewModel @Inject constructor(
                     } catch (e: Exception) {
                         Log.e("AudioViewModel", "Error saving new recording", e)
                         withContext(Dispatchers.Main) {
-                            _uiState.update { it.copy(
-                                isRecording = false,
-                                statusText = "Error saving recording: ${e.message}"
-                            )}
+                            showUserMessage("Error saving recording: ${e.message}")
+                            _uiState.update { it.copy(isRecording = false) }
                         }
                     }
                 } else {
-                    // Handle recording failure
+                    // Handle recording validation failure
                     withContext(Dispatchers.Main) {
-                        _uiState.update { it.copy(
-                            isRecording = false,
-                            statusText = "Recording failed - no file created"
-                        )}
+                        showUserMessage("Recording failed - file was not created properly. Please try again.")
+                        _uiState.update { it.copy(isRecording = false) }
                     }
                 }
             }
@@ -438,6 +498,7 @@ class AudioViewModel @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
+                    Log.e("AudioViewModel", "Error processing attempt", e)
                     _uiState.update {
                         it.copy(
                             isRecording = false,
@@ -462,7 +523,18 @@ class AudioViewModel @Inject constructor(
         }
     }
 
+    // SURGICAL FIX #7: Add playback state cleanup
+    private fun clearAllPlaybackStates() {
+        _uiState.update { it.copy(
+            currentlyPlayingPath = null,
+            isPaused = false,
+            playbackProgress = 0f
+        )}
+    }
+
+    // SURGICAL FIX #8: Improved play method with state cleanup
     fun play(path: String) {
+        clearAllPlaybackStates() // Clear any previous playback state
         mediaPlayer?.release()
         playbackJob?.cancel()
         _uiState.update { it.copy(isPaused = false, playbackProgress = 0f) }
@@ -485,7 +557,7 @@ class AudioViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(statusText = "Error: Could not play file.") }
+                showUserMessage("Error: Could not play file.")
             }
         }
     }

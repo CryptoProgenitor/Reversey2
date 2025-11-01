@@ -240,7 +240,8 @@ fun UnifiedRecordingItem(
                     // 4. FWD CHALLENGE (if game mode enabled)
                     if (isGameModeEnabled) {
                         SimpleGlowButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(0) ?: return@SimpleGlowButton) },
+                            //onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(0) ?: return@SimpleGlowButton) },// broken -reversed sense!
+                            onClick = { onStartAttempt(recording, ChallengeType.FORWARD) }, //fixed - uses explicit enum value
                             isPrimary = true,
                             size = 50.dp,
                             label = "Fwd"
@@ -260,7 +261,8 @@ fun UnifiedRecordingItem(
                     // 5. REV CHALLENGE (if game mode enabled)
                     if (isGameModeEnabled) {
                         SimpleGlowButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(1) ?: return@SimpleGlowButton) },
+                            //onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(1) ?: return@SimpleGlowButton) }, // broken -reversed sense!
+                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }, //fixed - uses explicit enum value
                             isPrimary = true,
                             size = 50.dp,
                             label = "Rev"
