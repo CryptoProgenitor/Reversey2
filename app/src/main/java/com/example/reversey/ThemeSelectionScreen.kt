@@ -154,7 +154,7 @@ fun ThemeCard(
                 Text(
                     text = theme.name,
                     style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = theme.primaryTextColor // 🎨 GLUTE FIX: Use theme's contrast-aware color
                 )
                 if (isSelected) {
                     Text("✓", style = MaterialTheme.typography.headlineMedium, color = Color.White)
@@ -164,7 +164,7 @@ fun ThemeCard(
             Text(
                 text = theme.description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground
+                color = theme.secondaryTextColor  // 🎨 GLUTE FIX: Use theme's secondary text color
             )
 
             // Preview buttons

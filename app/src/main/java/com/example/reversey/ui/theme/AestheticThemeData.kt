@@ -36,6 +36,11 @@ data class AestheticThemeData(
     val primaryGradient: Brush,
     val cardBorder: Color,
 
+
+    // 🎨 GLUTE PRINCIPLE: Contrast-aware text colors for gradient backgrounds
+    val primaryTextColor: Color,      // Main title text
+    val secondaryTextColor: Color,    // Description text
+
     // Additional M3 overrides
     val cardAlpha: Float = 1f, // For glassmorphism effect
     val shadowElevation: Float = 0f, // For glow effects
@@ -80,6 +85,8 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0x4DFFFFFF),
+        primaryTextColor = Color.White,        // ✅ High contrast on bright gradient
+        secondaryTextColor = Color(0xFFE0E0E0), // ✅ Slightly dimmed for hierarchy
         useGlassmorphism = true,
         glowIntensity = 0.8f,
         useWideLetterSpacing = true,
@@ -107,6 +114,8 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0xFF795548),
+        primaryTextColor = Color(0xFF3E2723),     // ✅ Dark brown on light background
+        secondaryTextColor = Color(0xFF5D4037),   // ✅ Medium brown for description
         useGlassmorphism = false,
         glowIntensity = 0f,
         useSerifFont = true,
@@ -140,6 +149,8 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0xFFF8BBD0),
+        primaryTextColor = Color(0xFF2E2E2E),     // ADD THIS
+        secondaryTextColor = Color(0xFF424242),   // ADD THIS
         useGlassmorphism = false,
         glowIntensity = 0f,
         useSerifFont = true,
@@ -165,6 +176,8 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0x4DFFD700),
+        primaryTextColor = Color(0xFFFFD700),     // ADD THIS
+        secondaryTextColor = Color(0xFFE8E8E8),   // ADD THIS
         useGlassmorphism = true,
         glowIntensity = 0.5f,
         useSerifFont = true,
@@ -193,8 +206,9 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0xFF00FFFF),
+        primaryTextColor = Color(0xFF00FFFF),     // ADD THIS
+        secondaryTextColor = Color(0xFFE0E0E0),   // ADD THIS
         useGlassmorphism = true,
-        glowIntensity = 0.6f,
         useWideLetterSpacing = true,
         recordButtonEmoji = "🌴",
         scoreEmojis = mapOf(
@@ -220,6 +234,8 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0x66FFD700),
+        primaryTextColor = Color(0xFFFFD700),     // ADD THIS
+        secondaryTextColor = Color(0xFFCCCCCC),   // ADD THIS
         useGlassmorphism = true,
         glowIntensity = 0.7f,
         useSerifFont = true,
@@ -248,6 +264,8 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0xFFD4AF37),
+        primaryTextColor = Color(0xFFD4AF37),     // ADD THIS
+        secondaryTextColor = Color(0xFFF5E6D3),   // ADD THIS
         useGlassmorphism = false,
         glowIntensity = 0.4f,
         useSerifFont = true,
@@ -275,6 +293,8 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0xFF00FFFF),
+        primaryTextColor = Color(0xFF00FFFF),     // ADD THIS
+        secondaryTextColor = Color(0xFF80FF80),   // ADD THIS
         useGlassmorphism = true,
         glowIntensity = 0.9f,
         useSerifFont = false,
@@ -303,6 +323,8 @@ object AestheticThemes {
             )
         ),
         cardBorder = Color(0xFF2A2A2A),
+        primaryTextColor = Color(0xFF2A2A2A),     // ADD THIS
+        secondaryTextColor = Color(0xFF505050),   // ADD THIS
         useGlassmorphism = false,
         glowIntensity = 0f,
         useSerifFont = false,
@@ -328,7 +350,9 @@ object AestheticThemes {
                 Color(0xFFFFE0B2)  // Light orange
             )
         ),
-        cardBorder = Color(0xFF2E2E2E), // Black borders like her sketch
+        cardBorder = Color(0xFF2E2E2E),
+        primaryTextColor = Color(0xFF2E2E2E),     // ADD THIS
+        secondaryTextColor = Color(0xFF424242),   // ADD THIS
         useGlassmorphism = false,
         glowIntensity = 0f,
         useSerifFont = false,
