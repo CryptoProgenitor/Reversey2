@@ -10,15 +10,15 @@ plugins {
 
 android {
     namespace = "com.example.reversey"
-    compileSdk = 36
+    compileSdk = 35
     //compileSdk {
-    //    version = release(36)// was version = release(36)
+    //    WAS version = release(36)// was version = release(36)
     //}
 
     defaultConfig {
         applicationId = "com.example.reversey"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 72
         versionName = "12.6.0"
 
