@@ -118,9 +118,9 @@ class AudioViewModel @Inject constructor(
     private fun createAudioFile(context: Application, isAttempt: Boolean = false): File {
         //val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) //manky old format!
         val now = Date()
-        val timeFormat = SimpleDateFormat("h:mm:ssa", Locale.US).format(now).lowercase() // "3:10:43pm"
+        val timeFormat = SimpleDateFormat("h-mm-ssa", Locale.US).format(now).lowercase()
         val dateFormat = SimpleDateFormat("dMMMYY", Locale.US).format(now) // "2Nov24"
-        val humanTimeStamp = "Rec-${timeFormat}-${dateFormat}" // "Rec-3:10pm-Nov2"
+        val humanTimeStamp = "Rec-${timeFormat}-${dateFormat}" // // Result: Rec 4-03-11pm 2Nov25.wav
         val storageDir = if (isAttempt) {
             File(context.filesDir, "recordings/attempts")
         } else {
@@ -301,9 +301,9 @@ class AudioViewModel @Inject constructor(
                 // IMPROVED PARENT RECORDING LOGIC with validation
                 if (validateRecordedFile(latestFile)) {
                     val now = Date()
-                    val timeFormat = SimpleDateFormat("h:mm:ssa", Locale.US).format(now).lowercase()
+                    val timeFormat = SimpleDateFormat("h-mm-ssa", Locale.US).format(now).lowercase()
                     val dateFormat = SimpleDateFormat("dMMMYY", Locale.US).format(now)
-                    val recordingName = "Rec ${timeFormat} ${dateFormat}.wav"
+                    val recordingName = "Rec ${timeFormat} ${dateFormat}.wav" // Result: Rec 4-03-11pm 2Nov25.wav
 
 
 

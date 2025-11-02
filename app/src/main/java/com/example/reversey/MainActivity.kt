@@ -332,7 +332,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v12.8.2_audio_refactor_branch+SDK downgrade to 35_Minor fixes to UI",
+                    text = "v12.8.3_audio_refactor_branch+SDK downgrade to 35_Minor fixes to UI",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
