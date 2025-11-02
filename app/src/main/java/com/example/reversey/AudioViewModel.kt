@@ -116,14 +116,18 @@ class AudioViewModel @Inject constructor(
     }
 
     private fun createAudioFile(context: Application, isAttempt: Boolean = false): File {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        //val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) //manky old format!
+        val now = Date()
+        val timeFormat = SimpleDateFormat("h:mm:ssa", Locale.US).format(now).lowercase() // "3:10:43pm"
+        val dateFormat = SimpleDateFormat("dMMMYY", Locale.US).format(now) // "2Nov24"
+        val humanTimeStamp = "Rec-${timeFormat}-${dateFormat}" // "Rec-3:10pm-Nov2"
         val storageDir = if (isAttempt) {
             File(context.filesDir, "recordings/attempts")
         } else {
             File(context.filesDir, "recordings")
         }
         storageDir.mkdirs()
-        return File(storageDir, "REC_${timeStamp}.wav")
+        return File(storageDir, "${humanTimeStamp}.wav")
     }
 
     // SURGICAL FIX #3: Improved startRecording with user feedback and permission checking
@@ -296,7 +300,12 @@ class AudioViewModel @Inject constructor(
             } else {
                 // IMPROVED PARENT RECORDING LOGIC with validation
                 if (validateRecordedFile(latestFile)) {
-                    val recordingName = "Rec_${SimpleDateFormat("dd-MMM-yyyy_HH-mm-ss", Locale.UK).format(Date())}.wav"
+                    val now = Date()
+                    val timeFormat = SimpleDateFormat("h:mm:ssa", Locale.US).format(now).lowercase()
+                    val dateFormat = SimpleDateFormat("dMMMYY", Locale.US).format(now)
+                    val recordingName = "Rec ${timeFormat} ${dateFormat}.wav"
+
+
 
                     // Check original recording quality before processing
                     val originalAudio = readAudioFile(latestFile!!.absolutePath)

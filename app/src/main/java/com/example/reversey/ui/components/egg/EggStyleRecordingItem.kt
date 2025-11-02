@@ -3,6 +3,7 @@ package com.example.reversey.ui.components.egg
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.shape.CircleShape
@@ -95,6 +96,7 @@ fun EggStyleRecordingItem(
                         color = Color(0xFF2E2E2E),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable { showRenameDialog = true } // 🔧 ADD THIS LINE
                     )
                     Text(
                         text = "Fresh from the nest! 🍳",
