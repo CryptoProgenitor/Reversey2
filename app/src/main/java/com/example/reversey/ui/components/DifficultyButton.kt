@@ -18,7 +18,7 @@ import android.util.Log
 import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.scoring.Presets
 import com.example.reversey.scoring.ScoringEngine
-import com.example.reversey.AudioViewModel
+import com.example.reversey.ui.viewmodels.AudioViewModel
 
 /**
  * 🎮 DIFFICULTY BUTTON COMPONENT

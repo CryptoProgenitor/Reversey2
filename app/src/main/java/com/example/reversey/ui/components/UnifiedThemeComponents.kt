@@ -1,44 +1,87 @@
-package com.example.reversey
+package com.example.reversey.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.reversey.ui.theme.AestheticTheme
-import com.example.reversey.ui.theme.MaterialColors
-import com.example.reversey.ui.components.ScoreExplanationDialog
-import com.example.reversey.ui.icons.EggIcons
-import com.example.reversey.ui.theme.AestheticThemeData
+import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.data.models.PlayerAttempt
+import com.example.reversey.R
+import com.example.reversey.data.models.Recording
+import com.example.reversey.scoring.ScoringResult
+import com.example.reversey.scoring.SimilarityMetrics
 import com.example.reversey.ui.components.egg.EggStylePlayerCard
 import com.example.reversey.ui.components.unified.UnifiedRecordButton
+import com.example.reversey.ui.icons.EggIcons
+import com.example.reversey.ui.theme.AestheticTheme
+import com.example.reversey.ui.theme.AestheticThemeData
+import com.example.reversey.ui.theme.MaterialColors
 
 // Dancing Script handwriting font family for scrapbook theme
 private val dancingScriptFontFamily = FontFamily(
-    Font(R.font.dancing_script_regular, FontWeight.Normal),
-    Font(R.font.dancing_script_bold, FontWeight.Bold)
+    Font(R.font.dancing_script_regular, FontWeight.Companion.Normal),
+    Font(R.font.dancing_script_bold, FontWeight.Companion.Bold)
 )
 
 /**
@@ -119,10 +162,10 @@ fun UnifiedAttemptItem(
             // Score dialog for egg theme
             if (showScoreDialog) {
                 val scoringResult = remember {
-                    com.example.reversey.scoring.ScoringResult(
+                    ScoringResult(
                         score = attempt.score,
                         rawScore = attempt.rawScore,
-                        metrics = com.example.reversey.scoring.SimilarityMetrics(
+                        metrics = SimilarityMetrics(
                             pitch = attempt.pitchSimilarity,
                             mfcc = attempt.mfccSimilarity
                         ),
@@ -145,24 +188,24 @@ fun UnifiedAttemptItem(
                     text = {
                         Column {
                             Text("Which version would you like to share?")
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.Companion.height(16.dp))
                             Button(
                                 onClick = {
                                     onShareAttempt(attempt.attemptFilePath)
                                     showShareDialog = false
                                 },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.Companion.fillMaxWidth()
                             ) {
                                 Text("Share Fresh Egg 🥚")
                             }
                             if (attempt.reversedAttemptFilePath != null) {
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.Companion.height(8.dp))
                                 Button(
                                     onClick = {
                                         onShareAttempt(attempt.reversedAttemptFilePath!!)
                                         showShareDialog = false
                                     },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.Companion.fillMaxWidth()
                                 ) {
                                     Text("Share Scrambled Egg🍳")
                                 }
@@ -180,8 +223,19 @@ fun UnifiedAttemptItem(
             if (showDeleteDialog && onDeleteAttempt != null) {
                 AlertDialog(
                     onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("Delete Egg Attempt? 🥚💔", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) },
-                    text = { Text("Are you sure you want to crack ${attempt.playerName}'s attempt? This cannot be undone!", color = Color(0xFF2E2E2E)) },
+                    title = {
+                        Text(
+                            "Delete Egg Attempt? 🥚💔",
+                            color = Color(0xFF2E2E2E),
+                            fontWeight = FontWeight.Companion.Bold
+                        )
+                    },
+                    text = {
+                        Text(
+                            "Are you sure you want to crack ${attempt.playerName}'s attempt? This cannot be undone!",
+                            color = Color(0xFF2E2E2E)
+                        )
+                    },
                     confirmButton = {
                         Button(
                             onClick = {
@@ -189,13 +243,25 @@ fun UnifiedAttemptItem(
                                 showDeleteDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
-                        ) { Text("Crack It! 🔨", color = Color.White, fontWeight = FontWeight.Bold) }
+                        ) {
+                            Text(
+                                "Crack It! 🔨",
+                                color = Color.Companion.White,
+                                fontWeight = FontWeight.Companion.Bold
+                            )
+                        }
                     },
                     dismissButton = {
                         Button(
                             onClick = { showDeleteDialog = false },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E2E2E))
-                        ) { Text("Keep Egg Safe 🥚", color = Color.White, fontWeight = FontWeight.Bold) }
+                        ) {
+                            Text(
+                                "Keep Egg Safe 🥚",
+                                color = Color.Companion.White,
+                                fontWeight = FontWeight.Companion.Bold
+                            )
+                        }
                     }
                 )
             }
@@ -205,7 +271,13 @@ fun UnifiedAttemptItem(
                 var newName by remember { mutableStateOf(attempt.playerName) }
                 AlertDialog(
                     onDismissRequest = { showRenameDialog = false },
-                    title = { Text("Rename Player 🥚✏️", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) },
+                    title = {
+                        Text(
+                            "Rename Player 🥚✏️",
+                            color = Color(0xFF2E2E2E),
+                            fontWeight = FontWeight.Companion.Bold
+                        )
+                    },
                     text = {
                         OutlinedTextField(
                             value = newName,
@@ -227,13 +299,19 @@ fun UnifiedAttemptItem(
                                 showRenameDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD54F))
-                        ) { Text("Rename Egg 🥚", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) }
+                        ) {
+                            Text(
+                                "Rename Egg 🥚",
+                                color = Color(0xFF2E2E2E),
+                                fontWeight = FontWeight.Companion.Bold
+                            )
+                        }
                     },
                     dismissButton = {
                         Button(
                             onClick = { showRenameDialog = false },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E2E2E))
-                        ) { Text("Cancel", color = Color.White) }
+                        ) { Text("Cancel", color = Color.Companion.White) }
                     }
                 )
             }
@@ -343,96 +421,98 @@ private fun ScrapbookStyleAttemptItem(
     val tapeRotation2 = remember(stableId) { ((stableId * 17) % 31 - 15).toFloat() }
 
     Box(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxWidth()
             .padding(start = 48.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
     ) {
         // Main sticky note card
         Card(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .rotate(rotation)
                 .shadow(
                     elevation = 6.dp,
                     shape = RoundedCornerShape(8.dp),
-                    spotColor = Color.Black.copy(alpha = 0.3f),
-                    ambientColor = Color.Black.copy(alpha = 0.1f)
+                    spotColor = Color.Companion.Black.copy(alpha = 0.3f),
+                    ambientColor = Color.Companion.Black.copy(alpha = 0.1f)
                 ),
             colors = CardDefaults.cardColors(
                 containerColor = stickyNoteColor
             ),
-            shape = RoundedCornerShape(8.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .fillMaxWidth()
                     .padding(12.dp)
             ) {
                 // Header with player name and star rating
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.Companion.fillMaxWidth(),
+                    verticalAlignment = Alignment.Companion.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     // Player name with challenge icon
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
+                        verticalAlignment = Alignment.Companion.CenterVertically,
+                        modifier = Modifier.Companion
                             .weight(1f)
                             .clickable { onShowRenameDialog(true) }
                     ) {
-                        val challengeIcon = if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
+                        val challengeIcon =
+                            if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
                         Text(
                             text = challengeIcon,
                             style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(end = 6.dp)
+                            modifier = Modifier.Companion.padding(end = 6.dp)
                         )
 
                         Text(
                             text = attempt.playerName,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 fontFamily = dancingScriptFontFamily,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Companion.Bold
                             ),
-                            color = Color.Black.copy(alpha = 0.8f)
+                            color = Color.Companion.Black.copy(alpha = 0.8f)
                         )
                     }
 
                     // Star rating
                     Row(
-                        modifier = Modifier.clickable { onShowScoreDialog(true) },
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.Companion.clickable { onShowScoreDialog(true) },
+                        verticalAlignment = Alignment.Companion.CenterVertically
                     ) {
-                        val fullStars = attempt.score.toInt() / 20 // Convert percentage to stars (0-5)
+                        val fullStars =
+                            attempt.score.toInt() / 20 // Convert percentage to stars (0-5)
                         val percentage = "${attempt.score.toInt()}%"
 
                         repeat(5) { index ->
                             Icon(
                                 imageVector = if (index < fullStars) Icons.Filled.Star else Icons.Outlined.StarBorder,
                                 contentDescription = null,
-                                tint = if (index < fullStars) Color(0xFFFFD700) else Color.Gray,
-                                modifier = Modifier.size(16.dp)
+                                tint = if (index < fullStars) Color(0xFFFFD700) else Color.Companion.Gray,
+                                modifier = Modifier.Companion.size(16.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.Companion.width(4.dp))
                         Text(
                             text = percentage,
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = dancingScriptFontFamily,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Companion.Medium
                             ),
-                            color = Color.Black.copy(alpha = 0.7f)
+                            color = Color.Companion.Black.copy(alpha = 0.7f)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.Companion.height(8.dp))
 
                 // Control buttons - Original first, then Share!
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.Companion.fillMaxWidth()
                 ) {
                     // Original button (FIRST) - Go to parent recording
                     if (onJumpToParent != null) {
@@ -526,10 +606,10 @@ private fun ScrapbookStyleAttemptItem(
 
                 // Progress indicator
                 if (isPlayingThis) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.Companion.height(8.dp))
                     LinearProgressIndicator(
                         progress = progress,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.Companion.fillMaxWidth(),
                         color = Color(0xFF4CAF50)
                     )
                 }
@@ -538,13 +618,13 @@ private fun ScrapbookStyleAttemptItem(
 
         // Tape corners
         TapeCorner(
-            modifier = Modifier.align(Alignment.TopStart),
+            modifier = Modifier.Companion.align(Alignment.Companion.TopStart),
             offsetX = (-12).dp,
             offsetY = 8.dp,
             rotation = tapeRotation1
         )
         TapeCorner(
-            modifier = Modifier.align(Alignment.BottomEnd),
+            modifier = Modifier.Companion.align(Alignment.Companion.BottomEnd),
             offsetX = 12.dp,
             offsetY = (-8).dp,
             rotation = tapeRotation2
@@ -598,100 +678,105 @@ private fun ModernStyleAttemptItem(
 
     // Glassmorphism card with glow effect
     Card(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxWidth()
             .padding(start = 25.dp, end = 0.dp, top = 4.dp, bottom = 4.dp)
             .then(
                 if (aesthetic.useGlassmorphism && aesthetic.glowIntensity > 0) {
-                    Modifier.shadow(
+                    Modifier.Companion.shadow(
                         elevation = (aesthetic.glowIntensity * 20).dp,
-                        shape = RoundedCornerShape(16.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                         spotColor = colors.primary
                     )
-                } else Modifier
+                } else Modifier.Companion
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (aesthetic.useGlassmorphism) {
                 colors.surface.copy(alpha = aesthetic.cardAlpha)
             } else colors.surface
         ),
-        shape = RoundedCornerShape(16.dp)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
     ) {
         Box(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .then(
                     if (aesthetic.useGlassmorphism) {
-                        Modifier
+                        Modifier.Companion
                             .background(
-                                brush = Brush.linearGradient(
+                                brush = Brush.Companion.linearGradient(
                                     colors = listOf(
-                                        Color.White.copy(alpha = 0.1f),
-                                        Color.Transparent
+                                        Color.Companion.White.copy(alpha = 0.1f),
+                                        Color.Companion.Transparent
                                     )
                                 ),
-                                shape = RoundedCornerShape(16.dp)
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                             )
                             .border(
                                 width = 1.dp,
-                                color = Color.White.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(16.dp)
+                                color = Color.Companion.White.copy(alpha = 0.2f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                             )
-                    } else Modifier.border(1.dp, aesthetic.cardBorder, RoundedCornerShape(16.dp))
+                    } else Modifier.Companion.border(
+                        1.dp,
+                        aesthetic.cardBorder,
+                        androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                    )
                 )
                 .padding(16.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.Companion.fillMaxWidth(),
+                verticalAlignment = Alignment.Companion.CenterVertically
             ) {
                 // Left side: Player info
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.Companion.weight(1f)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { onShowRenameDialog(true) }
+                        verticalAlignment = Alignment.Companion.CenterVertically,
+                        modifier = Modifier.Companion.clickable { onShowRenameDialog(true) }
                     ) {
                         // Go to Parent button
                         if (onJumpToParent != null) {
                             IconButton(
                                 onClick = onJumpToParent,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.Companion.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Home,
                                     contentDescription = "Go to Parent",
                                     tint = colors.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.Companion.size(18.dp)
                                 )
                             }
                         }
 
                         // Challenge type icon
-                        val challengeIcon = if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
+                        val challengeIcon =
+                            if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
                         Text(
                             text = challengeIcon,
                             style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(end = 8.dp)
+                            modifier = Modifier.Companion.padding(end = 8.dp)
                         )
 
                         // Player name
                         Text(
                             text = attempt.playerName,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.Companion.Bold,
                                 letterSpacing = if (aesthetic.useWideLetterSpacing) 1.2.sp else 0.sp
                             ),
                             color = colors.onSurface,
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.Companion.height(12.dp))
 
                     // Control buttons - evenly spaced across full width
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.Companion.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         // Share button (first) - Secondary color (same as primary)
@@ -703,8 +788,8 @@ private fun ModernStyleAttemptItem(
                             Icon(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = "Share",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
+                                tint = Color.Companion.White,
+                                modifier = Modifier.Companion.size(16.dp)
                             )
                         }
 
@@ -718,14 +803,14 @@ private fun ModernStyleAttemptItem(
                                 if (aesthetic.useEggElements) {
                                     EggIcons.CrackedEggIcon(
                                         size = 16.dp,
-                                        tint = Color.White
+                                        tint = Color.Companion.White
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Pause,
                                         contentDescription = "Pause",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
+                                        tint = Color.Companion.White,
+                                        modifier = Modifier.Companion.size(16.dp)
                                     )
                                 }
                             }
@@ -738,14 +823,14 @@ private fun ModernStyleAttemptItem(
                                 if (aesthetic.useEggElements) {
                                     EggIcons.WholeEggIcon(
                                         size = 16.dp,
-                                        tint = Color.White
+                                        tint = Color.Companion.White
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
                                         contentDescription = "Play",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
+                                        tint = Color.Companion.White,
+                                        modifier = Modifier.Companion.size(16.dp)
                                     )
                                 }
                             }
@@ -761,14 +846,14 @@ private fun ModernStyleAttemptItem(
                                 if (aesthetic.useEggElements) {
                                     EggIcons.FriedEggIcon(
                                         size = 16.dp,
-                                        tint = Color.White
+                                        tint = Color.Companion.White
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Repeat,
                                         contentDescription = "Reverse",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
+                                        tint = Color.Companion.White,
+                                        modifier = Modifier.Companion.size(16.dp)
                                     )
                                 }
                             }
@@ -783,21 +868,21 @@ private fun ModernStyleAttemptItem(
                             if (aesthetic.useEggElements) {
                                 EggIcons.CrackedEggIcon(
                                     size = 16.dp,
-                                    tint = Color.White
+                                    tint = Color.Companion.White
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
+                                    tint = Color.Companion.White,
+                                    modifier = Modifier.Companion.size(16.dp)
                                 )
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.Companion.width(16.dp))
 
                 // Right side: Radial progress score
                 RadialScoreDisplay(
@@ -809,10 +894,10 @@ private fun ModernStyleAttemptItem(
 
             // Progress indicator
             if (isPlayingThis) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.Companion.height(8.dp))
                 LinearProgressIndicator(
                     progress = progress,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.Companion.fillMaxWidth(),
                     color = colors.primary
                 )
             }
@@ -876,51 +961,51 @@ fun ScrapbookRecordingItem(
     val tapeRotation2 = remember(stableId) { ((stableId * 13) % 25 - 12).toFloat() }
 
     Box(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxWidth()
             .padding(start = 32.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
     ) {
         // Main sticky note card
         Card(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .rotate(rotation)
                 .shadow(
                     elevation = 8.dp,
-                    shape = RoundedCornerShape(12.dp),
-                    spotColor = Color.Black.copy(alpha = 0.4f),
-                    ambientColor = Color.Black.copy(alpha = 0.15f)
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    spotColor = Color.Companion.Black.copy(alpha = 0.4f),
+                    ambientColor = Color.Companion.Black.copy(alpha = 0.15f)
                 ),
             colors = CardDefaults.cardColors(
                 containerColor = stickyNoteColor
             ),
-            shape = RoundedCornerShape(12.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
         ) {
             Column(
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
                 // Header with recording name AND delete button (like GenZ UI)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.Companion.fillMaxWidth(),
+                    verticalAlignment = Alignment.Companion.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
                         text = "🎤 ${recording.name}",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = dancingScriptFontFamily,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Companion.Bold,
                             fontSize = 16.sp
                         ),
-                        color = Color.Black.copy(alpha = 0.9f),
-                        modifier = Modifier
+                        color = Color.Companion.Black.copy(alpha = 0.9f),
+                        modifier = Modifier.Companion
                             .weight(1f)
                             .clickable { showRenameDialog = true }
                             .padding(end = 12.dp), // Add padding so text doesn't touch delete button
-                        overflow = TextOverflow.Ellipsis, // Add ellipsis for long names
+                        overflow = TextOverflow.Companion.Ellipsis, // Add ellipsis for long names
                         maxLines = 1 // Ensure single line with ellipsis
                     )
 
@@ -933,12 +1018,12 @@ fun ScrapbookRecordingItem(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.Companion.height(12.dp))
 
                 // Control buttons - IMPROVED SPACING like GenZ UI (no delete button here anymore)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(16.dp), // Increased from 12.dp to 16.dp for better spacing
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.Companion.fillMaxWidth()
                 ) {
                     // Share button (FIRST)
                     ScrapbookButton(
@@ -997,10 +1082,10 @@ fun ScrapbookRecordingItem(
 
                 // Progress indicator
                 if (isPlayingThis) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.Companion.height(12.dp))
                     LinearProgressIndicator(
                         progress = progress,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.Companion.fillMaxWidth(),
                         color = Color(0xFF4CAF50)
                     )
                 }
@@ -1009,13 +1094,13 @@ fun ScrapbookRecordingItem(
 
         // Tape corners for recordings
         TapeCorner(
-            modifier = Modifier.align(Alignment.TopStart),
+            modifier = Modifier.Companion.align(Alignment.Companion.TopStart),
             offsetX = (-16).dp,
             offsetY = 12.dp,
             rotation = tapeRotation1
         )
         TapeCorner(
-            modifier = Modifier.align(Alignment.BottomEnd),
+            modifier = Modifier.Companion.align(Alignment.Companion.BottomEnd),
             offsetX = 16.dp,
             offsetY = (-12).dp,
             rotation = tapeRotation2
@@ -1043,12 +1128,12 @@ fun ScrapbookRecordingItem(
 @Composable
 fun EnhancedGlowButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.Companion,
     enabled: Boolean = true,
     isPrimary: Boolean = false,
     isDestructive: Boolean = false,
     isSecondary: Boolean = false, // New flag for Share/Rev buttons
-    size: androidx.compose.ui.unit.Dp = 40.dp,
+    size: Dp = 40.dp,
     label: String? = null,
     content: @Composable () -> Unit
 ) {
@@ -1062,7 +1147,7 @@ fun EnhancedGlowButton(
     }
 
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Companion.CenterHorizontally
     ) {
         Button(
             onClick = onClick,
@@ -1071,12 +1156,12 @@ fun EnhancedGlowButton(
                 .size(size)
                 .then(
                     if (aesthetic.glowIntensity > 0) {
-                        Modifier.shadow(
+                        Modifier.Companion.shadow(
                             elevation = (aesthetic.glowIntensity * 12).dp,
                             shape = CircleShape,
                             spotColor = if (isPrimary || isSecondary) colors.primary else colors.surfaceVariant
                         )
-                    } else Modifier
+                    } else Modifier.Companion
                 ),
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(
@@ -1094,8 +1179,8 @@ fun EnhancedGlowButton(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.onSurface,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 2.dp)
+                textAlign = TextAlign.Companion.Center,
+                modifier = Modifier.Companion.padding(top = 2.dp)
             )
         }
     }
@@ -1104,9 +1189,9 @@ fun EnhancedGlowButton(
 // Helper components...
 @Composable
 private fun TapeCorner(
-    modifier: Modifier = Modifier,
-    offsetX: androidx.compose.ui.unit.Dp = 0.dp,
-    offsetY: androidx.compose.ui.unit.Dp = 0.dp,
+    modifier: Modifier = Modifier.Companion,
+    offsetX: Dp = 0.dp,
+    offsetY: Dp = 0.dp,
     rotation: Float = 0f
 ) {
     Box(
@@ -1115,8 +1200,8 @@ private fun TapeCorner(
             .rotate(rotation)
             .size(width = 24.dp, height = 16.dp)
             .background(
-                color = Color.Gray.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(2.dp)
+                color = Color.Companion.Gray.copy(alpha = 0.5f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)
             )
     )
 }
@@ -1124,51 +1209,51 @@ private fun TapeCorner(
 @Composable
 private fun ScrapbookButton(
     onClick: () -> Unit,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     iconColor: Color,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier.Companion
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Companion.CenterHorizontally,
         modifier = modifier
             .clickable(enabled = enabled) { onClick() }
             .padding(2.dp)
     ) {
         Box(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .size(40.dp)
                 .background(
-                    color = Color.White,
-                    shape = RoundedCornerShape(4.dp)
+                    color = Color.Companion.White,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
                 )
                 .border(
                     width = 2.dp,
-                    color = Color.Gray.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(4.dp)
+                    color = Color.Companion.Gray.copy(alpha = 0.6f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Companion.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = iconColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.Companion.size(24.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.Companion.height(3.dp))
 
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(
                 fontFamily = dancingScriptFontFamily,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Companion.Medium
             ),
-            color = Color.Black.copy(alpha = 0.8f),
-            textAlign = TextAlign.Center,
+            color = Color.Companion.Black.copy(alpha = 0.8f),
+            textAlign = TextAlign.Companion.Center,
             maxLines = 1
         )
     }
@@ -1202,14 +1287,14 @@ private fun RadialScoreDisplay(
     }
 
     Box(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .size(80.dp)
             .clickable { onClick() },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Companion.Center
     ) {
         // Background circle
         Canvas(
-            modifier = Modifier.size(80.dp)
+            modifier = Modifier.Companion.size(80.dp)
         ) {
             val strokeWidth = 6.dp.toPx()
             val center = Offset(size.width / 2, size.height / 2)
@@ -1217,7 +1302,7 @@ private fun RadialScoreDisplay(
 
             // Background ring
             drawCircle(
-                color = Color.Gray.copy(alpha = 0.3f),
+                color = Color.Companion.Gray.copy(alpha = 0.3f),
                 radius = radius,
                 center = center,
                 style = Stroke(strokeWidth)
@@ -1234,7 +1319,7 @@ private fun RadialScoreDisplay(
                 startAngle = -90f,
                 sweepAngle = sweepAngle,
                 useCenter = false,
-                style = Stroke(strokeWidth, cap = StrokeCap.Round),
+                style = Stroke(strokeWidth, cap = StrokeCap.Companion.Round),
                 topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
                 size = Size(size.width - strokeWidth, size.height - strokeWidth)
             )
@@ -1242,7 +1327,7 @@ private fun RadialScoreDisplay(
 
         // Content
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.Companion.CenterHorizontally
         ) {
             Text(
                 text = emoji,
@@ -1251,7 +1336,7 @@ private fun RadialScoreDisplay(
             Text(
                 text = "$score",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Companion.Bold,
                     fontSize = 14.sp
                 ),
                 color = colors.onSurface
@@ -1329,24 +1414,24 @@ private fun ScrapbookDialogs(
             text = {
                 Column {
                     Text("Which version would you like to share?")
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.Companion.height(16.dp))
                     Button(
                         onClick = {
                             onShareAttempt(attempt.attemptFilePath)
                             onDismissShare()
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                     ) {
                         Text("Share Original 🎤")
                     }
                     if (attempt.reversedAttemptFilePath != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.Companion.height(8.dp))
                         Button(
                             onClick = {
                                 onShareAttempt(attempt.reversedAttemptFilePath!!)
                                 onDismissShare()
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.Companion.fillMaxWidth()
                         ) {
                             Text("Share Reversed 🔁")
                         }
@@ -1362,10 +1447,10 @@ private fun ScrapbookDialogs(
 
     if (showScoreDialog) {
         val scoringResult = remember {
-            com.example.reversey.scoring.ScoringResult(
+            ScoringResult(
                 score = attempt.score,
                 rawScore = attempt.rawScore,
-                metrics = com.example.reversey.scoring.SimilarityMetrics(
+                metrics = SimilarityMetrics(
                     pitch = attempt.pitchSimilarity,
                     mfcc = attempt.mfccSimilarity
                 ),
@@ -1449,24 +1534,24 @@ private fun ModernDialogs(
             text = {
                 Column {
                     Text("Which version would you like to share?")
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.Companion.height(16.dp))
                     Button(
                         onClick = {
                             onShareAttempt(attempt.attemptFilePath)
                             onDismissShare()
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                     ) {
                         Text("Share Original")
                     }
                     if (attempt.reversedAttemptFilePath != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.Companion.height(8.dp))
                         Button(
                             onClick = {
                                 onShareAttempt(attempt.reversedAttemptFilePath!!)
                                 onDismissShare()
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.Companion.fillMaxWidth()
                         ) {
                             Text("Share Reversed")
                         }
@@ -1482,10 +1567,10 @@ private fun ModernDialogs(
 
     if (showScoreDialog) {
         val scoringResult = remember {
-            com.example.reversey.scoring.ScoringResult(
+            ScoringResult(
                 score = attempt.score,
                 rawScore = attempt.rawScore,
-                metrics = com.example.reversey.scoring.SimilarityMetrics(
+                metrics = SimilarityMetrics(
                     pitch = attempt.pitchSimilarity,
                     mfcc = attempt.mfccSimilarity
                 ),
@@ -1568,24 +1653,24 @@ private fun ScrapbookRecordingDialogs(
             text = {
                 Column {
                     Text("Which version would you like to share?")
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.Companion.height(16.dp))
                     Button(
                         onClick = {
                             onShare(recording.originalPath)
                             onDismissShare()
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                     ) {
                         Text("Share Original 🎤")
                     }
                     recording.reversedPath?.let { reversedPath ->
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.Companion.height(8.dp))
                         Button(
                             onClick = {
                                 onShare(reversedPath)
                                 onDismissShare()
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.Companion.fillMaxWidth()
                         ) {
                             Text("Share Reversed 🔁")
                         }
@@ -1608,41 +1693,44 @@ private fun EggScrapbookButton(
     label: String,
     iconColor: Color,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier.Companion
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Companion.CenterHorizontally,
         modifier = modifier
             .clickable(enabled = enabled) { onClick() }
             .padding(2.dp)
     ) {
         Box(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .size(40.dp)
                 .background(
                     color = Color(0xFFFFF8E1), // Egg shell color
-                    shape = RoundedCornerShape(8.dp)
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
                 )
                 .border(
                     width = 2.dp,
                     color = Color(0xFF8D6E63).copy(alpha = 0.8f), // Brown border
-                    shape = RoundedCornerShape(8.dp)
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Companion.Center
         ) {
             when (eggType) {
                 "whole" -> EggIcons.WholeEggIcon(
                     size = 24.dp,
                     tint = iconColor
                 )
+
                 "fried" -> EggIcons.FriedEggIcon(
                     size = 24.dp,
                     tint = iconColor
                 )
+
                 "cracked" -> EggIcons.CrackedEggIcon(
                     size = 24.dp,
                     tint = iconColor
                 )
+
                 else -> EggIcons.WholeEggIcon(
                     size = 24.dp,
                     tint = iconColor
@@ -1650,17 +1738,17 @@ private fun EggScrapbookButton(
             }
         }
 
-        Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.Companion.height(3.dp))
 
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(
                 fontFamily = dancingScriptFontFamily,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Companion.Medium
             ),
-            color = Color.Black.copy(alpha = 0.8f),
-            textAlign = TextAlign.Center,
+            color = Color.Companion.Black.copy(alpha = 0.8f),
+            textAlign = TextAlign.Companion.Center,
             maxLines = 1
         )
     }
@@ -1674,7 +1762,7 @@ fun UnifiedRecordingButton(
     isRecording: Boolean,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier.Companion
 ) {
     UnifiedRecordButton(
         isRecording = isRecording,

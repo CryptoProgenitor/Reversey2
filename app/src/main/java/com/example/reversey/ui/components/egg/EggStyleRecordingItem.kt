@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
-import com.example.reversey.Recording
+import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.theme.AestheticThemeData
-import com.example.reversey.ChallengeType
+import com.example.reversey.data.models.ChallengeType
 
 /**
  * EGG-THEMED RECORDING ITEM - PROPER HAND-DRAWN STYLE MATCHING MOCKUP! 🥚🍳

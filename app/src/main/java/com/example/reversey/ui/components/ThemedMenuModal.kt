@@ -32,11 +32,11 @@ import androidx.compose.ui.unit.sp
 import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.theme.AestheticThemeData
-import com.example.reversey.ThemeViewModel
+import com.example.reversey.ui.viewmodels.ThemeViewModel
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.scoring.ScoringPresets
-import com.example.reversey.AudioViewModel
+import com.example.reversey.ui.viewmodels.AudioViewModel
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 

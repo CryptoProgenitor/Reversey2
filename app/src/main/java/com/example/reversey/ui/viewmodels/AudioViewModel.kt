@@ -1,5 +1,6 @@
-package com.example.reversey
+package com.example.reversey.ui.viewmodels
 
+import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
@@ -7,9 +8,18 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.reversey.AudioConstants
+import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.data.models.PlayerAttempt
+import com.example.reversey.data.models.Recording
+import com.example.reversey.data.repositories.AttemptsRepository
+import com.example.reversey.data.repositories.RecordingRepository
+import com.example.reversey.data.repositories.SettingsDataStore
+import com.example.reversey.scoring.Presets
 import com.example.reversey.scoring.ScoringEngine
-import com.example.reversey.scoring.ScoringParameters
-import com.example.reversey.scoring.applyPreset
+import com.example.reversey.scoring.ScoringResult
+import com.example.reversey.scoring.SimilarityMetrics
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -26,9 +36,8 @@ import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-
+import kotlin.math.sqrt
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -139,7 +148,7 @@ class AudioViewModel @Inject constructor(
         }
 
         // Check permissions
-        if (ActivityCompat.checkSelfPermission(getApplication(), android.Manifest.permission.RECORD_AUDIO)
+        if (ActivityCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             showUserMessage("Microphone permission is required to record")
             return
@@ -173,7 +182,7 @@ class AudioViewModel @Inject constructor(
         }
 
         // Check permissions
-        if (ActivityCompat.checkSelfPermission(getApplication(), android.Manifest.permission.RECORD_AUDIO)
+        if (ActivityCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             showUserMessage("Microphone permission is required to record")
             return
@@ -201,12 +210,14 @@ class AudioViewModel @Inject constructor(
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     showUserMessage("Recording failed: ${e.message}")
-                    _uiState.update { it.copy(
-                        isRecording = false,
-                        isRecordingAttempt = false,
-                        parentRecordingPath = null,
-                        pendingChallengeType = null
-                    )}
+                    _uiState.update {
+                        it.copy(
+                            isRecording = false,
+                            isRecordingAttempt = false,
+                            parentRecordingPath = null,
+                            pendingChallengeType = null
+                        )
+                    }
                 }
             }
         }
@@ -253,7 +264,11 @@ class AudioViewModel @Inject constructor(
                 // Convert to FloatArray and normalize
                 return@withContext samples.map { it.toFloat() / Short.MAX_VALUE }.toFloatArray()
             } catch (e: Exception) {
-                Log.e("AudioViewModel", "Error reading audio file (attempt ${attempt + 1}): $filePath", e)
+                Log.e(
+                    "AudioViewModel",
+                    "Error reading audio file (attempt ${attempt + 1}): $filePath",
+                    e
+                )
                 if (attempt == 1) return@withContext floatArrayOf() // Last attempt failed
             }
         }
@@ -264,7 +279,7 @@ class AudioViewModel @Inject constructor(
     private fun calculateRMS(audio: FloatArray): Float {
         if (audio.isEmpty()) return 0f
         val sumSquares = audio.map { it * it }.sum()
-        return kotlin.math.sqrt(sumSquares / audio.size)
+        return sqrt(sumSquares / audio.size)
     }
 
     // Helper function for getting recordings directory
@@ -333,7 +348,8 @@ class AudioViewModel @Inject constructor(
 
                         // Step 3: Rename reversed file to match
                         val updatedReversedPath = if (reversedFile != null) {
-                            val finalReversedFile = File(finalFile.absolutePath.replace(".wav", "_reversed.wav"))
+                            val finalReversedFile =
+                                File(finalFile.absolutePath.replace(".wav", "_reversed.wav"))
                             if (reversedFile.renameTo(finalReversedFile)) {
                                 finalReversedFile.absolutePath
                             } else {
@@ -414,28 +430,28 @@ class AudioViewModel @Inject constructor(
                                             result
                                         } else {
                                             Log.d("AudioViewModel", "One or both audio arrays are empty for REVERSE score")
-                                            com.example.reversey.scoring.ScoringResult(
+                                            ScoringResult(
                                                 score = 0,
                                                 rawScore = 0f,
-                                                metrics = com.example.reversey.scoring.SimilarityMetrics(pitch = 0f, mfcc = 0f),
+                                                metrics = SimilarityMetrics(pitch = 0f, mfcc = 0f),
                                                 feedback = emptyList()
                                             )
                                         }
                                     } catch (e: Exception) {
                                         Log.e("AudioViewModel", "Exception in REVERSE scoring: ${e.message}", e)
-                                        com.example.reversey.scoring.ScoringResult(
+                                        ScoringResult(
                                             score = 0,
                                             rawScore = 0f,
-                                            metrics = com.example.reversey.scoring.SimilarityMetrics(pitch = 0f, mfcc = 0f),
+                                            metrics = SimilarityMetrics(pitch = 0f, mfcc = 0f),
                                             feedback = emptyList()
                                         )
                                     }
                                 } ?: run {
                                     Log.d("AudioViewModel", "Parent reversed path is null")
-                                    com.example.reversey.scoring.ScoringResult(
+                                    ScoringResult(
                                         score = 0,
                                         rawScore = 0f,
-                                        metrics = com.example.reversey.scoring.SimilarityMetrics(pitch = 0f, mfcc = 0f),
+                                        metrics = SimilarityMetrics(pitch = 0f, mfcc = 0f),
                                         feedback = emptyList()
                                     )
                                 }
@@ -453,10 +469,10 @@ class AudioViewModel @Inject constructor(
                                     result
                                 } else {
                                     Log.d("AudioViewModel", "One or both audio arrays are empty for FORWARD score")
-                                    com.example.reversey.scoring.ScoringResult(
+                                    ScoringResult(
                                         score = 0,
                                         rawScore = 0f,
-                                        metrics = com.example.reversey.scoring.SimilarityMetrics(pitch = 0f, mfcc = 0f),
+                                        metrics = SimilarityMetrics(pitch = 0f, mfcc = 0f),
                                         feedback = emptyList()
                                     )
                                 }
@@ -722,7 +738,7 @@ class AudioViewModel @Inject constructor(
     }
 
     // Sync scoring parameters from settings
-    fun updateScoringEngine(preset: com.example.reversey.scoring.Presets) {
+    fun updateScoringEngine(preset: Presets) {
         scoringEngine.applyPreset(preset)
     }
 }

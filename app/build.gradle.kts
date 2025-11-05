@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.geometry)
     implementation(libs.androidx.compose.ui.unit)
     implementation(libs.androidx.compose.ui.text)
+    implementation(libs.androidx.compose.foundation)
     ksp("com.google.dagger:hilt-android-compiler:2.57.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 

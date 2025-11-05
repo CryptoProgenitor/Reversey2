@@ -18,9 +18,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reversey.ui.components.egg.EggStyleRecordingItem
-import com.example.reversey.Recording
+import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.theme.AestheticThemeData
-import com.example.reversey.ChallengeType
+import com.example.reversey.data.models.ChallengeType
 
 /**
  * UNIFIED RECORDING ITEM - NEW DELETE-IN-TITLE LAYOUT! 💡
@@ -70,7 +70,7 @@ fun UnifiedRecordingItem(
 
 
     } else if (isScrapbookTheme) {
-        com.example.reversey.ScrapbookRecordingItem(
+        ScrapbookRecordingItem(
             recording = recording,
             isPlaying = isPlaying,
             isPaused = isPaused,

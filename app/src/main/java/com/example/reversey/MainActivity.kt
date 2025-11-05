@@ -100,8 +100,11 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
+import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.data.models.Recording
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.ui.components.DifficultyIndicator
+import com.example.reversey.ui.components.EnhancedGlowButton
 import com.example.reversey.ui.theme.ReVerseYTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -122,7 +125,11 @@ import com.example.reversey.ui.theme.MaterialColors
 
 
 import com.example.reversey.ui.components.ThemedMenuModal
-
+import com.example.reversey.ui.components.TutorialOverlay
+import com.example.reversey.ui.components.UnifiedAttemptItem
+import com.example.reversey.ui.components.UnifiedRecordingButton
+import com.example.reversey.ui.viewmodels.AudioViewModel
+import com.example.reversey.ui.viewmodels.ThemeViewModel
 
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
@@ -449,7 +456,8 @@ fun AudioReverserApp(
                         // NEW: Difficulty indicator in top-right
                         DifficultyIndicator(
                             difficulty = scoringEngine.getCurrentDifficulty(),
-                            onClick = { navController.navigate("settings") }, // 🔧 ADD THIS - navigate to settings
+                            onClick = openMenu,
+                            //onClick = { navController.navigate("settings") }, // 🔧 ADD THIS - navigate to settings
                             modifier = Modifier.padding(end = 16.dp)
                         )
                     },
@@ -561,24 +569,41 @@ fun AudioReverserApp(
                                     currentlyPlayingPath = uiState.currentlyPlayingPath,
                                     isPaused = uiState.isPaused,
                                     progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath ||
-                                        uiState.currentlyPlayingPath == attempt.reversedAttemptFilePath) uiState.playbackProgress else 0f,
+                                        uiState.currentlyPlayingPath == attempt.reversedAttemptFilePath
+                                    ) uiState.playbackProgress else 0f,
                                     onPlay = { path -> viewModel.play(path) },
                                     onPause = { viewModel.pause() },
                                     onStop = { viewModel.stopPlayback() },
                                     onRenamePlayer = { oldAttempt, newName ->
-                                        viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
+                                        viewModel.renamePlayer(
+                                            recording.originalPath,
+                                            oldAttempt,
+                                            newName
+                                        )
                                     },
                                     onDeleteAttempt = { attemptToDelete ->
-                                        viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
+                                        viewModel.deleteAttempt(
+                                            recording.originalPath,
+                                            attemptToDelete
+                                        )
                                     },
                                     onShareAttempt = { path ->
                                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                             type = "audio/wav"
-                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context,
-                                                "${context.packageName}.provider", File(path)))
+                                            putExtra(
+                                                Intent.EXTRA_STREAM, FileProvider.getUriForFile(
+                                                    context,
+                                                    "${context.packageName}.provider", File(path)
+                                                )
+                                            )
                                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         }
-                                        context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
+                                        context.startActivity(
+                                            Intent.createChooser(
+                                                shareIntent,
+                                                "Share Attempt"
+                                            )
+                                        )
                                     },
                                     onJumpToParent = {
                                         scope.launch {
@@ -938,7 +963,8 @@ fun EnhancedRecordingItem(
                                 size = 50.dp,
                                 label = if (isPaused) "Resume" else "Pause"
                             ) {
-                                val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
+                                val pauseIcon =
+                                    if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
                                 Icon(
                                     imageVector = pauseIcon,
                                     contentDescription = "Pause/Resume",

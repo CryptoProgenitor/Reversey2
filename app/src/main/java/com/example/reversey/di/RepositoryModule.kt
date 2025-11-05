@@ -1,9 +1,9 @@
 package com.example.reversey.di
 
 import android.content.Context
-import com.example.reversey.AttemptsRepository
-import com.example.reversey.RecordingRepository
-import com.example.reversey.SettingsDataStore
+import com.example.reversey.data.repositories.AttemptsRepository
+import com.example.reversey.data.repositories.RecordingRepository
+import com.example.reversey.data.repositories.SettingsDataStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

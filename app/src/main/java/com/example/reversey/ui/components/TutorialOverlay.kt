@@ -1,15 +1,45 @@
-// TutorialOverlay.kt
-package com.example.reversey
+package com.example.reversey.ui.components
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -19,18 +49,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 // Centralised styling for consistency
 private object TutorialDefaults {
     val magenta = Color(0xFFFF00FF)
     val cyan = Color(0xFF00FFFF)
-    val white = Color.White
-    val black = Color.Black
+    val white = Color.Companion.White
+    val black = Color.Companion.Black
 
-    val primaryGradient = Brush.horizontalGradient(listOf(magenta, cyan))
-    val titleGradient = Brush.linearGradient(listOf(magenta, cyan, magenta))
-    val cyanBrush = Brush.linearGradient(listOf(cyan, cyan))
-    val magentaBrush = Brush.linearGradient(listOf(magenta, magenta))
+    val primaryGradient = Brush.Companion.horizontalGradient(listOf(magenta, cyan))
+    val titleGradient = Brush.Companion.linearGradient(listOf(magenta, cyan, magenta))
+    val cyanBrush = Brush.Companion.linearGradient(listOf(cyan, cyan))
+    val magentaBrush = Brush.Companion.linearGradient(listOf(magenta, magenta))
 }
 
 // Tutorial Step Data Class
@@ -61,7 +92,7 @@ fun TutorialOverlay(
                     text = "Your voice backwards has\nnever been this fun!",
                     style = MaterialTheme.typography.bodyLarge,
                     color = TutorialDefaults.white.copy(alpha = 0.9f),
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Companion.Center
                 )
             },
             TutorialSlide(
@@ -87,23 +118,23 @@ fun TutorialOverlay(
     val totalSlides = slides.size
 
     Box(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxSize()
             .background(TutorialDefaults.black.copy(alpha = 0.92f))
     ) {
         Column(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxSize()
                 .padding(horizontal = 30.dp)
                 .padding(top = 60.dp, bottom = 100.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.Companion.CenterHorizontally
         ) {
             // Carousel Container
             Box(
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .weight(1f) // This pushes the controls group down
                     .fillMaxWidth(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Companion.Center
             ) {
                 AnimatedContent(
                     targetState = currentSlide,
@@ -125,13 +156,13 @@ fun TutorialOverlay(
 
             // Group for navigation dots and buttons
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                horizontalAlignment = Alignment.Companion.CenterHorizontally,
+                modifier = Modifier.Companion.fillMaxWidth()
             ) {
                 // Navigation Dots
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(vertical = 20.dp)
+                    modifier = Modifier.Companion.padding(vertical = 20.dp)
                 ) {
                     repeat(totalSlides) { index ->
                         NavigationDot(
@@ -144,13 +175,13 @@ fun TutorialOverlay(
                 // Button Group
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(15.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.Companion.fillMaxWidth(),
+                    verticalAlignment = Alignment.Companion.CenterVertically
                 ) {
                     // Skip Button
                     OutlinedButton(
                         onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.Companion.weight(1f),
                         shape = RoundedCornerShape(30.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = TutorialDefaults.cyan
@@ -162,9 +193,9 @@ fun TutorialOverlay(
                     ) {
                         Text(
                             "SKIP",
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Companion.Bold,
                             letterSpacing = 1.sp,
-                            modifier = Modifier.padding(vertical = 6.dp)
+                            modifier = Modifier.Companion.padding(vertical = 6.dp)
                         )
                     }
 
@@ -177,33 +208,33 @@ fun TutorialOverlay(
                                 onComplete()
                             }
                         },
-                        modifier = Modifier
+                        modifier = Modifier.Companion
                             .weight(1f)
                             .shadow(
                                 elevation = 20.dp,
-                                shape = RoundedCornerShape(30.dp),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp),
                                 spotColor = TutorialDefaults.magenta
                             ),
-                        shape = RoundedCornerShape(30.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent
+                            containerColor = Color.Companion.Transparent
                         ),
                         contentPadding = PaddingValues(0.dp) // Remove default padding
                     ) {
                         Box(
-                            modifier = Modifier
+                            modifier = Modifier.Companion
                                 .fillMaxWidth()
                                 .background(
                                     brush = TutorialDefaults.primaryGradient,
-                                    shape = RoundedCornerShape(30.dp)
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp)
                                 )
                                 .padding(vertical = 8.dp), // Adjust padding on inner box
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Companion.Center
                         ) {
                             Text(
                                 text = if (currentSlide == totalSlides - 1) "LET'S GO! 🚀" else "NEXT",
                                 color = TutorialDefaults.black,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.Companion.Bold,
                                 letterSpacing = 1.sp
                             )
                         }
@@ -217,9 +248,9 @@ fun TutorialOverlay(
 @Composable
 fun SlideContent(slide: TutorialSlide) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Companion.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.Companion.fillMaxWidth()
     ) {
         // Floating Icon
         if (slide.icon.isNotEmpty()) {
@@ -237,7 +268,7 @@ fun SlideContent(slide: TutorialSlide) {
             Text(
                 text = slide.icon,
                 fontSize = 80.sp,
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .offset(y = offsetY.dp)
                     .padding(bottom = 20.dp)
             )
@@ -247,12 +278,12 @@ fun SlideContent(slide: TutorialSlide) {
         Text(
             text = slide.title,
             fontSize = 36.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Companion.Bold,
+            textAlign = TextAlign.Companion.Center,
             style = MaterialTheme.typography.headlineLarge.copy(
                 brush = TutorialDefaults.titleGradient
             ),
-            modifier = Modifier.padding(bottom = 10.dp)
+            modifier = Modifier.Companion.padding(bottom = 10.dp)
         )
 
         // Subtitle
@@ -261,8 +292,8 @@ fun SlideContent(slide: TutorialSlide) {
                 text = slide.subtitle,
                 fontSize = 18.sp,
                 color = TutorialDefaults.cyan,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 30.dp)
+                textAlign = TextAlign.Companion.Center,
+                modifier = Modifier.Companion.padding(bottom = 30.dp)
             )
         }
 
@@ -274,16 +305,16 @@ fun SlideContent(slide: TutorialSlide) {
 @Composable
 fun GameModeContent() {
     Column(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxWidth()
             .border(
                 width = 2.dp,
                 brush = TutorialDefaults.magentaBrush,
-                shape = RoundedCornerShape(20.dp)
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
             )
             .background(
                 color = TutorialDefaults.magenta.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(20.dp)
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
             )
             .padding(25.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -298,13 +329,13 @@ fun GameModeContent() {
 @Composable
 fun GameStep(icon: String, text: String) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+        verticalAlignment = Alignment.Companion.CenterVertically,
+        modifier = Modifier.Companion.fillMaxWidth()
     ) {
         Text(
             text = icon,
             fontSize = 24.sp,
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .width(40.dp)
                 .padding(end = 12.dp)
         )
@@ -320,21 +351,21 @@ fun GameStep(icon: String, text: String) {
 @Composable
 fun ExampleContent() {
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.Companion.fillMaxWidth(),
+        horizontalAlignment = Alignment.Companion.CenterHorizontally
     ) {
         // Example Box
         Column(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .border(
                     width = 2.dp,
                     color = TutorialDefaults.cyan,
-                    shape = RoundedCornerShape(15.dp)
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
                 )
                 .background(
                     color = TutorialDefaults.cyan.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(15.dp)
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
                 )
                 .padding(15.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -345,31 +376,31 @@ fun ExampleContent() {
 
             // Score Badge
             Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
+                modifier = Modifier.Companion
+                    .align(Alignment.Companion.CenterHorizontally)
                     .padding(top = 10.dp)
                     .background(
                         brush = TutorialDefaults.primaryGradient,
-                        shape = RoundedCornerShape(20.dp)
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
                     )
                     .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
                 Text(
                     text = "Your Score: 87% 🌟",
                     color = TutorialDefaults.black,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Companion.Bold,
                     fontSize = 16.sp
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(25.dp))
+        Spacer(modifier = Modifier.Companion.height(25.dp))
 
         Text(
             text = "The better your backwards attempt,\nthe higher your score!",
             fontSize = 14.sp,
             color = TutorialDefaults.white.copy(alpha = 0.9f),
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.Companion.Center,
             lineHeight = 20.sp
         )
     }
@@ -378,18 +409,18 @@ fun ExampleContent() {
 @Composable
 fun ExampleText(label: String, value: String) {
     Row(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxWidth()
             .background(
                 color = TutorialDefaults.black.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(8.dp)
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
             )
             .padding(8.dp)
     ) {
         Text(
             text = "$label ",
             color = TutorialDefaults.cyan,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Companion.Bold,
             fontSize = 14.sp
         )
         Text(
@@ -412,10 +443,11 @@ fun NavigationDot(
     )
 
     Box(
-        modifier = Modifier
-            .size(10.dp * scale)
+        modifier = Modifier.size(10.dp * scale)
             .background(
-                color = if (isActive) TutorialDefaults.magenta else TutorialDefaults.white.copy(alpha = 0.3f),
+                color = if (isActive) TutorialDefaults.magenta else TutorialDefaults.white.copy(
+                    alpha = 0.3f
+                ),
                 shape = CircleShape
             )
             .border(
@@ -425,12 +457,12 @@ fun NavigationDot(
             )
             .then(
                 if (isActive) {
-                    Modifier.shadow(
+                    Modifier.Companion.shadow(
                         elevation = 15.dp,
                         shape = CircleShape,
                         spotColor = TutorialDefaults.magenta
                     )
-                } else Modifier
+                } else Modifier.Companion
             )
     )
 }

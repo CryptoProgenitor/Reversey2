@@ -1,4 +1,4 @@
-package com.example.reversey
+package com.example.reversey.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,13 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
@@ -58,19 +57,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.reversey.ui.viewmodels.AudioViewModel
+import com.example.reversey.ui.viewmodels.ThemeViewModel
 import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.scoring.ScoringPresets
-import com.example.reversey.scoring.applyPreset
 import com.example.reversey.ui.debug.DebugPanel
 import kotlinx.coroutines.launch
-import android.util.Log
-import androidx.compose.material.icons.filled.Close
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,7 +110,7 @@ fun SettingsScreen(
         }
     ) { paddingValues ->
         Box(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
@@ -120,7 +119,7 @@ fun SettingsScreen(
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .fillMaxSize()
                     .clip(MaterialTheme.shapes.medium)
             ) {
@@ -128,14 +127,19 @@ fun SettingsScreen(
                     Text(
                         "Gameplay",
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+                        modifier = Modifier.Companion.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 16.dp,
+                            bottom = 8.dp
+                        )
                     )
                     Row(
-                        modifier = Modifier
+                        modifier = Modifier.Companion
                             .fillMaxWidth()
                             .clickable { isGameModeEnabled = !isGameModeEnabled }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.Companion.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Enable Game Mode", style = MaterialTheme.typography.bodyLarge)
@@ -148,23 +152,33 @@ fun SettingsScreen(
 
                 // 🎯 KEEP ORIGINAL WORKING SCORING DIFFICULTY SECTION
                 item {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                    HorizontalDivider(modifier = Modifier.Companion.padding(vertical = 16.dp))
                     Text(
                         "Scoring Difficulty",
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                        modifier = Modifier.Companion.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = 8.dp
+                        )
                     )
 
                     Text(
                         "Choose how strict the app is when scoring your singing",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                        modifier = Modifier.Companion.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = 8.dp
+                        )
                     )
 
                     // Current Difficulty Indicator
                     Card(
-                        modifier = Modifier
+                        modifier = Modifier.Companion
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         colors = CardDefaults.cardColors(
@@ -172,16 +186,16 @@ fun SettingsScreen(
                         )
                     ) {
                         Row(
-                            modifier = Modifier
+                            modifier = Modifier.Companion
                                 .fillMaxWidth()
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.Companion.CenterVertically
                         ) {
                             Text(
                                 "Current: ${currentDifficulty.emoji} ${currentDifficulty.displayName}",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.Companion.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
@@ -191,7 +205,7 @@ fun SettingsScreen(
                     Column {
                         // First row: Easy, Normal, Hard
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.Companion.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             SimpleDifficultyButton(
@@ -203,7 +217,7 @@ fun SettingsScreen(
                                     audioViewModel.updateScoringEngine(ScoringPresets.easyMode())
                                     currentDifficulty = DifficultyLevel.EASY
                                 },
-                                modifier = Modifier.weight(1f).padding(horizontal = 16.dp)
+                                modifier = Modifier.Companion.weight(1f).padding(horizontal = 16.dp)
                             )
                             SimpleDifficultyButton(
                                 difficulty = DifficultyLevel.NORMAL,
@@ -213,7 +227,7 @@ fun SettingsScreen(
                                     audioViewModel.updateScoringEngine(ScoringPresets.normalMode())
                                     currentDifficulty = DifficultyLevel.NORMAL
                                 },
-                                modifier = Modifier.weight(1f).padding(horizontal = 16.dp)
+                                modifier = Modifier.Companion.weight(1f).padding(horizontal = 16.dp)
                             )
                             SimpleDifficultyButton(
                                 difficulty = DifficultyLevel.HARD,
@@ -223,16 +237,19 @@ fun SettingsScreen(
                                     audioViewModel.updateScoringEngine(ScoringPresets.hardMode())
                                     currentDifficulty = DifficultyLevel.HARD
                                 },
-                                modifier = Modifier.weight(1f).padding(horizontal = 16.dp)
+                                modifier = Modifier.Companion.weight(1f).padding(horizontal = 16.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.Companion.height(8.dp))
 
                         // Second row: Expert, Master (centered)
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                            modifier = Modifier.Companion.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(
+                                8.dp,
+                                Alignment.Companion.CenterHorizontally
+                            )
                         ) {
                             SimpleDifficultyButton(
                                 difficulty = DifficultyLevel.EXPERT,
@@ -242,7 +259,8 @@ fun SettingsScreen(
                                     audioViewModel.updateScoringEngine(ScoringPresets.expertMode())
                                     currentDifficulty = DifficultyLevel.EXPERT
                                 },
-                                modifier = Modifier.weight(0.5f).padding(horizontal = 32.dp)
+                                modifier = Modifier.Companion.weight(0.5f)
+                                    .padding(horizontal = 32.dp)
                             )
                             SimpleDifficultyButton(
                                 difficulty = DifficultyLevel.MASTER,
@@ -252,7 +270,8 @@ fun SettingsScreen(
                                     audioViewModel.updateScoringEngine(ScoringPresets.masterMode())
                                     currentDifficulty = DifficultyLevel.MASTER
                                 },
-                                modifier = Modifier.weight(0.5f).padding(horizontal = 32.dp)
+                                modifier = Modifier.Companion.weight(0.5f)
+                                    .padding(horizontal = 32.dp)
                             )
                         }
                     }
@@ -260,32 +279,45 @@ fun SettingsScreen(
 
                 // 🎨 NEW: FIXED APPEARANCE SECTION
                 item {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                    HorizontalDivider(modifier = Modifier.Companion.padding(vertical = 16.dp))
                     Text(
                         "Appearance",
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                        modifier = Modifier.Companion.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = 8.dp
+                        )
                     )
 
                     // 🎨 CUSTOM ACCENT COLOR PICKER - PROPER ARGB IMPLEMENTATION
                     Text(
                         "Custom Accent Color",
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                        modifier = Modifier.Companion.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            bottom = 8.dp
+                        )
                     )
 
                     Text(
                         "Choose a custom accent color that works across all themes",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                        modifier = Modifier.Companion.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            bottom = 12.dp
+                        )
                     )
 
                     // Color picker section with dialog
                     var showColorPicker by remember { mutableStateOf(false) }
 
                     Card(
-                        modifier = Modifier
+                        modifier = Modifier.Companion
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .clickable { showColorPicker = true },
@@ -294,24 +326,24 @@ fun SettingsScreen(
                         )
                     ) {
                         Row(
-                            modifier = Modifier
+                            modifier = Modifier.Companion
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.Companion.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.Companion.CenterVertically) {
                                 Icon(
                                     Icons.Default.Palette,
                                     contentDescription = "Color Picker",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.Companion.width(12.dp))
                                 Column {
                                     Text(
                                         "Open Color Picker",
                                         style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.Companion.Medium
                                     )
                                     Text(
                                         "Choose any ARGB color",
@@ -322,11 +354,15 @@ fun SettingsScreen(
                             }
                             if (customAccentColor != null) {
                                 Box(
-                                    modifier = Modifier
+                                    modifier = Modifier.Companion
                                         .size(32.dp)
                                         .clip(CircleShape)
                                         .background(customAccentColor!!)
-                                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.outline,
+                                            CircleShape
+                                        )
                                 )
                             }
                         }
@@ -334,33 +370,40 @@ fun SettingsScreen(
 
                     // Current color indicator and reset
                     if (customAccentColor != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.Companion.height(12.dp))
                         Row(
-                            modifier = Modifier
+                            modifier = Modifier.Companion
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.Companion.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.Companion.CenterVertically) {
                                 Text(
                                     "Current accent: ",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Box(
-                                    modifier = Modifier
+                                    modifier = Modifier.Companion
                                         .size(24.dp)
                                         .clip(CircleShape)
                                         .background(customAccentColor!!)
-                                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.outline,
+                                            CircleShape
+                                        )
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.Companion.width(8.dp))
                                 Text(
-                                    "#${customAccentColor!!.toArgb().toUInt().toString(16).uppercase().padStart(8, '0')}",
+                                    "#${
+                                        customAccentColor!!.toArgb().toUInt().toString(16)
+                                            .uppercase().padStart(8, '0')
+                                    }",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                    fontFamily = FontFamily.Monospace
                                 )
                             }
                             TextButton(
@@ -374,7 +417,7 @@ fun SettingsScreen(
                     // Color Picker Dialog
                     if (showColorPicker) {
                         ARGBColorPickerDialog(
-                            currentColor = customAccentColor ?: Color.Blue,
+                            currentColor = customAccentColor ?: Color.Companion.Blue,
                             onColorSelected = { color ->
                                 themeViewModel.setCustomAccentColor(color)
                                 showColorPicker = false
@@ -384,27 +427,31 @@ fun SettingsScreen(
                     }
 
                     // Dark Mode Section
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.Companion.height(24.dp))
                     Text(
                         "Dark Mode",
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                        modifier = Modifier.Companion.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            bottom = 8.dp
+                        )
                     )
 
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.Companion.fillMaxWidth()) {
                         darkModeOptions.forEach { option ->
                             Row(
-                                modifier = Modifier
+                                modifier = Modifier.Companion
                                     .fillMaxWidth()
                                     .clickable { themeViewModel.setDarkModePreference(option) }
                                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.Companion.CenterVertically
                             ) {
                                 RadioButton(
                                     selected = currentDarkModePreference == option,
                                     onClick = { themeViewModel.setDarkModePreference(option) }
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.Companion.width(8.dp))
                                 Text(
                                     text = option,
                                     style = MaterialTheme.typography.bodyLarge
@@ -416,11 +463,16 @@ fun SettingsScreen(
 
                 // About Section
                 item {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                    HorizontalDivider(modifier = Modifier.Companion.padding(vertical = 16.dp))
                     Text(
                         "About",
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                        modifier = Modifier.Companion.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = 8.dp
+                        )
                     )
                     Button(
                         onClick = {
@@ -429,14 +481,14 @@ fun SettingsScreen(
                                 navController.navigate("home")
                             }
                         },
-                        modifier = Modifier
+                        modifier = Modifier.Companion
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = null,
-                            modifier = Modifier.padding(end = 8.dp)
+                            modifier = Modifier.Companion.padding(end = 8.dp)
                         )
                         Text("View Tutorial")
                     }
@@ -445,24 +497,29 @@ fun SettingsScreen(
                 // Developer Options
                 item {
                     if (true) { // Simplified check instead of BuildConfig.DEBUG
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                        HorizontalDivider(modifier = Modifier.Companion.padding(vertical = 16.dp))
                         Text(
                             "Developer Options",
                             style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                            modifier = Modifier.Companion.padding(
+                                start = 16.dp,
+                                end = 16.dp,
+                                top = 8.dp,
+                                bottom = 8.dp
+                            )
                         )
                         Card(
-                            modifier = Modifier
+                            modifier = Modifier.Companion
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Row(
-                                modifier = Modifier
+                                modifier = Modifier.Companion
                                     .fillMaxWidth()
                                     .clickable { onShowDebugPanelChange(!showDebugPanel) }
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.Companion.CenterVertically
                             ) {
                                 Text("Advanced Settings Panel")
                                 Switch(
@@ -476,21 +533,21 @@ fun SettingsScreen(
             }
 
             // Scroll glow effects
-            val topGradient = Brush.verticalGradient(
+            val topGradient = Brush.Companion.verticalGradient(
                 0.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                1.0f to Color.Transparent
+                1.0f to Color.Companion.Transparent
             )
-            val bottomGradient = Brush.verticalGradient(
-                0.0f to Color.Transparent,
+            val bottomGradient = Brush.Companion.verticalGradient(
+                0.0f to Color.Companion.Transparent,
                 1.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
             )
 
             if (showTopFade) {
                 Box(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .fillMaxWidth()
                         .height(24.dp)
-                        .align(Alignment.TopCenter)
+                        .align(Alignment.Companion.TopCenter)
                         .clip(MaterialTheme.shapes.medium)
                         .background(topGradient)
                 )
@@ -498,10 +555,10 @@ fun SettingsScreen(
 
             if (showBottomFade) {
                 Box(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .fillMaxWidth()
                         .height(24.dp)
-                        .align(Alignment.BottomCenter)
+                        .align(Alignment.Companion.BottomCenter)
                         .clip(MaterialTheme.shapes.medium)
                         .background(bottomGradient)
                 )
@@ -540,7 +597,8 @@ private fun ARGBColorPickerDialog(
     }
 
     // Current preview color
-    val previewColor = Color(red = red, green = green, blue = blue, alpha = alpha)
+    val previewColor =
+        androidx.compose.ui.graphics.Color(red = red, green = green, blue = blue, alpha = alpha)
 
     // Update hex when sliders change
     val hexFromSliders = previewColor.toArgb().toUInt().toString(16).uppercase().padStart(8, '0')
@@ -555,19 +613,23 @@ private fun ARGBColorPickerDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.Companion.fillMaxWidth()
             ) {
                 // Color preview
                 Box(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .fillMaxWidth()
                         .height(80.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(previewColor)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.outline,
+                            androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        )
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.Companion.height(16.dp))
 
                 // Hex input
                 OutlinedTextField(
@@ -590,12 +652,12 @@ private fun ARGBColorPickerDialog(
                     },
                     label = { Text("ARGB Hex (8 digits)") },
                     placeholder = { Text("FFFFFFFF") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Companion.Text),
+                    modifier = Modifier.Companion.fillMaxWidth(),
                     leadingIcon = { Text("#") }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.Companion.height(16.dp))
 
                 // Alpha slider
                 ColorSlider(
@@ -605,10 +667,10 @@ private fun ARGBColorPickerDialog(
                         alpha = it
                         hexInput = hexFromSliders
                     },
-                    color = Color.Gray
+                    color = Color.Companion.Gray
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.Companion.height(8.dp))
 
                 // Red slider
                 ColorSlider(
@@ -618,10 +680,10 @@ private fun ARGBColorPickerDialog(
                         red = it
                         hexInput = hexFromSliders
                     },
-                    color = Color.Red
+                    color = Color.Companion.Red
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.Companion.height(8.dp))
 
                 // Green slider
                 ColorSlider(
@@ -631,10 +693,10 @@ private fun ARGBColorPickerDialog(
                         green = it
                         hexInput = hexFromSliders
                     },
-                    color = Color.Green
+                    color = Color.Companion.Green
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.Companion.height(8.dp))
 
                 // Blue slider
                 ColorSlider(
@@ -644,7 +706,7 @@ private fun ARGBColorPickerDialog(
                         blue = it
                         hexInput = hexFromSliders
                     },
-                    color = Color.Blue
+                    color = Color.Companion.Blue
                 )
             }
         },
@@ -675,9 +737,9 @@ private fun ColorSlider(
 ) {
     Column {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.Companion.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Companion.CenterVertically
         ) {
             Text(
                 text = label,
@@ -688,7 +750,7 @@ private fun ColorSlider(
                 text = "${(value * 255).toInt()}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                fontFamily = FontFamily.Monospace
             )
         }
 
@@ -696,7 +758,7 @@ private fun ColorSlider(
             value = value,
             onValueChange = onValueChange,
             valueRange = 0f..1f,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.Companion.fillMaxWidth()
         )
     }
 }
@@ -709,7 +771,7 @@ private fun SimpleDifficultyButton(
     difficulty: DifficultyLevel,
     isSelected: Boolean,
     onSelect: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier.Companion
 ) {
     val glowColor = when (difficulty) {
         DifficultyLevel.EASY -> Color(0xFF4CAF50)      // Green
@@ -729,31 +791,40 @@ private fun SimpleDifficultyButton(
         modifier = modifier
             .then(
                 if (isSelected) {
-                    Modifier
-                        .border(2.dp, glowColor, RoundedCornerShape(12.dp))
-                        .shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = glowColor, spotColor = glowColor)
+                    Modifier.Companion
+                        .border(
+                            2.dp,
+                            glowColor,
+                            androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        )
+                        .shadow(
+                            8.dp,
+                            androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                            ambientColor = glowColor,
+                            spotColor = glowColor
+                        )
                 } else {
-                    Modifier
+                    Modifier.Companion
                 }
             )
             .clickable { onSelect() },
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        shape = RoundedCornerShape(12.dp)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
+            horizontalAlignment = Alignment.Companion.CenterHorizontally,
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
             Text(
                 text = difficulty.emoji,
                 fontSize = 24.sp,
-                modifier = Modifier.padding(bottom = 4.dp)
+                modifier = Modifier.Companion.padding(bottom = 4.dp)
             )
             Text(
                 text = difficulty.displayName,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Companion.Bold,
                 fontSize = 14.sp,
                 color = if (isSelected) glowColor else MaterialTheme.colorScheme.onSurface
             )

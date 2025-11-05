@@ -1,4 +1,4 @@
-package com.example.reversey
+package com.example.reversey.data.models
 
 import androidx.compose.runtime.Immutable
 

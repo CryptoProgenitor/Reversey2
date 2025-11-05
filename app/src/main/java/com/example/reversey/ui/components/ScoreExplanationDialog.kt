@@ -49,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.reversey.ChallengeType
+import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.scoring.ScoringResult
 import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.MaterialColors

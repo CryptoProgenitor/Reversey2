@@ -1,4 +1,4 @@
-package com.example.reversey
+package com.example.reversey.data.repositories
 
 import android.content.Context
 import androidx.datastore.core.DataStore

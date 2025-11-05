@@ -1,16 +1,18 @@
-package com.example.reversey
+package com.example.reversey.ui.viewmodels
 
 import android.app.Application
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.reversey.data.repositories.SettingsDataStore
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
@@ -22,7 +24,7 @@ class ThemeViewModel @Inject constructor(
     // 🎨 UNIFIED THEME SYSTEM: Current aesthetic theme ID (no more AppTheme)
     val currentThemeId: StateFlow<String> = settingsDataStore.getAestheticTheme.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Companion.WhileSubscribed(5000),
         initialValue = "y2k_cyber"
     )
 
@@ -46,7 +48,7 @@ class ThemeViewModel @Inject constructor(
     // 🌙 Dark mode preference (separate from theme system)
     val darkModePreference: StateFlow<String> = settingsDataStore.getDarkModePreference.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Companion.WhileSubscribed(5000),
         initialValue = "System"
     )
 
@@ -59,7 +61,7 @@ class ThemeViewModel @Inject constructor(
     // 🎮 Game mode setting (separate from theme system)
     val gameModeEnabled: StateFlow<Boolean> = settingsDataStore.getGameModeEnabled.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Companion.WhileSubscribed(5000),
         initialValue = true
     )
 
@@ -72,7 +74,7 @@ class ThemeViewModel @Inject constructor(
     // 📱 Backup recordings setting (separate from theme system)
     val backupRecordingsEnabled: StateFlow<Boolean> = settingsDataStore.backupRecordingsEnabled.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Companion.WhileSubscribed(5000),
         initialValue = false
     )
 
@@ -83,17 +85,17 @@ class ThemeViewModel @Inject constructor(
     }
 
     // 🎨 Custom accent color for Material 3 theming
-    val customAccentColor: StateFlow<androidx.compose.ui.graphics.Color?> = settingsDataStore.getCustomAccentColor
+    val customAccentColor: StateFlow<Color?> = settingsDataStore.getCustomAccentColor
         .map { colorInt ->
-            if (colorInt != null) androidx.compose.ui.graphics.Color(colorInt) else null
+            if (colorInt != null) Color(colorInt) else null
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Companion.WhileSubscribed(5000),
             initialValue = null
         )
 
-    fun setCustomAccentColor(color: androidx.compose.ui.graphics.Color?) {
+    fun setCustomAccentColor(color: Color?) {
         viewModelScope.launch(Dispatchers.IO) {
             if (color != null) {
                 settingsDataStore.saveCustomAccentColor(color.toArgb())

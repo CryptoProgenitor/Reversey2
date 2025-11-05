@@ -1,6 +1,7 @@
-package com.example.reversey
+package com.example.reversey.data.models
 
 import androidx.compose.runtime.Immutable
+import com.example.reversey.data.models.PlayerAttempt
 
 /**
  * Represents a single recording session.

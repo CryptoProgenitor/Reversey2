@@ -19,7 +19,8 @@ composeMaterial = "1.9.3"
 volley = "1.2.1"
 uiGeometry = "1.9.4"
 uiUnit = "1.9.4"
-uiText = "1.9.4" # And this one too
+uiText = "1.9.4"
+foundation = "1.9.4" # And this one too
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +65,7 @@ volley = { group = "com.android.volley", name = "volley", version.ref = "volley"
 androidx-compose-ui-geometry = { group = "androidx.compose.ui", name = "ui-geometry", version.ref = "uiGeometry" }
 androidx-compose-ui-unit = { group = "androidx.compose.ui", name = "ui-unit", version.ref = "uiUnit" }
 androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 
 

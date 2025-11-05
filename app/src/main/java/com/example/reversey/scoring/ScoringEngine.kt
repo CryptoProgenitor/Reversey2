@@ -2,7 +2,7 @@ package com.example.reversey.scoring
 
 import android.content.Context
 import android.util.Log
-import com.example.reversey.ChallengeType
+import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.audio.processing.AudioProcessor
 import kotlin.math.abs
 import kotlin.math.exp

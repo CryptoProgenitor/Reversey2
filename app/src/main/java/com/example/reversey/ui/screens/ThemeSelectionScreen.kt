@@ -1,4 +1,4 @@
-package com.example.reversey
+package com.example.reversey.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,8 +38,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.reversey.ui.theme.AestheticThemes
+import com.example.reversey.ui.viewmodels.ThemeViewModel
 import com.example.reversey.ui.theme.AestheticThemeData
+import com.example.reversey.ui.theme.AestheticThemes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +65,7 @@ fun ThemeSelectionScreen(
         }
     ) { paddingValues ->
         Box(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp)
@@ -75,7 +75,7 @@ fun ThemeSelectionScreen(
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.Companion.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(AestheticThemes.allThemes.values.toList()) { theme ->
@@ -88,31 +88,31 @@ fun ThemeSelectionScreen(
             }
 
             // Scroll fade gradients
-            val topGradient = Brush.verticalGradient(
+            val topGradient = Brush.Companion.verticalGradient(
                 0.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                1.0f to Color.Transparent
+                1.0f to Color.Companion.Transparent
             )
-            val bottomGradient = Brush.verticalGradient(
-                0.0f to Color.Transparent,
+            val bottomGradient = Brush.Companion.verticalGradient(
+                0.0f to Color.Companion.Transparent,
                 1.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
             )
 
             if (showTopFade) {
                 Box(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .fillMaxWidth()
                         .height(24.dp)
-                        .align(Alignment.TopCenter)
+                        .align(Alignment.Companion.TopCenter)
                         .clip(MaterialTheme.shapes.medium)
                         .background(topGradient)
                 )
             }
             if (showBottomFade) {
                 Box(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .fillMaxWidth()
                         .height(24.dp)
-                        .align(Alignment.BottomCenter)
+                        .align(Alignment.Companion.BottomCenter)
                         .clip(MaterialTheme.shapes.medium)
                         .background(bottomGradient)
                 )
@@ -128,29 +128,33 @@ fun ThemeCard(
     onClick: () -> Unit
 ) {
     Box(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxWidth()
             .height(150.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(theme.primaryGradient)
             .then(
                 if (isSelected) {
-                    Modifier.border(4.dp, Color.White, RoundedCornerShape(20.dp))
+                    Modifier.Companion.border(
+                        4.dp,
+                        Color.Companion.White,
+                        androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                    )
                 } else {
-                    Modifier
+                    Modifier.Companion
                 }
             )
             .clickable(onClick = onClick)
             .padding(20.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.Companion.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.Companion.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Companion.CenterVertically
             ) {
                 Text(
                     text = theme.name,
@@ -158,7 +162,11 @@ fun ThemeCard(
                     color = theme.primaryTextColor // 🎨 GLUTE FIX: Use theme's contrast-aware color
                 )
                 if (isSelected) {
-                    Text("✓", style = MaterialTheme.typography.headlineMedium, color = theme.primaryTextColor)
+                    Text(
+                        "✓",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = theme.primaryTextColor
+                    )
                 }
             }
 
@@ -173,31 +181,31 @@ fun ThemeCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .size(40.dp)
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
                         .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Companion.Center
                 ) {
-                    Text("REC", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        "REC",
+                        color = Color.Companion.White,
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
 
                 Box(
-                    modifier = Modifier
+                    modifier = Modifier.Companion
                         .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, theme.cardBorder, RoundedCornerShape(10.dp))
+                        .border(
+                            1.dp,
+                            theme.cardBorder,
+                            androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        )
                 )
             }
         }
     }
 }
-
-// 🗑️ ELIMINATED COMPLEXITY:
-// ❌ No more multiple theme state management
-// ❌ No more competing systems
-// ❌ No more aestheticTheme vs theme confusion
-// ✅ Single currentTheme source of truth
-// ✅ Single setTheme() method
-// ✅ Clean, predictable behavior

@@ -1,11 +1,16 @@
-package com.example.reversey
+package com.example.reversey.data.repositories
 
-
+import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.core.app.ActivityCompat
+import com.example.reversey.AudioConstants
+import com.example.reversey.data.models.Recording
+import com.example.reversey.formatFileName
+import com.example.reversey.getRecordingsDir
+import com.example.reversey.writeWavHeader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -14,13 +19,16 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import kotlin.experimental.and
+import kotlin.math.abs
 
 class RecordingRepository(private val context: Context) {
 
 
     suspend fun loadRecordings(): List<Recording> = withContext(Dispatchers.IO) {
         val dir = getRecordingsDir(context)
-        val originalFiles = dir.listFiles { _, name -> name.endsWith(".wav") && !name.contains("_reversed") } ?: emptyArray()
+        val originalFiles =
+            dir.listFiles { _, name -> name.endsWith(".wav") && !name.contains("_reversed") }
+                ?: emptyArray()
 
         originalFiles
             .sortedByDescending { it.lastModified() }
@@ -41,7 +49,8 @@ class RecordingRepository(private val context: Context) {
     }
 
     suspend fun deleteRecording(originalPath: String, reversedPath: String?) = withContext(
-        Dispatchers.IO) {
+        Dispatchers.IO
+    ) {
         try {
             File(originalPath).let { if (it.exists()) it.delete() }
             reversedPath?.let { File(it).let { f -> if (f.exists()) f.delete() } }
@@ -63,30 +72,31 @@ class RecordingRepository(private val context: Context) {
         }
     }
 
-    suspend fun renameRecording(oldPath: String, newName: String): Boolean = withContext(Dispatchers.IO) {
-        if (newName.isBlank() || !newName.endsWith(".wav")) return@withContext false
+    suspend fun renameRecording(oldPath: String, newName: String): Boolean =
+        withContext(Dispatchers.IO) {
+            if (newName.isBlank() || !newName.endsWith(".wav")) return@withContext false
 
-        try {
-            val oldFile = File(oldPath)
-            if (!oldFile.exists()) return@withContext false
-            val newFile = File(oldFile.parent, newName)
-            if (newFile.exists()) return@withContext false
+            try {
+                val oldFile = File(oldPath)
+                if (!oldFile.exists()) return@withContext false
+                val newFile = File(oldFile.parent, newName)
+                if (newFile.exists()) return@withContext false
 
-            val renameSuccess = oldFile.renameTo(newFile)
-            if (renameSuccess) {
-                val oldReversedPath = oldPath.replace(".wav", "_reversed.wav")
-                val oldReversedFile = File(oldReversedPath)
-                if (oldReversedFile.exists()) {
-                    val newReversedName = newName.replace(".wav", "_reversed.wav")
-                    val newReversedFile = File(oldReversedFile.parent, newReversedName)
-                    oldReversedFile.renameTo(newReversedFile)
+                val renameSuccess = oldFile.renameTo(newFile)
+                if (renameSuccess) {
+                    val oldReversedPath = oldPath.replace(".wav", "_reversed.wav")
+                    val oldReversedFile = File(oldReversedPath)
+                    if (oldReversedFile.exists()) {
+                        val newReversedName = newName.replace(".wav", "_reversed.wav")
+                        val newReversedFile = File(oldReversedFile.parent, newReversedName)
+                        oldReversedFile.renameTo(newReversedFile)
+                    }
                 }
+                return@withContext renameSuccess
+            } catch (_: Exception) {
+                return@withContext false
             }
-            return@withContext renameSuccess
-        } catch (_: Exception) {
-            return@withContext false
         }
-    }
 
     suspend fun startRecording(file: File, onAmplitudeUpdate: (Float) -> Unit) {
         val bufferSize = AudioRecord.getMinBufferSize(
@@ -95,7 +105,7 @@ class RecordingRepository(private val context: Context) {
             AudioConstants.AUDIO_FORMAT
         )
 
-        if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             return
         }
 
@@ -121,7 +131,7 @@ class RecordingRepository(private val context: Context) {
                         }
                         fos.write(byteBuffer)
 
-                        val maxAmplitude = buffer.maxOfOrNull { kotlin.math.abs(it.toFloat()) } ?: 0f
+                        val maxAmplitude = buffer.maxOfOrNull { abs(it.toFloat()) } ?: 0f
                         val normalizedAmplitude = maxAmplitude / Short.MAX_VALUE
                         onAmplitudeUpdate(normalizedAmplitude)
                     }
@@ -152,7 +162,8 @@ class RecordingRepository(private val context: Context) {
                 i += 2
             }
 
-            val reversedFile = File(originalFile.parent, originalFile.name.replace(".wav", "_reversed.wav"))
+            val reversedFile =
+                File(originalFile.parent, originalFile.name.replace(".wav", "_reversed.wav"))
             FileOutputStream(reversedFile).use { fos ->
                 writeWavHeader(fos, reversedPcmData, 1, AudioConstants.SAMPLE_RATE, 16)
             }
@@ -186,5 +197,3 @@ class RecordingRepository(private val context: Context) {
         return dir.listFiles { _, name -> name.endsWith(".wav") && !name.contains("_reversed") }?.maxByOrNull { it.lastModified() }
     }
 }
-
-
