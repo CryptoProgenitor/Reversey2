@@ -1,5 +1,7 @@
 package com.example.reversey
 
+
+
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -259,8 +261,18 @@ fun AudioReverserApp(
     if (showClearAllDialog) {
         AlertDialog(
             onDismissRequest = { onClearAllDialogDismiss() },
-            title = { Text("Clear All Recordings?") },
-            text = { Text("This will permanently delete all of your recordings. This action cannot be undone.") },
+            title = {
+                Text(
+                    "Clear All Recordings?",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
+            text = {
+                Text(
+                    "This will permanently delete all of your recordings. This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {
@@ -268,10 +280,20 @@ fun AudioReverserApp(
                         onClearAllDialogDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete All") }
+                ) {
+                    Text(
+                        "Delete All",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             },
             dismissButton = {
-                Button(onClick = { onClearAllDialogDismiss() }) { Text("Cancel") }
+                Button(onClick = { onClearAllDialogDismiss() }) {
+                    Text(
+                        "Cancel",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         )
     }
@@ -286,22 +308,24 @@ fun AudioReverserApp(
             topBar = {
                 TopAppBar(
                     title = {
+                        val aesthetic = AestheticTheme()
                         Text(
                             "ReVerseY",
-                            color = MaterialTheme.colorScheme.onBackground,
+                            color = aesthetic.primaryTextColor,
                             style = MaterialTheme.typography.headlineSmall.copy(
-                                letterSpacing = if (AestheticTheme().useWideLetterSpacing) 2.sp else 0.sp,
+                                letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         )
                     },
 
                     navigationIcon = {
-                        IconButton(onClick = openMenu) {  // ✅ NEW: Simple IconButton
+                        val aesthetic = AestheticTheme()
+                        IconButton(onClick = openMenu) {
                             Icon(
                                 Icons.Default.Menu,
                                 contentDescription = "Menu",
-                                tint = MaterialTheme.colorScheme.onBackground
+                                tint = aesthetic.primaryTextColor
                             )
                         }
                     },
@@ -354,12 +378,13 @@ fun AudioReverserApp(
                         enter = fadeIn(animationSpec = tween(600, 100, LinearOutSlowInEasing)),
                         exit = fadeOut(animationSpec = tween(600, easing = LinearOutSlowInEasing))
                     ) {
+                        val aesthetic = AestheticTheme()
                         Text(
                             text = uiState.statusText,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                letterSpacing = if (AestheticTheme().useWideLetterSpacing) 1.sp else 0.sp
+                                letterSpacing = if (aesthetic.useWideLetterSpacing) 1.sp else 0.sp
                             ),
-                            color = MaterialTheme.colorScheme.onBackground
+                            color = aesthetic.primaryTextColor
                         )
                     }
                 }
@@ -515,16 +540,27 @@ fun AudioReverserApp(
         }
 
         // Dialogs and overlays
+        // Dialogs and overlays
         uiState.attemptToRename?.let { (parentPath, attempt) ->
             var newPlayerName by remember { mutableStateOf(attempt.playerName) }
             AlertDialog(
                 onDismissRequest = { viewModel.clearAttemptToRename() },
-                title = { Text("Name This Player") },
+                title = {
+                    Text(
+                        "Name This Player",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                },
                 text = {
                     OutlinedTextField(
                         value = newPlayerName,
                         onValueChange = { newPlayerName = it },
-                        label = { Text("Player Name") }
+                        label = {
+                            Text(
+                                "Player Name",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     )
                 },
                 confirmButton = {
@@ -533,11 +569,19 @@ fun AudioReverserApp(
                             viewModel.renamePlayer(parentPath, attempt, newPlayerName)
                         }
                         viewModel.clearAttemptToRename()
-                    }) { Text("Save") }
+                    }) {
+                        Text(
+                            "Save",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
                 },
                 dismissButton = {
                     Button(onClick = { viewModel.clearAttemptToRename() }) {
-                        Text("Keep Default")
+                        Text(
+                            "Keep Default",
+                            style = MaterialTheme.typography.labelLarge
+                        )
                     }
                 }
             )
