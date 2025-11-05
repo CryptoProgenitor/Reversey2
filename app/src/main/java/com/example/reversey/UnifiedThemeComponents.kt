@@ -27,11 +27,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.reversey.ui.theme.aestheticTheme
-import com.example.reversey.ui.theme.materialColors
+import com.example.reversey.ui.theme.AestheticTheme
+import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.components.ScoreExplanationDialog
 import com.example.reversey.ui.icons.EggIcons
-import com.example.reversey.ui.theme.EggButtonStyle
 import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.ui.components.egg.EggStylePlayerCard
 import com.example.reversey.ui.components.unified.UnifiedRecordButton
@@ -60,8 +59,8 @@ fun UnifiedAttemptItem(
     onShareAttempt: ((String) -> Unit)? = null,
     onJumpToParent: (() -> Unit)? = null,
 ) {
-    val aesthetic = aestheticTheme()
-    val colors = materialColors()
+    val aesthetic = AestheticTheme()
+    val colors = MaterialColors()
 
     // Shared state management
     var showScoreDialog by remember { mutableStateOf(false) }
@@ -317,7 +316,7 @@ private fun ScrapbookStyleAttemptItem(
     onShowShareDialog: (Boolean) -> Unit,
     isPaused: Boolean
 ) {
-    val colors = materialColors()
+    val colors = MaterialColors()
 
     // Stable ID for consistent colors and rotation
     val stableId = attempt.attemptFilePath.hashCode()
@@ -594,8 +593,8 @@ private fun ModernStyleAttemptItem(
     onShowShareDialog: (Boolean) -> Unit,
     isPaused: Boolean
 ) {
-    val aesthetic = aestheticTheme()
-    val colors = materialColors()
+    val aesthetic = AestheticTheme()
+    val colors = MaterialColors()
 
     // Glassmorphism card with glow effect
     Card(
@@ -1053,8 +1052,8 @@ fun EnhancedGlowButton(
     label: String? = null,
     content: @Composable () -> Unit
 ) {
-    val aesthetic = aestheticTheme()
-    val colors = materialColors()
+    val aesthetic = AestheticTheme()
+    val colors = MaterialColors()
 
     val backgroundColor = when {
         isDestructive -> colors.error
@@ -1181,8 +1180,8 @@ private fun RadialScoreDisplay(
     isAnimated: Boolean = false,
     onClick: () -> Unit
 ) {
-    val colors = materialColors()
-    val aesthetic = aestheticTheme()
+    val colors = MaterialColors()
+    val aesthetic = AestheticTheme()
 
     // Score-based emoji - use egg emojis when egg theme is active
     val emoji = if (aesthetic.useEggElements) {
@@ -1434,7 +1433,7 @@ private fun ModernDialogs(
                         onDeleteAttempt(attempt)
                         onDismissDelete()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = materialColors().error)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialColors().error)
                 ) { Text("Delete") }
             },
             dismissButton = {

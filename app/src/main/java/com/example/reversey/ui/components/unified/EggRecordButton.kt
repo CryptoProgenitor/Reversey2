@@ -2,8 +2,6 @@
 package com.example.reversey.ui.components.unified
 
 import android.graphics.Paint
-import android.graphics.Typeface
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -22,9 +20,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.reversey.ui.theme.aestheticTheme
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.*
+import com.example.reversey.ui.theme.AestheticTheme
 
 /**
  * GLUTE-compliant recording button that displays as a beautiful fried egg
@@ -36,7 +32,7 @@ fun UnifiedRecordButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val aesthetic = aestheticTheme()
+    val aesthetic = AestheticTheme()
 
     // Route to appropriate button style based on GLUTE theme
     when {
@@ -73,7 +69,7 @@ fun EggRecordButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val aesthetic = aestheticTheme()
+    val aesthetic = AestheticTheme()
 
     // Animation for recording state
     val scale by animateFloatAsState(
@@ -245,7 +241,7 @@ fun ScrapbookRecordButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val aesthetic = aestheticTheme()
+    val aesthetic = AestheticTheme()
 
     FloatingActionButton(
         onClick = onClick,

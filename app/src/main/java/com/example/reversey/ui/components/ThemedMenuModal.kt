@@ -27,13 +27,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardOptions
-import com.example.reversey.ui.theme.aestheticTheme
-import com.example.reversey.ui.theme.materialColors
+import com.example.reversey.ui.theme.AestheticTheme
+import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.ThemeViewModel
 import com.example.reversey.scoring.ScoringEngine
@@ -42,8 +39,6 @@ import com.example.reversey.scoring.ScoringPresets
 import com.example.reversey.AudioViewModel
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
-import android.util.Log
-import androidx.compose.ui.draw.clip
 
 /**
  * 🎨 MULTI-SCREEN THEMED MENU MODAL
@@ -82,8 +77,8 @@ fun ThemedMenuModal(
         }
     }
 
-    val aesthetic = aestheticTheme()
-    val colors = materialColors()
+    val aesthetic = AestheticTheme()
+    val colors = MaterialColors()
 
     AnimatedVisibility(
         visible = visible,

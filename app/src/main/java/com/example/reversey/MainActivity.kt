@@ -6,7 +6,6 @@ import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -36,8 +35,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
@@ -46,7 +43,6 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -54,22 +50,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -102,7 +92,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -128,10 +117,8 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-import com.example.reversey.ui.theme.aestheticTheme
-import com.example.reversey.ui.theme.materialColors
-
-import com.example.reversey.UnifiedRecordingButton
+import com.example.reversey.ui.theme.AestheticTheme
+import com.example.reversey.ui.theme.MaterialColors
 
 
 import com.example.reversey.ui.components.ThemedMenuModal
@@ -424,7 +411,7 @@ fun AudioReverserApp(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(aestheticTheme().primaryGradient)
+            .background(AestheticTheme().primaryGradient)
     ) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -435,7 +422,7 @@ fun AudioReverserApp(
                             "ReVerseY",
                             color = MaterialTheme.colorScheme.onBackground,
                             style = MaterialTheme.typography.headlineSmall.copy(
-                                letterSpacing = if (aestheticTheme().useWideLetterSpacing) 2.sp else 0.sp,
+                                letterSpacing = if (AestheticTheme().useWideLetterSpacing) 2.sp else 0.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         )
@@ -508,7 +495,7 @@ fun AudioReverserApp(
                         Text(
                             text = uiState.statusText,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                letterSpacing = if (aestheticTheme().useWideLetterSpacing) 1.sp else 0.sp
+                                letterSpacing = if (AestheticTheme().useWideLetterSpacing) 1.sp else 0.sp
                             ),
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -532,7 +519,7 @@ fun AudioReverserApp(
                             item(key = "parent_${recording.originalPath}") {
                                 UnifiedRecordingItem(
                                     recording = recording,
-                                    aesthetic = aestheticTheme(),
+                                    aesthetic = AestheticTheme(),
                                     isPlaying = uiState.currentlyPlayingPath != null &&
                                             (uiState.currentlyPlayingPath == recording.originalPath ||
                                                     uiState.currentlyPlayingPath == recording.reversedPath),
@@ -738,8 +725,8 @@ fun EnhancedRecordButton(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit
 ) {
-    val aesthetic = aestheticTheme()
-    val colors = materialColors()
+    val aesthetic = AestheticTheme()
+    val colors = MaterialColors()
 
     if (!hasPermission) {
         // Keep existing permission button code exactly as-is
@@ -774,8 +761,8 @@ fun EnhancedWaveformVisualizer(
     barWidth: Dp = 8.dp,
     barGap: Dp = 4.dp
 ) {
-    val aesthetic = aestheticTheme()
-    val materialColors = materialColors()
+    val aesthetic = AestheticTheme()
+    val materialColors = MaterialColors()
     Canvas(modifier = modifier) {
         val canvasHeight = size.height
         val maxAmplitude = 1.0f
@@ -833,8 +820,8 @@ fun EnhancedRecordingItem(
     onStartAttempt: (Recording, ChallengeType) -> Unit
 ) {
     // Use Material 3 theming system consistently
-    val aesthetic = aestheticTheme()
-    val colors = materialColors()
+    val aesthetic = AestheticTheme()
+    val colors = MaterialColors()
 
     // 🐛 TEMPORARY DEBUG - ADD THESE LINES
     println("🎨 Theme ID: ${aesthetic.id}")

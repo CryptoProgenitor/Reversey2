@@ -154,12 +154,12 @@ private fun Color.desaturate(amount: Float): Color {
  * Utility composables for accessing theme data
  */
 @Composable
-fun aestheticTheme(): AestheticThemeData {
+fun AestheticTheme(): AestheticThemeData {
     return LocalAestheticTheme.current
 }
 
 @Composable
-fun materialColors(): ColorScheme {
+fun MaterialColors(): ColorScheme {
     return MaterialTheme.colorScheme
 }
 

@@ -51,8 +51,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.reversey.ChallengeType
 import com.example.reversey.scoring.ScoringResult
-import com.example.reversey.ui.theme.aestheticTheme
-import com.example.reversey.ui.theme.materialColors
+import com.example.reversey.ui.theme.AestheticTheme
+import com.example.reversey.ui.theme.MaterialColors
 
 /**
  * 🎨 UNIFIED Score Explanation Dialog
@@ -67,8 +67,8 @@ fun ScoreExplanationDialog(
     onDismiss: () -> Unit
 ) {
     // ✅ Access theme data through unified system
-    val aesthetic = aestheticTheme()
-    val colors = materialColors()
+    val aesthetic = AestheticTheme()
+    val colors = MaterialColors()
 
     // Theme-aware animations
     val infiniteTransition = rememberInfiniteTransition(label = "glow")
