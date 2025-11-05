@@ -92,6 +92,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -508,11 +509,12 @@ fun AudioReverserApp(
                         }
                     },*/
                     navigationIcon = {
-                        IconButton(onClick = openMenu) {  // ✅ NEW: Simple IconButton
+                        val aesthetic = aestheticTheme()
+                        IconButton(onClick = openMenu) {
                             Icon(
                                 Icons.Default.Menu,
                                 contentDescription = "Menu",
-                                tint = MaterialTheme.colorScheme.onBackground
+                                tint = aesthetic.primaryTextColor
                             )
                         }
                     },
@@ -563,12 +565,13 @@ fun AudioReverserApp(
                         enter = fadeIn(animationSpec = tween(600, 100, LinearOutSlowInEasing)),
                         exit = fadeOut(animationSpec = tween(600, easing = LinearOutSlowInEasing))
                     ) {
+                        val aesthetic = aestheticTheme()
                         Text(
                             text = uiState.statusText,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                letterSpacing = if (aestheticTheme().useWideLetterSpacing) 1.sp else 0.sp
+                                letterSpacing = if (aesthetic.useWideLetterSpacing) 1.sp else 0.sp
                             ),
-                            color = MaterialTheme.colorScheme.onBackground
+                            color = aesthetic.primaryTextColor
                         )
                     }
                 }
@@ -800,7 +803,7 @@ fun EnhancedRecordButton(
     val colors = materialColors()
 
     if (!hasPermission) {
-        // Keep existing permission button code exactly as-is
+        // Permission request button with adaptive text
         Button(
             onClick = onRequestPermission,
             modifier = Modifier.size(120.dp),
@@ -808,8 +811,9 @@ fun EnhancedRecordButton(
             colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Mic, "Request Permission", tint = Color.White, modifier = Modifier.size(32.dp))
-                Text("Grant\nPermission", color = Color.White, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                val textColor = if (colors.primary.luminance() > 0.5f) Color.Black else Color.White
+                Icon(Icons.Default.Mic, "Request Permission", tint = textColor, modifier = Modifier.size(32.dp))
+                Text("Grant\nPermission", color = textColor, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }
     } else {
