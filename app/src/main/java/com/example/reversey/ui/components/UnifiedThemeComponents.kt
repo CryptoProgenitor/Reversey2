@@ -1614,8 +1614,7 @@ private fun ScrapbookRecordingDialogs(
             confirmButton = {
                 Button(onClick = {
                     if (newName.isNotBlank()) {
-                        val finalName = if (newName.endsWith(".wav")) newName else "$newName.wav"
-                        onRename(recording.originalPath, finalName)
+                        onRename(recording.originalPath, newName)
                     }
                     onDismissRename()
                 }) { Text("Rename ✏️") }

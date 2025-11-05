@@ -1,6 +1,5 @@
 package com.example.reversey
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -13,43 +12,29 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -68,8 +53,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -96,7 +79,6 @@ import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.Recording
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.ui.components.DifficultyIndicator
-import com.example.reversey.ui.components.EnhancedGlowButton
 import com.example.reversey.ui.components.ThemedMenuModal
 import com.example.reversey.ui.components.TutorialOverlay
 import com.example.reversey.ui.components.UnifiedAttemptItem
@@ -115,12 +97,13 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+
+import com.example.reversey.utils.*
+
 
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
@@ -225,9 +208,6 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     )
 }  // ← End of MainApp
 
-
-
-
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AudioReverserApp(
@@ -315,15 +295,7 @@ fun AudioReverserApp(
                             )
                         )
                     },
-                    /*navigationIcon = {
-                        EnhancedGlowButton(
-                            onClick = openDrawer,
-                            isPrimary = true,
-                            size = 48.dp
-                        ) {
-                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
-                        }
-                    },*/
+
                     navigationIcon = {
                         IconButton(onClick = openMenu) {  // ✅ NEW: Simple IconButton
                             Icon(
@@ -437,8 +409,7 @@ fun AudioReverserApp(
                                 )
                             }//keep me
 
-                            // Use the new EnhancedAttemptItem instead of AttemptItem
-                            // Use the new EnhancedAttemptItem instead of AttemptItem
+
                             items(
                                 count = recording.attempts.size,
                                 key = { index -> "attempt_${recording.originalPath}_${index}" }
@@ -618,12 +589,6 @@ fun AudioReverserApp(
     }
 }
 
-/**
- * Enhanced Record Button with theme integration and glow effects
- */
-/**
- * ALSO REPLACE: The EnhancedRecordButton function - Remove theme parameter
- */
 @Composable
 fun EnhancedRecordButton(
     isRecording: Boolean,
@@ -708,40 +673,7 @@ fun EnhancedWaveformVisualizer(
 
 
 
-// Utility functions (keeping existing ones)
-fun getRecordingsDir(context: Context): File {
-    return File(context.filesDir, "recordings").apply { mkdirs() }
-}
 
-fun formatFileName(fileName: String): String {
-    return fileName.removeSuffix(".wav")
-}
-
-@Throws(IOException::class)
-fun writeWavHeader(out: FileOutputStream, audioData: ByteArray, channels: Int, sampleRate: Int, bitDepth: Int) {
-    val audioDataLength = audioData.size
-    val totalDataLength = audioDataLength + 36
-    val byteRate = sampleRate * channels * bitDepth / 8
-    val blockAlign = channels * bitDepth / 8
-    val header = ByteArray(44)
-
-    header[0] = 'R'.code.toByte(); header[1] = 'I'.code.toByte(); header[2] = 'F'.code.toByte(); header[3] = 'F'.code.toByte()
-    header[4] = (totalDataLength and 0xff).toByte(); header[5] = (totalDataLength shr 8 and 0xff).toByte(); header[6] = (totalDataLength shr 16 and 0xff).toByte(); header[7] = (totalDataLength shr 24 and 0xff).toByte()
-    header[8] = 'W'.code.toByte(); header[9] = 'A'.code.toByte(); header[10] = 'V'.code.toByte(); header[11] = 'E'.code.toByte()
-    header[12] = 'f'.code.toByte(); header[13] = 'm'.code.toByte(); header[14] = 't'.code.toByte(); header[15] = ' '.code.toByte()
-    header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0
-    header[20] = 1; header[21] = 0
-    header[22] = channels.toByte(); header[23] = 0
-    header[24] = (sampleRate and 0xff).toByte(); header[25] = (sampleRate shr 8 and 0xff).toByte(); header[26] = (sampleRate shr 16 and 0xff).toByte(); header[27] = (sampleRate shr 24 and 0xff).toByte()
-    header[28] = (byteRate and 0xff).toByte(); header[29] = (byteRate shr 8 and 0xff).toByte(); header[30] = (byteRate shr 16 and 0xff).toByte(); header[31] = (byteRate shr 24 and 0xff).toByte()
-    header[32] = blockAlign.toByte(); header[33] = 0
-    header[34] = bitDepth.toByte(); header[35] = 0
-    header[36] = 'd'.code.toByte(); header[37] = 'a'.code.toByte(); header[38] = 't'.code.toByte(); header[39] = 'a'.code.toByte()
-    header[40] = (audioDataLength and 0xff).toByte(); header[41] = (audioDataLength shr 8 and 0xff).toByte(); header[42] = (audioDataLength shr 16 and 0xff).toByte(); header[43] = (audioDataLength shr 24 and 0xff).toByte()
-
-    out.write(header, 0, 44)
-    out.write(audioData)
-}
 
 class OctagonShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {

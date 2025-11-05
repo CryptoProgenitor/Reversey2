@@ -38,7 +38,7 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.sqrt
-
+import com.example.reversey.data.repositories.RecordingNamesRepository
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
     val isRecording: Boolean = false,
@@ -65,6 +65,7 @@ class AudioViewModel @Inject constructor(
     application: Application,
     private val repository: RecordingRepository,
     private val attemptsRepository: AttemptsRepository,
+    private val recordingNamesRepository: RecordingNamesRepository,
     val scoringEngine: ScoringEngine,
     private val settingsDataStore: SettingsDataStore  // ← ADD THIS LINE
 ) : AndroidViewModel(application) {
@@ -105,10 +106,16 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             val loadedRecordingsFromDisk = repository.loadRecordings()
             val attemptsMap = attemptsRepository.loadAttempts()
+            val customNamesMap = recordingNamesRepository.loadCustomNames()
+
             val mergedRecordings = loadedRecordingsFromDisk.map { diskRecording: Recording ->
-                attemptsMap[diskRecording.originalPath]?.let { savedAttempts ->
+                val withAttempts = attemptsMap[diskRecording.originalPath]?.let { savedAttempts ->
                     diskRecording.copy(attempts = savedAttempts)
                 } ?: diskRecording
+
+                customNamesMap[diskRecording.originalPath]?.let { customName ->
+                    withAttempts.copy(name = customName)
+                } ?: withAttempts
             }
             _uiState.update { it.copy(recordings = mergedRecordings) }
         }
@@ -125,18 +132,14 @@ class AudioViewModel @Inject constructor(
     }
 
     private fun createAudioFile(context: Application, isAttempt: Boolean = false): File {
-        //val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) //manky old format!
-        val now = Date()
-        val timeFormat = SimpleDateFormat("h-mm-ssa", Locale.US).format(now).lowercase()
-        val dateFormat = SimpleDateFormat("dMMMYY", Locale.US).format(now) // "2Nov24"
-        val humanTimeStamp = "Rec-${timeFormat}-${dateFormat}" // // Result: Rec 4-03-11pm 2Nov25.wav
+        val timeStamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
         val storageDir = if (isAttempt) {
             File(context.filesDir, "recordings/attempts")
         } else {
             File(context.filesDir, "recordings")
         }
         storageDir.mkdirs()
-        return File(storageDir, "${humanTimeStamp}.wav")
+        return File(storageDir, "${timeStamp}.wav")
     }
 
     // SURGICAL FIX #3: Improved startRecording with user feedback and permission checking
@@ -316,9 +319,8 @@ class AudioViewModel @Inject constructor(
                 // IMPROVED PARENT RECORDING LOGIC with validation
                 if (validateRecordedFile(latestFile)) {
                     val now = Date()
-                    val timeFormat = SimpleDateFormat("h-mm-ssa", Locale.US).format(now).lowercase()
-                    val dateFormat = SimpleDateFormat("dMMMYY", Locale.US).format(now)
-                    val recordingName = "Rec ${timeFormat} ${dateFormat}.wav" // Result: Rec 4-03-11pm 2Nov25.wav
+                    val isoFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(now)
+                    val recordingName = "${isoFormat}.wav"
 
 
 
@@ -640,17 +642,8 @@ class AudioViewModel @Inject constructor(
 
     fun renameRecording(oldPath: String, newName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val oldFile = File(oldPath)
-            val newPath = File(oldFile.parent, newName).absolutePath
-            val success = repository.renameRecording(oldPath, newName)
-            if (success) {
-                val attemptsMap = attemptsRepository.loadAttempts().toMutableMap()
-                attemptsMap[oldPath]?.let { attempts ->
-                    attemptsMap.remove(oldPath)
-                    attemptsMap[newPath] = attempts
-                    attemptsRepository.saveAttempts(attemptsMap)
-                }
-            }
+            recordingNamesRepository.setCustomName(oldPath, newName)
+            Log.d("AudioViewModel", "Saved custom name '$newName' for file: $oldPath")
             loadRecordings()
         }
     }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +22,7 @@ import com.example.reversey.ui.components.egg.EggStyleRecordingItem
 import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.utils.formatFileName
 
 /**
  * UNIFIED RECORDING ITEM - NEW DELETE-IN-TITLE LAYOUT! 💡
@@ -111,19 +113,19 @@ fun UnifiedRecordingItem(
                             .padding(end = 12.dp) // Space before delete button
                     ) {
                         Text(
-                            text = recording.originalPath?.substringAfterLast("/")?.removeSuffix(".wav") ?: "Recording",
+                            //text = formatFileName(recording.name),
+                            text = recording.name,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable { showRenameDialog = true } // 🔧 FIXED: Click to rename!// 🔧 Truncate long filenames
-
+                            modifier = Modifier.clickable { showRenameDialog = true }
                         )
-                        Text(
+                        /*Text(
                             text = "Audio recording",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        )*/
                     }
 
                     // Right side: Delete button (compact size)
@@ -285,7 +287,8 @@ fun UnifiedRecordingItem(
 
     // DIALOGS (unchanged)
     if (showRenameDialog) {
-        var newName by remember { mutableStateOf(recording.originalPath?.substringAfterLast("/")?.removeSuffix(".wav") ?: "Recording") }
+        //var newName by remember { mutableStateOf(recording.originalPath?.substringAfterLast("/")?.removeSuffix(".wav") ?: "Recording") }
+        var newName by remember { mutableStateOf(recording.name) }
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
             title = { Text("Rename Recording") },
@@ -299,8 +302,7 @@ fun UnifiedRecordingItem(
             confirmButton = {
                 Button(onClick = {
                     if (newName.isNotBlank()) {
-                        val finalName = if (newName.endsWith(".wav")) newName else "$newName.wav"
-                        onRename(recording.originalPath ?: "", finalName)
+                        onRename(recording.originalPath ?: "", newName)
                     }
                     showRenameDialog = false
                 }) { Text("Rename") }

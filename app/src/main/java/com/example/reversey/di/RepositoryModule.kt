@@ -2,6 +2,7 @@ package com.example.reversey.di
 
 import android.content.Context
 import com.example.reversey.data.repositories.AttemptsRepository
+import com.example.reversey.data.repositories.RecordingNamesRepository
 import com.example.reversey.data.repositories.RecordingRepository
 import com.example.reversey.data.repositories.SettingsDataStore
 import dagger.Module
@@ -35,4 +36,17 @@ object RepositoryModule {
     fun provideSettingsDataStore(@ApplicationContext context: Context): SettingsDataStore {
         return SettingsDataStore(context)
     }
+
+    @Provides
+    @Singleton
+    fun provideRecordingNamesRepository(@ApplicationContext context: Context): RecordingNamesRepository {
+        return RecordingNamesRepository(context)
+    }
 }
+
+
+
+
+
+
+

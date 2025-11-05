@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.times
 import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.utils.formatFileName
 
 /**
  * EGG-THEMED RECORDING ITEM - PROPER HAND-DRAWN STYLE MATCHING MOCKUP! 🥚🍳
@@ -88,7 +89,7 @@ fun EggStyleRecordingItem(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = recording.originalPath?.substringAfterLast("/")?.removeSuffix(".wav") ?: "Egg Recording",
+                        text = recording.name,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
@@ -251,7 +252,7 @@ fun EggStyleRecordingItem(
 
     // EGG-THEMED DIALOGS (same as before but with proper styling)
     if (showRenameDialog) {
-        var newName by remember { mutableStateOf(recording.originalPath?.substringAfterLast("/")?.removeSuffix(".wav") ?: "Egg Recording") }
+        var newName by remember { mutableStateOf(recording.name) }
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
             title = { Text("Rename Egg Recording 🥚", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) },
@@ -270,8 +271,7 @@ fun EggStyleRecordingItem(
                 Button(
                     onClick = {
                         if (newName.isNotBlank()) {
-                            val finalName = if (newName.endsWith(".wav")) newName else "$newName.wav"
-                            onRename(recording.originalPath ?: "", finalName)
+                            onRename(recording.originalPath ?: "", newName)
                         }
                         showRenameDialog = false
                     },

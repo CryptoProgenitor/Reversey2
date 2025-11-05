@@ -8,9 +8,9 @@ import android.media.MediaRecorder
 import androidx.core.app.ActivityCompat
 import com.example.reversey.AudioConstants
 import com.example.reversey.data.models.Recording
-import com.example.reversey.formatFileName
-import com.example.reversey.getRecordingsDir
-import com.example.reversey.writeWavHeader
+import com.example.reversey.utils.formatFileName
+import com.example.reversey.utils.getRecordingsDir
+import com.example.reversey.utils.writeWavHeader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -20,6 +20,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import kotlin.experimental.and
 import kotlin.math.abs
+
 
 class RecordingRepository(private val context: Context) {
 
