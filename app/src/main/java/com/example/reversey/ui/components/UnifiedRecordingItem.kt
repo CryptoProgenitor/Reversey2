@@ -18,15 +18,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.reversey.ui.components.egg.EggStyleRecordingItem
 import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.data.models.ChallengeType
-import com.example.reversey.utils.formatFileName
 
 /**
- * UNIFIED RECORDING ITEM - NEW DELETE-IN-TITLE LAYOUT! 💡
- * Egg theme unchanged, GenZUI/Scrapbook get the new design
+ * UNIFIED RECORDING ITEM - GLUTE COMPONENT COMPOSITION! ✨
+ *
+ * Uses aesthetic.components for egg/scrapbook themes.
+ * Keeps default implementation inline to avoid circular dependency.
  */
 @Composable
 fun UnifiedRecordingItem(
@@ -44,338 +44,303 @@ fun UnifiedRecordingItem(
     isGameModeEnabled: Boolean,
     onStartAttempt: (Recording, ChallengeType) -> Unit
 ) {
-    val isEggTheme = aesthetic.id == "egg"
-    val isScrapbookTheme = aesthetic.useScrapbookElements
+    // 🎨 GLUTE: Route themed implementations through components
+    when {
+        aesthetic.useEggElements -> {
+            // Egg theme uses its component
+            aesthetic.components.RecordingItem(
+                recording = recording,
+                aesthetic = aesthetic,
+                isPlaying = isPlaying,
+                isPaused = isPaused,
+                progress = progress,
+                onPlay = onPlay,
+                onPause = onPause,
+                onStop = onStop,
+                onDelete = onDelete,
+                onShare = onShare,
+                onRename = onRename,
+                isGameModeEnabled = isGameModeEnabled,
+                onStartAttempt = onStartAttempt
+            )
+        }
+        aesthetic.useScrapbookElements -> {
+            // Scrapbook theme uses its component
+            aesthetic.components.RecordingItem(
+                recording = recording,
+                aesthetic = aesthetic,
+                isPlaying = isPlaying,
+                isPaused = isPaused,
+                progress = progress,
+                onPlay = onPlay,
+                onPause = onPause,
+                onStop = onStop,
+                onDelete = onDelete,
+                onShare = onShare,
+                onRename = onRename,
+                isGameModeEnabled = isGameModeEnabled,
+                onStartAttempt = onStartAttempt
+            )
+        }
+        else -> {
+            // Default Material 3 implementation (inline to avoid recursion)
+            DefaultRecordingItemImpl(
+                recording = recording,
+                aesthetic = aesthetic,
+                isPlaying = isPlaying,
+                isPaused = isPaused,
+                progress = progress,
+                onPlay = onPlay,
+                onPause = onPause,
+                onStop = onStop,
+                onDelete = onDelete,
+                onShare = onShare,
+                onRename = onRename,
+                isGameModeEnabled = isGameModeEnabled,
+                onStartAttempt = onStartAttempt
+            )
+        }
+    }
+}
 
+/**
+ * Default Material 3 Recording Item Implementation
+ * Extracted to avoid circular dependency with DefaultThemeComponents
+ */
+@Composable
+private fun DefaultRecordingItemImpl(
+    recording: Recording,
+    aesthetic: AestheticThemeData,
+    isPlaying: Boolean,
+    isPaused: Boolean,
+    progress: Float,
+    onPlay: (String) -> Unit,
+    onPause: () -> Unit,
+    onStop: () -> Unit,
+    onDelete: (Recording) -> Unit,
+    onShare: (String) -> Unit,
+    onRename: (String, String) -> Unit,
+    isGameModeEnabled: Boolean,
+    onStartAttempt: (Recording, ChallengeType) -> Unit
+) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
 
-    if (isEggTheme) {
-        // 🥚 EGG THEME: Leave completely unchanged!
-        EggStyleRecordingItem(
-            recording = recording,
-            aesthetic = aesthetic,
-            isPlaying = isPlaying,
-            isPaused = isPaused,
-            progress = progress,
-            onPlay = onPlay,
-            onPause = onPause,
-            onStop = onStop,
-            onDelete = onDelete,
-            onShare = onShare,
-            onRename = onRename,
-            isGameModeEnabled = isGameModeEnabled,
-            onStartAttempt = onStartAttempt
-        )
-
-
-
-    } else if (isScrapbookTheme) {
-        ScrapbookRecordingItem(
-            recording = recording,
-            isPlaying = isPlaying,
-            isPaused = isPaused,
-            progress = progress,
-            onPlay = onPlay,
-            onPause = onPause,
-            onStop = onStop,
-            onDelete = onDelete,
-            onShare = onShare,
-            onRename = onRename,
-            isGameModeEnabled = isGameModeEnabled,
-            onStartAttempt = onStartAttempt
-        )
-    } else {
-        // 🎨 GENZUI & SCRAPBOOK: New delete-in-title layout!
-        Card(
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            shape = RoundedCornerShape(12.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                .padding(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+            // Title row with delete button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                // 💡 NEW: Title row with delete button on the right
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
                 ) {
-                    // Left side: Filename and subtitle (takes remaining space)
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 12.dp) // Space before delete button
-                    ) {
-                        Text(
-                            //text = formatFileName(recording.name),
-                            text = recording.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable { showRenameDialog = true }
-                        )
-                        /*Text(
-                            text = "Audio recording",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )*/
-                    }
-
-                    // Right side: Delete button (compact size)
-                    IconButton(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.size(36.dp) // Compact but touchable
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete Recording",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Text(
+                        text = recording.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable { showRenameDialog = true }
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Progress bar
-                LinearProgressIndicator(
-                    progress = if (isPlaying) progress else 0f,
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 🎊 IMPROVED: 5-button layout (no delete!) with perfect spacing
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly, // Perfect distribution!
-                    verticalAlignment = Alignment.Top
+                IconButton(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    // 1. SHARE BUTTON
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Recording",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Progress bar
+            LinearProgressIndicator(
+                progress = if (isPlaying) progress else 0f,
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.Top
+            ) {
+                // Share
+                SimpleGlowButton(
+                    onClick = { showShareDialog = true },
+                    isPrimary = true,
+                    size = 50.dp,
+                    label = "Share"
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share Recording",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                // Play/Pause
+                if (isPlaying) {
                     SimpleGlowButton(
-                        onClick = { showShareDialog = true },
+                        onClick = { onPause() },
                         isPrimary = true,
-                        size = 50.dp, // Larger buttons now that we have space!
-                        label = "Share"
+                        size = 50.dp,
+                        label = if (isPaused) "Resume" else "Pause"
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share Recording",
+                            imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                            contentDescription = "Pause/Resume",
                             tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
                     }
-
-                    // 2. PLAY/PAUSE BUTTON (dynamic)
-                    if (isPlaying) {
-                        SimpleGlowButton(
-                            onClick = { onPause() },
-                            isPrimary = true,
-                            size = 50.dp,
-                            label = if (isPaused) "Resume" else "Pause"
-                        ) {
-                            val pauseIcon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause
-                            Icon(
-                                imageVector = pauseIcon,
-                                contentDescription = "Pause/Resume",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    } else {
-                        SimpleGlowButton(
-                            onClick = { onPlay(recording.originalPath ?: "") },
-                            isPrimary = true,
-                            size = 50.dp,
-                            label = "Play"
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Play Original",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                } else {
+                    SimpleGlowButton(
+                        onClick = { onPlay(recording.originalPath ?: "") },
+                        isPrimary = true,
+                        size = 50.dp,
+                        label = "Play"
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play Original",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
+                }
 
-                    // 3. REWIND/STOP BUTTON (dynamic)
-                    if (isPlaying) {
-                        SimpleGlowButton(
-                            onClick = { onStop() },
-                            isDestructive = true,
-                            size = 50.dp,
-                            label = "Stop"
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Stop,
-                                contentDescription = "Stop",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    } else {
-                        SimpleGlowButton(
-                            onClick = { onPlay(recording.reversedPath ?: "") },
-                            enabled = recording.reversedPath != null,
-                            isPrimary = true,
-                            size = 50.dp,
-                            label = "Rewind"
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Replay,
-                                contentDescription = "Play Reversed",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                // Rewind/Stop
+                if (isPlaying) {
+                    SimpleGlowButton(
+                        onClick = { onStop() },
+                        isDestructive = true,
+                        size = 50.dp,
+                        label = "Stop"
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Stop,
+                            contentDescription = "Stop",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
+                } else {
+                    SimpleGlowButton(
+                        onClick = { onPlay(recording.reversedPath ?: "") },
+                        enabled = recording.reversedPath != null,
+                        isPrimary = true,
+                        size = 50.dp,
+                        label = "Rewind"
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Replay,
+                            contentDescription = "Play Reversed",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
 
-                    // 4. FWD CHALLENGE (if game mode enabled)
-                    if (isGameModeEnabled) {
-                        SimpleGlowButton(
-                            //onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(0) ?: return@SimpleGlowButton) },// broken -reversed sense!
-                            onClick = { onStartAttempt(recording, ChallengeType.FORWARD) }, //fixed - uses explicit enum value
-                            isPrimary = true,
-                            size = 50.dp,
-                            label = "Fwd"
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Forward Challenge",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    } else {
-                        // Show a placeholder if game mode is off (keeps layout consistent)
-                        Spacer(modifier = Modifier.size(50.dp))
+                // Forward challenge
+                if (isGameModeEnabled) {
+                    SimpleGlowButton(
+                        onClick = { onStartAttempt(recording, ChallengeType.FORWARD) },
+                        isPrimary = true,
+                        size = 50.dp,
+                        label = "Fwd"
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Forward Challenge",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
+                } else {
+                    Spacer(modifier = Modifier.size(50.dp))
+                }
 
-                    // 5. REV CHALLENGE (if game mode enabled)
-                    if (isGameModeEnabled) {
-                        SimpleGlowButton(
-                            //onClick = { onStartAttempt(recording, ChallengeType.values().getOrNull(1) ?: return@SimpleGlowButton) }, // broken -reversed sense!
-                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }, //fixed - uses explicit enum value
-                            isPrimary = true,
-                            size = 50.dp,
-                            label = "Rev"
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Reverse Challenge",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    } else {
-                        // Show a placeholder if game mode is off (keeps layout consistent)
-                        Spacer(modifier = Modifier.size(50.dp))
+                // Reverse challenge
+                if (isGameModeEnabled) {
+                    SimpleGlowButton(
+                        onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
+                        isPrimary = true,
+                        size = 50.dp,
+                        label = "Rev"
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Reverse Challenge",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
+                } else {
+                    Spacer(modifier = Modifier.size(50.dp))
                 }
             }
         }
     }
 
-    // DIALOGS (unchanged)
+    // ✨ SHARED DIALOGS
     if (showRenameDialog) {
-        //var newName by remember { mutableStateOf(recording.originalPath?.substringAfterLast("/")?.removeSuffix(".wav") ?: "Recording") }
-        var newName by remember { mutableStateOf(recording.name) }
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text("Rename Recording") },
-            text = {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text("New Name") }
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    if (newName.isNotBlank()) {
-                        onRename(recording.originalPath ?: "", newName)
-                    }
-                    showRenameDialog = false
-                }) { Text("Rename") }
-            },
-            dismissButton = {
-                Button(onClick = { showRenameDialog = false }) { Text("Cancel") }
-            }
+        RecordingRenameDialog(
+            recording = recording,
+            aesthetic = aesthetic,
+            onDismiss = { showRenameDialog = false },
+            onRename = onRename
         )
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Recording?", color = MaterialTheme.colorScheme.error) },
-            text = { Text("Are you sure you want to delete this recording? This action cannot be undone.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDelete(recording)
-                        showDeleteDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete", color = Color.White) }
-            },
-            dismissButton = {
-                Button(onClick = { showDeleteDialog = false }) { Text("Cancel") }
-            }
+        RecordingDeleteDialog(
+            recording = recording,
+            aesthetic = aesthetic,
+            onDismiss = { showDeleteDialog = false },
+            onDelete = onDelete
         )
     }
 
     if (showShareDialog) {
-        AlertDialog(
-            onDismissRequest = { showShareDialog = false },
-            title = { Text("Share Recording") },
-            text = {
-                Column {
-                    Text("Which version would you like to share?")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            onShare(recording.originalPath ?: "")
-                            showShareDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("Share Original", color = Color.White)
-                    }
-                    if (recording.reversedPath != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                onShare(recording.reversedPath!!)
-                                showShareDialog = false
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Text("Share Reversed", color = Color.White)
-                        }
-                    }
-                }
-            },
-            confirmButton = { },
-            dismissButton = {
-                Button(onClick = { showShareDialog = false }) { Text("Cancel") }
-            }
+        RecordingShareDialog(
+            recording = recording,
+            aesthetic = aesthetic,
+            onDismiss = { showShareDialog = false },
+            onShare = onShare
         )
     }
 }
 
 /**
- * 🔧 PERFECTED: SimpleGlowButton with optimal spacing
+ * SimpleGlowButton helper
  */
 @Composable
 fun SimpleGlowButton(
@@ -393,7 +358,6 @@ fun SimpleGlowButton(
         else -> MaterialTheme.colorScheme.secondary
     }
 
-    // Perfect button + label layout
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -412,7 +376,6 @@ fun SimpleGlowButton(
             content()
         }
 
-        // Perfectly centered label
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(

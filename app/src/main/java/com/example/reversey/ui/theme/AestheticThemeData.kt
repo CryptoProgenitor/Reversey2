@@ -3,7 +3,14 @@ package com.example.reversey.ui.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.example.reversey.ui.theme.SakuraSerenityComponents
 
+
+// ADD THIS LINE:
+import com.example.reversey.ui.theme.ThemeComponents
+import com.example.reversey.ui.theme.DefaultThemeComponents
+import com.example.reversey.ui.theme.EggThemeComponents
+import com.example.reversey.ui.theme.ScrapbookThemeComponents
 /**
  * Aesthetic Theme Data - Non-color properties for visual themes
  * Works alongside Material 3 ColorScheme for complete theming
@@ -13,6 +20,9 @@ data class AestheticThemeData(
     val id: String,
     val name: String,
     val description: String,
+
+    // 🎨 GLUTE: Component Composition Architecture
+    val components: ThemeComponents = DefaultThemeComponents(),
 
     // Visual Effects
     val useGlassmorphism: Boolean = false,
@@ -106,6 +116,7 @@ object AestheticThemes {
         id = "scrapbook",
         name = "Scrapbook Vibes",
         description = "📝 Sticky notes, hand-drawn fun, and playful chaos",
+        components = ScrapbookThemeComponents(),  // ADD THIS LINE
         primaryGradient = Brush.verticalGradient(
             colors = listOf(
                 Color(0xFFFFF3E0),
@@ -342,7 +353,8 @@ object AestheticThemes {
     val Egg = AestheticThemeData(
         id = "egg",
         name = "Egg Theme",
-        description = "🥚 CPD's adorable breakfast-inspired design!",
+        description = "🥚 CPD's adorable egg-inspired design!",
+        components = EggThemeComponents(),  // ADD THIS LINE
         primaryGradient = Brush.verticalGradient(
             colors = listOf(
                 Color(0xFFFFF8E1), // Cream background
@@ -379,6 +391,56 @@ object AestheticThemes {
         borderWidth = 4f // Thick black borders
     )
 
+    // 🌸 ADD THIS TO AestheticThemeData.kt in the AestheticThemes object
+
+    val SakuraSerenity = AestheticThemeData(
+        id = "sakura_serenity",
+        name = "Sakura Serenity",
+        description = "🌸 Cherry blossoms and sunset gradients",
+        components = SakuraSerenityComponents(),  // ← Your component!
+        primaryTextColor = Color.White,           // ✨ WHITE for visibility on dark blue
+        secondaryTextColor = Color(0xFFFFC0CB),   // ✨ Light pink for descriptions
+
+        // Cherry blossom pink to coral sunset gradient
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFB6C1), // Light pink
+                Color(0xFFFF69B4), // Hot pink
+                Color(0xFFFFA07A), // Light coral sunset
+                Color(0xFFFF7F50)  // Coral orange
+            )
+        ),
+        cardBorder = Color(0xFFFF69B4),
+
+
+        // Visual effects
+        useGlassmorphism = false,
+        glowIntensity = 0.3f,
+        recordButtonEmoji = "🌸",
+        scoreEmojis = mapOf(
+            90 to "⭐",
+            80 to "🌸",
+            70 to "🌙",
+            60 to "✨",
+            0 to "🌱"
+        ),
+
+        // Material 3 overrides
+        cardAlpha = 0.95f,
+        shadowElevation = 8f,
+        useHandDrawnBorders = false,
+        borderWidth = 2f,
+
+        // Sakura-specific flags (for future use)
+        useScrapbookElements = false,
+        useEggElements = false,
+        useFriedEggDecorations = false,
+        useHandDrawnStyle = false,
+        maxCardRotation = 0f,
+        showTapeEffects = false,
+        useStarRatings = false
+    )
+
     // Map for easy lookup
     val allThemes = mapOf(
         "y2k_cyber" to Y2KCyber,
@@ -390,7 +452,8 @@ object AestheticThemes {
         "steampunk" to Steampunk,
         "cyberpunk" to Cyberpunk,
         "graphite_sketch" to GraphiteSketch,
-        "egg" to Egg  // 🥚 ADD THIS LINE!
+        "egg" to Egg,  // 🥚 ADD THIS LINE!
+        "sakura_serenity" to SakuraSerenity  // 🌸 ADD THIS LINE!
     )
 
     fun getThemeById(id: String): AestheticThemeData {

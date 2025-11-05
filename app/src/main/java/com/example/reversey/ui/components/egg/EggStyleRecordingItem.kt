@@ -250,106 +250,32 @@ fun EggStyleRecordingItem(
         }
     }
 
-    // EGG-THEMED DIALOGS (same as before but with proper styling)
+
+    // ✨ SHARED DIALOGS - Using RecordingItemDialogs for DRY compliance!
     if (showRenameDialog) {
-        var newName by remember { mutableStateOf(recording.name) }
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text("Rename Egg Recording 🥚", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text("New Name") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFFFF8A65),
-                        focusedLabelColor = Color(0xFFFF8A65)
-                    )
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newName.isNotBlank()) {
-                            onRename(recording.originalPath ?: "", newName)
-                        }
-                        showRenameDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A65))
-                ) { Text("Rename", color = Color.White, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                Button(
-                    onClick = { showRenameDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E2E2E))
-                ) { Text("Cancel", color = Color.White, fontWeight = FontWeight.Bold) }
-            }
+        com.example.reversey.ui.components.RecordingRenameDialog(
+            recording = recording,
+            aesthetic = aesthetic,
+            onDismiss = { showRenameDialog = false },
+            onRename = onRename
         )
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Crack this egg? 🥚💥", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to crack this egg? This action cannot be undone!", fontWeight = FontWeight.Bold) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDelete(recording)
-                        showDeleteDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
-                ) { Text("Crack It!", color = Color.White, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                Button(
-                    onClick = { showDeleteDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A65))
-                ) { Text("Keep Safe", color = Color.White, fontWeight = FontWeight.Bold) }
-            }
+        com.example.reversey.ui.components.RecordingDeleteDialog(
+            recording = recording,
+            aesthetic = aesthetic,
+            onDismiss = { showDeleteDialog = false },
+            onDelete = onDelete
         )
     }
 
     if (showShareDialog) {
-        AlertDialog(
-            onDismissRequest = { showShareDialog = false },
-            title = { Text("Share Your Egg! 🥚", color = Color(0xFF2E2E2E), fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    Text("Which egg would you like to share?", fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            onShare(recording.originalPath ?: "")
-                            showShareDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A65))
-                    ) {
-                        Text("Share Fresh Egg 🥚", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                    if (recording.reversedPath != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                onShare(recording.reversedPath!!)
-                                showShareDialog = false
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D))
-                        ) {
-                            Text("Share Scrambled Egg 🍳", color = Color.White, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            },
-            confirmButton = { },
-            dismissButton = {
-                Button(
-                    onClick = { showShareDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E2E2E))
-                ) { Text("Cancel", color = Color.White, fontWeight = FontWeight.Bold) }
-            }
+        com.example.reversey.ui.components.RecordingShareDialog(
+            recording = recording,
+            aesthetic = aesthetic,
+            onDismiss = { showShareDialog = false },
+            onShare = onShare
         )
     }
 }

@@ -30,12 +30,14 @@ class ThemeViewModel @Inject constructor(
 
     // 🥚 Available themes for UI selection
     val availableThemes = mapOf(
+        "sakura_serenity" to "Sakura Serenity", // 🌸 ADD THIS LINE!
         "y2k_cyber" to "Y2K Cyber Pop",
         "scrapbook" to "Scrapbook Vibes", // ← ADD THIS LINE!
         "cottagecore" to "Cottagecore Dreams",
         "dark_academia" to "Dark Academia",
         "vaporwave" to "Neon Vaporwave",
-        "egg" to "Egg Theme" // 🥚 NEW!
+        "egg" to "Egg Theme" // 🥚
+
     )
 
     // 🎨 Function to change theme

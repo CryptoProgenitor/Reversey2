@@ -298,10 +298,10 @@ fun AudioReverserApp(
         )
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(AestheticTheme().primaryGradient)
+    val aesthetic = AestheticTheme()
+
+    aesthetic.components.AppBackground(
+        aesthetic = aesthetic
     ) {
         Scaffold(
             containerColor = Color.Transparent,

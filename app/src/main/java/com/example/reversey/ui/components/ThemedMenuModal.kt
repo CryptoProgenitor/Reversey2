@@ -777,20 +777,11 @@ private fun ThemesContent(
             .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        val themes = listOf(
-            "y2k_cyber" to "Y2K Cyber Pop ⚡",
-            "scrapbook" to "Scrapbook Vibes 📔",
-            "cottagecore" to "Cottagecore Dreams 🌸",
-            "dark_academia" to "Dark Academia 📖",
-            "vaporwave" to "Neon Vaporwave 🌴",
-            "jeoseung_shadows" to "Jeoseung Shadows 👻",
-            "steampunk" to "Steampunk Victorian ⚙️",
-            "cyberpunk" to "Cyberpunk 2099 🤖",
-            "graphite_sketch" to "Graphite Sketch ✏️",
-            "egg" to "Egg Theme 🥚"
-        )
+        // 🎨 DYNAMIC THEME LIST: Get from AestheticThemes.allThemes instead of hardcoded list
+        val themes = com.example.reversey.ui.theme.AestheticThemes.allThemes
 
-        themes.forEach { (id, name) ->
+        themes.forEach { (id, themeData) ->
+            val name = themeData.name
             ThemeButton(
                 themeName = name,
                 themeId = id,
