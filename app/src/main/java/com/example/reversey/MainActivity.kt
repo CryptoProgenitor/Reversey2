@@ -92,7 +92,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -275,64 +274,6 @@ fun MainApp(themeViewModel: ThemeViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppDrawerContent(
-    navController: NavController,
-    closeDrawer: () -> Unit,
-    onClearAll: () -> Unit
-) {
-    ModalDrawerSheet {
-        Text("ReVerseY Menu", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
-        HorizontalDivider()
-        NavigationDrawerItem(
-            label = { Text("Home") },
-            selected = navController.currentDestination?.route == "home",
-            onClick = {
-                navController.navigate("home") { popUpTo("home") { inclusive = true } }
-                closeDrawer()
-            }
-        )
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Info, contentDescription = "About") },
-            label = { Text("About") },
-            selected = navController.currentDestination?.route == "about",
-            onClick = {
-                navController.navigate("about")
-                closeDrawer()
-            }
-        )
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-            label = { Text("Settings") },
-            selected = navController.currentDestination?.route == "settings",
-            onClick = {
-                navController.navigate("settings")
-                closeDrawer()
-            }
-        )
-        NavigationDrawerItem(
-            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Themes") },
-            label = { Text("Themes") },
-            selected = navController.currentDestination?.route == "themes",
-            onClick = {
-                navController.navigate("themes")
-                closeDrawer()
-            }
-        )
-        HorizontalDivider()
-        NavigationDrawerItem(
-            label = { Text("Clear All Recordings", color = MaterialTheme.colorScheme.error) },
-            icon = { Icon(Icons.Default.Delete, contentDescription = "Clear All Recordings", tint = MaterialTheme.colorScheme.error) },
-            selected = false,
-            onClick = {
-                onClearAll()
-                closeDrawer()
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 fun AboutScreen(navController: NavController) {
     val context = LocalContext.current
     val audioViewModel: AudioViewModel = hiltViewModel()  // ✅ HILT pattern
@@ -509,12 +450,11 @@ fun AudioReverserApp(
                         }
                     },*/
                     navigationIcon = {
-                        val aesthetic = aestheticTheme()
-                        IconButton(onClick = openMenu) {
+                        IconButton(onClick = openMenu) {  // ✅ NEW: Simple IconButton
                             Icon(
                                 Icons.Default.Menu,
                                 contentDescription = "Menu",
-                                tint = aesthetic.primaryTextColor
+                                tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
                     },
@@ -565,13 +505,12 @@ fun AudioReverserApp(
                         enter = fadeIn(animationSpec = tween(600, 100, LinearOutSlowInEasing)),
                         exit = fadeOut(animationSpec = tween(600, easing = LinearOutSlowInEasing))
                     ) {
-                        val aesthetic = aestheticTheme()
                         Text(
                             text = uiState.statusText,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                letterSpacing = if (aesthetic.useWideLetterSpacing) 1.sp else 0.sp
+                                letterSpacing = if (aestheticTheme().useWideLetterSpacing) 1.sp else 0.sp
                             ),
-                            color = aesthetic.primaryTextColor
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 }
@@ -803,7 +742,7 @@ fun EnhancedRecordButton(
     val colors = materialColors()
 
     if (!hasPermission) {
-        // Permission request button with adaptive text
+        // Keep existing permission button code exactly as-is
         Button(
             onClick = onRequestPermission,
             modifier = Modifier.size(120.dp),
@@ -811,9 +750,8 @@ fun EnhancedRecordButton(
             colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val textColor = if (colors.primary.luminance() > 0.5f) Color.Black else Color.White
-                Icon(Icons.Default.Mic, "Request Permission", tint = textColor, modifier = Modifier.size(32.dp))
-                Text("Grant\nPermission", color = textColor, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                Icon(Icons.Default.Mic, "Request Permission", tint = Color.White, modifier = Modifier.size(32.dp))
+                Text("Grant\nPermission", color = Color.White, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }
     } else {
