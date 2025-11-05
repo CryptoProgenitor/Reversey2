@@ -130,6 +130,7 @@ import com.example.reversey.ui.components.UnifiedAttemptItem
 import com.example.reversey.ui.components.UnifiedRecordingButton
 import com.example.reversey.ui.viewmodels.AudioViewModel
 import com.example.reversey.ui.viewmodels.ThemeViewModel
+import com.example.reversey.ui.screens.SettingsScreen
 
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
@@ -168,6 +169,8 @@ object AudioConstants {
     const val MAX_WAVEFORM_SAMPLES = 200
 }
 
+// REPLACE YOUR MainApp FUNCTION (lines 177-272) WITH THIS:
+
 @Composable
 fun MainApp(themeViewModel: ThemeViewModel) {
     val navController = rememberNavController()
@@ -190,31 +193,14 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                 AudioReverserApp(
                     viewModel = audioViewModel,
                     openMenu = { showMenuModal = true },
+                    openMenuToSettings = { navController.navigate("settings") },
+                    onNavigateToSettings = { navController.navigate("settings") },
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
                     scoringEngine = scoringEngine,
                     navController = navController
                 )
-            }
-            // ✅ about/settings/themes REMOVED - they're now INSIDE the modal!
-        }
-        /*NavHost(navController = navController, startDestination = "home") {
-            composable("home") {
-                val currentThemeId by themeViewModel.currentThemeId.collectAsState()
-                val customAccentColor by themeViewModel.customAccentColor.collectAsState()  // 🎯 ADD CUSTOM ACCENT COLOR SUPPORT
-                AudioReverserApp(
-                    viewModel = audioViewModel,
-                    openMenu = { showMenuModal = true },
-                    showClearAllDialog = showClearAllDialog,
-                    onClearAllDialogDismiss = { showClearAllDialog = false },
-                    isGameModeEnabled = isGameModeEnabled,
-                    scoringEngine = scoringEngine,  // <-- ADD THIS LINE
-                    navController = navController // 🔧 ADD THIS - pass navController down
-                )
-            }
-            composable("about") {
-                AboutScreen(navController = navController)
             }
             composable("settings") {
                 val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
@@ -227,10 +213,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     onShowDebugPanelChange = { showDebugPanel = it }
                 )
             }
-            composable("themes") {
-                ThemeSelectionScreen(navController = navController)
-            }
-        }*/
+        }
     }  // ← End of Box
 
     // Themed menu modal (replaces drawer)
@@ -238,31 +221,18 @@ fun MainApp(themeViewModel: ThemeViewModel) {
         visible = showMenuModal,
         currentRoute = navController.currentDestination?.route,
         onDismiss = { showMenuModal = false },
-        onNavigateHome = {  // ✅ CHANGED: onNavigate → onNavigateHome
+        onNavigateHome = {
             navController.navigate("home") {
                 popUpTo("home") { inclusive = true }
             }
         },
         onClearAll = { showClearAllDialog = true },
-        themeViewModel = themeViewModel,  // ✅ NEW PARAMETER
-        scoringEngine = scoringEngine,    // ✅ NEW PARAMETER
-        audioViewModel = audioViewModel,   // ✅ NEW PARAMETER
+        themeViewModel = themeViewModel,
+        scoringEngine = scoringEngine,
+        audioViewModel = audioViewModel,
         showDebugPanel = showDebugPanel,
         onShowDebugPanelChange = { showDebugPanel = it }
     )
-    /*ThemedMenuModal(
-        visible = showMenuModal,
-        currentRoute = navController.currentDestination?.route,
-        onDismiss = { showMenuModal = false },
-        onNavigate = { route ->
-            navController.navigate(route) {
-                if (route == "home") {
-                    popUpTo("home") { inclusive = true }
-                }
-            }
-        },
-        onClearAll = { showClearAllDialog = true }
-    )*/
 }  // ← End of MainApp
 
 
@@ -355,11 +325,13 @@ fun AudioReverserApp(
     viewModel: AudioViewModel,
     //openDrawer: () -> Unit,
     openMenu: () -> Unit,  // ✅ NEW NAME
+    onNavigateToSettings: () -> Unit = {},  // ← ADD THIS
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
     isGameModeEnabled: Boolean,
     scoringEngine: ScoringEngine,  // <-- ADD THIS LINE
-    navController: NavController // 🔧 ADD THIS - so DifficultyIndicator can navigate
+    navController: NavController, // 🔧 ADD THIS - so DifficultyIndicator can navigate
+    openMenuToSettings: () -> Unit,  // ← ADD THIS
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
@@ -456,7 +428,8 @@ fun AudioReverserApp(
                         // NEW: Difficulty indicator in top-right
                         DifficultyIndicator(
                             difficulty = scoringEngine.getCurrentDifficulty(),
-                            onClick = openMenu,
+                            onClick = openMenuToSettings,  // ← CHANGE THIS
+                            //onClick = openMenu,
                             //onClick = { navController.navigate("settings") }, // 🔧 ADD THIS - navigate to settings
                             modifier = Modifier.padding(end = 16.dp)
                         )
