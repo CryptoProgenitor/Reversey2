@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,9 +56,9 @@ fun ThemeSelectionScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Choose Your Vibe ✨") },
-                navigationIcon = {
+                actions = {  // ✅ MOVED FROM navigationIcon TO actions
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.Default.Close, "Close")  // ✅ CHANGED TO Close icon
                     }
                 }
             )

@@ -8,7 +8,8 @@ import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.sqrt
-
+import com.example.reversey.scoring.GarbageDetectionParameters
+import com.example.reversey.scoring.PitchContourAnalysis
 class AudioProcessor {
 
     fun extractPitchYIN(audioFrame: FloatArray, sampleRate: Int, threshold: Float = 0.15f): Float {
@@ -154,4 +155,154 @@ class AudioProcessor {
         val sum = audio.fold(0f) { acc, sample -> acc + sample * sample }
         return sqrt(sum / audio.size)
     }
+
+    /**
+     * Calculate MFCC variance across frames to detect repetitive sounds
+     */
+    fun calculateMFCCVariance(mfccFrames: List<FloatArray>): Float {
+        if (mfccFrames.size < 2) return 0f
+
+        val numCoeffs = mfccFrames[0].size
+        var totalVariance = 0f
+
+        for (coeffIndex in 0 until numCoeffs) {
+            val values = mfccFrames.map { it[coeffIndex] }
+            val mean = values.average().toFloat()
+            val variance = values.map { value ->
+                val diff = value - mean
+                diff * diff
+            }.average().toFloat()
+
+            totalVariance += variance
+        }
+
+        return totalVariance / numCoeffs
+    }
+
+    /**
+     * Analyze pitch contour to detect monotone or unnatural oscillation
+     */
+    fun analyzePitchContour(
+        pitches: List<Float>,
+        params: GarbageDetectionParameters
+    ): PitchContourAnalysis {
+        //val validPitches = pitches.filter { it > 0f } // ← Wrong: rejects negatives!
+        val validPitches = pitches.filter { it != 0f }  // ← Correct: accepts negatives!
+
+        if (validPitches.size < 3) {
+            return PitchContourAnalysis(
+                stdDev = 0f,
+                oscillationRate = 0f,
+                isMonotone = true,
+                isOscillating = false
+            )
+        }
+
+        // Calculate standard deviation
+        val mean = validPitches.average().toFloat()
+        val variance = validPitches.map { pitch ->
+            val diff = pitch - mean
+            diff * diff
+        }.average().toFloat()
+        val stdDev = sqrt(variance)
+
+        // Count direction changes
+        var directionChanges = 0
+        for (i in 1 until validPitches.size - 1) {
+            val prev = validPitches[i - 1]
+            val curr = validPitches[i]
+            val next = validPitches[i + 1]
+
+            val isPeak = curr > prev && curr > next
+            val isTrough = curr < prev && curr < next
+
+            if (isPeak || isTrough) {
+                directionChanges++
+            }
+        }
+        val oscillationRate = directionChanges.toFloat() / validPitches.size
+
+        // Classify
+        val isMonotone = stdDev < params.pitchMonotoneThreshold
+        val isOscillating = oscillationRate > params.pitchOscillationRate
+
+        return PitchContourAnalysis(
+            stdDev = stdDev,
+            oscillationRate = oscillationRate,
+            isMonotone = isMonotone,
+            isOscillating = isOscillating
+        )
+    }
+
+    /**
+     * Calculate spectral entropy to measure audio complexity
+     */
+    fun calculateSpectralEntropy(audioFrame: FloatArray): Float {
+        if (audioFrame.isEmpty()) return 0f
+
+        val spectrum = getSpectrum(audioFrame)
+        val powerSpectrum = spectrum.map { it * it }
+        val totalPower = powerSpectrum.sum()
+
+        if (totalPower < 1e-6f) return 0f
+
+        val probabilities = powerSpectrum.map { it / totalPower }
+
+        var entropy = 0f
+        for (p in probabilities) {
+            if (p > 1e-10f) {
+                entropy -= p * ln(p)
+            }
+        }
+
+        val maxEntropy = ln(spectrum.size.toFloat())
+        return if (maxEntropy > 0f) entropy / maxEntropy else 0f
+    }
+
+    /**
+     * Calculate zero crossing rate for a single frame
+     */
+    fun calculateZeroCrossingRate(audioFrame: FloatArray): Float {
+        if (audioFrame.size < 2) return 0f
+
+        var crossings = 0
+        for (i in 1 until audioFrame.size) {
+            val prevSign = audioFrame[i - 1] >= 0
+            val currSign = audioFrame[i] >= 0
+
+            if (prevSign != currSign) {
+                crossings++
+            }
+        }
+
+        return crossings.toFloat() / audioFrame.size
+    }
+
+    /**
+     * Calculate average zero crossing rate across multiple frames
+     */
+    fun analyzeZeroCrossingRate(audioFrames: List<FloatArray>): Float {
+        if (audioFrames.isEmpty()) return 0f
+
+        val zcrs = audioFrames.map { calculateZeroCrossingRate(it) }
+        return zcrs.average().toFloat()
+    }
+
+    /**
+     * Calculate the ratio of silent frames to total frames
+     */
+    fun calculateSilenceRatio(audioFrames: List<FloatArray>, threshold: Float = 0.01f): Float {
+        if (audioFrames.isEmpty()) return 0f
+
+        var silentFrames = 0
+        for (frame in audioFrames) {
+            val rms = calculateRMS(frame)
+            if (rms < threshold) {
+                silentFrames++
+            }
+        }
+
+        return silentFrames.toFloat() / audioFrames.size
+    }
+
 }

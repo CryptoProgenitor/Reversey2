@@ -70,6 +70,7 @@ import com.example.reversey.scoring.applyPreset
 import com.example.reversey.ui.debug.DebugPanel
 import kotlinx.coroutines.launch
 import android.util.Log
+import androidx.compose.material.icons.filled.Close
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,9 +102,9 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
-                navigationIcon = {
+                actions = {  // ✅ MOVED FROM navigationIcon TO actions
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.Default.Close, "Close")  // ✅ CHANGED TO Close icon
                     }
                 }
             )

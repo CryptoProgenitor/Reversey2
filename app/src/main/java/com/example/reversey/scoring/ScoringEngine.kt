@@ -15,6 +15,7 @@ import kotlin.math.sqrt
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.example.reversey.scoring.GarbageDetector  // ← ADD THIS
 
 @Singleton
 class ScoringEngine @Inject constructor(@ApplicationContext private val context: Context) {
@@ -23,12 +24,14 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
     }
 
     private val audioProcessor = AudioProcessor()
+    private val garbageDetector = GarbageDetector(audioProcessor)  // ← ADD THIS LINE
     private var parameters = ScoringParameters()
     private var audioParams = AudioProcessingParameters()
     private var contentParams = ContentDetectionParameters()
     private var melodicParams = MelodicAnalysisParameters()
     private var musicalParams = MusicalSimilarityParameters()
     private var scalingParams = ScoreScalingParameters()
+    private var garbageParams = GarbageDetectionParameters()  // ← ADD THIS LINE
 
     // NEW: Track current difficulty level for UI feedback
     private var currentDifficulty = DifficultyLevel.NORMAL
@@ -67,10 +70,61 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
             return ScoringResult(score = 0, rawScore = 0f, metrics = SimilarityMetrics(0f, 0f), feedback = listOf("Error: Could not process short recording."))
         }
 
-        val originalPitchSequence = getPitchSequence(alignedOriginal, sampleRate)
+        // ========================================================================
+        // GARBAGE DETECTION
+        // ========================================================================
+
+        // Extract features for garbage detection
         val attemptPitchSequence = getPitchSequence(alignedAttempt, sampleRate)
-        val originalMfccSequence = getMfccSequence(alignedOriginal, sampleRate)
         val attemptMfccSequence = getMfccSequence(alignedAttempt, sampleRate)
+
+        // Convert aligned attempt to frames for analysis
+        val frameSize = audioParams.mfccFrameSize
+        val hopSize = audioParams.mfccHopSize
+        val audioFrames = mutableListOf<FloatArray>()
+        var i = 0
+        while (i + frameSize <= alignedAttempt.size) {
+            audioFrames.add(alignedAttempt.sliceArray(i until i + frameSize))
+            i += hopSize
+        }
+
+        // Run garbage detection
+        val garbageAnalysis = garbageDetector.detectGarbage(
+            audioFrames = audioFrames,
+            pitches = attemptPitchSequence,
+            mfccFrames = attemptMfccSequence,
+            sampleRate = sampleRate
+        )
+
+        // Handle garbage detection result
+        if (garbageAnalysis.isGarbage) {
+            Log.d("ScoringEngine", "🚫 GARBAGE DETECTED - Confidence: ${garbageAnalysis.confidence}")
+            Log.d("ScoringEngine", "Failed Filters: ${garbageAnalysis.failedFilters}")
+
+            return ScoringResult(
+                score = garbageParams.garbageScoreMax,
+                rawScore = 0f,
+                metrics = SimilarityMetrics(0f, 0f),
+                feedback = buildList {
+                    add("⚠️ Invalid attempt detected!")
+                    add("Please try actually singing/speaking the content.")
+                    if (garbageAnalysis.failedFilters.isNotEmpty()) {
+                        add("Issues: ${garbageAnalysis.failedFilters.take(2).joinToString(", ")}")
+                    }
+                }
+            )
+        }
+
+        Log.d("ScoringEngine", "✅ GARBAGE CHECK PASSED - Confidence: ${garbageAnalysis.confidence}")
+
+        // ========================================================================
+        // END GARBAGE DETECTION
+        // ========================================================================
+
+        val originalPitchSequence = getPitchSequence(alignedOriginal, sampleRate)
+        //val attemptPitchSequence = getPitchSequence(alignedAttempt, sampleRate)
+        val originalMfccSequence = getMfccSequence(alignedOriginal, sampleRate)
+        //val attemptMfccSequence = getMfccSequence(alignedAttempt, sampleRate)
 
         val pitchSimilarity = calculatePitchSimilarity(originalPitchSequence, attemptPitchSequence)
         val mfccSimilarity = calculateMfccSimilarity(originalMfccSequence, attemptMfccSequence)
@@ -849,6 +903,7 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
             updateMelodicParameters(preset.melodic)
             updateMusicalParameters(preset.musical)
             updateScalingParameters(preset.scaling)
+            updateGarbageParameters(preset.garbage)  // ← ADD THIS LINE
             setCurrentDifficulty(preset.difficulty)
         } catch (e: Exception) {
             Log.e("APPLY_PRESET", "ERROR applying preset: ${e.message}")
@@ -857,4 +912,13 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
 
         Log.d("APPLY_PRESET", "=== PRESET APPLIED ===")
     }
+
+    fun updateGarbageParameters(newParams: GarbageDetectionParameters) {
+        garbageParams = newParams
+        garbageDetector.updateParameters(newParams)
+        Log.d("ScoringEngine", "Garbage parameters updated: enabled=${newParams.enableGarbageDetection}")
+    }
+
+    fun getGarbageParameters(): GarbageDetectionParameters = garbageParams
+
 }

@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
@@ -132,6 +133,11 @@ import com.example.reversey.ui.theme.materialColors
 
 import com.example.reversey.UnifiedRecordingButton
 
+
+import com.example.reversey.ui.components.ThemedMenuModal
+
+
+
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -171,8 +177,7 @@ object AudioConstants {
 @Composable
 fun MainApp(themeViewModel: ThemeViewModel) {
     val navController = rememberNavController()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
+    var showMenuModal by remember { mutableStateOf(false) }
     val currentThemeId by themeViewModel.currentThemeId.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
@@ -183,24 +188,30 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     val scoringEngine = audioViewModel.scoringEngine
     var showDebugPanel by remember { mutableStateOf(false) }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = false,  // ← Prevents accidental swipes
-        drawerContent = {
-            AppDrawerContent(
-                navController = navController,
-                closeDrawer = { scope.launch { drawerState.close() } },
-                onClearAll = { showClearAllDialog = true }
-            )
-        }
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = navController, startDestination = "home") {
+            composable("home") {
+                val currentThemeId by themeViewModel.currentThemeId.collectAsState()
+                val customAccentColor by themeViewModel.customAccentColor.collectAsState()
+                AudioReverserApp(
+                    viewModel = audioViewModel,
+                    openMenu = { showMenuModal = true },
+                    showClearAllDialog = showClearAllDialog,
+                    onClearAllDialogDismiss = { showClearAllDialog = false },
+                    isGameModeEnabled = isGameModeEnabled,
+                    scoringEngine = scoringEngine,
+                    navController = navController
+                )
+            }
+            // ✅ about/settings/themes REMOVED - they're now INSIDE the modal!
+        }
+        /*NavHost(navController = navController, startDestination = "home") {
             composable("home") {
                 val currentThemeId by themeViewModel.currentThemeId.collectAsState()
                 val customAccentColor by themeViewModel.customAccentColor.collectAsState()  // 🎯 ADD CUSTOM ACCENT COLOR SUPPORT
                 AudioReverserApp(
                     viewModel = audioViewModel,
-                    openDrawer = { scope.launch { drawerState.open() } },
+                    openMenu = { showMenuModal = true },
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
@@ -225,9 +236,41 @@ fun MainApp(themeViewModel: ThemeViewModel) {
             composable("themes") {
                 ThemeSelectionScreen(navController = navController)
             }
-        }
-    }
-}
+        }*/
+    }  // ← End of Box
+
+    // Themed menu modal (replaces drawer)
+    ThemedMenuModal(
+        visible = showMenuModal,
+        currentRoute = navController.currentDestination?.route,
+        onDismiss = { showMenuModal = false },
+        onNavigateHome = {  // ✅ CHANGED: onNavigate → onNavigateHome
+            navController.navigate("home") {
+                popUpTo("home") { inclusive = true }
+            }
+        },
+        onClearAll = { showClearAllDialog = true },
+        themeViewModel = themeViewModel,  // ✅ NEW PARAMETER
+        scoringEngine = scoringEngine,    // ✅ NEW PARAMETER
+        audioViewModel = audioViewModel,   // ✅ NEW PARAMETER
+        showDebugPanel = showDebugPanel,
+        onShowDebugPanelChange = { showDebugPanel = it }
+    )
+    /*ThemedMenuModal(
+        visible = showMenuModal,
+        currentRoute = navController.currentDestination?.route,
+        onDismiss = { showMenuModal = false },
+        onNavigate = { route ->
+            navController.navigate(route) {
+                if (route == "home") {
+                    popUpTo("home") { inclusive = true }
+                }
+            }
+        },
+        onClearAll = { showClearAllDialog = true }
+    )*/
+}  // ← End of MainApp
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -277,7 +320,7 @@ fun AppDrawerContent(
         HorizontalDivider()
         NavigationDrawerItem(
             label = { Text("Clear All Recordings", color = MaterialTheme.colorScheme.error) },
-            icon = { Icon(Icons.Default.Delete, contentDescription = "Clear All", tint = MaterialTheme.colorScheme.error) },
+            icon = { Icon(Icons.Default.Delete, contentDescription = "Clear All Recordings", tint = MaterialTheme.colorScheme.error) },
             selected = false,
             onClick = {
                 onClearAll()
@@ -310,11 +353,11 @@ fun AboutScreen(navController: NavController) {
             topBar = {
                 TopAppBar(
                     title = { Text("About ReVerseY") },
-                    navigationIcon = {
+                    actions = {  // ✅ MOVED FROM navigationIcon TO actions
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
+                                imageVector = Icons.Default.Close,  // ✅ CHANGED TO Close icon
+                                contentDescription = "Close"
                             )
                         }
                     }
@@ -332,7 +375,7 @@ fun AboutScreen(navController: NavController) {
                 Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v12.8.3_audio_refactor_branch+SDK downgrade to 35_Minor fixes to UI",
+                    text = "v13.0-AddGarbageDetection 0.4f + modal menu",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -374,7 +417,8 @@ fun AboutScreen(navController: NavController) {
 @Composable
 fun AudioReverserApp(
     viewModel: AudioViewModel,
-    openDrawer: () -> Unit,
+    //openDrawer: () -> Unit,
+    openMenu: () -> Unit,  // ✅ NEW NAME
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
     isGameModeEnabled: Boolean,
@@ -454,13 +498,22 @@ fun AudioReverserApp(
                             )
                         )
                     },
-                    navigationIcon = {
+                    /*navigationIcon = {
                         EnhancedGlowButton(
                             onClick = openDrawer,
                             isPrimary = true,
                             size = 48.dp
                         ) {
                             Icon(Icons.Default.Menu, "Menu", tint = Color.White)
+                        }
+                    },*/
+                    navigationIcon = {
+                        IconButton(onClick = openMenu) {  // ✅ NEW: Simple IconButton
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = "Menu",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
                         }
                     },
                     actions = {

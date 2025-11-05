@@ -1,0 +1,1238 @@
+package com.example.reversey.ui.components
+
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardOptions
+import com.example.reversey.ui.theme.aestheticTheme
+import com.example.reversey.ui.theme.materialColors
+import com.example.reversey.ui.theme.AestheticThemeData
+import com.example.reversey.ThemeViewModel
+import com.example.reversey.scoring.ScoringEngine
+import com.example.reversey.scoring.DifficultyLevel
+import com.example.reversey.scoring.ScoringPresets
+import com.example.reversey.AudioViewModel
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import android.util.Log
+import androidx.compose.ui.draw.clip
+
+/**
+ * 🎨 MULTI-SCREEN THEMED MENU MODAL
+ * Contains About, Settings, and Themes INSIDE the modal
+ * - 90% screen size with blur/dim background
+ * - Fully themed with Egg 🥚 and Scrapbook support
+ * - Internal navigation (doesn't leave modal)
+ */
+
+sealed class ModalScreen {
+    object Menu : ModalScreen()
+    object About : ModalScreen()
+    object Settings : ModalScreen()
+    object Themes : ModalScreen()
+}
+
+@Composable
+fun ThemedMenuModal(
+    visible: Boolean,
+    currentRoute: String?,
+    onDismiss: () -> Unit,
+    onNavigateHome: () -> Unit,
+    onClearAll: () -> Unit,
+    themeViewModel: ThemeViewModel,
+    scoringEngine: ScoringEngine,
+    audioViewModel: AudioViewModel,
+    showDebugPanel: Boolean,
+    onShowDebugPanelChange: (Boolean) -> Unit
+) {
+    var currentScreen by remember { mutableStateOf<ModalScreen>(ModalScreen.Menu) }
+
+    // Reset to menu when modal closes
+    LaunchedEffect(visible) {
+        if (!visible) {
+            currentScreen = ModalScreen.Menu
+        }
+    }
+
+    val aesthetic = aestheticTheme()
+    val colors = materialColors()
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(300)),
+        exit = fadeOut(animationSpec = tween(200))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.75f))
+                .blur(if (visible) 0.dp else 8.dp)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            // Modal Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .fillMaxHeight(0.9f)
+                    .clickable(enabled = false) { } // Prevent click-through
+                    .then(getCardModifier(aesthetic, colors))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            horizontal = if (aesthetic.id == "egg") 16.dp else 24.dp,
+                            vertical = if (aesthetic.id == "egg") 12.dp else 20.dp
+                        )
+                ) {
+                    // Header with back button or close button
+                    ModalHeader(
+                        currentScreen = currentScreen,
+                        aesthetic = aesthetic,
+                        colors = colors,
+                        onBack = { currentScreen = ModalScreen.Menu },
+                        onClose = onDismiss
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Content area - switches based on current screen
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        when (currentScreen) {
+                            ModalScreen.Menu -> MenuContent(
+                                currentRoute = currentRoute,
+                                aesthetic = aesthetic,
+                                colors = colors,
+                                onNavigateHome = {
+                                    onNavigateHome()
+                                    onDismiss()
+                                },
+                                onNavigateAbout = { currentScreen = ModalScreen.About },
+                                onNavigateSettings = { currentScreen = ModalScreen.Settings },
+                                onNavigateThemes = { currentScreen = ModalScreen.Themes },
+                                onClearAll = {
+                                    onClearAll()
+                                    onDismiss()
+                                }
+                            )
+
+                            ModalScreen.About -> AboutContent(
+                                aesthetic = aesthetic,
+                                colors = colors
+                            )
+
+                            ModalScreen.Settings -> SettingsContent(
+                                aesthetic = aesthetic,
+                                colors = colors,
+                                themeViewModel = themeViewModel,
+                                scoringEngine = scoringEngine,
+                                audioViewModel = audioViewModel,
+                                showDebugPanel = showDebugPanel,
+                                onShowDebugPanelChange = onShowDebugPanelChange
+                            )
+
+                            ModalScreen.Themes -> ThemesContent(
+                                aesthetic = aesthetic,
+                                colors = colors,
+                                themeViewModel = themeViewModel
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModalHeader(
+    currentScreen: ModalScreen,
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    onBack: () -> Unit,
+    onClose: () -> Unit
+) {
+    val title = when (currentScreen) {
+        ModalScreen.Menu -> if (aesthetic.id == "egg") "MENU 🥚" else "MENU"
+        ModalScreen.About -> "ABOUT"
+        ModalScreen.Settings -> "SETTINGS"
+        ModalScreen.Themes -> "THEMES"
+    }
+
+    val showBackButton = currentScreen != ModalScreen.Menu
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(getHeaderModifier(aesthetic, colors))
+            .padding(
+                horizontal = 16.dp,
+                vertical = if (aesthetic.id == "egg") 8.dp else 12.dp
+            )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Back button or spacer
+            if (showBackButton) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = when (aesthetic.id) {
+                            "egg" -> Color(0xFF2E2E2E)
+                            "scrapbook" -> Color(0xFFFFF9E6)
+                            "cyberpunk" -> Color.Black
+                            else -> aesthetic.primaryTextColor
+                        }
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.width(32.dp))
+            }
+
+            // Title
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = if (aesthetic.useWideLetterSpacing) 3.sp else 1.sp
+                ),
+                color = when (aesthetic.id) {
+                    "egg" -> Color(0xFF2E2E2E)
+                    "scrapbook" -> Color(0xFFFFF9E6)
+                    "cyberpunk" -> Color.Black
+                    else -> aesthetic.primaryTextColor
+                }
+            )
+
+            // Close button
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = when (aesthetic.id) {
+                        "egg" -> Color(0xFF2E2E2E)
+                        "scrapbook" -> Color(0xFFFFF9E6)
+                        "cyberpunk" -> Color.Black
+                        else -> aesthetic.primaryTextColor
+                    }
+                )
+            }
+        }
+    }
+}
+
+// ========== MENU CONTENT ==========
+
+@Composable
+private fun MenuContent(
+    currentRoute: String?,
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    onNavigateHome: () -> Unit,
+    onNavigateAbout: () -> Unit,
+    onNavigateSettings: () -> Unit,
+    onNavigateThemes: () -> Unit,
+    onClearAll: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        MenuItem(
+            icon = Icons.Default.Home,
+            label = "Home",
+            selected = currentRoute == "home",
+            aesthetic = aesthetic,
+            colors = colors,
+            onClick = onNavigateHome
+        )
+
+        MenuItem(
+            icon = Icons.Default.Settings,
+            label = "Settings",
+            selected = false,
+            aesthetic = aesthetic,
+            colors = colors,
+            onClick = onNavigateSettings
+        )
+
+        MenuItem(
+            icon = Icons.Default.AutoAwesome,
+            label = "Themes",
+            selected = false,
+            aesthetic = aesthetic,
+            colors = colors,
+            onClick = onNavigateThemes
+        )
+
+        MenuItem(
+            icon = Icons.Default.Info,
+            label = "About",
+            selected = false,
+            aesthetic = aesthetic,
+            colors = colors,
+            onClick = onNavigateAbout
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp),
+            color = aesthetic.cardBorder.copy(alpha = 0.3f)
+        )
+
+        MenuItem(
+            icon = Icons.Default.Delete,
+            label = "Clear All Recordings",
+            selected = false,
+            aesthetic = aesthetic,
+            colors = colors,
+            onClick = onClearAll
+        )
+    }
+}
+
+// ========== ABOUT CONTENT ==========
+
+@Composable
+private fun AboutContent(
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "ReVerseY",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            color = aesthetic.primaryTextColor
+        )
+
+        Text(
+            text = "Version 13.0.0",
+            style = MaterialTheme.typography.bodyMedium,
+            color = aesthetic.secondaryTextColor
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Challenge yourself by recording audio and matching it forwards or backwards!\nBuilt by Ed Dark (c) 2025.\nInspired by CPD!",
+            style = MaterialTheme.typography.bodyLarge,
+            color = aesthetic.primaryTextColor
+        )
+
+        Text(
+            text = "Created with ❤️ for 🐣🐣🐣🦉🦉🦉",
+            style = MaterialTheme.typography.bodyMedium,
+            color = aesthetic.secondaryTextColor
+        )
+    }
+}
+
+// ========== SETTINGS CONTENT (REAL CONTROLS) ==========
+
+@Composable
+private fun SettingsContent(
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    themeViewModel: ThemeViewModel,
+    scoringEngine: ScoringEngine,
+    audioViewModel: AudioViewModel,
+    showDebugPanel: Boolean,
+    onShowDebugPanelChange: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // State collection
+    var currentDifficulty by remember { mutableStateOf(scoringEngine.getCurrentDifficulty()) }
+    val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
+    val darkModePreference by themeViewModel.darkModePreference.collectAsState()
+    val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
+    val currentThemeId by themeViewModel.currentThemeId.collectAsState()
+    val customAccentColor by themeViewModel.customAccentColor.collectAsState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // ========== GAMEPLAY SECTION ==========
+        SectionTitle("GAMEPLAY", aesthetic)
+
+        SettingRow(
+            label = "Enable Game Mode",
+            aesthetic = aesthetic,
+            colors = colors
+        ) {
+            Switch(
+                checked = isGameModeEnabled,
+                onCheckedChange = {
+                    scope.launch {
+                        themeViewModel.setGameMode(it)
+                    }
+                }
+            )
+        }
+
+        HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
+
+        // ========== DIFFICULTY SECTION ==========
+        SectionTitle("SCORING DIFFICULTY", aesthetic)
+
+        Text(
+            text = "Choose your challenge level",
+            style = MaterialTheme.typography.bodyMedium,
+            color = aesthetic.secondaryTextColor,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        // Difficulty buttons in 2 rows
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Row 1: Easy, Normal, Hard
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                DifficultyButton(
+                    difficulty = DifficultyLevel.EASY,
+                    preset = ScoringPresets.easyMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.EASY,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.weight(1f)
+                )
+
+                DifficultyButton(
+                    difficulty = DifficultyLevel.NORMAL,
+                    preset = ScoringPresets.normalMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.NORMAL,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.weight(1f)
+                )
+
+                DifficultyButton(
+                    difficulty = DifficultyLevel.HARD,
+                    preset = ScoringPresets.hardMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.HARD,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Row 2: Expert, Master (centered)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+            ) {
+                DifficultyButton(
+                    difficulty = DifficultyLevel.EXPERT,
+                    preset = ScoringPresets.expertMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.EXPERT,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.weight(0.5f).padding(horizontal = 32.dp)
+                )
+
+                DifficultyButton(
+                    difficulty = DifficultyLevel.MASTER,
+                    preset = ScoringPresets.masterMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.MASTER,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.weight(0.5f).padding(horizontal = 32.dp)
+                )
+            }
+        }
+
+        HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
+
+        // ========== APPEARANCE SECTION ==========
+        SectionTitle("APPEARANCE", aesthetic)
+
+        // Dark Mode
+        Text(
+            text = "Dark Mode",
+            style = MaterialTheme.typography.titleMedium,
+            color = aesthetic.primaryTextColor,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("Light", "Dark", "System").forEach { mode ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            scope.launch {
+                                themeViewModel.setDarkModePreference(mode)
+                            }
+                        }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = darkModePreference == mode,
+                        onClick = {
+                            scope.launch {
+                                themeViewModel.setDarkModePreference(mode)
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = mode,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = aesthetic.primaryTextColor
+                    )
+                }
+            }
+        }
+
+        // Custom Accent Color
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Custom Accent Color",
+            style = MaterialTheme.typography.titleMedium,
+            color = aesthetic.primaryTextColor,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        // Color preview and reset button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (customAccentColor != null) "Custom color active" else "Using theme default",
+                style = MaterialTheme.typography.bodyMedium,
+                color = aesthetic.secondaryTextColor
+            )
+
+            if (customAccentColor != null) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            themeViewModel.setCustomAccentColor(null)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.surfaceVariant
+                    )
+                ) {
+                    Text("Reset to Default")
+                }
+            }
+        }
+
+        // Color preview and button to open picker
+        var showColorPicker by remember { mutableStateOf(false) }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clickable { showColorPicker = true },
+            colors = CardDefaults.cardColors(
+                containerColor = colors.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = "Color Picker",
+                        tint = colors.primary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Open Color Picker",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = aesthetic.primaryTextColor
+                        )
+                        Text(
+                            "Choose any ARGB color",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = aesthetic.secondaryTextColor
+                        )
+                    }
+                }
+                if (customAccentColor != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(customAccentColor!!)
+                            .border(2.dp, colors.outline, CircleShape)
+                    )
+                }
+            }
+        }
+
+        // ARGB Color Picker Dialog
+        if (showColorPicker) {
+            ARGBColorPickerDialog(
+                currentColor = customAccentColor ?: colors.primary,
+                onColorSelected = { color ->
+                    scope.launch {
+                        themeViewModel.setCustomAccentColor(color)
+                    }
+                    showColorPicker = false
+                },
+                onDismiss = { showColorPicker = false }
+            )
+        }
+
+        HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
+
+        // ========== STORAGE SECTION ==========
+        SectionTitle("STORAGE", aesthetic)
+
+        SettingRow(
+            label = "Backup Recordings to Drive",
+            aesthetic = aesthetic,
+            colors = colors
+        ) {
+            Switch(
+                checked = backupRecordingsEnabled,
+                onCheckedChange = {
+                    scope.launch {
+                        themeViewModel.setBackupRecordingsEnabled(it)
+                    }
+                }
+            )
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = colors.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "ℹ️ Backup Info",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = aesthetic.primaryTextColor
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Settings and scores always backed up. Audio files only backed up if enabled.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = aesthetic.secondaryTextColor
+                )
+            }
+        }
+
+        // ========== DEVELOPER OPTIONS ==========
+        HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
+
+        SectionTitle("DEVELOPER OPTIONS", aesthetic)
+
+        SettingRow(
+            label = "Show Debug Panel",
+            aesthetic = aesthetic,
+            colors = colors
+        ) {
+            Switch(
+                checked = showDebugPanel,
+                onCheckedChange = onShowDebugPanelChange
+            )
+        }
+
+        Text(
+            text = "Enable advanced scoring diagnostics and parameter inspection",
+            style = MaterialTheme.typography.bodySmall,
+            color = aesthetic.secondaryTextColor,
+            //modifier = Modifier.padding(horizontal = 16.dp, bottom = 16.dp)
+        )
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String, aesthetic: AestheticThemeData) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge.copy(
+            fontWeight = FontWeight.Bold,
+            letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
+        ),
+        color = aesthetic.primaryTextColor,
+        modifier = Modifier.padding(horizontal = 8.dp)
+    )
+}
+
+@Composable
+private fun SettingRow(
+    label: String,
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    control: @Composable () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = aesthetic.primaryTextColor
+        )
+        control()
+    }
+}
+
+// ========== THEMES CONTENT ==========
+
+@Composable
+private fun ThemesContent(
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    themeViewModel: ThemeViewModel
+) {
+    val currentThemeId by themeViewModel.currentThemeId.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        val themes = listOf(
+            "y2k_cyber" to "Y2K Cyber Pop ⚡",
+            "scrapbook" to "Scrapbook Vibes 📔",
+            "cottagecore" to "Cottagecore Dreams 🌸",
+            "dark_academia" to "Dark Academia 📖",
+            "vaporwave" to "Neon Vaporwave 🌴",
+            "jeoseung_shadows" to "Jeoseung Shadows 👻",
+            "steampunk" to "Steampunk Victorian ⚙️",
+            "cyberpunk" to "Cyberpunk 2099 🤖",
+            "graphite_sketch" to "Graphite Sketch ✏️",
+            "egg" to "Egg Theme 🥚"
+        )
+
+        themes.forEach { (id, name) ->
+            ThemeButton(
+                themeName = name,
+                themeId = id,
+                isSelected = currentThemeId == id,
+                aesthetic = aesthetic,
+                colors = colors,
+                onClick = {
+                    scope.launch {
+                        themeViewModel.setTheme(id)
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeButton(
+    themeName: String,
+    themeId: String,
+    isSelected: Boolean,
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    onClick: () -> Unit
+) {
+    val itemRotation = if (aesthetic.id == "scrapbook") {
+        remember { (0..1).random() * if ((0..1).random() == 0) -1f else 1f * 0.5f }
+    } else 0f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .rotate(itemRotation)
+            .then(getItemModifier(aesthetic, colors, isSelected))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = themeName.uppercase(),
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
+            ),
+            color = getItemColor(aesthetic, colors, isSelected)
+        )
+    }
+}
+
+// ========== MENU ITEM ==========
+
+@Composable
+private fun MenuItem(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    onClick: () -> Unit
+) {
+    val itemRotation = if (aesthetic.id == "scrapbook") {
+        remember { (0..1).random() * if ((0..1).random() == 0) -1f else 1f * 0.5f }
+    } else 0f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .rotate(itemRotation)
+            .then(getItemModifier(aesthetic, colors, selected))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = getItemColor(aesthetic, colors, selected),
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
+                ),
+                color = getItemColor(aesthetic, colors, selected)
+            )
+        }
+    }
+}
+
+// ========== THEME-SPECIFIC MODIFIERS ==========
+
+private fun getCardModifier(aesthetic: AestheticThemeData, colors: ColorScheme): Modifier {
+    return when (aesthetic.id) {
+        "egg" -> Modifier
+            .background(Color(0xFFFFF8E1), RoundedCornerShape(20.dp))
+            .border(4.dp, Color(0xFF2E2E2E), RoundedCornerShape(20.dp))
+            .shadow(6.dp, RoundedCornerShape(20.dp))
+
+        "scrapbook" -> Modifier
+            .rotate(-0.5f)
+            .background(Color(0xFFFFF9E6), RoundedCornerShape(20.dp))
+            .border(4.dp, Color(0xFF8B4513), RoundedCornerShape(20.dp))
+            .shadow(8.dp, RoundedCornerShape(20.dp), spotColor = Color(0xFF8B4513))
+
+        "cyberpunk" -> Modifier
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0033))
+                ),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(8.dp))
+            .shadow(20.dp, RoundedCornerShape(8.dp), spotColor = Color(0xFF00FFFF))
+
+        "vaporwave" -> Modifier
+            .background(
+                brush = aesthetic.primaryGradient,
+                shape = RoundedCornerShape(24.dp)
+            )
+            .border(3.dp, Color(0xFFB967FF), RoundedCornerShape(24.dp))
+            .shadow(20.dp, RoundedCornerShape(24.dp), spotColor = Color(0xFFB967FF))
+
+        else -> Modifier
+            .background(colors.surface, RoundedCornerShape(16.dp))
+            .border(1.dp, colors.outline.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+            .shadow(16.dp, RoundedCornerShape(16.dp))
+    }
+}
+
+private fun getHeaderModifier(aesthetic: AestheticThemeData, colors: ColorScheme): Modifier {
+    return when (aesthetic.id) {
+        "egg" -> Modifier
+            .background(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color(0xFFFFE0B2), Color(0xFFFFD54F))
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(12.dp))
+
+        "scrapbook" -> Modifier
+            .rotate(0.5f)
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(Color(0xFFD2691E), Color(0xFF8B4513))
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .shadow(3.dp, RoundedCornerShape(12.dp))
+
+        "cyberpunk" -> Modifier
+            .background(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color(0xFF00FFFF), Color(0xFFFF00FF))
+                ),
+                shape = RoundedCornerShape(4.dp)
+            )
+
+        "vaporwave" -> Modifier
+            .background(
+                color = Color.White.copy(alpha = 0.9f),
+                shape = RoundedCornerShape(16.dp)
+            )
+
+        else -> Modifier
+            .background(colors.surfaceVariant, RoundedCornerShape(12.dp))
+    }
+}
+
+private fun getItemModifier(
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    selected: Boolean
+): Modifier {
+    return when (aesthetic.id) {
+        "egg" -> Modifier
+            .background(
+                color = if (selected) Color(0xFFFFE0B2) else Color.White,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = if (selected) 3.dp else 2.dp,
+                color = if (selected) Color(0xFFFF8A65) else Color(0xFF2E2E2E).copy(alpha = 0.3f),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+        "scrapbook" -> Modifier
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .border(
+                width = if (selected) 4.dp else 3.dp,
+                color = if (selected) Color(0xFF8B4513) else Color(0xFFD2691E),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .then(if (selected) Modifier.shadow(4.dp, RoundedCornerShape(12.dp)) else Modifier)
+
+        "cyberpunk" -> Modifier
+            .background(
+                color = if (selected) Color(0xFFFF00FF).copy(alpha = 0.2f)
+                else Color(0xFF00FFFF).copy(alpha = 0.05f),
+                shape = RoundedCornerShape(4.dp)
+            )
+            .border(
+                width = 2.dp,
+                color = if (selected) Color(0xFFFF00FF) else Color(0xFF00FFFF).copy(alpha = 0.3f),
+                shape = RoundedCornerShape(4.dp)
+            )
+
+        "vaporwave" -> Modifier
+            .background(
+                color = Color.White.copy(alpha = if (selected) 0.4f else 0.15f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .border(
+                width = 2.dp,
+                color = Color.White.copy(alpha = if (selected) 0.6f else 0.4f),
+                shape = RoundedCornerShape(16.dp)
+            )
+
+        else -> Modifier
+            .background(
+                color = if (selected) colors.primary.copy(alpha = 0.2f) else Color.Transparent,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = if (selected) colors.primary else colors.outline.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(12.dp)
+            )
+    }
+}
+
+private fun getItemColor(
+    aesthetic: AestheticThemeData,
+    colors: ColorScheme,
+    selected: Boolean
+): Color {
+    return when (aesthetic.id) {
+        "egg" -> if (selected) Color(0xFFFF8A65) else Color(0xFF2E2E2E)
+        "scrapbook" -> if (selected) Color(0xFF8B4513) else Color(0xFF5D4037)
+        "cyberpunk" -> if (selected) Color(0xFFFF00FF) else Color(0xFF00FFFF)
+        "vaporwave" -> Color.White
+        else -> if (selected) colors.primary else colors.onSurface
+    }
+}
+
+// ========== ARGB COLOR PICKER DIALOG ==========
+
+/**
+ * 🎨 ARGB COLOR PICKER DIALOG - Full spectrum color picker with sliders
+ */
+@Composable
+private fun ARGBColorPickerDialog(
+    currentColor: Color,
+    onColorSelected: (Color) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // State for ARGB values
+    var alpha by remember { mutableFloatStateOf(currentColor.alpha) }
+    var red by remember { mutableFloatStateOf(currentColor.red) }
+    var green by remember { mutableFloatStateOf(currentColor.green) }
+    var blue by remember { mutableFloatStateOf(currentColor.blue) }
+
+    // Hex input state
+    var hexInput by remember {
+        mutableStateOf(
+            currentColor.toArgb().toUInt().toString(16).uppercase().padStart(8, '0')
+        )
+    }
+
+    // Current preview color
+    val previewColor = Color(red = red, green = green, blue = blue, alpha = alpha)
+
+    // Update hex when sliders change
+    val hexFromSliders = previewColor.toArgb().toUInt().toString(16).uppercase().padStart(8, '0')
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Choose Custom Accent Color",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Color preview
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(previewColor)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Hex input
+                OutlinedTextField(
+                    value = hexInput,
+                    onValueChange = { input ->
+                        hexInput = input.take(8) // Limit to 8 chars
+                        // Try to parse and update sliders
+                        try {
+                            if (input.length == 8) {
+                                val colorValue = input.toULong(16).toLong()
+                                val color = Color(colorValue)
+                                alpha = color.alpha
+                                red = color.red
+                                green = color.green
+                                blue = color.blue
+                            }
+                        } catch (e: Exception) {
+                            // Invalid hex, ignore
+                        }
+                    },
+                    label = { Text("ARGB Hex (8 digits)") },
+                    placeholder = { Text("FFFFFFFF") },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Text("#") }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Alpha slider
+                ColorSlider(
+                    label = "Alpha",
+                    value = alpha,
+                    onValueChange = {
+                        alpha = it
+                        hexInput = hexFromSliders
+                    },
+                    color = Color.Gray
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Red slider
+                ColorSlider(
+                    label = "Red",
+                    value = red,
+                    onValueChange = {
+                        red = it
+                        hexInput = hexFromSliders
+                    },
+                    color = Color.Red
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Green slider
+                ColorSlider(
+                    label = "Green",
+                    value = green,
+                    onValueChange = {
+                        green = it
+                        hexInput = hexFromSliders
+                    },
+                    color = Color.Green
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Blue slider
+                ColorSlider(
+                    label = "Blue",
+                    value = blue,
+                    onValueChange = {
+                        blue = it
+                        hexInput = hexFromSliders
+                    },
+                    color = Color.Blue
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onColorSelected(previewColor) }
+            ) {
+                Text("Apply Color")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
+ * 🎨 COLOR SLIDER COMPONENT - Individual ARGB component slider
+ */
+@Composable
+private fun ColorSlider(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    color: Color
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${(value * 255).toInt()}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            )
+        }
+
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}

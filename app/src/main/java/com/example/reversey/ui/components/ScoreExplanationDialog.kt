@@ -331,15 +331,27 @@ private fun UnifiedScoreCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ✅ Theme-aware header text
-            Text(
-                text = getThemeAwareHeader(score.score, challengeType, aesthetic.id),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.onSurface,
-                textAlign = TextAlign.Center,
-                letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.sp
-            )
+            // âœ… Show actual feedback from scoring system
+
+            // DEBUG: Check what feedback we have
+            android.util.Log.d("ScoreDialog", "Feedback items: ${score.feedback}")
+            android.util.Log.d("ScoreDialog", "Feedback size: ${score.feedback.size}")
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                score.feedback.forEach { feedbackLine ->
+                    Text(
+                        text = feedbackLine,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.onSurface,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.sp,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 

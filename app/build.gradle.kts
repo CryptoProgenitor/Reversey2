@@ -19,8 +19,8 @@ android {
         applicationId = "com.example.reversey"
         minSdk = 26
         targetSdk = 35
-        versionCode = 72
-        versionName = "12.6.0"
+        versionCode = 73
+        versionName = "13.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

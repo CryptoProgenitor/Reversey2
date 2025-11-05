@@ -78,6 +78,38 @@ data class ContentDetectionParameters(
 )
 
 /**
+ * Garbage detection parameters
+ * Controls the multi-filter system that rejects invalid attempts
+ */
+data class GarbageDetectionParameters(
+    // Master toggle
+    var enableGarbageDetection: Boolean = true,
+
+    // FILTER 1: MFCC Variance (Repetition Detection)
+    var mfccVarianceThreshold: Float = 0.3f,
+
+    // FILTER 2: Pitch Contour (Monotone & Oscillation Detection)
+    var pitchMonotoneThreshold: Float = 10f,
+    var pitchOscillationRate: Float = 0.5f,
+
+    // FILTER 3: Spectral Entropy (Complexity Detection)
+    var spectralEntropyThreshold: Float = 0.5f,
+
+    // FILTER 4: Zero Crossing Rate (Voice Signature)
+    var zcrMinThreshold: Float = 0.02f,
+    var zcrMaxThreshold: Float = 0.2f,
+
+    // FILTER 5: Silence Ratio (Natural Pause Detection)
+    var silenceRatioMin: Float = 0.1f,
+    var silenceRatioMax: Float = 0.8f,
+    var silenceThreshold: Float = 0.01f,
+
+    // Penalty system
+    var garbageScorePenalty: Float = 0f,
+    var garbageScoreMax: Int = 10
+)
+
+/**
  * Melodic analysis parameters
  * Controls how we understand the musical aspects of singing
  */
@@ -204,131 +236,204 @@ object ScoringPresets {
         return Presets(
             difficulty = DifficultyLevel.EASY,
             scoring = ScoringParameters(
-                pitchWeight = 0.75f,         // Less strict on pitch accuracy
+                pitchWeight = 0.75f,
                 mfccWeight = 0.25f,
-                pitchTolerance = 20f,         // Very forgiving pitch tolerance
-                minScoreThreshold = 0.15f,    // Easy to get some points
-                perfectScoreThreshold = 0.75f, // Easier to get high scores
-                scoreCurve = 2.5f             // More generous curve
+                pitchTolerance = 20f,
+                minScoreThreshold = 0.15f,
+                perfectScoreThreshold = 0.75f,
+                scoreCurve = 2.5f
             ),
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.25f,  // Easier content detection
+                contentDetectionBestThreshold = 0.25f,
                 contentDetectionAvgThreshold = 0.15f,
-                rightContentFlatPenalty = 0.1f,         // Light penalties
+                rightContentFlatPenalty = 0.1f,
                 rightContentDifferentMelodyPenalty = 0.05f,
-                wrongContentStandardPenalty = 0.3f      // Less harsh on wrong content
+                wrongContentStandardPenalty = 0.3f
             ),
             melodic = MelodicAnalysisParameters(
-                monotoneDetectionThreshold = 1.5f,      // Less strict monotone detection
-                flatSpeechThreshold = 0.7f,
-                monotonePenalty = 0.2f                   // Lighter monotone penalty
+                monotoneDetectionThreshold = 1.5f,
+                flatSpeechThreshold = 0.8f,
+                monotonePenalty = 0.2f
+            ),
+            musical = MusicalSimilarityParameters(),  // ← ADD: Use defaults
+            audio = AudioProcessingParameters(),      // ← ADD: Use defaults
+            scaling = ScoreScalingParameters(         // ← ADD THIS
+                incredibleFeedbackThreshold = 80,
+                greatJobFeedbackThreshold = 60,
+                goodEffortFeedbackThreshold = 40
+            ),
+            garbage = GarbageDetectionParameters(     // ← CORRECT VALUES
+                enableGarbageDetection = true,
+                mfccVarianceThreshold = 0.2f,         // Very lenient
+                pitchMonotoneThreshold = 8f,
+                pitchOscillationRate = 0.6f,
+                spectralEntropyThreshold = 0.4f,
+                zcrMinThreshold = 0.015f,
+                zcrMaxThreshold = 0.25f,
+                silenceRatioMin = 0.08f,
+                garbageScoreMax = 20                  // Give up to 20%
             )
         )
     }
 
-    // Normal Mode - Balanced scoring (current defaults)
+    // Normal Mode - Balanced scoring
     fun normalMode(): Presets {
         return Presets(
             difficulty = DifficultyLevel.NORMAL,
-            scoring = ScoringParameters(),
-            content = ContentDetectionParameters(),
-            melodic = MelodicAnalysisParameters(),
-            musical = MusicalSimilarityParameters(),
-            audio = AudioProcessingParameters(),
-            scaling = ScoreScalingParameters()
+            scoring = ScoringParameters(),            // Use defaults
+            content = ContentDetectionParameters(),   // Use defaults
+            melodic = MelodicAnalysisParameters(),    // Use defaults
+            musical = MusicalSimilarityParameters(),  // Use defaults
+            audio = AudioProcessingParameters(),      // Use defaults
+            scaling = ScoreScalingParameters(),       // Use defaults
+            garbage = GarbageDetectionParameters(     // ← DIFFERENT from Easy!
+                enableGarbageDetection = true,
+                mfccVarianceThreshold = 0.3f,         // Standard
+                pitchMonotoneThreshold = 10f,
+                pitchOscillationRate = 0.5f,
+                spectralEntropyThreshold = 0.5f,
+                zcrMinThreshold = 0.02f,
+                zcrMaxThreshold = 0.2f,
+                silenceRatioMin = 0.1f,
+                garbageScoreMax = 10                  // Max 10%
+            )
         )
     }
 
-    // Hard Mode - Strict scoring for advanced users
+    // Hard Mode - Strict scoring
     fun hardMode(): Presets {
         return Presets(
             difficulty = DifficultyLevel.HARD,
             scoring = ScoringParameters(
-                pitchWeight = 0.9f,          // Very strict on pitch
+                pitchWeight = 0.9f,
                 mfccWeight = 0.1f,
-                pitchTolerance = 8f,          // Tight pitch tolerance
-                minScoreThreshold = 0.3f,     // Hard to get points
-                perfectScoreThreshold = 0.9f, // Very hard to get perfect
-                scoreCurve = 1.5f             // Less generous curve
+                pitchTolerance = 8f,
+                minScoreThreshold = 0.3f,
+                perfectScoreThreshold = 0.9f,
+                scoreCurve = 1.5f
             ),
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.5f,   // Strict content detection
+                contentDetectionBestThreshold = 0.5f,
                 contentDetectionAvgThreshold = 0.35f,
-                rightContentFlatPenalty = 0.3f,         // Harsh penalties
+                rightContentFlatPenalty = 0.3f,
                 rightContentDifferentMelodyPenalty = 0.2f,
-                wrongContentStandardPenalty = 0.7f      // Very harsh on wrong content
+                wrongContentStandardPenalty = 0.7f
             ),
             melodic = MelodicAnalysisParameters(
-                monotoneDetectionThreshold = 2.5f,      // Strict monotone detection
+                monotoneDetectionThreshold = 2.5f,
                 flatSpeechThreshold = 0.3f,
-                monotonePenalty = 0.5f                   // Heavy monotone penalty
+                monotonePenalty = 0.5f
+            ),
+            musical = MusicalSimilarityParameters(),  // ← ADD: Use defaults
+            audio = AudioProcessingParameters(),      // ← ADD: Use defaults
+            scaling = ScoreScalingParameters(         // ← ADD THIS
+                incredibleFeedbackThreshold = 92,
+                greatJobFeedbackThreshold = 80,
+                goodEffortFeedbackThreshold = 60
+            ),
+            garbage = GarbageDetectionParameters(     // ← STRICTER than Normal!
+                enableGarbageDetection = true,
+                mfccVarianceThreshold = 0.4f,         // Stricter
+                pitchMonotoneThreshold = 12f,
+                pitchOscillationRate = 0.45f,
+                spectralEntropyThreshold = 0.6f,
+                zcrMinThreshold = 0.025f,
+                zcrMaxThreshold = 0.18f,
+                silenceRatioMin = 0.12f,
+                garbageScoreMax = 5                   // Max 5%
             )
         )
     }
 
-    // NEW: Expert Mode - Very strict for advanced singers
+    // Expert Mode - Very strict
     fun expertMode(): Presets {
         return Presets(
             difficulty = DifficultyLevel.EXPERT,
             scoring = ScoringParameters(
-                pitchWeight = 0.95f,          // Extremely strict on pitch
+                pitchWeight = 0.95f,
                 mfccWeight = 0.05f,
-                pitchTolerance = 5f,          // Very tight pitch tolerance (quarter-tone precision)
-                minScoreThreshold = 0.4f,     // Very hard to get points
-                perfectScoreThreshold = 0.95f, // Near-impossible to get perfect
-                scoreCurve = 1.2f             // Much less generous curve
+                pitchTolerance = 5f,
+                minScoreThreshold = 0.4f,
+                perfectScoreThreshold = 0.95f,
+                scoreCurve = 1.2f
             ),
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.6f,   // Very strict content detection
+                contentDetectionBestThreshold = 0.6f,
                 contentDetectionAvgThreshold = 0.45f,
-                rightContentFlatPenalty = 0.4f,         // Very harsh penalties
+                rightContentFlatPenalty = 0.4f,
                 rightContentDifferentMelodyPenalty = 0.3f,
-                wrongContentStandardPenalty = 0.8f      // Extremely harsh on wrong content
+                wrongContentStandardPenalty = 0.8f
             ),
             melodic = MelodicAnalysisParameters(
-                monotoneDetectionThreshold = 3.0f,      // Very strict monotone detection
+                monotoneDetectionThreshold = 3.0f,
                 flatSpeechThreshold = 0.2f,
-                monotonePenalty = 0.7f                   // Severe monotone penalty
+                monotonePenalty = 0.7f
             ),
+            musical = MusicalSimilarityParameters(),  // ← ADD: Use defaults
+            audio = AudioProcessingParameters(),      // ← ADD: Use defaults
             scaling = ScoreScalingParameters(
-                incredibleFeedbackThreshold = 95,       // Requires 95%+ for "incredible"
-                greatJobFeedbackThreshold = 85,         // Requires 85%+ for "great job"
-                goodEffortFeedbackThreshold = 70        // Requires 70%+ for "good effort"
+                incredibleFeedbackThreshold = 95,
+                greatJobFeedbackThreshold = 85,
+                goodEffortFeedbackThreshold = 70
+            ),
+            garbage = GarbageDetectionParameters(     // ← VERY STRICT!
+                enableGarbageDetection = true,
+                mfccVarianceThreshold = 0.5f,         // Very strict
+                pitchMonotoneThreshold = 15f,
+                pitchOscillationRate = 0.4f,
+                spectralEntropyThreshold = 0.7f,
+                zcrMinThreshold = 0.03f,
+                zcrMaxThreshold = 0.15f,
+                silenceRatioMin = 0.15f,
+                garbageScoreMax = 0                   // REJECT completely!
             )
         )
     }
 
-    // NEW: Master Mode - Perfection required for the elite
+    // Master Mode - Perfection required
     fun masterMode(): Presets {
         return Presets(
             difficulty = DifficultyLevel.MASTER,
             scoring = ScoringParameters(
-                pitchWeight = 0.98f,          // Near-perfect pitch required
+                pitchWeight = 0.98f,
                 mfccWeight = 0.02f,
-                pitchTolerance = 3f,          // Micro-tonal precision required
-                minScoreThreshold = 0.5f,     // Extremely hard to get any points
-                perfectScoreThreshold = 0.98f, // Virtually impossible perfect score
-                scoreCurve = 1.0f             // Linear, unforgiving curve
+                pitchTolerance = 3f,
+                minScoreThreshold = 0.5f,
+                perfectScoreThreshold = 0.98f,
+                scoreCurve = 1.0f
             ),
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.7f,   // Extreme content detection strictness
+                contentDetectionBestThreshold = 0.7f,
                 contentDetectionAvgThreshold = 0.55f,
-                rightContentFlatPenalty = 0.5f,         // Brutal penalties
+                rightContentFlatPenalty = 0.5f,
                 rightContentDifferentMelodyPenalty = 0.4f,
-                wrongContentStandardPenalty = 0.9f      // Nearly complete penalty for wrong content
+                wrongContentStandardPenalty = 0.9f
             ),
             melodic = MelodicAnalysisParameters(
-                monotoneDetectionThreshold = 4.0f,      // Extreme monotone detection
+                monotoneDetectionThreshold = 4.0f,
                 flatSpeechThreshold = 0.1f,
-                monotonePenalty = 0.9f                   // Devastating monotone penalty
+                monotonePenalty = 0.9f
             ),
+            musical = MusicalSimilarityParameters(),  // ← ADD: Use defaults
+            audio = AudioProcessingParameters(),      // ← ADD: Use defaults
             scaling = ScoreScalingParameters(
-                incredibleFeedbackThreshold = 98,       // Requires 98%+ for "incredible"
-                greatJobFeedbackThreshold = 90,         // Requires 90%+ for "great job"
-                goodEffortFeedbackThreshold = 80,       // Requires 80%+ for "good effort"
-                reverseMinScoreAdjustment = 1.0f,       // No easier adjustments for reverse
+                incredibleFeedbackThreshold = 98,
+                greatJobFeedbackThreshold = 90,
+                goodEffortFeedbackThreshold = 80,
+                reverseMinScoreAdjustment = 1.0f,
                 reversePerfectScoreAdjustment = 1.0f,
                 reverseCurveAdjustment = 1.0f
+            ),
+            garbage = GarbageDetectionParameters(     // ← EXTREMELY STRICT!
+                enableGarbageDetection = true,
+                mfccVarianceThreshold = 0.6f,         // Extreme
+                pitchMonotoneThreshold = 18f,
+                pitchOscillationRate = 0.35f,
+                spectralEntropyThreshold = 0.8f,
+                zcrMinThreshold = 0.035f,
+                zcrMaxThreshold = 0.12f,
+                silenceRatioMin = 0.18f,
+                garbageScoreMax = 0                   // REJECT completely!
             )
         )
     }
@@ -396,7 +501,8 @@ data class Presets(
     val melodic: MelodicAnalysisParameters = MelodicAnalysisParameters(),
     val musical: MusicalSimilarityParameters = MusicalSimilarityParameters(),
     val audio: AudioProcessingParameters = AudioProcessingParameters(),
-    val scaling: ScoreScalingParameters = ScoreScalingParameters()
+    val scaling: ScoreScalingParameters = ScoreScalingParameters(),
+    val garbage: GarbageDetectionParameters = GarbageDetectionParameters()
 )
 
 // Extension function to apply preset to ScoringEngine (ENHANCED)
@@ -407,6 +513,8 @@ fun ScoringEngine.applyPreset(preset: Presets) {
     updateMusicalParameters(preset.musical)
     updateAudioParameters(preset.audio)
     updateScalingParameters(preset.scaling)
+    updateGarbageParameters(preset.garbage)  // ← ADD THIS LINE
     // Store the current difficulty level for UI feedback
     setCurrentDifficulty(preset.difficulty)
 }
+
