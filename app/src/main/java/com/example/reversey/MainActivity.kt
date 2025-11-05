@@ -1,10 +1,7 @@
 package com.example.reversey
 
-import com.example.reversey.ui.components.UnifiedRecordingItem
 import android.content.Context
 import android.content.Intent
-import android.media.MediaPlayer
-import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -35,7 +32,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
@@ -96,16 +92,22 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import coil.ImageLoader
-import coil.compose.AsyncImage
-import coil.decode.GifDecoder
-import coil.decode.ImageDecoderDecoder
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.Recording
 import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.ui.components.DifficultyIndicator
 import com.example.reversey.ui.components.EnhancedGlowButton
+import com.example.reversey.ui.components.ThemedMenuModal
+import com.example.reversey.ui.components.TutorialOverlay
+import com.example.reversey.ui.components.UnifiedAttemptItem
+import com.example.reversey.ui.components.UnifiedRecordingButton
+import com.example.reversey.ui.components.UnifiedRecordingItem
+import com.example.reversey.ui.screens.SettingsScreen
+import com.example.reversey.ui.theme.AestheticTheme
+import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.theme.ReVerseYTheme
+import com.example.reversey.ui.viewmodels.AudioViewModel
+import com.example.reversey.ui.viewmodels.ThemeViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -119,18 +121,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
-
-import com.example.reversey.ui.theme.AestheticTheme
-import com.example.reversey.ui.theme.MaterialColors
-
-
-import com.example.reversey.ui.components.ThemedMenuModal
-import com.example.reversey.ui.components.TutorialOverlay
-import com.example.reversey.ui.components.UnifiedAttemptItem
-import com.example.reversey.ui.components.UnifiedRecordingButton
-import com.example.reversey.ui.viewmodels.AudioViewModel
-import com.example.reversey.ui.viewmodels.ThemeViewModel
-import com.example.reversey.ui.screens.SettingsScreen
 
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
@@ -236,88 +226,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
 }  // ← End of MainApp
 
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AboutScreen(navController: NavController) {
-    val context = LocalContext.current
-    val audioViewModel: AudioViewModel = hiltViewModel()  // ✅ HILT pattern
-    val uiState by audioViewModel.uiState.collectAsState()
-    val imageLoader = remember {
-        ImageLoader.Builder(context)
-            .components {
-                if (SDK_INT >= 28) {
-                    add(ImageDecoderDecoder.Factory())
-                } else {
-                    add(GifDecoder.Factory())
-                }
-            }
-            .build()
-    }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("About ReVerseY") },
-                    actions = {  // ✅ MOVED FROM navigationIcon TO actions
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(
-                                imageVector = Icons.Default.Close,  // ✅ CHANGED TO Close icon
-                                contentDescription = "Close"
-                            )
-                        }
-                    }
-                )
-            }
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text("ReVerseY", style = MaterialTheme.typography.headlineMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "v13.0-AddGarbageDetection 0.4f + modal menu",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.clickable {
-                        if (uiState.cpdTaps + 1 == 5) {
-                            val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
-                            mediaPlayer?.start()
-                            mediaPlayer?.setOnCompletionListener { mp -> mp.release() }
-                        }
-                        audioViewModel.onCpdTapped()
-                    }
-                )
-            }
-        }
-
-        if (uiState.showEasterEgg) {
-            LaunchedEffect(Unit) {
-                delay(1500L)
-                audioViewModel.dismissEasterEgg()
-            }
-            AsyncImage(
-                model = R.drawable.cracking_egg,
-                contentDescription = "Easter Egg GIF",
-                imageLoader = imageLoader,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.75f))
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
