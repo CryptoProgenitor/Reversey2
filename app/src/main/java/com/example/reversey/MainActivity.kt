@@ -658,9 +658,11 @@ fun EnhancedRecordButton(
             }
         }
     } else {
-        // 🥚 BEAUTIFUL EGG BUTTON!
-        UnifiedRecordingButton(
+        // 🎨 Component composition architecture!
+        aesthetic.components.RecordButton(
             isRecording = isRecording,
+            isProcessing = false,
+            aesthetic = aesthetic,
             onStartRecording = onStartRecording,
             onStopRecording = onStopRecording
         )
