@@ -11,6 +11,7 @@ import com.example.reversey.ui.theme.ThemeComponents
 import com.example.reversey.ui.theme.DefaultThemeComponents
 import com.example.reversey.ui.theme.EggThemeComponents
 import com.example.reversey.ui.theme.ScrapbookThemeComponents
+import com.example.reversey.ui.theme.GuitarComponents
 /**
  * Aesthetic Theme Data - Non-color properties for visual themes
  * Works alongside Material 3 ColorScheme for complete theming
@@ -409,6 +410,44 @@ object AestheticThemes {
         maxCardRotation = 0f
     )
 
+    val Guitar = AestheticThemeData(
+        id = "guitar",
+        name = "Guitar Acoustic",
+        description = "🎸 Taylor Swift Folklore vibes for CPD!",
+        components = GuitarComponents(),
+
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFF8E1),  // Cream
+                Color(0xFFFFF3E0),  // Warm beige
+                Color(0xFFFFE0B2),  // Soft peach
+                Color(0xFFFFDFC1)   // Peachy bottom
+            )
+        ),
+        cardBorder = Color(0xFF5d4a36),
+        primaryTextColor = Color(0xFF3E2723),
+        secondaryTextColor = Color(0xFF5D4037),
+
+        useGlassmorphism = false,
+        glowIntensity = 0f,
+        useSerifFont = true,
+        useWideLetterSpacing = false,
+
+        recordButtonEmoji = "🎸",
+        scoreEmojis = mapOf(
+            90 to "⭐",
+            80 to "🎵",
+            70 to "🎶",
+            60 to "🎤",
+            0 to "🎻"
+        ),
+
+        cardAlpha = 1f,
+        shadowElevation = 6f,
+        maxCardRotation = 0f,
+        borderWidth = 3f
+    )
+
     // Map for easy lookup
     val allThemes = mapOf(
         "y2k_cyber" to Y2KCyber,
@@ -421,7 +460,8 @@ object AestheticThemes {
         "cyberpunk" to Cyberpunk,
         "graphite_sketch" to GraphiteSketch,
         "egg" to Egg,  // 🥚 ADD THIS LINE!
-        "sakura_serenity" to SakuraSerenity  // 🌸 ADD THIS LINE!
+        "sakura_serenity" to SakuraSerenity,  // 🌸 ADD THIS LINE!
+        "guitar" to Guitar  // 🎸 CPD's theme!
     )
 
     fun getThemeById(id: String): AestheticThemeData {

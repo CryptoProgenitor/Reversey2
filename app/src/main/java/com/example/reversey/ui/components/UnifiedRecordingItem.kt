@@ -82,6 +82,23 @@ fun UnifiedRecordingItem(
                 onStartAttempt = onStartAttempt
             )
         }
+        aesthetic.id == "guitar" -> {  // ← ADD THIS!
+            aesthetic.components.RecordingItem(
+                recording = recording,
+                aesthetic = aesthetic,
+                isPlaying = isPlaying,
+                isPaused = isPaused,
+                progress = progress,
+                onPlay = onPlay,
+                onPause = onPause,
+                onStop = onStop,
+                onDelete = onDelete,
+                onShare = onShare,
+                onRename = onRename,
+                isGameModeEnabled = isGameModeEnabled,
+                onStartAttempt = onStartAttempt
+            )
+        }
         else -> {
             // Default Material 3 implementation (inline to avoid recursion)
             DefaultRecordingItemImpl(

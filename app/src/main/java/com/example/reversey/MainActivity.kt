@@ -362,9 +362,10 @@ fun AudioReverserApp(
                     onStartRecording = { viewModel.startRecording() },
                     onStopRecording = { viewModel.stopRecording() },
                 )
+                ////from here
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
+                // Only show waveform area when actually recording!
                 if (uiState.isRecording) {
                     EnhancedWaveformVisualizer(
                         amplitudes = uiState.amplitudes,
@@ -373,6 +374,7 @@ fun AudioReverserApp(
                             .height(100.dp)
                     )
                 } else {
+                    // Minimal space for status text
                     AnimatedVisibility(
                         visible = uiState.statusText.isNotEmpty(),
                         enter = fadeIn(animationSpec = tween(600, 100, LinearOutSlowInEasing)),
@@ -384,12 +386,14 @@ fun AudioReverserApp(
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 letterSpacing = if (aesthetic.useWideLetterSpacing) 1.sp else 0.sp
                             ),
-                            color = aesthetic.primaryTextColor
+                            color = aesthetic.primaryTextColor,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                ////to here
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
