@@ -57,26 +57,10 @@ data class AestheticThemeData(
     val cardRotation: Float = 0f,     // Card rotation in degrees
     val useHandDrawnBorders: Boolean = false,  // Hand-drawn style borders
     val borderWidth: Float = 2f,        // Border thickness
-    val useScrapbookElements: Boolean = false,
     val maxCardRotation: Float = 0f,
-    val showTapeEffects: Boolean = false,
-    val useStarRatings: Boolean = false,
 
-    // In your AestheticThemeData.kt, ADD these EGG 🥚 properties:
-    val useEggElements: Boolean = false,
-    val useFriedEggDecorations: Boolean = false,
-    val useHandDrawnStyle: Boolean = false,
-    val eggButtonStyle: EggButtonStyle = EggButtonStyle.Normal,
-    val showBackgroundEggs: Boolean = false,
-    val crackAnimation: Boolean = false,
 
 )
-enum class EggButtonStyle {
-    Normal,
-    FriedEgg,
-    CrackedEgg
-}
-
 /**
  * Predefined Aesthetic Themes
  * Each corresponds to Material 3 color scheme + aesthetic properties
@@ -141,11 +125,8 @@ object AestheticThemes {
         ),
         cardAlpha = 1f,
         shadowElevation = 0f,
-        useScrapbookElements = true,
         maxCardRotation = 3f,    // Slight rotation for hand-placed look
-        showTapeEffects = true,   // Sticky tape in corners
-        useStarRatings = true,     // Hand-drawn star ratings
-        borderWidth = 3f           // Thicker borders for scrapbook feel
+        borderWidth = 3f         // Thicker borders for scrapbook feel
     )
 
     val Cottagecore = AestheticThemeData(
@@ -377,13 +358,6 @@ object AestheticThemes {
             60 to "🐥", // Chick for okay
             0 to "🥀"   // Wilted for poor
         ),
-        // EGG-SPECIFIC PROPERTIES
-        useEggElements = true,
-        useFriedEggDecorations = true,
-        useHandDrawnStyle = true,
-        eggButtonStyle = EggButtonStyle.FriedEgg,
-        showBackgroundEggs = true,
-        crackAnimation = true,
         // Card styling
         cardAlpha = 1f,
         shadowElevation = 6f, // Nice shadow like her sketch
@@ -431,14 +405,8 @@ object AestheticThemes {
         useHandDrawnBorders = false,
         borderWidth = 2f,
 
-        // Sakura-specific flags (for future use)
-        useScrapbookElements = false,
-        useEggElements = false,
-        useFriedEggDecorations = false,
-        useHandDrawnStyle = false,
-        maxCardRotation = 0f,
-        showTapeEffects = false,
-        useStarRatings = false
+        // Sakura-specific settings
+        maxCardRotation = 0f
     )
 
     // Map for easy lookup
