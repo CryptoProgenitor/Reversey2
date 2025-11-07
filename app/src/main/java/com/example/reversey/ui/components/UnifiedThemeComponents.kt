@@ -317,7 +317,7 @@ fun UnifiedAttemptItem(
             }
         }
         // SCRAPBOOK THEMES
-        aesthetic.useScrapbookElements -> {
+        aesthetic.id == "scrapbook" -> {
             ScrapbookStyleAttemptItem(
                 aesthetic = aesthetic,
                 attempt = attempt,
@@ -534,7 +534,7 @@ private fun ScrapbookStyleAttemptItem(
 
                     // Play controls (THIRD)
                     if (isPlayingThis && !isPaused) {
-                        if (aesthetic.useEggElements) {
+                        if (aesthetic.id == "egg") {
                             EggScrapbookButton(
                                 onClick = onPause,
                                 eggType = "cracked",
@@ -550,7 +550,7 @@ private fun ScrapbookStyleAttemptItem(
                             )
                         }
                     } else {
-                        if (aesthetic.useEggElements) {
+                        if (aesthetic.id == "egg") {
                             EggScrapbookButton(
                                 onClick = { onPlay(attempt.attemptFilePath) },
                                 eggType = "whole",
@@ -569,7 +569,7 @@ private fun ScrapbookStyleAttemptItem(
 
                     // Rev button (FOURTH)
                     if (attempt.reversedAttemptFilePath != null) {
-                        if (aesthetic.useEggElements) {
+                        if (aesthetic.id == "egg") {
                             EggScrapbookButton(
                                 onClick = { onPlay(attempt.reversedAttemptFilePath!!) },
                                 eggType = "fried",
@@ -587,7 +587,7 @@ private fun ScrapbookStyleAttemptItem(
                     }
 
                     // Delete button (LAST)
-                    if (aesthetic.useEggElements) {
+                    if (aesthetic.id == "egg") {
                         EggScrapbookButton(
                             onClick = { onShowDeleteDialog(true) },
                             eggType = "cracked",
@@ -800,7 +800,7 @@ private fun ModernStyleAttemptItem(
                                 isPrimary = true,
                                 label = "Pause"
                             ) {
-                                if (aesthetic.useEggElements) {
+                                if (aesthetic.id == "egg") {
                                     EggIcons.CrackedEggIcon(
                                         size = 16.dp,
                                         tint = Color.Companion.White
@@ -820,7 +820,7 @@ private fun ModernStyleAttemptItem(
                                 isPrimary = true,
                                 label = "Play"
                             ) {
-                                if (aesthetic.useEggElements) {
+                                if (aesthetic.id == "egg") {
                                     EggIcons.WholeEggIcon(
                                         size = 16.dp,
                                         tint = Color.Companion.White
@@ -843,7 +843,7 @@ private fun ModernStyleAttemptItem(
                                 isSecondary = true,
                                 label = "Rev"
                             ) {
-                                if (aesthetic.useEggElements) {
+                                if (aesthetic.id == "egg") {
                                     EggIcons.FriedEggIcon(
                                         size = 16.dp,
                                         tint = Color.Companion.White
@@ -865,7 +865,7 @@ private fun ModernStyleAttemptItem(
                             isDestructive = true,
                             label = "Del"
                         ) {
-                            if (aesthetic.useEggElements) {
+                            if (aesthetic.id == "egg") {
                                 EggIcons.CrackedEggIcon(
                                     size = 16.dp,
                                     tint = Color.Companion.White
@@ -1269,7 +1269,7 @@ private fun RadialScoreDisplay(
     val aesthetic = AestheticTheme()
 
     // Score-based emoji - use egg emojis when egg theme is active
-    val emoji = if (aesthetic.useEggElements) {
+    val emoji = if (aesthetic.id == "egg") {
         // Use egg emojis from aesthetic.scoreEmojis
         aesthetic.scoreEmojis.entries
             .sortedByDescending { it.key }

@@ -46,7 +46,7 @@ fun UnifiedRecordingItem(
 ) {
     // 🎨 GLUTE: Route themed implementations through components
     when {
-        aesthetic.useEggElements -> {
+        aesthetic.id == "egg" -> {
             // Egg theme uses its component
             aesthetic.components.RecordingItem(
                 recording = recording,
@@ -64,7 +64,7 @@ fun UnifiedRecordingItem(
                 onStartAttempt = onStartAttempt
             )
         }
-        aesthetic.useScrapbookElements -> {
+        aesthetic.id == "scrapbook" -> {
             // Scrapbook theme uses its component
             aesthetic.components.RecordingItem(
                 recording = recording,

@@ -34,16 +34,16 @@ fun UnifiedRecordButton(
 ) {
     val aesthetic = AestheticTheme()
 
-    // Route to appropriate button style based on GLUTE theme
-    when {
-        aesthetic.useEggElements -> {
+    // Route to appropriate button style based on theme ID
+    when (aesthetic.id) {
+        "egg" -> {
             EggRecordButton(
                 isRecording = isRecording,
                 onClick = onClick,
                 modifier = modifier
             )
         }
-        aesthetic.useScrapbookElements -> {
+        "scrapbook" -> {
             ScrapbookRecordButton(
                 isRecording = isRecording,
                 onClick = onClick,
