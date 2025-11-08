@@ -1,29 +1,72 @@
 package com.example.reversey.ui.theme
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -1109,6 +1152,7 @@ fun SnowyOwlAttemptItem(
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
+    var showScoreDialog by remember { mutableStateOf(false) }
 
     val isPlaying = currentlyPlayingPath == attempt.attemptFilePath
 
@@ -1121,7 +1165,7 @@ fun SnowyOwlAttemptItem(
     val progressBlue = Color(0xFFADD8E6).copy(alpha = 0.5f)
 
     // Calculate moon face emoji based on score
-    val scorePercent = (attempt.score * 100).toInt()
+    val scorePercent = if (attempt.score > 1f) attempt.score.toInt() else (attempt.score * 100).toInt()
     val moonFace = when {
         scorePercent >= 80 -> "🌝" // Happy full moon
         scorePercent >= 50 -> "🌗" // Neutral quarter moon
@@ -1261,7 +1305,7 @@ fun SnowyOwlAttemptItem(
             // BOTTOM ROW: Buttons + Score
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Share button
@@ -1305,15 +1349,13 @@ fun SnowyOwlAttemptItem(
                     }
                 }
 
-                // Spacer to push score circle to the right
-                Spacer(modifier = Modifier.weight(1f))
-
                 // Moon face scoring circle (right side) - 90% size
                 Box(
                     modifier = Modifier
-                        .size(63.dp)
+                        .size(80.dp)
                         .background(Color(0xFFADD8E6).copy(alpha = 0.3f), CircleShape)
-                        .border(3.dp, Color(0xFFADD8E6).copy(alpha = 0.6f), CircleShape),
+                        .border(3.dp, Color(0xFFADD8E6).copy(alpha = 0.6f), CircleShape)
+                        .clickable { showScoreDialog = true },
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -1428,6 +1470,428 @@ fun SnowyOwlAttemptItem(
             },
             containerColor = Color(0xFF282832).copy(alpha = 0.75f)
         )
+    }
+
+    // Score Explanation Dialog
+    if (showScoreDialog) {
+        OwlScoreDialog(
+            attempt = attempt,
+            scorePercent = scorePercent,
+            moonFace = moonFace,
+            onDismiss = { showScoreDialog = false }
+        )
+    }
+}
+
+
+// ============================================
+// 🌙 OWL SCORE DIALOG - Mysterious & Detailed
+// ============================================
+
+@Composable
+fun OwlScoreDialog(
+    attempt: PlayerAttempt,
+    scorePercent: Int,
+    moonFace: String,
+    onDismiss: () -> Unit
+) {
+    val mysticalPurple = Color(0xFF9B4F96)
+    val deepNight = Color(0xFF14141e)
+    val starBlue = Color(0xFFADD8E6)
+    val mysteryShadow = Color(0xFF282832)
+
+    // Mystical message based on score
+    val mysticalMessage = when {
+        scorePercent >= 90 -> "The owl spirits deem you LEGENDARY! 🦉✨"
+        scorePercent >= 80 -> "A masterful performance under the moon! 🌝"
+        scorePercent >= 70 -> "The night whispers of your growing skill... 🌙"
+        scorePercent >= 60 -> "Progress echoes through the forest... 🌲"
+        scorePercent >= 50 -> "The owl watches your journey with patience... 👁️"
+        else -> "Even the wisest owl was once a fledgling... 🥚"
+    }
+
+    // Mystical tip based on weakest metric
+    val mysticalTip = when {
+        attempt.pitchSimilarity < attempt.mfccSimilarity ->
+            "💫 The stars suggest: Focus on matching the pitch's rhythm..."
+        attempt.mfccSimilarity < attempt.pitchSimilarity ->
+            "💫 The moon advises: Listen deeply to voice tone patterns..."
+        else ->
+            "💫 The night whispers: Balance is the key to wisdom..."
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(deepNight.copy(alpha = 0.95f))
+                .clickable { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            // Floating stars decoration
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val starPositions = listOf(
+                    Offset(size.width * 0.1f, size.height * 0.15f),
+                    Offset(size.width * 0.85f, size.height * 0.2f),
+                    Offset(size.width * 0.15f, size.height * 0.8f),
+                    Offset(size.width * 0.9f, size.height * 0.75f),
+                    Offset(size.width * 0.5f, size.height * 0.1f),
+                    Offset(size.width * 0.3f, size.height * 0.3f),
+                    Offset(size.width * 0.7f, size.height * 0.85f),
+                    Offset(size.width * 0.25f, size.height * 0.6f)
+                )
+
+                starPositions.forEach { pos ->
+                    drawCircle(
+                        color = starBlue.copy(alpha = 0.4f),
+                        radius = 3f,
+                        center = pos
+                    )
+                    // Twinkle effect
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.3f),
+                        radius = 1.5f,
+                        center = pos
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .clickable(enabled = false) { }
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(elevation = 24.dp, shape = RoundedCornerShape(20.dp))
+                        .border(
+                            width = 3.dp,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    mysticalPurple.copy(alpha = 0.6f),
+                                    starBlue.copy(alpha = 0.4f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(20.dp)
+                        ),
+                    colors = CardDefaults.cardColors(containerColor = mysteryShadow.copy(alpha = 0.95f)),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Close button (X in top right)
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.TopEnd
+                        ) {
+                            IconButton(onClick = onDismiss) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = starBlue.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+
+                        // Player name with owl decoration
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Text(
+                                text = "🦉",
+                                fontSize = 20.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = attempt.playerName,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "🦉",
+                                fontSize = 20.sp
+                            )
+                        }
+
+                        Text(
+                            text = "◈ Moonlit Performance ◈",
+                            fontSize = 14.sp,
+                            color = starBlue.copy(alpha = 0.7f),
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Large moon score circle with glow effect
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Outer glow
+                            Canvas(modifier = Modifier.size(140.dp)) {
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            starBlue.copy(alpha = 0.3f),
+                                            Color.Transparent
+                                        )
+                                    ),
+                                    radius = size.width / 2
+                                )
+                            }
+
+                            // Moon circle
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .background(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                starBlue.copy(alpha = 0.5f),
+                                                starBlue.copy(alpha = 0.2f)
+                                            )
+                                        ),
+                                        shape = CircleShape
+                                    )
+                                    .border(
+                                        width = 4.dp,
+                                        color = starBlue.copy(alpha = 0.8f),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = moonFace,
+                                        fontSize = 48.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "$scorePercent%",
+                                        color = Color.White,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Performance Breakdown Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = 2.dp,
+                                    color = mysticalPurple.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = deepNight.copy(alpha = 0.8f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                ) {
+                                    Text(
+                                        text = "✧",
+                                        fontSize = 16.sp,
+                                        color = starBlue
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Mystical Metrics",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "✧",
+                                        fontSize = 16.sp,
+                                        color = starBlue
+                                    )
+                                }
+
+                                // Pitch Similarity
+                                OwlMetricRow(
+                                    label = "Pitch Harmony",
+                                    value = attempt.pitchSimilarity,
+                                    icon = "🎵"
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Voice Matching (MFCC)
+                                OwlMetricRow(
+                                    label = "Voice Echo",
+                                    value = attempt.mfccSimilarity,
+                                    icon = "🔮"
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Mystical Message Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = 2.dp,
+                                    color = mysticalPurple.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = mysticalPurple.copy(alpha = 0.2f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = mysticalMessage,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            deepNight.copy(alpha = 0.4f),
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(12.dp)
+                                ) {
+                                    Text(
+                                        text = mysticalTip,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = starBlue.copy(alpha = 0.9f),
+                                        textAlign = TextAlign.Center,
+                                        fontStyle = FontStyle.Italic
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Owl-themed metric row with mystical progress visualization
+ */
+@Composable
+fun OwlMetricRow(
+    label: String,
+    value: Float,
+    icon: String
+) {
+    val starBlue = Color(0xFFADD8E6)
+    val mysticalPurple = Color(0xFF9B4F96)
+    val percentage = (value * 100).toInt()
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = icon,
+                    fontSize = 18.sp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+
+            Text(
+                text = "$percentage%",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = starBlue
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Mystical progress bar with gradient
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.White.copy(alpha = 0.1f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(value)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                mysticalPurple.copy(alpha = 0.8f),
+                                starBlue.copy(alpha = 0.9f)
+                            )
+                        )
+                    )
+            )
+
+            // Sparkle effect at the end
+            if (value > 0.1f) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .align(Alignment.CenterStart)
+                        .padding(start = (value * 100).dp.coerceAtMost(100.dp) - 8.dp)
+                ) {
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.6f),
+                        radius = 4.dp.toPx()
+                    )
+                }
+            }
+        }
     }
 }
 
