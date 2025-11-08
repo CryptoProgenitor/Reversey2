@@ -10,7 +10,7 @@ import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.components.ScrapbookRecordingItem
 import com.example.reversey.ui.components.UnifiedAttemptItem
-import com.example.reversey.ui.components.unified.UnifiedRecordButton
+import com.example.reversey.ui.components.UnifiedRecordButton
 
 /**
  * 📝 SCRAPBOOK THEME COMPONENTS
@@ -98,7 +98,7 @@ class ScrapbookThemeComponents : ThemeComponents {
     ) {
         // Delegate to existing UnifiedRecordButton
         // UnifiedRecordButton has a simpler signature, so we adapt it here
-        com.example.reversey.ui.components.unified.UnifiedRecordButton(
+        UnifiedRecordButton(
             isRecording = isRecording,
             onClick = {
                 if (isRecording) {

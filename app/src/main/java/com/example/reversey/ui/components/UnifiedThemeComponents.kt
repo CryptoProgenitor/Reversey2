@@ -1,5 +1,7 @@
 package com.example.reversey.ui.components
 
+//import com.example.reversey.ui.components.unified.UnifiedRecordButton
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,18 +30,19 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,14 +68,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.reversey.R
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
-import com.example.reversey.R
 import com.example.reversey.data.models.Recording
 import com.example.reversey.scoring.ScoringResult
 import com.example.reversey.scoring.SimilarityMetrics
-import com.example.reversey.ui.components.egg.EggStylePlayerCard
-import com.example.reversey.ui.components.unified.UnifiedRecordButton
 import com.example.reversey.ui.icons.EggIcons
 import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.AestheticThemeData
@@ -116,206 +117,6 @@ fun UnifiedAttemptItem(
     // Route to appropriate theme implementation
     // 🥚 GLUTE: Route to appropriate theme implementation
     when {
-        // EGG THEME DETECTION
-        aesthetic.id == "egg" -> {
-            EggStylePlayerCard(
-                playerName = attempt.playerName,
-                score = "${attempt.score.toInt()}%",
-                eggEmoji = aesthetic.scoreEmojis.entries
-                    .sortedByDescending { it.key }
-                    .firstOrNull { attempt.score.toInt() >= it.key }?.value ?: "🥚",
-                isPlaying = isPlayingThis, // 🔧 ADD THIS LINE to show progress bar on attempt card
-                isPaused = isPaused,       // 🔧 ADD THIS LINE to show progress bar on attempt card
-                progress = progress,       // 🔧 ADD THIS LINE to show progress bar on attempt card
-                //onShare = {
-                //    println("🥚 SHARE: Calling onShareAttempt")
-                //    onShareAttempt?.invoke(attempt.attemptFilePath ?: "")  // ← Correct: passing String path
-                //},
-
-                onShare = {//<---GEMINI CODE
-                    println("🥚 SHARE: Setting showShareDialog = true")
-                    showShareDialog = true
-                },
-
-                onPlay = {
-                    println("🥚 PLAY BUTTON CLICKED!") // ← Add this debug line
-                    if (isPlayingThis && !isPaused) onPause()
-                    else onPlay(attempt.attemptFilePath ?: "")
-                },
-                onReverse = {
-                    println("🥚 REVERSE BUTTON CLICKED!")
-                    attempt.reversedAttemptFilePath?.let { onPlay(it) }
-                },
-                onNavigateToParent = {
-                    onJumpToParent?.invoke()
-                },
-                onShowRenameDialog = {
-                    showRenameDialog = true
-                },
-                onShowDeleteDialog = {
-                    println("🥚 DELETE DIALOG: Setting showDeleteDialog to $it")
-                    showDeleteDialog = it
-                },
-                onScoreClick = { showScoreDialog = true }
-            )
-
-            // Score dialog for egg theme
-            if (showScoreDialog) {
-                val scoringResult = remember {
-                    ScoringResult(
-                        score = attempt.score,
-                        rawScore = attempt.rawScore,
-                        metrics = SimilarityMetrics(
-                            pitch = attempt.pitchSimilarity,
-                            mfcc = attempt.mfccSimilarity
-                        ),
-                        feedback = emptyList()
-                    )
-                }
-
-                ScoreExplanationDialog(
-                    score = scoringResult,
-                    challengeType = attempt.challengeType,
-                    onDismiss = { showScoreDialog = false }
-                )
-            }
-
-            // ✅ Share dialog for egg theme //<---GEMINI CODE
-            if (showShareDialog && onShareAttempt != null) {
-                AlertDialog(
-                    onDismissRequest = { showShareDialog = false },
-                    title = { Text("Share Attempt 📤") },
-                    text = {
-                        Column {
-                            Text("Which version would you like to share?")
-                            Spacer(modifier = Modifier.Companion.height(16.dp))
-                            Button(
-                                onClick = {
-                                    onShareAttempt(attempt.attemptFilePath)
-                                    showShareDialog = false
-                                },
-                                modifier = Modifier.Companion.fillMaxWidth()
-                            ) {
-                                Text("Share Fresh Egg 🥚")
-                            }
-                            if (attempt.reversedAttemptFilePath != null) {
-                                Spacer(modifier = Modifier.Companion.height(8.dp))
-                                Button(
-                                    onClick = {
-                                        onShareAttempt(attempt.reversedAttemptFilePath!!)
-                                        showShareDialog = false
-                                    },
-                                    modifier = Modifier.Companion.fillMaxWidth()
-                                ) {
-                                    Text("Share Scrambled Egg🍳")
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = { },
-                    dismissButton = {
-                        Button(onClick = { showShareDialog = false }) { Text("Cancel") }
-                    }
-                )
-            }
-
-            // DELETE DIALOG FOR EGG THEME - FIXED!
-            if (showDeleteDialog && onDeleteAttempt != null) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteDialog = false },
-                    title = {
-                        Text(
-                            "Delete Egg Attempt? 🥚💔",
-                            color = Color(0xFF2E2E2E),
-                            fontWeight = FontWeight.Companion.Bold
-                        )
-                    },
-                    text = {
-                        Text(
-                            "Are you sure you want to crack ${attempt.playerName}'s attempt? This cannot be undone!",
-                            color = Color(0xFF2E2E2E)
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                onDeleteAttempt(attempt)
-                                showDeleteDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
-                        ) {
-                            Text(
-                                "Crack It! 🔨",
-                                color = Color.Companion.White,
-                                fontWeight = FontWeight.Companion.Bold
-                            )
-                        }
-                    },
-                    dismissButton = {
-                        Button(
-                            onClick = { showDeleteDialog = false },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E2E2E))
-                        ) {
-                            Text(
-                                "Keep Egg Safe 🥚",
-                                color = Color.Companion.White,
-                                fontWeight = FontWeight.Companion.Bold
-                            )
-                        }
-                    }
-                )
-            }
-
-            // ✅ RENAME DIALOG FOR EGG THEME
-            if (showRenameDialog && onRenamePlayer != null) {
-                var newName by remember { mutableStateOf(attempt.playerName) }
-                AlertDialog(
-                    onDismissRequest = { showRenameDialog = false },
-                    title = {
-                        Text(
-                            "Rename Player 🥚✏️",
-                            color = Color(0xFF2E2E2E),
-                            fontWeight = FontWeight.Companion.Bold
-                        )
-                    },
-                    text = {
-                        OutlinedTextField(
-                            value = newName,
-                            onValueChange = { newName = it },
-                            label = { Text("Player Name") },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFFFFD54F),
-                                focusedLabelColor = Color(0xFF2E2E2E)
-                            )
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                if (newName.isNotBlank()) {
-                                    onRenamePlayer(attempt, newName)
-                                }
-                                showRenameDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD54F))
-                        ) {
-                            Text(
-                                "Rename Egg 🥚",
-                                color = Color(0xFF2E2E2E),
-                                fontWeight = FontWeight.Companion.Bold
-                            )
-                        }
-                    },
-                    dismissButton = {
-                        Button(
-                            onClick = { showRenameDialog = false },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E2E2E))
-                        ) { Text("Cancel", color = Color.Companion.White) }
-                    }
-                )
-            }
-        }
         // SCRAPBOOK THEMES
         aesthetic.id == "scrapbook" -> {
             ScrapbookStyleAttemptItem(
@@ -343,6 +144,24 @@ fun UnifiedAttemptItem(
         }
         // 🎸 GUITAR THEME - ADD THIS WHOLE BLOCK!
         aesthetic.id == "guitar" -> {
+            aesthetic.components.AttemptItem(
+                attempt = attempt,
+                aesthetic = aesthetic,
+                currentlyPlayingPath = currentlyPlayingPath,
+                isPaused = isPaused,
+                progress = progress,
+                onPlay = onPlay,
+                onPause = onPause,
+                onStop = onStop,
+                onRenamePlayer = onRenamePlayer,
+                onDeleteAttempt = onDeleteAttempt,
+                onShareAttempt = onShareAttempt,
+                onJumpToParent = onJumpToParent
+            )
+        }
+
+        // 🥚 EGG THEME
+        aesthetic.id == "egg" -> {
             aesthetic.components.AttemptItem(
                 attempt = attempt,
                 aesthetic = aesthetic,
@@ -1809,4 +1628,100 @@ fun UnifiedRecordingButton(
         },
         modifier = modifier
     )
+}
+
+/**
+ * GLUTE-compliant recording button router
+ * NOTE: Egg theme bypasses this - has its own inline button
+ */
+@Composable
+fun UnifiedRecordButton(
+    isRecording: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val aesthetic = AestheticTheme()
+
+    // Route to appropriate button style based on theme ID
+    when (aesthetic.id) {
+        "scrapbook" -> {
+            ScrapbookRecordButton(
+                isRecording = isRecording,
+                onClick = onClick,
+                modifier = modifier
+            )
+        }
+        else -> {
+            ModernRecordButton(
+                isRecording = isRecording,
+                onClick = onClick,
+                modifier = modifier
+            )
+        }
+    }
+}
+
+/**
+ * Scrapbook-style recording button for scrapbook theme
+ */
+@Composable
+fun ScrapbookRecordButton(
+    isRecording: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val aesthetic = AestheticTheme()
+
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier.size(72.dp),
+        containerColor = if (isRecording)
+            Color(0xFFFF6B6B) else Color(0xFFFF8C00),
+        contentColor = Color.White
+    ) {
+        if (isRecording) {
+            Icon(
+                imageVector = Icons.Default.Stop,
+                contentDescription = "Stop Recording",
+                modifier = Modifier.size(32.dp)
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Start Recording",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Modern Material Design recording button fallback
+ */
+@Composable
+fun ModernRecordButton(
+    isRecording: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier,
+        containerColor = if (isRecording)
+            MaterialTheme.colorScheme.error
+        else
+            MaterialTheme.colorScheme.primary
+    ) {
+        if (isRecording) {
+            Icon(
+                imageVector = Icons.Default.Stop,
+                contentDescription = "Stop Recording"
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Start Recording"
+            )
+        }
+    }
 }

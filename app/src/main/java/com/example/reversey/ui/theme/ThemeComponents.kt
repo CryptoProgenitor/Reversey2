@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
+import com.example.reversey.ui.components.UnifiedRecordButton
 
 /**
  * 🎨 THEME COMPONENTS INTERFACE
@@ -171,7 +172,7 @@ class DefaultThemeComponents : ThemeComponents {
     ) {
         // Delegate to existing UnifiedRecordButton
         // UnifiedRecordButton has a simpler signature, so we adapt it here
-        com.example.reversey.ui.components.unified.UnifiedRecordButton(
+        UnifiedRecordButton(
             isRecording = isRecording,
             onClick = {
                 if (isRecording) {
