@@ -358,6 +358,24 @@ fun UnifiedAttemptItem(
                 onJumpToParent = onJumpToParent
             )
         }
+
+        aesthetic.id == "snowy_owl" -> {
+            aesthetic.components.AttemptItem(
+                attempt = attempt,
+                aesthetic = aesthetic,
+                currentlyPlayingPath = currentlyPlayingPath,
+                isPaused = isPaused,
+                progress = progress,
+                onPlay = onPlay,
+                onPause = onPause,
+                onStop = onStop,
+                onRenamePlayer = onRenamePlayer,
+                onDeleteAttempt = onDeleteAttempt,
+                onShareAttempt = onShareAttempt,
+                onJumpToParent = onJumpToParent
+            )
+        }
+
         // MODERN THEMES
         else -> {
             ModernStyleAttemptItem(

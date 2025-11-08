@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.example.reversey.ui.theme.SakuraSerenityComponents
+import com.example.reversey.ui.theme.SnowyOwlComponents
 
 
 // ADD THIS LINE:
@@ -448,6 +449,40 @@ object AestheticThemes {
         borderWidth = 3f
     )
 
+    val SnowyOwl = AestheticThemeData(
+        id = "snowy_owl",
+        name = "Snowy Owl",
+        description = "🦉 Arctic midnight with flying owl and falling snow",
+        components = SnowyOwlComponents(),
+
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF0a1128),
+                Color(0xFF1c2541),
+                Color(0xFF2d3a5f),
+                Color(0xFF3a4a6d)
+            )
+        ),
+
+        cardBorder = Color(0xFF787896).copy(alpha = 0.4f),
+        primaryTextColor = Color.White,
+        secondaryTextColor = Color.White.copy(alpha = 0.8f),
+
+        useGlassmorphism = false,
+        glowIntensity = 0f,
+        recordButtonEmoji = "🦉",
+        scoreEmojis = mapOf(
+            90 to "⭐",
+            80 to "❄️",
+            70 to "🌙",
+            60 to "🦉",
+            0 to "💫"
+        ),
+
+        cardAlpha = 0.95f,
+        shadowElevation = 8f
+    )
+
     // Map for easy lookup
     val allThemes = mapOf(
         "y2k_cyber" to Y2KCyber,
@@ -461,7 +496,8 @@ object AestheticThemes {
         "graphite_sketch" to GraphiteSketch,
         "egg" to Egg,  // 🥚 ADD THIS LINE!
         "sakura_serenity" to SakuraSerenity,  // 🌸 ADD THIS LINE!
-        "guitar" to Guitar  // 🎸 CPD's theme!
+        "guitar" to Guitar,  // 🎸 CPD's theme!
+        "snowy_owl" to SnowyOwl  // ← ADD THIS!
     )
 
     fun getThemeById(id: String): AestheticThemeData {
