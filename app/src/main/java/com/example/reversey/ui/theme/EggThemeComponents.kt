@@ -40,6 +40,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import kotlin.math.abs
+import kotlin.math.sqrt
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
@@ -151,18 +155,14 @@ class EggThemeComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         content: @Composable () -> Unit
     ) {
-        val density = LocalDensity.current
-        val configuration = LocalConfiguration.current
-        val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-        val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(aesthetic.primaryGradient)
         ) {
             // Bouncing eggs behind all content
-            BouncingEggs(screenWidthPx, screenHeightPx)
+            // Adjust floorHeightOffset to control where eggs settle (default 200.dp leaves space for card list)
+            BouncingEggs(floorHeightOffset = 90.dp)  // Increase if eggs overlap cards, decrease to use more space
 
             // Content on top
             content()
@@ -1220,90 +1220,194 @@ fun HandDrawnHouseIcon(modifier: Modifier = Modifier) {
         )
     }
 }
-// Data class for bouncing egg particles
-data class EggParticle(var x: Float, var y: Float, var velocityX: Float, var velocityY: Float, val emoji: String, val size: Float)
+// Data class for bouncing egg particles with rotation
+data class EggParticle(
+    var x: Float,
+    var y: Float,
+    var velocityX: Float,
+    var velocityY: Float,
+    var rotation: Float,  // Add rotation!
+    val emoji: String,
+    val size: Float
+)
+/**
+ * Bouncing eggs with accelerometer physics! 🥚🍳🐣🐤
+ * Eggs rotate as they bounce and settle above the card list.
+ *
+ * @param floorHeightOffset How much space to leave at bottom (dp) for card list
+ */
 @Composable
 
-fun BouncingEggs(screenWidthPx: Float, screenHeightPx: Float) {
-    val context = LocalContext.current
-    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
-    val accelerometer = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
-    var gravityX by remember { mutableFloatStateOf(0f) }
-    var gravityY by remember { mutableFloatStateOf(9.8f) }
-    var lastShakeTime by remember { mutableLongStateOf(0L) }
-    val eggs = remember {
-        List(8) { index ->
-            EggParticle(
-                x = Random.nextFloat() * screenWidthPx,
-                y = Random.nextFloat() * screenHeightPx * 0.3f,
-                velocityX = (Random.nextFloat() - 0.5f) * 100f,
-                velocityY = Random.nextFloat() * 100f,
-                emoji = listOf("🥚", "🍳", "🐣", "🐤")[index % 4],
-                size = Random.nextFloat() * 20f + 40f
-            )
-        }.toMutableList()
-    }
-    DisposableEffect(Unit) {
-        val listener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent?) {
-                event?.let {
-                    gravityX = -it.values[0] * 50f
-                    gravityY = it.values[1] * 50f
-                    val totalAccel = abs(it.values[0]) + abs(it.values[1]) + abs(it.values[2])
-                    if (totalAccel > 25f) {
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastShakeTime > 500) {
-                            lastShakeTime = currentTime
-                            eggs.forEach { egg ->
-                                egg.velocityX += (Random.nextFloat() - 0.5f) * 400f
-                                egg.velocityY += (Random.nextFloat() - 0.5f) * 400f
+fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenWidthPx = constraints.maxWidth.toFloat()
+        val screenHeightPx = constraints.maxHeight.toFloat()
+        val floorOffsetPx = with(LocalDensity.current) { floorHeightOffset.toPx() }
+        val effectiveFloorPx = screenHeightPx - floorOffsetPx  // Eggs can't go below this
+
+        val context = LocalContext.current
+        val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
+        val accelerometer = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
+        var gravityX by remember { mutableFloatStateOf(0f) }
+        var gravityY by remember { mutableFloatStateOf(5.0f) }
+        var lastShakeTime by remember { mutableLongStateOf(0L) }
+        var frameCount by remember { mutableIntStateOf(0) }  // Forces recomposition!
+
+        val eggs = remember {
+            List(8) { index ->
+                EggParticle(
+                    x = Random.nextFloat() * screenWidthPx,
+                    y = Random.nextFloat() * screenHeightPx * 0.3f,
+                    velocityX = (Random.nextFloat() - 0.5f) * 100f,
+                    velocityY = Random.nextFloat() * 100f,
+                    rotation = Random.nextFloat() * 360f,  // Random initial rotation
+                    emoji = listOf("🥚", "🍳", "🐣", "🐤","🧲","🍿")[index % 6],
+                    size = Random.nextFloat() * 20f + 40f
+                )
+            }.toMutableList()
+        }
+        DisposableEffect(Unit) {
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent?) {
+                    event?.let {
+                        gravityX = -it.values[0] * 50f
+                        gravityY = it.values[1] * 50f
+                        val totalAccel = abs(it.values[0]) + abs(it.values[1]) + abs(it.values[2])
+
+                        // Shake detection - jiggle those eggs! 😁
+                        if (totalAccel > 25f) {
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - lastShakeTime > 500) {
+                                lastShakeTime = currentTime
+                                eggs.forEach { egg ->
+                                    egg.velocityX += (Random.nextFloat() - 0.5f) * 400f
+                                    egg.velocityY += (Random.nextFloat() - 0.5f) * 400f
+                                }
+                            }
+                        }
+                    }
+                }
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+            }
+            sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+            onDispose { sensorManager.unregisterListener(listener) }
+        }
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(16)
+                frameCount++  // Trigger recomposition!
+                val deltaTime = 0.016f
+                val damping = 0.98f
+                val restitution = 1.1f
+
+                eggs.forEach { egg ->
+                    // Apply gravity
+                    egg.velocityX += gravityX * deltaTime * 10f
+                    egg.velocityY += gravityY * deltaTime * 10f
+
+                    // Apply damping
+                    egg.velocityX *= damping
+                    egg.velocityY *= damping
+
+                    // Update position
+                    egg.x += egg.velocityX * deltaTime
+                    egg.y += egg.velocityY * deltaTime
+
+                    // Update rotation based on velocityX (spin as they move)
+                    egg.rotation += egg.velocityX * deltaTime * 2f
+
+                    // Bounce off walls
+                    if (egg.x < 0) {
+                        egg.x = 0f
+                        egg.velocityX = -egg.velocityX * restitution
+                    } else if (egg.x > screenWidthPx - egg.size) {
+                        egg.x = screenWidthPx - egg.size
+                        egg.velocityX = -egg.velocityX * restitution
+                    }
+
+                    // Bounce off ceiling
+                    if (egg.y < 0) {
+                        egg.y = 0f
+                        egg.velocityY = -egg.velocityY * restitution
+                    }
+                    // Bounce off floor (now uses effectiveFloorPx to stay above card list)
+                    else if (egg.y > effectiveFloorPx - egg.size) {
+                        egg.y = effectiveFloorPx - egg.size
+                        egg.velocityY = -egg.velocityY * restitution
+
+                        // Complete stop when settled (unless jiggled!)
+                        if (abs(egg.velocityY) < 20f && abs(egg.velocityX) < 20f && abs(gravityX) < 5f) {
+                            egg.velocityX = 0f
+                            egg.velocityY = 0f
+                            egg.rotation = (egg.rotation / 90f).roundToInt() * 90f  // Snap to nearest 90°
+                        }
+                    }
+                }
+
+                // Egg-to-egg collision detection (prevents clumping!)
+                for (i in eggs.indices) {
+                    for (j in i + 1 until eggs.size) {
+                        val egg1 = eggs[i]
+                        val egg2 = eggs[j]
+
+                        // Calculate distance between egg centers
+                        val dx = egg2.x - egg1.x
+                        val dy = egg2.y - egg1.y
+                        val distance = kotlin.math.sqrt(dx * dx + dy * dy)
+                        val minDistance = (egg1.size + egg2.size) / 2f
+
+                        // If eggs overlap, push them apart and bounce
+                        if (distance < minDistance && distance > 0f) {
+                            // Normalized direction vector
+                            val nx = dx / distance
+                            val ny = dy / distance
+
+                            // Separate eggs to minimum distance
+                            val overlap = minDistance - distance
+                            val separationX = nx * overlap * 0.5f
+                            val separationY = ny * overlap * 0.5f
+
+                            egg1.x -= separationX
+                            egg1.y -= separationY
+                            egg2.x += separationX
+                            egg2.y += separationY
+
+                            // Calculate relative velocity
+                            val relativeVelX = egg2.velocityX - egg1.velocityX
+                            val relativeVelY = egg2.velocityY - egg1.velocityY
+
+                            // Velocity along collision normal
+                            val velAlongNormal = relativeVelX * nx + relativeVelY * ny
+
+                            // Don't resolve if velocities are separating
+                            if (velAlongNormal < 0) {
+                                // Apply collision impulse (elastic collision)
+                                val impulse = velAlongNormal * restitution
+                                egg1.velocityX += impulse * nx
+                                egg1.velocityY += impulse * ny
+                                egg2.velocityX -= impulse * nx
+                                egg2.velocityY -= impulse * ny
                             }
                         }
                     }
                 }
             }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
-        sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
-        onDispose { sensorManager.unregisterListener(listener) }
-    }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(16)
-            val deltaTime = 0.016f
-            val damping = 0.98f
-            val restitution = 0.7f
+
+        // Render eggs as actual emojis with rotation! 🥚
+        // key(frameCount) forces recomposition every frame so UI updates!
+        key(frameCount) {
             eggs.forEach { egg ->
-                egg.velocityX += gravityX * deltaTime * 10f
-                egg.velocityY += gravityY * deltaTime * 10f
-                egg.velocityX *= damping
-                egg.velocityY *= damping
-                egg.x += egg.velocityX * deltaTime
-                egg.y += egg.velocityY * deltaTime
-                if (egg.x < 0) { egg.x = 0f; egg.velocityX = -egg.velocityX * restitution }
-                else if (egg.x > screenWidthPx - egg.size) { egg.x = screenWidthPx - egg.size; egg.velocityX = -egg.velocityX * restitution }
-                if (egg.y < 0) { egg.y = 0f; egg.velocityY = -egg.velocityY * restitution }
-                else if (egg.y > screenHeightPx - egg.size) {
-                    egg.y = screenHeightPx - egg.size
-                    egg.velocityY = -egg.velocityY * restitution
-                    if (abs(egg.velocityY) < 50f && abs(gravityX) < 2f) {
-                        egg.velocityX *= 0.95f
-                        egg.velocityY = 0f
-                    }
-                }
+                Text(
+                    text = egg.emoji,
+                    fontSize = (egg.size * 0.8f).sp,  // Scale emoji to egg size
+                    modifier = Modifier
+                        .offset { IntOffset(egg.x.toInt(), egg.y.toInt()) }
+                        .graphicsLayer {
+                            rotationZ = egg.rotation  // Rotate! 🔄
+                        }
+                )
             }
-        }
-    }
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        eggs.forEach { egg ->
-            val eggColor = when (egg.emoji) {
-                "🥚" -> Color(0xFFFFF8E1)
-                "🍳" -> Color(0xFFFFEB3B)
-                "🐣" -> Color(0xFFFFF59D)
-                else -> Color(0xFFFFE082)
-            }
-            drawCircle(color = eggColor, radius = egg.size / 2, center = Offset(egg.x + egg.size / 2, egg.y + egg.size / 2))
-            drawCircle(color = Color(0xFF2E2E2E), radius = egg.size / 2, center = Offset(egg.x + egg.size / 2, egg.y + egg.size / 2), style = Stroke(width = 2.dp.toPx()))
         }
     }
 }

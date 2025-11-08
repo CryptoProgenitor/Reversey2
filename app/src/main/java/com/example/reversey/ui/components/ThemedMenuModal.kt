@@ -359,7 +359,7 @@ private fun AboutContent(
         )
 
         Text(
-            text = "Version 15.2.0",
+            text = "Version 15.3.0",
             style = MaterialTheme.typography.bodyMedium,
             color = aesthetic.secondaryTextColor
         )
