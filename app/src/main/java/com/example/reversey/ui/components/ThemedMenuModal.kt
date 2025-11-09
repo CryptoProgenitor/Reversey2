@@ -375,8 +375,9 @@ private fun MenuContent(
             label = "Clear All Recordings",
             selected = false,
             aesthetic = aesthetic,
-            colors = colors,
-            onClick = onClearAll
+            colors = colors,  // ✅ FIXED
+            onClick = onClearAll,
+            customColor = Color(0xFFE53935)  // ✅ RED COLOR!
         )
     }
 }
@@ -898,7 +899,8 @@ private fun MenuItem(
     selected: Boolean,
     aesthetic: AestheticThemeData,
     colors: ColorScheme,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    customColor: Color? = null  // ✅ ADD THIS
 ) {
     val itemRotation = if (aesthetic.id == "scrapbook") {
         remember { (0..1).random() * if ((0..1).random() == 0) -1f else 1f * 0.5f }
@@ -921,7 +923,7 @@ private fun MenuItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = getItemColor(aesthetic, colors, selected),
+                tint = customColor ?: getItemColor(aesthetic, colors, selected),  // ✅ USE CUSTOM COLOR IF PROVIDED
                 modifier = Modifier.size(24.dp)
             )
 
@@ -933,7 +935,7 @@ private fun MenuItem(
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
                 ),
-                color = getItemColor(aesthetic, colors, selected)
+                color = customColor ?: getItemColor(aesthetic, colors, selected)  // ✅ USE CUSTOM COLOR IF PROVIDED
             )
         }
     }
