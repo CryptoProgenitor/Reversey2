@@ -86,7 +86,6 @@ import com.example.reversey.ui.components.TutorialOverlay
 import com.example.reversey.ui.components.UnifiedAttemptItem
 import com.example.reversey.ui.components.UnifiedRecordingButton
 import com.example.reversey.ui.components.UnifiedRecordingItem
-import com.example.reversey.ui.screens.SettingsScreen
 import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.theme.ReVerseYTheme
@@ -106,7 +105,10 @@ import kotlin.math.sin
 
 import com.example.reversey.utils.*
 import com.example.reversey.ui.debug.DebugPanel
+import com.example.reversey.ui.components.ThemedMenuModal
+import com.example.reversey.ui.components.TutorialOverlay
 
+import com.example.reversey.ui.components.ModalScreen
 
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
@@ -151,6 +153,8 @@ object AudioConstants {
 fun MainApp(themeViewModel: ThemeViewModel) {
     val navController = rememberNavController()
     var showMenuModal by remember { mutableStateOf(false) }
+    var modalInitialScreen by remember { mutableStateOf<ModalScreen>(ModalScreen.Menu) }
+
     val currentThemeId by themeViewModel.currentThemeId.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
@@ -169,8 +173,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                 AudioReverserApp(
                     viewModel = audioViewModel,
                     openMenu = { showMenuModal = true },
-                    openMenuToSettings = { navController.navigate("settings") },
-                    onNavigateToSettings = { navController.navigate("settings") },
+                    openMenuToSettings = { modalInitialScreen = ModalScreen.Settings; showMenuModal = true },
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
@@ -180,17 +183,6 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     onShowDebugPanelChange = { showDebugPanel = it }  // ✅ NEW
                 )
             }
-            composable("settings") {
-                val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
-                SettingsScreen(
-                    navController = navController,
-                    themeViewModel = themeViewModel,
-                    scoringEngine = scoringEngine,
-                    audioViewModel = audioViewModel,
-                    showDebugPanel = showDebugPanel,
-                    onShowDebugPanelChange = { showDebugPanel = it }
-                )
-            }
         }
     }  // ← End of Box
 
@@ -198,7 +190,6 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     ThemedMenuModal(
         visible = showMenuModal,
         currentRoute = navController.currentDestination?.route,
-        onDismiss = { showMenuModal = false },
         onNavigateHome = {
             navController.navigate("home") {
                 popUpTo("home") { inclusive = true }
@@ -209,7 +200,9 @@ fun MainApp(themeViewModel: ThemeViewModel) {
         scoringEngine = scoringEngine,
         audioViewModel = audioViewModel,
         showDebugPanel = showDebugPanel,
-        onShowDebugPanelChange = { showDebugPanel = it }
+        onShowDebugPanelChange = { showDebugPanel = it },
+        initialScreen = modalInitialScreen,
+        onDismiss = { showMenuModal = false; modalInitialScreen = ModalScreen.Menu },
     )
 
     // 🐛 DEBUG PANEL - Render AFTER modal so it appears on top
@@ -236,7 +229,6 @@ fun AudioReverserApp(
     viewModel: AudioViewModel,
     //openDrawer: () -> Unit,
     openMenu: () -> Unit,  // ✅ NEW NAME
-    onNavigateToSettings: () -> Unit = {},  // ← ADD THIS
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
     isGameModeEnabled: Boolean,
@@ -353,11 +345,10 @@ fun AudioReverserApp(
                     },
                     actions = {
                         // NEW: Difficulty indicator in top-right
+                        val currentDifficulty by scoringEngine.currentDifficultyFlow.collectAsState()
                         DifficultyIndicator(
-                            difficulty = scoringEngine.getCurrentDifficulty(),
-                            onClick = openMenuToSettings,  // ← CHANGE THIS
-                            //onClick = openMenu,
-                            //onClick = { navController.navigate("settings") }, // 🔧 ADD THIS - navigate to settings
+                            difficulty = currentDifficulty,
+                            onClick = openMenuToSettings,
                             modifier = Modifier.padding(end = 16.dp)
                         )
                     },

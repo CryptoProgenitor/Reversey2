@@ -57,9 +57,8 @@ fun DifficultyButton(
             )
             .clickable {
                 Log.d("BEFORE_PRESET", "Before: ${scoringEngine.getCurrentDifficulty().displayName}")
-                // Update both ScoringEngine instances
+                // Apply preset once (singleton means both use same instance)
                 scoringEngine.applyPreset(preset)
-                audioViewModel.updateScoringEngine(preset)
                 Log.d("AFTER_PRESET", "After: ${scoringEngine.getCurrentDifficulty().displayName}")
                 onDifficultyChanged(difficulty)
             },

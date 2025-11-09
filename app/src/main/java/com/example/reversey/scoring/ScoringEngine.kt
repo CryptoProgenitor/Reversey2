@@ -17,6 +17,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.example.reversey.scoring.GarbageDetector  // ← ADD THIS
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
 @Singleton
 class ScoringEngine @Inject constructor(@ApplicationContext private val context: Context) {
     init {
@@ -33,8 +37,9 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
     private var scalingParams = ScoreScalingParameters()
     private var garbageParams = GarbageDetectionParameters()  // ← ADD THIS LINE
 
-    // NEW: Track current difficulty level for UI feedback
-    private var currentDifficulty = DifficultyLevel.NORMAL
+    // NEW: Track current difficulty level for UI feedback (observable)
+    private val _currentDifficulty = MutableStateFlow(DifficultyLevel.NORMAL)
+    val currentDifficultyFlow: StateFlow<DifficultyLevel> = _currentDifficulty.asStateFlow()
 
     fun scoreAttempt(
         originalAudio: FloatArray, // Renamed for clarity
@@ -43,7 +48,7 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
         sampleRate: Int = 44100
     ): ScoringResult {
         Log.d("ScoringEngine", "=== CRITICAL PARAMETER VERIFICATION ===")
-        Log.d("ScoringEngine", "🎯 Current Difficulty: ${currentDifficulty.displayName}")
+        Log.d("ScoringEngine", "🎯 Current Difficulty: ${_currentDifficulty.value.displayName}")
         Log.d("ScoringEngine", "🎵 1. PITCH TOLERANCE: ${parameters.pitchTolerance}f (Easy=20f, Master=3f)")
         Log.d("ScoringEngine", "📊 2. SCORE RANGE: ${parameters.minScoreThreshold} to ${parameters.perfectScoreThreshold} (Easy=0.15-0.75, Master=0.5-0.98)")
         Log.d("ScoringEngine", "📈 3. SCORE CURVE: ${parameters.scoreCurve}f (Easy=2.5f, Master=1.0f)")
@@ -51,7 +56,7 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
         Log.d("ScoringEngine", "❌ 5. WRONG CONTENT PENALTY: ${contentParams.wrongContentStandardPenalty}f (Easy=0.3f, Master=0.9f)")
         Log.d("ScoringEngine", "✅ 6. CONTENT DETECTION: ${contentParams.contentDetectionBestThreshold}f (Easy=0.25f, Master=0.7f)")
         Log.d("ScoringEngine", "=======================================")
-        Log.d("ScoringEngine", "🎯 Scoring with difficulty: ${currentDifficulty.displayName}")
+        Log.d("ScoringEngine", "🎯 Scoring with difficulty: ${_currentDifficulty.value.displayName}")
         val attemptRMS = audioProcessor.calculateRMS(playerAttempt)
         if (attemptRMS < parameters.silenceThreshold) {
             Log.d("ScoringEngine", "SILENCE DETECTED: RMS ($attemptRMS) < Threshold (${parameters.silenceThreshold})")
@@ -882,9 +887,9 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
     fun getScalingParameters(): ScoreScalingParameters = scalingParams
 
     // NEW: Difficulty level tracking methods
-    fun getCurrentDifficulty(): DifficultyLevel = currentDifficulty
+    fun getCurrentDifficulty(): DifficultyLevel = _currentDifficulty.value
     fun setCurrentDifficulty(difficulty: DifficultyLevel) {
-        currentDifficulty = difficulty
+        _currentDifficulty.value = difficulty
     }
     // Apply a complete preset configuration
     fun applyPreset(preset: Presets) {
@@ -905,6 +910,15 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
             updateScalingParameters(preset.scaling)
             updateGarbageParameters(preset.garbage)  // ← ADD THIS LINE
             setCurrentDifficulty(preset.difficulty)
+
+            // Verify parameters were applied correctly
+            Log.d("APPLY_PRESET", "✅ VERIFICATION - Parameters after apply:")
+            Log.d("APPLY_PRESET", "🎯 Current Difficulty: ${_currentDifficulty.value.displayName}")
+            Log.d("APPLY_PRESET", "🎵 1. PITCH TOLERANCE: ${parameters.pitchTolerance}f (Easy=20f, Master=3f)")
+            Log.d("APPLY_PRESET", "📊 2. SCORE RANGE: ${parameters.minScoreThreshold} to ${parameters.perfectScoreThreshold}")
+            Log.d("APPLY_PRESET", "📈 3. SCORE CURVE: ${parameters.scoreCurve}f (Easy=2.5f, Master=1.0f)")
+            Log.d("APPLY_PRESET", "⚖️ 4. PITCH vs VOICE: ${parameters.pitchWeight}/${parameters.mfccWeight}")
+            Log.d("APPLY_PRESET", "❌ 5. WRONG CONTENT PENALTY: ${contentParams.wrongContentStandardPenalty}f")
         } catch (e: Exception) {
             Log.e("APPLY_PRESET", "ERROR applying preset: ${e.message}")
             Log.e("APPLY_PRESET", "Stack trace: ${e.stackTrace.joinToString("\n")}")

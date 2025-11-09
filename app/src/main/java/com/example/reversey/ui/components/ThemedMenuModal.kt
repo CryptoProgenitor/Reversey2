@@ -75,9 +75,11 @@ fun ThemedMenuModal(
     scoringEngine: ScoringEngine,
     audioViewModel: AudioViewModel,
     showDebugPanel: Boolean,
-    onShowDebugPanelChange: (Boolean) -> Unit
+    onShowDebugPanelChange: (Boolean) -> Unit,
+    initialScreen: ModalScreen = ModalScreen.Menu  // ← NEW: Allow opening at specific screen
 ) {
-    var currentScreen by remember { mutableStateOf<ModalScreen>(ModalScreen.Menu) }
+
+    var currentScreen by remember(visible, initialScreen) { mutableStateOf<ModalScreen>(if (visible) initialScreen else ModalScreen.Menu) }
 
     // Reset to menu when modal closes
     LaunchedEffect(visible) {
