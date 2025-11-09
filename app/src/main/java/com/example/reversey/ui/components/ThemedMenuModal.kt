@@ -538,10 +538,13 @@ private fun SettingsContent(
                 )
             }
 
-            // Row 2: Expert, Master (centered)
+            // Row 2: Expert, Master (centered with no truncation)
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 DifficultyButton(
                     difficulty = DifficultyLevel.EXPERT,
@@ -550,8 +553,10 @@ private fun SettingsContent(
                     scoringEngine = scoringEngine,
                     audioViewModel = audioViewModel,
                     onDifficultyChanged = { currentDifficulty = it },
-                    modifier = Modifier.weight(0.5f).padding(horizontal = 32.dp)
+                    modifier = Modifier.width(90.dp)
                 )
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 DifficultyButton(
                     difficulty = DifficultyLevel.MASTER,
@@ -560,7 +565,7 @@ private fun SettingsContent(
                     scoringEngine = scoringEngine,
                     audioViewModel = audioViewModel,
                     onDifficultyChanged = { currentDifficulty = it },
-                    modifier = Modifier.weight(0.5f).padding(horizontal = 32.dp)
+                    modifier = Modifier.width(90.dp)
                 )
             }
         }
@@ -631,22 +636,36 @@ private fun SettingsContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = aesthetic.secondaryTextColor
             )
+        }//closes row
 
-            if (customAccentColor != null) {
-                Button(
-                    onClick = {
+        // 🎨 Reset button - styled bordered text below status
+        if (customAccentColor != null) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(
+                        width = 1.5.dp,
+                        color = colors.primary.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .background(colors.primary.copy(alpha = 0.1f))
+                    .clickable {
                         scope.launch {
                             themeViewModel.setCustomAccentColor(null)
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colors.surfaceVariant
-                    )
-                ) {
-                    Text("Reset to Default")
-                }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Reset to theme's colours",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.primary,
+                    fontWeight = FontWeight.Medium
+                )
             }
-        }
+        }//closes if
 
         // Color preview and button to open picker
         var showColorPicker by remember { mutableStateOf(false) }
@@ -756,7 +775,8 @@ private fun SettingsContent(
             }
         }
 
-        // ========== DEVELOPER OPTIONS ==========
+        // 🐛 DEVELOPER OPTIONS - Simple callback pattern (no ViewModel state)
+
         HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
 
         SectionTitle("DEVELOPER OPTIONS", aesthetic)
@@ -776,7 +796,7 @@ private fun SettingsContent(
             text = "Enable advanced scoring diagnostics and parameter inspection",
             style = MaterialTheme.typography.bodySmall,
             color = aesthetic.secondaryTextColor,
-            //modifier = Modifier.padding(horizontal = 16.dp, bottom = 16.dp)
+            modifier = Modifier.padding(horizontal = 8.dp)
         )
     }
 }

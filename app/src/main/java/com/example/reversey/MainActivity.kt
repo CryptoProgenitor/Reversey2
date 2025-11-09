@@ -105,6 +105,7 @@ import kotlin.math.min
 import kotlin.math.sin
 
 import com.example.reversey.utils.*
+import com.example.reversey.ui.debug.DebugPanel
 
 
 
@@ -174,7 +175,9 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
                     scoringEngine = scoringEngine,
-                    navController = navController
+                    navController = navController,
+                    showDebugPanel = showDebugPanel,  // ✅ NEW
+                    onShowDebugPanelChange = { showDebugPanel = it }  // ✅ NEW
                 )
             }
             composable("settings") {
@@ -208,7 +211,24 @@ fun MainApp(themeViewModel: ThemeViewModel) {
         showDebugPanel = showDebugPanel,
         onShowDebugPanelChange = { showDebugPanel = it }
     )
+
+    // 🐛 DEBUG PANEL - Render AFTER modal so it appears on top
+    if (showDebugPanel) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.BottomStart
+        ) {
+            DebugPanel(
+                scoringEngine = scoringEngine,
+                isVisible = showDebugPanel,
+                onDismiss = { showDebugPanel = false }
+            )
+        }
+    }
 }  // ← End of MainApp
+
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -223,6 +243,8 @@ fun AudioReverserApp(
     scoringEngine: ScoringEngine,  // <-- ADD THIS LINE
     navController: NavController, // 🔧 ADD THIS - so DifficultyIndicator can navigate
     openMenuToSettings: () -> Unit,  // ← ADD THIS
+    showDebugPanel: Boolean,  // ✅ NEW
+    onShowDebugPanelChange: (Boolean) -> Unit  // ✅ NEW
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
@@ -543,7 +565,7 @@ fun AudioReverserApp(
             }
         }
 
-        // Dialogs and overlays
+
         // Dialogs and overlays
         uiState.attemptToRename?.let { (parentPath, attempt) ->
             var newPlayerName by remember { mutableStateOf(attempt.playerName) }
