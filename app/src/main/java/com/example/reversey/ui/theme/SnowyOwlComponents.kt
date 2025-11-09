@@ -483,7 +483,7 @@ fun SnowyOwlFlying() {
                             Random.nextFloat() * (screenHeight - 140f) + 70f
                         }
                         flightPhase = 0f
-                    } else if (owlX < -owlWidth - 100f) {
+                    } else if (owlX < -owlWidth - 700) {
                         velocityX = 1.5f
                         facingRight = true
                         // Prefer top 30% of screen (70% chance), but allow full screen (30% chance)
@@ -530,8 +530,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     val spotColor = Color(0xFF505050).copy(alpha = 0.85f) // DARK gray spots - actually visible!
 
     // Wings with flapping animation (4x bigger positions)
-    drawWingAnimated(-200f, 120f, wingColor, -wingFlapAngle, wingVerticalOffset) // Left wing flaps down
-    drawWingAnimated(200f, 120f, wingColor, wingFlapAngle, wingVerticalOffset)   // Right wing flaps up
+    drawWingAnimated(-220f, 30f, wingColor, -wingFlapAngle, wingVerticalOffset) // Left wing flaps down
+    drawWingAnimated(220f, 30f, wingColor, wingFlapAngle, wingVerticalOffset)   // Right wing flaps up
 
     // Body with gradient shading (4x bigger)
     drawOval(
@@ -696,35 +696,95 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawWingAnimated(
 
     // Save current state and apply rotation around wing pivot point (400f, 240f)
     rotate(degrees = rotationAngle, pivot = Offset(400f, 240f)) {
-        // Create wing path with VERY rounded curves - smooth, organic feather shape
+        // Create wing path with FINGER-LIKE PRIMARY FEATHERS (like reference image)
         val wingPath = Path().apply {
             moveTo(400f, 240f + verticalOffset)
 
-            // First curve - outer edge with VERY rounded tip (extended control points for smoothness)
+            // Broad base connection to body
             cubicTo(
-                400f + xOffset * 0.25f, 190f + yOffset + verticalOffset,  // Pull control point out more
-                400f + xOffset * 0.8f, 145f + yOffset + verticalOffset,   // Higher control point
-                400f + xOffset * 0.95f, 135f + yOffset + verticalOffset   // Rounder tip approach
+                400f + xOffset * 0.15f, 230f + yOffset + verticalOffset,
+                400f + xOffset * 0.3f, 220f + yOffset + verticalOffset,
+                400f + xOffset * 0.45f, 200f + yOffset + verticalOffset
             )
 
-            // Small curve at tip for maximum roundness
+            // Start of finger feathers - 5 individual "fingers" at wing tip
+            // Finger 1 (outermost)
             cubicTo(
-                400f + xOffset * 0.98f, 138f + yOffset + verticalOffset,
-                400f + xOffset, 142f + yOffset + verticalOffset,
-                400f + xOffset * 0.98f, 148f + yOffset + verticalOffset   // Rounded wing tip
+                400f + xOffset * 0.65f, 170f + yOffset + verticalOffset,
+                400f + xOffset * 0.85f, 140f + yOffset + verticalOffset,
+                400f + xOffset * 0.95f, 125f + yOffset + verticalOffset // tip
+            )
+            // Scallop back
+            cubicTo(
+                400f + xOffset * 0.93f, 132f + yOffset + verticalOffset,
+                400f + xOffset * 0.90f, 138f + yOffset + verticalOffset,
+                400f + xOffset * 0.88f, 145f + yOffset + verticalOffset // valley
             )
 
-            // Second curve - inner edge back to body with smooth connection
+            // Finger 2
             cubicTo(
-                400f + xOffset * 0.9f, 165f + yOffset + verticalOffset,
-                400f + xOffset * 0.6f, 220f + yOffset + verticalOffset,
-                400f + xOffset * 0.35f, 270f + yOffset + verticalOffset
+                400f + xOffset * 0.90f, 140f + yOffset + verticalOffset,
+                400f + xOffset * 0.92f, 135f + yOffset + verticalOffset,
+                400f + xOffset * 0.93f, 132f + yOffset + verticalOffset // tip
+            )
+            // Scallop back
+            cubicTo(
+                400f + xOffset * 0.90f, 140f + yOffset + verticalOffset,
+                400f + xOffset * 0.87f, 148f + yOffset + verticalOffset,
+                400f + xOffset * 0.84f, 155f + yOffset + verticalOffset // valley
             )
 
-            // Final curve back to start - smooth connection to body
+            // Finger 3 (middle)
             cubicTo(
-                400f + xOffset * 0.2f, 285f + yOffset + verticalOffset,
-                400f + xOffset * 0.05f, 265f + yOffset + verticalOffset,
+                400f + xOffset * 0.86f, 150f + yOffset + verticalOffset,
+                400f + xOffset * 0.88f, 145f + yOffset + verticalOffset,
+                400f + xOffset * 0.89f, 142f + yOffset + verticalOffset // tip
+            )
+            // Scallop back
+            cubicTo(
+                400f + xOffset * 0.86f, 152f + yOffset + verticalOffset,
+                400f + xOffset * 0.83f, 160f + yOffset + verticalOffset,
+                400f + xOffset * 0.80f, 168f + yOffset + verticalOffset // valley
+            )
+
+            // Finger 4
+            cubicTo(
+                400f + xOffset * 0.82f, 162f + yOffset + verticalOffset,
+                400f + xOffset * 0.84f, 157f + yOffset + verticalOffset,
+                400f + xOffset * 0.85f, 154f + yOffset + verticalOffset // tip
+            )
+            // Scallop back
+            cubicTo(
+                400f + xOffset * 0.82f, 164f + yOffset + verticalOffset,
+                400f + xOffset * 0.78f, 174f + yOffset + verticalOffset,
+                400f + xOffset * 0.74f, 182f + yOffset + verticalOffset // valley
+            )
+
+            // Finger 5 (innermost)
+            cubicTo(
+                400f + xOffset * 0.76f, 177f + yOffset + verticalOffset,
+                400f + xOffset * 0.78f, 172f + yOffset + verticalOffset,
+                400f + xOffset * 0.79f, 169f + yOffset + verticalOffset // tip
+            )
+
+            // Scalloped trailing edge back to body
+            cubicTo(
+                400f + xOffset * 0.75f, 185f + yOffset + verticalOffset,
+                400f + xOffset * 0.65f, 215f + yOffset + verticalOffset,
+                400f + xOffset * 0.50f, 245f + yOffset + verticalOffset
+            )
+
+            // Back edge with small scallops
+            cubicTo(
+                400f + xOffset * 0.40f, 260f + yOffset + verticalOffset,
+                400f + xOffset * 0.25f, 270f + yOffset + verticalOffset,
+                400f + xOffset * 0.15f, 275f + yOffset + verticalOffset
+            )
+
+            // Final connection to body
+            cubicTo(
+                400f + xOffset * 0.08f, 270f + yOffset + verticalOffset,
+                400f + xOffset * 0.03f, 255f + yOffset + verticalOffset,
                 400f, 240f + verticalOffset
             )
 
@@ -746,57 +806,36 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawWingAnimated(
             style = Fill
         )
 
-        // Wing feather markings - MUCH THICKER AND DARKER
-        // Feather barring (horizontal lines across wing)
-        drawLine(
-            color = spotColor,
-            start = Offset(400f + xOffset * 0.3f, 210f + yOffset + verticalOffset),
-            end = Offset(400f + xOffset * 0.7f, 200f + yOffset + verticalOffset),
-            strokeWidth = 5f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = spotColor,
-            start = Offset(400f + xOffset * 0.4f, 240f + yOffset + verticalOffset),
-            end = Offset(400f + xOffset * 0.8f, 225f + yOffset + verticalOffset),
-            strokeWidth = 5f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = spotColor,
-            start = Offset(400f + xOffset * 0.25f, 180f + yOffset + verticalOffset),
-            end = Offset(400f + xOffset * 0.6f, 175f + yOffset + verticalOffset),
-            strokeWidth = 4f,
-            cap = StrokeCap.Round
+        // Dark spots along wing edge (like reference image)
+        val spots = listOf(
+            // Along scalloped edge
+            Pair(400f + xOffset * 0.88f, 145f + yOffset + verticalOffset),
+            Pair(400f + xOffset * 0.84f, 155f + yOffset + verticalOffset),
+            Pair(400f + xOffset * 0.80f, 168f + yOffset + verticalOffset),
+            Pair(400f + xOffset * 0.74f, 182f + yOffset + verticalOffset),
+            // Along trailing edge
+            Pair(400f + xOffset * 0.55f, 235f + yOffset + verticalOffset),
+            Pair(400f + xOffset * 0.45f, 250f + yOffset + verticalOffset),
+            Pair(400f + xOffset * 0.30f, 265f + yOffset + verticalOffset),
+            Pair(400f + xOffset * 0.20f, 272f + yOffset + verticalOffset),
+            // Inner wing spots
+            Pair(400f + xOffset * 0.60f, 210f + yOffset + verticalOffset),
+            Pair(400f + xOffset * 0.50f, 225f + yOffset + verticalOffset),
         )
 
-        // Wing spots - BIGGER
-        drawCircle(
-            color = spotColor,
-            radius = 7f,
-            center = Offset(400f + xOffset * 0.5f, 180f + yOffset + verticalOffset)
-        )
-        drawCircle(
-            color = spotColor,
-            radius = 6f,
-            center = Offset(400f + xOffset * 0.7f, 210f + yOffset + verticalOffset)
-        )
-        drawCircle(
-            color = spotColor,
-            radius = 6f,
-            center = Offset(400f + xOffset * 0.4f, 260f + yOffset + verticalOffset)
-        )
-        drawCircle(
-            color = spotColor,
-            radius = 5f,
-            center = Offset(400f + xOffset * 0.6f, 250f + yOffset + verticalOffset)
-        )
+        spots.forEach { (x, y) ->
+            drawCircle(
+                color = spotColor,
+                radius = 6f,
+                center = Offset(x, y)
+            )
+        }
 
-        // Draw wing outline with VERY rounded cap for maximum smoothness
+        // Wing outline with rounded cap for smooth finger tips
         drawPath(
             wingPath,
-            Color(0xFFb0b0b0), // Darker outline for better definition
-            style = Stroke(width = 6f, cap = StrokeCap.Round, join = StrokeJoin.Round) // Thinner stroke for smoother look
+            Color(0xFF909090), // Medium gray outline
+            style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
 }

@@ -90,6 +90,7 @@ fun AboutScreen(navController: NavController) {
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
+
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "A fun audio recording and reversing game built by Ed Dark (c) 2025. Inspired by CPD!",

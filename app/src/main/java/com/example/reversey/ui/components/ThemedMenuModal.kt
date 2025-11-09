@@ -39,6 +39,15 @@ import com.example.reversey.scoring.ScoringPresets
 import com.example.reversey.ui.viewmodels.AudioViewModel
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
+import android.media.MediaPlayer
+import android.os.Build.VERSION.SDK_INT
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import com.example.reversey.BuildConfig
+import com.example.reversey.R
+import kotlinx.coroutines.delay
 
 /**
  * 🎨 MULTI-SCREEN THEMED MENU MODAL
@@ -149,7 +158,8 @@ fun ThemedMenuModal(
 
                             ModalScreen.About -> AboutContent(
                                 aesthetic = aesthetic,
-                                colors = colors
+                                colors = colors,
+                                audioViewModel = audioViewModel
                             )
 
                             ModalScreen.Settings -> SettingsContent(
@@ -169,6 +179,41 @@ fun ThemedMenuModal(
                             )
                         }
                     }
+                }  // ← Column closing brace
+
+                // Easter egg overlay with fade animations
+                val uiState by audioViewModel.uiState.collectAsState()
+                val context = LocalContext.current
+                val imageLoader = remember {
+                    ImageLoader.Builder(context)
+                        .components {
+                            if (SDK_INT >= 28) {
+                                add(ImageDecoderDecoder.Factory())
+                            } else {
+                                add(GifDecoder.Factory())
+                            }
+                        }
+                        .build()
+                }
+
+                AnimatedVisibility(
+                    visible = uiState.showEasterEgg,
+                    enter = fadeIn(animationSpec = tween(500)),  // ✅ 1000ms fade in
+                    exit = fadeOut(animationSpec = tween(500))   // ✅ 1000ms fade out
+                ) {
+                    LaunchedEffect(Unit) {
+                        delay(1500L)
+                        audioViewModel.dismissEasterEgg()
+                    }
+
+                    AsyncImage(
+                        model = R.drawable.cracking_egg,
+                        contentDescription = "Easter Egg GIF",
+                        imageLoader = imageLoader,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.75f))
+                    )
                 }
             }
         }
@@ -341,8 +386,12 @@ private fun MenuContent(
 @Composable
 private fun AboutContent(
     aesthetic: AestheticThemeData,
-    colors: ColorScheme
+    colors: ColorScheme,
+    audioViewModel: AudioViewModel
 ) {
+    val context = LocalContext.current  // ✅ YOU WERE MISSING THIS
+    val uiState by audioViewModel.uiState.collectAsState()  // ✅ YOU WERE MISSING THIS
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -359,7 +408,7 @@ private fun AboutContent(
         )
 
         Text(
-            text = "Version 15.4.0",
+            text = "Version ${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodyMedium,
             color = aesthetic.secondaryTextColor
         )
@@ -369,7 +418,15 @@ private fun AboutContent(
         Text(
             text = "Challenge yourself by recording audio and matching it forwards or backwards!\nBuilt by Ed Dark (c) 2025.\nInspired by CPD!",
             style = MaterialTheme.typography.bodyLarge,
-            color = aesthetic.primaryTextColor
+            color = aesthetic.primaryTextColor,
+            modifier = Modifier.clickable {  // ✅ YOU WERE MISSING THIS CLICK HANDLER
+                if (uiState.cpdTaps + 1 == 5) {
+                    val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
+                    mediaPlayer?.start()
+                    mediaPlayer?.setOnCompletionListener { mp -> mp.release() }
+                }
+                audioViewModel.onCpdTapped()
+            }
         )
 
         Text(
