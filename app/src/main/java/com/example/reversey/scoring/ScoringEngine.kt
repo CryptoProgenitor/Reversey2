@@ -940,6 +940,9 @@ class ScoringEngine @Inject constructor(
 
             updateMelodicParameters(preset.melodic)
             updateMusicalParameters(preset.musical)
+            Log.d("APPLY_PRESET", "About to call updateAudioParameters...")  // ← ADD THIS
+            updateAudioParameters(preset.audio)  // 🔧 FIX: Gemini caught this missing call!
+            Log.d("APPLY_PRESET", "updateAudioParameters completed successfully")  // ← ADD THIS
             updateScalingParameters(preset.scaling)
             updateGarbageParameters(preset.garbage)  // ← ADD THIS LINE
             setCurrentDifficulty(preset.difficulty)

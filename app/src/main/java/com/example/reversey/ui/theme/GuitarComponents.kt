@@ -25,13 +25,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,7 +64,7 @@ import androidx.compose.ui.unit.sp
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
-import androidx.compose.foundation.layout.FlowRow
+import com.example.reversey.ui.components.DifficultySquircle
 
 /**
  * 🎸 GUITAR THEME COMPONENTS
@@ -1018,8 +1017,9 @@ private fun GuitarAttemptItem(
     val darkBrown = Color(0xFF5d4a36)
     val tealGreen = Color(0xFF7DB9A8)
     val peachOrange = Color(0xFFE8A87C)
+    val lavenderPurple = Color(0xFFB8A8C8)
 
-    val isPlaying = currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
@@ -1028,197 +1028,164 @@ private fun GuitarAttemptItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(
-                color = Color(0xFFB8A8C8),
-                shape = RoundedCornerShape(15.dp)
-            )
-            .border(
-                width = 4.dp,
-                color = darkBrown,
-                shape = RoundedCornerShape(15.dp)
-            )
-            .padding(16.dp)
+            .padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp) // MATCH EGG INDENTATION
     ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(
-                            color = if (attempt.challengeType == ChallengeType.FORWARD) peachOrange else tealGreen,
-                            shape = CircleShape
-                        )
-                        .border(2.dp, darkBrown, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (attempt.challengeType == ChallengeType.FORWARD) "→" else "←",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = darkBrown
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    text = attempt.playerName,
-                    style = TextStyle(
-                        fontFamily = FontFamily.Serif,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = darkBrown
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { showRenameDialog = true }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = lavenderPurple,
+                    shape = RoundedCornerShape(15.dp)
                 )
-
-                onJumpToParent?.let {
-                    IconButton(
-                        onClick = it,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowUpward,
-                            contentDescription = "Jump to recording",
-                            tint = darkBrown
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Box(
-                    modifier = Modifier
-                        .size(50.dp)
-                        .background(
-                            color = peachOrange,
-                            shape = CircleShape
-                        )
-                        .border(
-                            width = 3.dp,
-                            color = darkBrown,
-                            shape = CircleShape
-                        )
-                        .clickable { showScoreDialog = true },
-                    contentAlignment = Alignment.Center
+                .border(
+                    width = 4.dp,
+                    color = darkBrown,
+                    shape = RoundedCornerShape(15.dp)
+                )
+                .padding(12.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Text(
-                        text = "${attempt.score}%",
-                        style = TextStyle(
-                            fontFamily = FontFamily.Serif,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = darkBrown
-                        )
+                    // Left side: Player name + buttons
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Jump to parent icon OUTSIDE + Player name box
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Jump to parent icon - OUTSIDE LEFT
+                            if (onJumpToParent != null) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowUpward,
+                                    contentDescription = "Jump to recording",
+                                    tint = darkBrown,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clickable { onJumpToParent() }
+                                )
+                            }
+
+                            // Player name box
+                            Box(
+                                modifier = Modifier
+                                    .background(peachOrange.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .border(2.dp, darkBrown, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .clickable { showRenameDialog = true } // SHORT CLICK for rename
+                            ) {
+                                Text(
+                                    text = attempt.playerName,
+                                    style = TextStyle(
+                                        fontFamily = FontFamily.Serif,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = darkBrown
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 120.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(22.dp))
+
+                        // Control buttons with labels
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (onShareAttempt != null) {
+                                GuitarControlButton(
+                                    onClick = { showShareDialog = true },
+                                    color = tealGreen,
+                                    label = "Share"
+                                ) { GuitarShareIcon(color = darkBrown) }
+                            }
+
+                            GuitarControlButton(
+                                onClick = {
+                                    if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath)
+                                },
+                                color = peachOrange,
+                                label = if (isPlayingThis && !isPaused) "Pause" else "Play"
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingThis && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = "Play",
+                                    tint = darkBrown
+                                )
+                            }
+
+                            if (attempt.reversedAttemptFilePath != null) {
+                                GuitarControlButton(
+                                    onClick = { onPlay(attempt.reversedAttemptFilePath!!) },
+                                    color = tealGreen,
+                                    label = "Rev"
+                                ) {
+                                    Canvas(modifier = Modifier.size(20.dp)) {
+                                        val path1 = Path().apply {
+                                            moveTo(size.width * 0.55f, size.height * 0.2f)
+                                            lineTo(size.width * 0.25f, size.height * 0.5f)
+                                            lineTo(size.width * 0.55f, size.height * 0.8f)
+                                            close()
+                                        }
+                                        val path2 = Path().apply {
+                                            moveTo(size.width * 0.8f, size.height * 0.2f)
+                                            lineTo(size.width * 0.5f, size.height * 0.5f)
+                                            lineTo(size.width * 0.8f, size.height * 0.8f)
+                                            close()
+                                        }
+                                        drawPath(path = path1, color = darkBrown)
+                                        drawPath(path = path2, color = darkBrown)
+                                    }
+                                }
+                            }
+
+                            if (onDeleteAttempt != null) {
+                                GuitarControlButton(
+                                    onClick = { showDeleteDialog = true },
+                                    color = peachOrange,
+                                    label = "Del"
+                                ) { GuitarDeleteIcon(color = darkBrown) }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Right: DifficultySquircle (matching egg theme)
+                    DifficultySquircle(
+                        score = attempt.score.toInt(),
+                        difficulty = attempt.difficulty,
+                        challengeType = attempt.challengeType,
+                        emoji = "🎸",
+                        width = 100.dp,
+                        height = 130.dp,
+                        onClick = { showScoreDialog = true }
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // PROGRESS BAR - CRITICAL!
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = if (isPlaying) tealGreen else Color(0xFFC4B4A0),
-                trackColor = Color(0xFFC4B4A0)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ALL BUTTONS ONE ROW!
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                onShareAttempt?.let {
-                    GuitarControlButton(
-                        onClick = { showShareDialog = true },
+                // Progress bar at bottom
+                if (isPlayingThis) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
                         color = tealGreen,
-                        label = "Share"
-                    ) {
-                        GuitarShareIcon(color = darkBrown)
-                    }
-                }
-
-                GuitarControlButton(
-                    onClick = {
-                        if (isPlaying && !isPaused) {
-                            onPause()
-                        } else {
-                            onPlay(attempt.attemptFilePath)
-                        }
-                    },
-                    color = peachOrange,
-                    label = if (isPlaying && !isPaused) "Pause" else "Play"
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying && !isPaused)
-                            Icons.Default.Pause
-                        else
-                            Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = darkBrown
+                        trackColor = peachOrange.copy(alpha = 0.3f)
                     )
-                }
-
-                GuitarControlButton(
-                    onClick = {
-                        attempt.reversedAttemptFilePath?.let { onPlay(it) }
-                    },
-                    color = tealGreen,
-                    label = "Rev"
-                ) {
-                    Canvas(modifier = Modifier.size(20.dp)) {
-                        val path1 = Path().apply {
-                            moveTo(size.width * 0.55f, size.height * 0.2f)
-                            lineTo(size.width * 0.25f, size.height * 0.5f)
-                            lineTo(size.width * 0.55f, size.height * 0.8f)
-                            close()
-                        }
-                        val path2 = Path().apply {
-                            moveTo(size.width * 0.8f, size.height * 0.2f)
-                            lineTo(size.width * 0.5f, size.height * 0.5f)
-                            lineTo(size.width * 0.8f, size.height * 0.8f)
-                            close()
-                        }
-                        drawPath(path = path1, color = darkBrown)
-                        drawPath(path = path2, color = darkBrown)
-                    }
-                }
-
-                if (isPlaying) {
-                    GuitarControlButton(
-                        onClick = onStop,
-                        color = peachOrange,
-                        label = "Stop"
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Stop,
-                            contentDescription = "Stop",
-                            tint = darkBrown
-                        )
-                    }
-                }
-
-                onDeleteAttempt?.let {
-                    GuitarControlButton(
-                        onClick = { showDeleteDialog = true },
-                        color = peachOrange,
-                        label = "Del"
-                    ) {
-                        GuitarDeleteIcon(color = darkBrown)
-                    }
                 }
             }
         }
@@ -1342,7 +1309,7 @@ fun GuitarControlButton(
     ) {
         Box(
             modifier = Modifier
-                .size(50.dp)
+                .size(40.dp)
                 .background(color, RoundedCornerShape(10.dp))
                 .border(3.dp, darkBrown, RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
@@ -1350,7 +1317,7 @@ fun GuitarControlButton(
             icon()
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(1.dp))
 
         Text(
             text = label,

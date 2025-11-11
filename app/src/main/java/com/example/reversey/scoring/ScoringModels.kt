@@ -241,7 +241,7 @@ object ScoringPresets {
                 pitchTolerance = 35f,              // CHANGED: was 20f (+75% more forgiving)
                 minScoreThreshold = 0.12f,         // CHANGED: was 0.15f (-20%)
                 perfectScoreThreshold = 0.70f,     // CHANGED: was 0.75f (-7%)
-                scoreCurve = 2.8f                  // CHANGED: was 2.5f (+12% more generous)
+                scoreCurve = 2.5f                  // Exponent = 0.4 (generous boost)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.25f,
@@ -263,7 +263,7 @@ object ScoringPresets {
                 goodEffortFeedbackThreshold = 40
             ),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = true,
+                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.2f,
                 pitchMonotoneThreshold = 8f,
                 pitchOscillationRate = 0.6f,
@@ -286,7 +286,7 @@ object ScoringPresets {
                 pitchTolerance = 25f,              // CHANGED: was 15f (default) (+67% more forgiving!)
                 minScoreThreshold = 0.18f,         // CHANGED: was 0.20f (default) (-10%)
                 perfectScoreThreshold = 0.75f,     // CHANGED: was 0.80f (default) (-6%)
-                scoreCurve = 2.3f                  // CHANGED: was 2.0f (default) (+15% more generous)
+                scoreCurve = 2.0f                  // Exponent = 0.5 (moderate boost)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.30f,   // CHANGED: was 0.35f (default)
@@ -300,7 +300,7 @@ object ScoringPresets {
             audio = AudioProcessingParameters(),
             scaling = ScoreScalingParameters(),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = true,
+                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.3f,
                 pitchMonotoneThreshold = 10f,
                 pitchOscillationRate = 0.5f,
@@ -323,7 +323,7 @@ object ScoringPresets {
                 pitchTolerance = 15f,              // CHANGED: was 8f (+88% more forgiving!)
                 minScoreThreshold = 0.25f,         // CHANGED: was 0.3f (-17%)
                 perfectScoreThreshold = 0.82f,     // CHANGED: was 0.9f (-9%)
-                scoreCurve = 1.8f                  // CHANGED: was 1.5f (+20% more generous)
+                scoreCurve = 1.0f                  // Exponent = 1.0 (LINEAR - no adjustment)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.45f,  // CHANGED: was 0.5f
@@ -345,7 +345,7 @@ object ScoringPresets {
                 goodEffortFeedbackThreshold = 60
             ),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = true,
+                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.4f,
                 pitchMonotoneThreshold = 12f,
                 pitchOscillationRate = 0.45f,
@@ -368,7 +368,7 @@ object ScoringPresets {
                 pitchTolerance = 8f,                   // CHANGED: was 5f (+60% more forgiving!)
                 minScoreThreshold = 0.32f,             // CHANGED: was 0.4f (-20%)
                 perfectScoreThreshold = 0.88f,         // CHANGED: was 0.95f (-7%)
-                scoreCurve = 1.5f                      // CHANGED: was 1.2f (+25% more generous)
+                scoreCurve = 0.7f                      // Exponent = 1.43 (mild suppression)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.55f,     // CHANGED: was 0.6f
@@ -390,7 +390,7 @@ object ScoringPresets {
                 goodEffortFeedbackThreshold = 70
             ),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = true,
+                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.45f,         // CHANGED: was 0.5f
                 pitchMonotoneThreshold = 14f,          // CHANGED: was 15f
                 pitchOscillationRate = 0.42f,          // CHANGED: was 0.4f
@@ -413,7 +413,7 @@ object ScoringPresets {
                 pitchTolerance = 5f,                   // CHANGED: was 3f (+67% more forgiving!)
                 minScoreThreshold = 0.42f,             // CHANGED: was 0.5f (-16%)
                 perfectScoreThreshold = 0.93f,         // CHANGED: was 0.98f (-5%)
-                scoreCurve = 1.2f                      // CHANGED: was 1.0f (+20% more generous)
+                scoreCurve = 0.5f                      // Exponent = 2.0 (strong suppression)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.65f,     // CHANGED: was 0.7f
@@ -438,7 +438,7 @@ object ScoringPresets {
                 reverseCurveAdjustment = 1.0f
             ),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = true,
+                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.55f,         // CHANGED: was 0.6f
                 pitchMonotoneThreshold = 16f,          // CHANGED: was 18f
                 pitchOscillationRate = 0.37f,          // CHANGED: was 0.35f
@@ -517,16 +517,3 @@ data class Presets(
     val scaling: ScoreScalingParameters = ScoreScalingParameters(),
     val garbage: GarbageDetectionParameters = GarbageDetectionParameters()
 )
-
-// Extension function to apply preset to ScoringEngine (ENHANCED)
-fun ScoringEngine.applyPreset(preset: Presets) {
-    updateParameters(preset.scoring)
-    updateContentParameters(preset.content)
-    updateMelodicParameters(preset.melodic)
-    updateMusicalParameters(preset.musical)
-    updateAudioParameters(preset.audio)
-    updateScalingParameters(preset.scaling)
-    updateGarbageParameters(preset.garbage)  // ← ADD THIS LINE
-    // Store the current difficulty level for UI feedback
-    setCurrentDifficulty(preset.difficulty)
-}
