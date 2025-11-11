@@ -25,6 +25,7 @@ class SettingsDataStore(context: Context) {
         val TUTORIAL_COMPLETED_KEY = booleanPreferencesKey("tutorial_completed")
         val BACKUP_RECORDINGS_KEY = booleanPreferencesKey("backup_recordings_enabled")
         val CUSTOM_ACCENT_COLOR_KEY = intPreferencesKey("custom_accent_color") // 🎨 NEW
+        val DIFFICULTY_LEVEL_KEY = stringPreferencesKey("difficulty_level") // 🎯 NEW - ADD THIS LINE
     }
 
     val getTheme: Flow<String> = dataStore.data.map { preferences ->
@@ -102,6 +103,16 @@ class SettingsDataStore(context: Context) {
     suspend fun setTutorialCompleted(completed: Boolean) {
         dataStore.edit { preferences ->
             preferences[TUTORIAL_COMPLETED_KEY] = completed
+        }
+    }
+    // 🎯 NEW: Difficulty level persistence
+    val getDifficultyLevel: Flow<String> = dataStore.data.map { preferences ->
+        preferences[DIFFICULTY_LEVEL_KEY] ?: "NORMAL" // Default to NORMAL difficulty
+    }
+
+    suspend fun saveDifficultyLevel(difficultyLevel: String) {
+        dataStore.edit { preferences ->
+            preferences[DIFFICULTY_LEVEL_KEY] = difficultyLevel
         }
     }
 }

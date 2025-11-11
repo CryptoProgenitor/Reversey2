@@ -20,13 +20,38 @@ import com.example.reversey.scoring.GarbageDetector  // ← ADD THIS
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CoroutineScope  // 🎯 NEW
+import kotlinx.coroutines.Dispatchers       // 🎯 NEW
+import kotlinx.coroutines.SupervisorJob     // 🎯 NEW
+import kotlinx.coroutines.launch            // 🎯 NEW
+import kotlinx.coroutines.flow.first        // 🎯 NEW
+import com.example.reversey.data.repositories.SettingsDataStore  // 🎯 NEW
 
 @Singleton
-class ScoringEngine @Inject constructor(@ApplicationContext private val context: Context) {
+class ScoringEngine @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val settingsDataStore: SettingsDataStore  // 🎯 NEW - inject settings
+) {
+
+
+    // 🎯 NEW: Coroutine scope for async operations
+    private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     init {
         Log.d("HILT_VERIFY", "🎯 ScoringEngine created - Instance: ${this.hashCode()}")
-    }
 
+        // 🎯 NEW: Load saved difficulty on init
+        engineScope.launch {
+            val savedDifficulty = settingsDataStore.getDifficultyLevel.first()
+            val difficulty = try {
+                DifficultyLevel.valueOf(savedDifficulty)
+            } catch (e: Exception) {
+                DifficultyLevel.NORMAL // Fallback to NORMAL if invalid
+            }
+            _currentDifficulty.value = difficulty
+            Log.d("HILT_VERIFY", "🎯 Loaded saved difficulty: ${difficulty.displayName}")
+        }
+    }
     private val audioProcessor = AudioProcessor()
     private val garbageDetector = GarbageDetector(audioProcessor)  // ← ADD THIS LINE
     private var parameters = ScoringParameters()
@@ -888,9 +913,17 @@ class ScoringEngine @Inject constructor(@ApplicationContext private val context:
 
     // NEW: Difficulty level tracking methods
     fun getCurrentDifficulty(): DifficultyLevel = _currentDifficulty.value
+
     fun setCurrentDifficulty(difficulty: DifficultyLevel) {
         _currentDifficulty.value = difficulty
+
+        // 🎯 NEW: Save difficulty to DataStore
+        engineScope.launch {
+            settingsDataStore.saveDifficultyLevel(difficulty.name)
+            Log.d("DIFFICULTY_SAVE", "💾 Saved difficulty: ${difficulty.displayName}")
+        }
     }
+
     // Apply a complete preset configuration
     fun applyPreset(preset: Presets) {
         Log.d("APPLY_PRESET", "=== APPLYING PRESET: ${preset.difficulty.displayName} ===")

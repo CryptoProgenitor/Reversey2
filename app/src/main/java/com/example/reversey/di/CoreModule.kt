@@ -1,6 +1,7 @@
 package com.example.reversey.di
 
 import android.content.Context
+import com.example.reversey.data.repositories.SettingsDataStore  // 🎯 NEW
 import com.example.reversey.scoring.ScoringEngine
 import dagger.Module
 import dagger.Provides
@@ -19,7 +20,10 @@ object CoreModule {
 
     @Provides
     @Singleton
-    fun provideScoringEngine(@ApplicationContext context: Context): ScoringEngine {
-        return ScoringEngine(context)
+    fun provideScoringEngine(
+        @ApplicationContext context: Context,
+        settingsDataStore: SettingsDataStore  // 🎯 NEW - Hilt will inject this
+    ): ScoringEngine {
+        return ScoringEngine(context, settingsDataStore)  // 🎯 UPDATED - pass both params
     }
 }
