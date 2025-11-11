@@ -490,7 +490,8 @@ class AudioViewModel @Inject constructor(
                             pitchSimilarity = scoringResult.metrics.pitch,
                             mfccSimilarity = scoringResult.metrics.mfcc,
                             rawScore = scoringResult.rawScore,
-                            challengeType = challengeType // <-- SAVE THE TYPE
+                            challengeType = challengeType, // <-- SAVE THE TYPE
+                            difficulty = scoringEngine.getCurrentDifficulty() // <-- SAVE THE DIFFICULTY
                         )
                         //TO HERE
                         Log.d("AudioViewModel", "Created attempt with reversedPath: ${attempt.reversedAttemptFilePath}")

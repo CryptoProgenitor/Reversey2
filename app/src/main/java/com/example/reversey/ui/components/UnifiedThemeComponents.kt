@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import com.example.reversey.R
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
+import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.data.models.Recording
 import com.example.reversey.scoring.ScoringResult
 import com.example.reversey.scoring.SimilarityMetrics
@@ -303,63 +304,96 @@ private fun ScrapbookStyleAttemptItem(
             ) {
                 // Header with player name and star rating
                 Row(
-                    modifier = Modifier.Companion.fillMaxWidth(),
-                    verticalAlignment = Alignment.Companion.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Player name with challenge icon
-                    Row(
-                        verticalAlignment = Alignment.Companion.CenterVertically,
-                        modifier = Modifier.Companion
+                    // Player name - LEFT ALIGNED
+                    Text(
+                        text = attempt.playerName,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = dancingScriptFontFamily,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = Color.Black.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
                             .weight(1f)
                             .clickable { onShowRenameDialog(true) }
-                    ) {
-                        val challengeIcon =
-                            if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
-                        Text(
-                            text = challengeIcon,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.Companion.padding(end = 6.dp)
-                        )
-
-                        Text(
-                            text = attempt.playerName,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontFamily = dancingScriptFontFamily,
-                                fontWeight = FontWeight.Companion.Bold
-                            ),
-                            color = Color.Companion.Black.copy(alpha = 0.8f)
-                        )
-                    }
+                    )
 
                     // Star rating
                     Row(
-                        modifier = Modifier.Companion.clickable { onShowScoreDialog(true) },
-                        verticalAlignment = Alignment.Companion.CenterVertically
+                        modifier = Modifier.clickable { onShowScoreDialog(true) },
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val fullStars =
-                            attempt.score.toInt() / 20 // Convert percentage to stars (0-5)
+                        val fullStars = attempt.score.toInt() / 20 // Convert percentage to stars (0-5)
                         val percentage = "${attempt.score.toInt()}%"
 
                         repeat(5) { index ->
                             Icon(
                                 imageVector = if (index < fullStars) Icons.Filled.Star else Icons.Outlined.StarBorder,
                                 contentDescription = null,
-                                tint = if (index < fullStars) Color(0xFFFFD700) else Color.Companion.Gray,
-                                modifier = Modifier.Companion.size(16.dp)
+                                tint = if (index < fullStars) Color(0xFFFFD700) else Color.Gray,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.Companion.width(4.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = percentage,
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = dancingScriptFontFamily,
-                                fontWeight = FontWeight.Companion.Medium
+                                fontWeight = FontWeight.Medium
                             ),
-                            color = Color.Companion.Black.copy(alpha = 0.7f)
+                            color = Color.Black.copy(alpha = 0.7f)
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // NEW ROW 2: Challenge type + Difficulty indicator (aligned under stars on right)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Challenge type icon
+                    val challengeIcon = if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
+                    Text(
+                        text = challengeIcon,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+
+                    // Difficulty indicator
+                    Text(
+                        text = attempt.difficulty.displayName.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = dancingScriptFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        ),
+                        color = when (attempt.difficulty) {
+                            DifficultyLevel.EASY -> Color(0xFF4CAF50)
+                            DifficultyLevel.NORMAL -> Color(0xFF2196F3)
+                            DifficultyLevel.HARD -> Color(0xFFFF9800)
+                            DifficultyLevel.EXPERT -> Color(0xFF9C27B0)
+                            DifficultyLevel.MASTER -> Color(0xFFFFD700)
+                        },
+                        modifier = Modifier
+                            .background(
+                                color = Color.Black.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Control buttons - Original first, then Share!
 
                 Spacer(modifier = Modifier.Companion.height(8.dp))
 
@@ -579,87 +613,80 @@ private fun ModernStyleAttemptItem(
                 )
                 .padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.Companion.fillMaxWidth(),
-                verticalAlignment = Alignment.Companion.CenterVertically
+            Column(
+                modifier = Modifier.Companion.fillMaxWidth()
             ) {
-                // Left side: Player info
-                Column(
-                    modifier = Modifier.Companion.weight(1f)
+                Row(
+                    modifier = Modifier.Companion.fillMaxWidth(),
+                    verticalAlignment = Alignment.Companion.Top
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.Companion.CenterVertically,
-                        modifier = Modifier.Companion.clickable { onShowRenameDialog(true) }
+                    // Left side: Player info + buttons
+                    Column(
+                        modifier = Modifier.Companion.weight(1f)
                     ) {
-                        // Go to Parent button
-                        if (onJumpToParent != null) {
-                            IconButton(
-                                onClick = onJumpToParent,
-                                modifier = Modifier.Companion.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Home,
-                                    contentDescription = "Go to Parent",
-                                    tint = colors.primary,
-                                    modifier = Modifier.Companion.size(18.dp)
-                                )
-                            }
-                        }
-
-                        // Challenge type icon
-                        val challengeIcon =
-                            if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️"
-                        Text(
-                            text = challengeIcon,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.Companion.padding(end = 8.dp)
-                        )
-
-                        // Player name
-                        Text(
-                            text = attempt.playerName,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Companion.Bold,
-                                letterSpacing = if (aesthetic.useWideLetterSpacing) 1.2.sp else 0.sp
-                            ),
-                            color = colors.onSurface,
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.Companion.height(12.dp))
-
-                    // Control buttons - evenly spaced across full width
-                    Row(
-                        modifier = Modifier.Companion.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        // Share button (first) - Secondary color (same as primary)
-                        EnhancedGlowButton(
-                            onClick = { onShowShareDialog(true) },
-                            isSecondary = true,
-                            label = "Share"
+                        Spacer(modifier = Modifier.height(10.dp))//Move player name tag down 10px
+                        Row(
+                            verticalAlignment = Alignment.Companion.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(9.dp), // Adds 9.dp of space ONLY between items
+                            modifier = Modifier.Companion.clickable { onShowRenameDialog(true) }
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Share",
-                                tint = Color.Companion.White,
-                                modifier = Modifier.Companion.size(16.dp)
+                            // Go to Parent button
+                            if (onJumpToParent != null) {
+                                IconButton(
+                                    onClick = onJumpToParent,
+                                    modifier = Modifier.Companion.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Home,
+                                        contentDescription = "Go to Parent",
+                                        tint = colors.primary,
+                                        modifier = Modifier.Companion.size(36.dp)
+                                    )
+                                }
+                            }
+
+                            // Player name
+                            Text(
+                                text = attempt.playerName,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Companion.Bold,
+                                    letterSpacing = if (aesthetic.useWideLetterSpacing) 1.2.sp else 0.sp
+                                ),
+                                color = colors.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
 
-                        // Play/Pause button (second) - Primary color
-                        if (isPlayingThis && !isPaused) {
+                        Spacer(modifier = Modifier.Companion.height(12.dp))
+
+                        // Control buttons
+                        Spacer(modifier = Modifier.height(10.dp))//Move control buttons tag down 10px
+                        Row(
+                            modifier = Modifier.Companion.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            // Share button
                             EnhancedGlowButton(
-                                onClick = onPause,
-                                isPrimary = true,
-                                label = "Pause"
+                                onClick = { onShowShareDialog(true) },
+                                isSecondary = true,
+                                label = "Share"
                             ) {
-                                if (aesthetic.id == "egg") {
-                                    EggIcons.CrackedEggIcon(
-                                        size = 16.dp,
-                                        tint = Color.Companion.White
-                                    )
-                                } else {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share",
+                                    tint = Color.Companion.White,
+                                    modifier = Modifier.Companion.size(16.dp)
+                                )
+                            }
+
+                            // Play/Pause button
+                            if (isPlayingThis && !isPaused) {
+                                EnhancedGlowButton(
+                                    onClick = onPause,
+                                    isPrimary = true,
+                                    label = "Pause"
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Pause,
                                         contentDescription = "Pause",
@@ -667,19 +694,12 @@ private fun ModernStyleAttemptItem(
                                         modifier = Modifier.Companion.size(16.dp)
                                     )
                                 }
-                            }
-                        } else {
-                            EnhancedGlowButton(
-                                onClick = { onPlay(attempt.attemptFilePath) },
-                                isPrimary = true,
-                                label = "Play"
-                            ) {
-                                if (aesthetic.id == "egg") {
-                                    EggIcons.WholeEggIcon(
-                                        size = 16.dp,
-                                        tint = Color.Companion.White
-                                    )
-                                } else {
+                            } else {
+                                EnhancedGlowButton(
+                                    onClick = { onPlay(attempt.attemptFilePath) },
+                                    isPrimary = true,
+                                    label = "Play"
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
                                         contentDescription = "Play",
@@ -688,21 +708,14 @@ private fun ModernStyleAttemptItem(
                                     )
                                 }
                             }
-                        }
 
-                        // Rev button (third) - Secondary color (same as primary)
-                        if (attempt.reversedAttemptFilePath != null) {
-                            EnhancedGlowButton(
-                                onClick = { onPlay(attempt.reversedAttemptFilePath!!) },
-                                isSecondary = true,
-                                label = "Rev"
-                            ) {
-                                if (aesthetic.id == "egg") {
-                                    EggIcons.FriedEggIcon(
-                                        size = 16.dp,
-                                        tint = Color.Companion.White
-                                    )
-                                } else {
+                            // Rev button
+                            if (attempt.reversedAttemptFilePath != null) {
+                                EnhancedGlowButton(
+                                    onClick = { onPlay(attempt.reversedAttemptFilePath!!) },
+                                    isSecondary = true,
+                                    label = "Rev"
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Repeat,
                                         contentDescription = "Reverse",
@@ -711,20 +724,13 @@ private fun ModernStyleAttemptItem(
                                     )
                                 }
                             }
-                        }
 
-                        // Delete button (last) - Destructive color
-                        EnhancedGlowButton(
-                            onClick = { onShowDeleteDialog(true) },
-                            isDestructive = true,
-                            label = "Del"
-                        ) {
-                            if (aesthetic.id == "egg") {
-                                EggIcons.CrackedEggIcon(
-                                    size = 16.dp,
-                                    tint = Color.Companion.White
-                                )
-                            } else {
+                            // Delete button
+                            EnhancedGlowButton(
+                                onClick = { onShowDeleteDialog(true) },
+                                isDestructive = true,
+                                label = "Del"
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete",
@@ -734,26 +740,33 @@ private fun ModernStyleAttemptItem(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.Companion.width(16.dp))
+
+                    // Right side: Squircle
+                    RadialScoreDisplay(
+                        score = attempt.score,
+                        difficulty = attempt.difficulty,
+                        isAnimated = true,
+                        challengeType = attempt.challengeType,
+                        onClick = { onShowScoreDialog(true) }
+                    )
                 }
 
-                Spacer(modifier = Modifier.Companion.width(16.dp))
-
-                // Right side: Radial progress score
-                RadialScoreDisplay(
-                    score = attempt.score,
-                    isAnimated = true,
-                    onClick = { onShowScoreDialog(true) }
-                )
-            }
-
-            // Progress indicator
-            if (isPlayingThis) {
-                Spacer(modifier = Modifier.Companion.height(8.dp))
-                LinearProgressIndicator(
-                    progress = progress,
-                    modifier = Modifier.Companion.fillMaxWidth(),
-                    color = colors.primary
-                )
+                // Progress bar at bottom - spans from left edge to squircle
+                if (isPlayingThis) {
+                    Spacer(modifier = Modifier.Companion.height(8.dp))
+                    Row(
+                        modifier = Modifier.Companion.fillMaxWidth()
+                    ) {
+                        LinearProgressIndicator(
+                            progress = progress,
+                            modifier = Modifier.Companion.weight(1f),
+                            color = colors.primary
+                        )
+                        Spacer(modifier = Modifier.Companion.width(16.dp + 100.dp)) // Space for squircle
+                    }
+                }
             }
         }
     }
@@ -1116,10 +1129,11 @@ private fun ScrapbookButton(
 @Composable
 private fun RadialScoreDisplay(
     score: Int,
+    difficulty: DifficultyLevel,
+    challengeType: ChallengeType,
     isAnimated: Boolean = false,
     onClick: () -> Unit
 ) {
-    val colors = MaterialColors()
     val aesthetic = AestheticTheme()
 
     // Score-based emoji - use egg emojis when egg theme is active
@@ -1140,63 +1154,16 @@ private fun RadialScoreDisplay(
         }
     }
 
-    Box(
-        modifier = Modifier.Companion
-            .size(80.dp)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Companion.Center
-    ) {
-        // Background circle
-        Canvas(
-            modifier = Modifier.Companion.size(80.dp)
-        ) {
-            val strokeWidth = 6.dp.toPx()
-            val center = Offset(size.width / 2, size.height / 2)
-            val radius = (size.width - strokeWidth) / 2
-
-            // Background ring
-            drawCircle(
-                color = Color.Companion.Gray.copy(alpha = 0.3f),
-                radius = radius,
-                center = center,
-                style = Stroke(strokeWidth)
-            )
-
-            // Progress ring
-            val sweepAngle = (score / 100f) * 360f
-            drawArc(
-                color = when {
-                    score >= 80 -> Color(0xFF4CAF50) // Green
-                    score >= 60 -> Color(0xFFFF9800) // Orange
-                    else -> Color(0xFFFF5722) // Red
-                },
-                startAngle = -90f,
-                sweepAngle = sweepAngle,
-                useCenter = false,
-                style = Stroke(strokeWidth, cap = StrokeCap.Companion.Round),
-                topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
-                size = Size(size.width - strokeWidth, size.height - strokeWidth)
-            )
-        }
-
-        // Content
-        Column(
-            horizontalAlignment = Alignment.Companion.CenterHorizontally
-        ) {
-            Text(
-                text = emoji,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 20.sp)
-            )
-            Text(
-                text = "$score",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Companion.Bold,
-                    fontSize = 14.sp
-                ),
-                color = colors.onSurface
-            )
-        }
-    }
+    // Use the new DifficultySquircle component
+    DifficultySquircle(
+        score = score,
+        difficulty = difficulty,
+        challengeType = challengeType,
+        emoji = emoji,
+        width = 100.dp,
+        height = 130.dp,
+        onClick = onClick
+    )
 }
 
 // Dialog composables

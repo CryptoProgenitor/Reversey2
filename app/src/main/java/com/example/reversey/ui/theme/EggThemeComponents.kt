@@ -46,6 +46,8 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
+import com.example.reversey.scoring.DifficultyLevel
+import com.example.reversey.ui.components.DifficultySquircle
 import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.components.ScoreExplanationDialog
 import com.example.reversey.scoring.ScoringResult
@@ -405,101 +407,119 @@ fun EggAttemptItem(
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-            // TOP ROW: Sticky note (left) and Score circle (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.Top
             ) {
-                // Left: Sticky note with player name + house icon
-                Box(
-                    modifier = Modifier
-                        .rotate(-8f)
-                        .background(Color(0xFFFFF176), RoundedCornerShape(4.dp))
-                        .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                // Left side: Sticky note + buttons
+                Column(
+                    modifier = Modifier.weight(1f)
                 ) {
+                    Spacer(modifier = Modifier.height(10.dp))//Move player name tag down 10px
+
+                    // House icon OUTSIDE left + Sticky note
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.combinedClickable(
-                            onClick = { onJumpToParent?.invoke() },
-                            onLongClick = { showRenameDialog = true }
-                        )
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        HandDrawnHouseIcon(modifier = Modifier.size(16.dp))
+                        // Jump to parent icon - OUTSIDE
+                        HandDrawnHouseIcon(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clickable { onJumpToParent?.invoke() }
+                        )
+
+                        // Sticky note with player name
                         Box(
                             modifier = Modifier
-                                .size(12.dp)
-                                .rotate(if (attempt.challengeType == ChallengeType.REVERSE) 180f else 0f)
+                                .rotate(-8f)
+                                .background(Color(0xFFFFF176), RoundedCornerShape(4.dp))
+                                .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .clickable { showRenameDialog = true }  // SHORT CLICK for rename
                         ) {
-                            EggPlayIcon(Color(0xFF2E2E2E))
+                            Text(
+                                text = attempt.playerName,
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                                color = Color(0xFF2E2E2E),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 120.dp)
+                            )
                         }
-                        Text(
-                            text = attempt.playerName,
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
-                            color = Color(0xFF2E2E2E),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 120.dp)
-                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(22.dp)) //Move control buttons down 10px
+
+                    // Control buttons - bunched up on left
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (onShareAttempt != null) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                HandDrawnEggButton(onClick = { showShareDialog = true }, backgroundColor = Color(0xFF9C27B0), size = 40.dp) { EggShareIcon(Color(0xFF2E2E2E)) }
+                                Text("Share", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp), color = Color(0xFF2E2E2E))
+                            }
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            HandDrawnEggButton(
+                                onClick = {
+                                    if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath)
+                                },
+                                backgroundColor = Color(0xFFFF8A65),
+                                size = 40.dp
+                            ) { EggPlayIcon(Color(0xFF2E2E2E)) }
+                            Text("Play", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp), color = Color(0xFF2E2E2E))
+                        }
+
+                        if (attempt.reversedAttemptFilePath != null) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                HandDrawnEggButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, backgroundColor = Color(0xFFFF8A65), size = 40.dp) { EggReverseIcon(Color(0xFF2E2E2E)) }
+                                Text("Rev", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp), color = Color(0xFF2E2E2E))
+                            }
+                        }
+
+                        if (onDeleteAttempt != null) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                HandDrawnEggButton(onClick = { showDeleteDialog = true }, backgroundColor = Color(0xFFFF5722), size = 40.dp) { CrackedEggIcon() }
+                                Text("Del", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp), color = Color(0xFF2E2E2E))
+                            }
+                        }
                     }
                 }
 
-                // Right: Score circle
-                EggScoreCircle(score = "${attempt.score.toInt()}%", eggEmoji = eggEmoji, size = 80.dp, onClick = { showScoreDialog = true })
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Right: Taller Score squircle
+                EggScoreCircle(
+                    score = "${attempt.score.toInt()}%",
+                    difficulty = attempt.difficulty,
+                    challengeType = attempt.challengeType,
+                    eggEmoji = eggEmoji,
+                    size = 100.dp,
+                    onClick = { showScoreDialog = true }
+                )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // BOTTOM ROW: 4 buttons equally spaced across width
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (onShareAttempt != null) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        HandDrawnEggButton(onClick = { showShareDialog = true }, backgroundColor = Color(0xFF9C27B0), size = 45.dp) { EggShareIcon(Color(0xFF2E2E2E)) }
-                        Text("Share", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
+            // Progress bar at bottom - spans from left edge to squircle
+            if (isPlayingThis) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp))
+                            .padding(2.dp)
+                    ) {
+                        EggTravelProgressBar(progress = progress, modifier = Modifier.fillMaxWidth())
                     }
+                    Spacer(modifier = Modifier.width(12.dp + 100.dp)) // Space for squircle
                 }
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    HandDrawnEggButton(
-                        onClick = {
-                            if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath)
-                        },
-                        backgroundColor = Color(0xFFFF8A65),
-                        size = 45.dp
-                    ) { EggPlayIcon(Color(0xFF2E2E2E)) }
-                    Text("Play", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
-                }
-
-                if (attempt.reversedAttemptFilePath != null) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        HandDrawnEggButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, backgroundColor = Color(0xFFFF8A65), size = 45.dp) { EggReverseIcon(Color(0xFF2E2E2E)) }
-                        Text("Rev", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
-                    }
-                }
-
-                if (onDeleteAttempt != null) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        HandDrawnEggButton(onClick = { showDeleteDialog = true }, backgroundColor = Color(0xFFFF5722), size = 45.dp) { CrackedEggIcon() }
-                        Text("Del", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp))
-                    .padding(2.dp)
-            ) {
-                EggTravelProgressBar(progress = if (isPlayingThis) progress else 0f, modifier = Modifier.fillMaxWidth())
             }
         }
     }
@@ -618,6 +638,8 @@ fun EggScoreDialog(
                         // Score circle with green arc
                         EggScoreCircle(
                             score = "${attempt.score.toInt()}%",
+                            difficulty = attempt.difficulty,
+                            challengeType = attempt.challengeType,
                             eggEmoji = eggEmoji,
                             size = 120.dp,
                             onClick = {}
@@ -728,64 +750,29 @@ fun EggMetricRow(label: String, value: Float) {
 // ============================================
 
 @Composable
-fun EggScoreCircle(score: String, eggEmoji: String, size: Dp, onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
-    // Extract numeric score for arc calculation
-    val scoreValue = score.replace("%", "").toFloatOrNull() ?: 0f
-    val sweepAngle = (scoreValue / 100f) * 360f
+fun EggScoreCircle(
+    score: String,
+    difficulty: DifficultyLevel,
+    eggEmoji: String,
+    challengeType: ChallengeType,
+    size: Dp,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val scoreValue = score.replace("%", "").toIntOrNull() ?: 0
 
-    Box(
-        modifier = modifier.size(size).clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        // Draw the circular progress arc
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 8.dp.toPx()
-            val radius = (size.toPx() - strokeWidth) / 2f
-
-            // Gray background circle
-            drawArc(
-                color = Color(0xFFE0E0E0),
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-                topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
-                size = Size(radius * 2, radius * 2)
-            )
-
-            // Green progress arc (proportional to score)
-            drawArc(
-                color = Color(0xFF4CAF50),
-                startAngle = -90f,
-                sweepAngle = sweepAngle,
-                useCenter = false,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-                topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
-                size = Size(radius * 2, radius * 2)
-            )
-        }
-
-        // Center content: egg emoji + score
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = eggEmoji,
-                style = MaterialTheme.typography.titleMedium,
-                fontSize = 20.sp
-            )
-            Text(
-                text = score.replace("%", ""),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                ),
-                color = Color(0xFF2E2E2E)
-            )
-        }
-    }
+    DifficultySquircle(
+        score = scoreValue,
+        difficulty = difficulty,
+        emoji = eggEmoji,
+        challengeType = challengeType,
+        width = size,
+        height = (size.value * 1.3f).dp,
+        onClick = onClick,
+        modifier = modifier
+    )
 }
+
 
 @Composable
 fun FriedEggDecoration(size: Dp, rotation: Float = 0f) {

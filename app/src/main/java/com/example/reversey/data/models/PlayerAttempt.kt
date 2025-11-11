@@ -1,6 +1,7 @@
 package com.example.reversey.data.models
 
 import androidx.compose.runtime.Immutable
+import com.example.reversey.scoring.DifficultyLevel
 
 /**
  * Represents a single player's attempt to match a reversed recording.
@@ -13,6 +14,7 @@ import androidx.compose.runtime.Immutable
  * @param mfccSimilarity The MFCC similarity metric (0.0 to 1.0) from ScoringEngine.
  * @param rawScore The raw score value before percentage conversion from ScoringEngine.
  * @param challengeType The type of challenge (REVERSE or FORWARD).
+ * @param difficulty The difficulty level at which this attempt was made.
  */
 @Immutable
 data class PlayerAttempt(
@@ -23,5 +25,6 @@ data class PlayerAttempt(
     val pitchSimilarity: Float = 0f, // Real pitch similarity from ScoringEngine
     val mfccSimilarity: Float = 0f,  // Real MFCC similarity from ScoringEngine
     val rawScore: Float = 0f,        // Real raw score from ScoringEngine
-    val challengeType: ChallengeType // Challenge type
+    val challengeType: ChallengeType, // Challenge type
+    val difficulty: DifficultyLevel = DifficultyLevel.NORMAL // Difficulty level when attempt was made
 )
