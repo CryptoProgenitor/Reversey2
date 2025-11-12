@@ -69,6 +69,14 @@ class GarbageDetector(
             )
         }
 
+        // ADD THIS DEBUG BLOCK RIGHT HERE:
+        Log.d("GarbageDetector", "=== GARBAGE PARAMETERS ===")
+        Log.d("GarbageDetector", "pitchMonotoneThreshold: ${parameters.pitchMonotoneThreshold}")
+        Log.d("GarbageDetector", "spectralEntropyThreshold: ${parameters.spectralEntropyThreshold}")
+        Log.d("GarbageDetector", "mfccVarianceThreshold: ${parameters.mfccVarianceThreshold}")
+        Log.d("GarbageDetector", "garbageScoreThreshold: 0.4f")
+        Log.d("GarbageDetector", "========================")
+
         val failedFilters = mutableListOf<String>()
         val filterResults = mutableMapOf<String, Float>()
         var garbageScore = 0f

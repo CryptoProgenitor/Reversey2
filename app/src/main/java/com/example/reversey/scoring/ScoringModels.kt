@@ -263,7 +263,7 @@ object ScoringPresets {
                 goodEffortFeedbackThreshold = 40
             ),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
+                enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.2f,
                 pitchMonotoneThreshold = 8f,
                 pitchOscillationRate = 0.6f,
@@ -285,7 +285,7 @@ object ScoringPresets {
                 mfccWeight = 0.15f,
                 pitchTolerance = 25f,              // CHANGED: was 15f (default) (+67% more forgiving!)
                 minScoreThreshold = 0.18f,         // CHANGED: was 0.20f (default) (-10%)
-                perfectScoreThreshold = 0.75f,     // CHANGED: was 0.80f (default) (-6%)
+                perfectScoreThreshold = 0.78f,     // CHANGED: was .75f (default) (-6%)
                 scoreCurve = 2.0f                  // Exponent = 0.5 (moderate boost)
             ),
             content = ContentDetectionParameters(
@@ -300,16 +300,16 @@ object ScoringPresets {
             audio = AudioProcessingParameters(),
             scaling = ScoreScalingParameters(),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
+                enableGarbageDetection = true,
                 mfccVarianceThreshold = 0.3f,
-                pitchMonotoneThreshold = 10f,
+                pitchMonotoneThreshold = 2.5f,         // ← LOOSENED (was 10f)
                 pitchOscillationRate = 0.5f,
-                spectralEntropyThreshold = 0.5f,
+                spectralEntropyThreshold = 0.35f,      // ← LOOSENED (was 0.5f)
                 zcrMinThreshold = 0.02f,
                 zcrMaxThreshold = 0.2f,
                 silenceRatioMin = 0.1f,
                 garbageScoreMax = 10
-            )
+            ),
         )
     }
 
@@ -345,7 +345,7 @@ object ScoringPresets {
                 goodEffortFeedbackThreshold = 60
             ),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
+                enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.4f,
                 pitchMonotoneThreshold = 12f,
                 pitchOscillationRate = 0.45f,
@@ -390,7 +390,7 @@ object ScoringPresets {
                 goodEffortFeedbackThreshold = 70
             ),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
+                enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.45f,         // CHANGED: was 0.5f
                 pitchMonotoneThreshold = 14f,          // CHANGED: was 15f
                 pitchOscillationRate = 0.42f,          // CHANGED: was 0.4f
@@ -438,7 +438,7 @@ object ScoringPresets {
                 reverseCurveAdjustment = 1.0f
             ),
             garbage = GarbageDetectionParameters(
-                enableGarbageDetection = false,  // 🔧 DISABLED for curve testing
+                enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
                 mfccVarianceThreshold = 0.55f,         // CHANGED: was 0.6f
                 pitchMonotoneThreshold = 16f,          // CHANGED: was 18f
                 pitchOscillationRate = 0.37f,          // CHANGED: was 0.35f

@@ -26,6 +26,7 @@ import kotlinx.coroutines.SupervisorJob     // 🎯 NEW
 import kotlinx.coroutines.launch            // 🎯 NEW
 import kotlinx.coroutines.flow.first        // 🎯 NEW
 import com.example.reversey.data.repositories.SettingsDataStore  // 🎯 NEW
+import com.example.reversey.scoring.ScoringPresets
 
 @Singleton
 class ScoringEngine @Inject constructor(
@@ -49,6 +50,17 @@ class ScoringEngine @Inject constructor(
                 DifficultyLevel.NORMAL // Fallback to NORMAL if invalid
             }
             _currentDifficulty.value = difficulty
+
+// Apply the preset parameters!
+            val preset = when(difficulty) {
+                DifficultyLevel.EASY -> ScoringPresets.easyMode()      // ← ScoringPresets!
+                DifficultyLevel.NORMAL -> ScoringPresets.normalMode()
+                DifficultyLevel.HARD -> ScoringPresets.hardMode()
+                DifficultyLevel.EXPERT -> ScoringPresets.expertMode()
+                DifficultyLevel.MASTER -> ScoringPresets.masterMode()
+            }
+            applyPreset(preset)
+
             Log.d("HILT_VERIFY", "🎯 Loaded saved difficulty: ${difficulty.displayName}")
         }
     }
