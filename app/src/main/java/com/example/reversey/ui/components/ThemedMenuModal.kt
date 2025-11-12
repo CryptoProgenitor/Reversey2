@@ -48,6 +48,9 @@ import coil.decode.ImageDecoderDecoder
 import com.example.reversey.BuildConfig
 import com.example.reversey.R
 import kotlinx.coroutines.delay
+import com.example.reversey.testing.BITRunner
+import android.widget.Toast
+
 
 /**
  * 🎨 MULTI-SCREEN THEMED MENU MODAL
@@ -800,6 +803,96 @@ private fun SettingsContent(
             color = aesthetic.secondaryTextColor,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
+        // ADD THIS AFTER LINE 802 in ThemedMenuModal.kt
+// Right after the "Enable advanced scoring diagnostics" text
+
+        // ADD THIS AFTER LINE 802 in ThemedMenuModal.kt
+// Right after the "Enable advanced scoring diagnostics" text
+
+        // 🔧 BIT (Built-In Test) Button - Only in DEBUG builds
+        if (BuildConfig.DEBUG) {
+            var bitRunning by remember { mutableStateOf(false) }
+            var bitProgress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !bitRunning) {
+                        if (!bitRunning) {
+                            bitRunning = true
+                            scope.launch {
+                                // Get BITRunner from Hilt or create manually
+                                val bitRunner = BITRunner(context, scoringEngine)
+
+                                bitRunner.runAllTests { current, total ->
+                                    bitProgress = Pair(current, total)
+                                }.onSuccess { message ->
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        message,
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                    bitRunning = false
+                                    bitProgress = null
+                                }.onFailure { error ->
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "BIT Failed: ${error.message}",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                    bitRunning = false
+                                    bitProgress = null
+                                }
+                            }
+                        }
+                    },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (bitRunning) colors.secondaryContainer else colors.surfaceVariant.copy(
+                        alpha = 0.5f
+                    )
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.BugReport,
+                            contentDescription = "Run BIT",
+                            tint = if (bitRunning) colors.onSecondaryContainer else colors.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                if (bitRunning) "Running BIT..." else "Run Alignment Test (BIT)",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = aesthetic.primaryTextColor
+                            )
+                            Text(
+                                bitProgress?.let { (current, total) ->
+                                    "Test $current/$total"
+                                } ?: "Tests forward + reverse (50 tests)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = aesthetic.secondaryTextColor
+                            )
+                        }
+                    }
+                    if (bitRunning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

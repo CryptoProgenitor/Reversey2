@@ -348,7 +348,22 @@ class ScoringEngine @Inject constructor(
         Log.d("ScoringEngine", String.format("Phrase Similarity: %.3f", contentMetrics.phraseSimilarity))
         Log.d("ScoringEngine", String.format("Rhythm Similarity: %.3f", contentMetrics.rhythmSimilarity))
 
-        return hybridContentScore
+        // FIX: Use direct correlation for high-similarity audio (BIT + precise matching)
+        // Use content analysis for divergent attempts (gameplay with wrong lyrics)
+        val useDirectCorrelation = absoluteSimilarity > 0.85f
+
+        val finalScore = if (useDirectCorrelation) {
+            Log.d("ScoringEngine", "✅ High similarity detected - using direct correlation")
+            absoluteSimilarity
+        } else {
+            Log.d("ScoringEngine", "📊 Low similarity - using content analysis")
+            hybridContentScore
+        }
+
+        Log.d("ScoringEngine", String.format("Final Pitch Score: %.3f (method: %s)",
+            finalScore, if (useDirectCorrelation) "DIRECT" else "CONTENT"))
+
+        return finalScore
     }
 
     private fun calculatePitchVariance(pitches: List<Float>): Float {
@@ -580,7 +595,7 @@ class ScoringEngine @Inject constructor(
         // Calculate musical intervals between consecutive notes
         return activePitches.zipWithNext { current, next ->
             abs(next - current) // Absolute interval size (ignore direction)
-        }.filter { it > 0.5f } // Ignore micro-variations, focus on real melodic movement
+        }.filter { it > 0.15f } // Was 0.5f. Lowered to catch melody but still filter micro-noise.
     }
 
     private fun detectPhraseBreaks(pitches: List<Float>): List<Int> {
@@ -799,13 +814,193 @@ class ScoringEngine @Inject constructor(
         return 1f - abs(originalDensity - attemptDensity)
     }
 
+    /**
+     * Cross-correlation based audio alignment
+     * Handles timing desync up to ~1 second between original and attempt recordings
+     */
     private fun alignAudio(original: FloatArray, attempt: FloatArray): Pair<FloatArray, FloatArray> {
-        val threshold = audioParams.audioAlignmentThreshold
-        val originalStart = original.indexOfFirst { abs(it) > threshold }.takeIf { it != -1 } ?: 0
-        val attemptStart = attempt.indexOfFirst { abs(it) > threshold }.takeIf { it != -1 } ?: 0
-        val minLength = min(original.size - originalStart, attempt.size - attemptStart)
-        if (minLength <= 0) return Pair(FloatArray(0), FloatArray(0))
-        return Pair(original.sliceArray(originalStart until originalStart + minLength), attempt.sliceArray(attemptStart until attemptStart + minLength))
+        Log.d("ScoringEngine", "=== AUDIO ALIGNMENT START ===")
+        Log.d("ScoringEngine", "Original length: ${original.size}, Attempt length: ${attempt.size}")
+
+        if (original.isEmpty() || attempt.isEmpty()) {
+            Log.d("ScoringEngine", "Empty audio detected, returning empty arrays")
+            return Pair(FloatArray(0), FloatArray(0))
+        }
+
+        // Step 1: Find rough alignment using energy-based peak detection
+        val originalPeak = findFirstSignificantPeak(original)
+        val attemptPeak = findFirstSignificantPeak(attempt)
+
+        Log.d("ScoringEngine", "Energy peaks: original=$originalPeak, attempt=$attemptPeak")
+
+        // Step 2: Refine alignment using cross-correlation around the peaks
+        val searchWindowSize = 22050 // ~500ms at 44.1kHz (handles typical button press desync)
+        val correlationWindowStart = max(0, originalPeak - searchWindowSize / 2)
+        val correlationWindowEnd = min(original.size, originalPeak + searchWindowSize / 2)
+
+        val bestOffset = findBestCorrelationOffset(
+            original = original,
+            attempt = attempt,
+            searchStart = correlationWindowStart,
+            searchEnd = correlationWindowEnd,
+            maxOffset = searchWindowSize
+        )
+
+        Log.d("ScoringEngine", "Best correlation offset: $bestOffset")
+
+        // Step 3: Align both signals using the best offset
+        val alignedOriginalStart = max(0, originalPeak)
+        val alignedAttemptStart = max(0, attemptPeak + bestOffset)
+
+        val alignedLength = min(
+            original.size - alignedOriginalStart,
+            attempt.size - alignedAttemptStart
+        )
+
+        if (alignedLength <= 0) {
+            Log.d("ScoringEngine", "Alignment failed: negative length ($alignedLength)")
+            return Pair(FloatArray(0), FloatArray(0))
+        }
+
+        val alignedOriginal = original.sliceArray(alignedOriginalStart until alignedOriginalStart + alignedLength)
+        val alignedAttempt = attempt.sliceArray(alignedAttemptStart until alignedAttemptStart + alignedLength)
+
+        Log.d("ScoringEngine", "Aligned length: $alignedLength samples (~${alignedLength/44100f}s)")
+        Log.d("ScoringEngine", "=== AUDIO ALIGNMENT COMPLETE ===")
+
+        return Pair(alignedOriginal, alignedAttempt)
+    }
+
+    /**
+     * Find first significant energy peak in audio signal
+     * More robust than simple threshold detection
+     */
+    private fun findFirstSignificantPeak(audio: FloatArray): Int {
+        if (audio.isEmpty()) return 0
+
+        // Calculate RMS energy in sliding windows
+        val windowSize = 2048 // ~46ms at 44.1kHz
+        val hopSize = 512
+        val energyThreshold = 0.02f // Minimum RMS to count as "significant"
+
+        var maxEnergy = 0f
+        var peakPosition = 0
+
+        // First pass: find overall peak energy to set relative threshold
+        for (i in 0 until audio.size - windowSize step hopSize) {
+            val windowEnergy = calculateWindowRMS(audio.sliceArray(i until i + windowSize))
+            if (windowEnergy > maxEnergy) {
+                maxEnergy = windowEnergy
+            }
+        }
+
+        val significantThreshold = max(energyThreshold, maxEnergy * 0.3f) // 30% of peak
+
+        // Second pass: find first significant energy burst
+        for (i in 0 until audio.size - windowSize step hopSize) {
+            val windowEnergy = calculateWindowRMS(audio.sliceArray(i until i + windowSize))
+            if (windowEnergy >= significantThreshold) {
+                peakPosition = i
+                break
+            }
+        }
+
+        return peakPosition
+    }
+
+    /**
+     * Calculate RMS (Root Mean Square) energy of audio segment
+     */
+    private fun calculateWindowRMS(audio: FloatArray): Float {
+        if (audio.isEmpty()) return 0f
+        val sumOfSquares = audio.fold(0f) { acc, sample -> acc + sample * sample }
+        return sqrt(sumOfSquares / audio.size)
+    }
+
+    /**
+     * Find best time offset using cross-correlation
+     * Returns offset that maximizes similarity between signals
+     */
+
+    private fun findBestCorrelationOffset(
+        original: FloatArray,
+        attempt: FloatArray,
+        searchStart: Int,
+        searchEnd: Int,
+        maxOffset: Int
+    ): Int {
+        var bestOffset = 0
+        var maxCorrelation = Float.NEGATIVE_INFINITY
+
+        val correlationWindowSize = 8192 // Doubled for better match quality (~186ms)
+        val offsetStep = 64 // Finer search for exact alignment (~1.5ms precision)
+
+        // FIXED: Keep original slice stable, slide attempt slice
+        val originalSliceStart = searchStart
+
+        for (offset in -maxOffset..maxOffset step offsetStep) {
+            val attemptSliceStart = searchStart + offset
+
+            // Check bounds for BOTH slices correctly
+            if (originalSliceStart < 0 || originalSliceStart + correlationWindowSize >= original.size) {
+                continue
+            }
+            if (attemptSliceStart < 0 || attemptSliceStart + correlationWindowSize >= attempt.size) {
+                continue
+            }
+
+            // FIXED: Original slice stays fixed, attempt slice moves
+            val correlation = calculateCorrelation(
+                original.sliceArray(originalSliceStart until originalSliceStart + correlationWindowSize),
+                attempt.sliceArray(attemptSliceStart until attemptSliceStart + correlationWindowSize)
+            )
+
+            if (correlation > maxCorrelation) {
+                maxCorrelation = correlation
+                bestOffset = offset
+            }
+        }
+
+        Log.d("ScoringEngine", "Cross-correlation: best offset=$bestOffset, correlation=$maxCorrelation")
+
+        if (maxCorrelation < 0.7f) {
+            Log.d("ScoringEngine", "⚠️ WARNING: Weak correlation ($maxCorrelation), alignment may be unreliable")
+        }
+
+        return bestOffset
+    }
+
+    /**
+     * Calculate normalized cross-correlation between two audio segments
+     * Returns value between -1 and 1 (1 = perfect match)
+     */
+    private fun calculateCorrelation(signal1: FloatArray, signal2: FloatArray): Float {
+        if (signal1.size != signal2.size || signal1.isEmpty()) return 0f
+
+        // Calculate means
+        val mean1 = signal1.average().toFloat()
+        val mean2 = signal2.average().toFloat()
+
+        // Calculate correlation
+        var numerator = 0f
+        var denominator1 = 0f
+        var denominator2 = 0f
+
+        for (i in signal1.indices) {
+            val diff1 = signal1[i] - mean1
+            val diff2 = signal2[i] - mean2
+            numerator += diff1 * diff2
+            denominator1 += diff1 * diff1
+            denominator2 += diff2 * diff2
+        }
+
+        val denominator = sqrt(denominator1 * denominator2)
+
+        return if (denominator > 0f) {
+            numerator / denominator
+        } else {
+            0f
+        }
     }
 
     private fun scaleScore(rawScore: Float, challengeType: ChallengeType): Int {
