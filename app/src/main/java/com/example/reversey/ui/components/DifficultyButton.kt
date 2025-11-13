@@ -36,12 +36,40 @@ fun DifficultyButton(
     onDifficultyChanged: (DifficultyLevel) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val glowColor = MaterialTheme.colorScheme.primary
+    val glowColor = when (difficulty) {
+        DifficultyLevel.EASY -> Color(0xFF4CAF50)      // Green
+        DifficultyLevel.NORMAL -> Color(0xFF2196F3)    // Blue
+        DifficultyLevel.HARD -> Color(0xFFFF9800)      // Orange
+        DifficultyLevel.EXPERT -> Color(0xFF9C27B0)    // Purple
+        DifficultyLevel.MASTER -> Color(0xFFFFD700)    // Gold
+    }
     val containerColor = if (isSelected) {
-        glowColor.copy(alpha = 0.15f)
+        glowColor.copy(alpha = 0.5f)
     } else {
         MaterialTheme.colorScheme.surface
     }
+
+    /* =========================================================
+    val indicatorColor = when (difficulty) {
+        DifficultyLevel.EASY -> Color(0xFF4CAF50)      // Green
+        DifficultyLevel.NORMAL -> Color(0xFF2196F3)    // Blue
+        DifficultyLevel.HARD -> Color(0xFFFF9800)      // Orange
+        DifficultyLevel.EXPERT -> Color(0xFF9C27B0)    // Purple
+        DifficultyLevel.MASTER -> Color(0xFFFFD700)    // Gold
+    }
+
+    Card(
+        modifier = modifier
+            .clickable { onClick() } // 🔧 ADD THIS - make it clickable
+            .border(width = 1.dp, color = indicatorColor, shape = RoundedCornerShape(16.dp))
+            .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = indicatorColor.copy(alpha = 0.3f)),
+        colors = CardDefaults.cardColors(
+            containerColor = indicatorColor.copy(alpha = 0.15f)
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+    =============================================================
+    */
 
     Card(
         modifier = modifier
@@ -80,7 +108,8 @@ fun DifficultyButton(
                 text = difficulty.displayName,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = if (isSelected) glowColor else MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface
+                //color = if (isSelected) glowColor else MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = when (difficulty) {

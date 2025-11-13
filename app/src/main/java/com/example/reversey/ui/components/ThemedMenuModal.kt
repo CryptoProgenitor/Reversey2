@@ -284,12 +284,7 @@ private fun ModalHeader(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = if (aesthetic.useWideLetterSpacing) 3.sp else 1.sp
                 ),
-                color = when (aesthetic.id) {
-                    "egg" -> Color(0xFF2E2E2E)
-                    "scrapbook" -> Color(0xFFFFF9E6)
-                    "cyberpunk" -> Color.Black
-                    else -> aesthetic.primaryTextColor
-                }
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             // Close button
@@ -410,13 +405,13 @@ private fun AboutContent(
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.Bold
             ),
-            color = aesthetic.primaryTextColor
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Text(
             text = "Version ${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodyMedium,
-            color = aesthetic.secondaryTextColor
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -424,7 +419,7 @@ private fun AboutContent(
         Text(
             text = "Challenge yourself by recording audio and matching it forwards or backwards!\nBuilt by Ed Dark (c) 2025.\nInspired by CPD!",
             style = MaterialTheme.typography.bodyLarge,
-            color = aesthetic.primaryTextColor,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.clickable {  // ✅ YOU WERE MISSING THIS CLICK HANDLER
                 if (uiState.cpdTaps + 1 == 5) {
                     val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
@@ -438,7 +433,7 @@ private fun AboutContent(
         Text(
             text = "Created with ❤️ for 🐣🐣🐣🦉🦉🦉",
             style = MaterialTheme.typography.bodyMedium,
-            color = aesthetic.secondaryTextColor
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -499,7 +494,7 @@ private fun SettingsContent(
         Text(
             text = "Choose your challenge level",
             style = MaterialTheme.typography.bodyMedium,
-            color = aesthetic.secondaryTextColor,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
 
@@ -584,7 +579,7 @@ private fun SettingsContent(
         Text(
             text = "Dark Mode",
             style = MaterialTheme.typography.titleMedium,
-            color = aesthetic.primaryTextColor,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
 
@@ -613,7 +608,7 @@ private fun SettingsContent(
                     Text(
                         text = mode,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = aesthetic.primaryTextColor
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -624,7 +619,7 @@ private fun SettingsContent(
         Text(
             text = "Custom Accent Color",
             style = MaterialTheme.typography.titleMedium,
-            color = aesthetic.primaryTextColor,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
 
@@ -639,7 +634,7 @@ private fun SettingsContent(
             Text(
                 text = if (customAccentColor != null) "Custom color active" else "Using theme default",
                 style = MaterialTheme.typography.bodyMedium,
-                color = aesthetic.secondaryTextColor
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }//closes row
 
@@ -666,7 +661,7 @@ private fun SettingsContent(
                 Text(
                     text = "Reset to theme's colours",
                     style = MaterialTheme.typography.bodySmall,
-                    color = colors.primary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -703,12 +698,12 @@ private fun SettingsContent(
                             "Open Color Picker",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
-                            color = aesthetic.primaryTextColor
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             "Choose any ARGB color",
                             style = MaterialTheme.typography.bodySmall,
-                            color = aesthetic.secondaryTextColor
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -769,13 +764,13 @@ private fun SettingsContent(
                     text = "ℹ️ Backup Info",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = aesthetic.primaryTextColor
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Settings and scores always backed up. Audio files only backed up if enabled.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = aesthetic.secondaryTextColor
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -873,14 +868,14 @@ private fun SettingsContent(
                                 if (bitRunning) "Running BIT..." else "Run Alignment Test (BIT)",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium,
-                                color = aesthetic.primaryTextColor
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 bitProgress?.let { (current, total) ->
                                     "Test $current/$total"
                                 } ?: "Tests forward + reverse (50 tests)",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = aesthetic.secondaryTextColor
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -904,7 +899,7 @@ private fun SectionTitle(text: String, aesthetic: AestheticThemeData) {
             fontWeight = FontWeight.Bold,
             letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
         ),
-        color = aesthetic.primaryTextColor,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 8.dp)
     )
 }
@@ -926,7 +921,7 @@ private fun SettingRow(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = aesthetic.primaryTextColor
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         control()
     }
