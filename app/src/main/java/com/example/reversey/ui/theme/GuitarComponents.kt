@@ -65,6 +65,32 @@ import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.components.DifficultySquircle
+import android.media.MediaPlayer
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.platform.LocalContext
+import kotlin.random.Random
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.rotate
+import com.example.reversey.R
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.time.delay
+
+// Rainbow colors for excited notes
+private val rainbowColors = listOf(
+    Color(0xFFFF0000), // Red
+    Color(0xFFFF7F00), // Orange
+    Color(0xFFFFFF00), // Yellow
+    Color(0xFF00FF00), // Green
+    Color(0xFF0000FF), // Blue
+    Color(0xFF4B0082), // Indigo
+    Color(0xFF9400D3)  // Violet
+)
+
 
 /**
  * 🎸 GUITAR THEME COMPONENTS
@@ -174,53 +200,85 @@ class GuitarComponents : ThemeComponents {
 // 🎸 GUITAR RECORD BUTTON
 // ============================================
 
+
+//🎯 STEP 6: UPDATE FloatingMusicNote FUNCTION
 @Composable
 fun FloatingMusicNote(
     note: String,
     position: Offset,
     delay: Float,
-    modifier: Modifier = Modifier
+    isExcited: Boolean = false,
+    rainbowMode: Boolean = false
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "sway")
+    val infiniteTransition = rememberInfiniteTransition(label = "float")
 
-    val offsetY by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = -10f,
+    val swayAmount = if (isExcited) 15f else 8f
+    val swayDuration = if (isExcited) 600 else 3000
+
+    val offsetX by infiniteTransition.animateFloat(
+        initialValue = position.x,
+        targetValue = position.x + swayAmount,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-            initialStartOffset = StartOffset((delay * 1000).toInt())
+            animation = tween(
+                durationMillis = swayDuration,
+                delayMillis = (delay * 1000).toInt(),
+                easing = FastOutSlowInEasing
+            ),
+            repeatMode = RepeatMode.Reverse
         ),
-        label = "swayY"
+        label = "sway"
     )
 
     val rotation by infiniteTransition.animateFloat(
-        initialValue = -10f,
-        targetValue = 10f,
+        initialValue = if (isExcited) 0f else -5f,
+        targetValue = if (isExcited) 360f else 5f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-            initialStartOffset = StartOffset((delay * 1000).toInt())
+            animation = tween(
+                durationMillis = if (isExcited) 400 else 2000,
+                easing = if (isExcited) LinearEasing else FastOutSlowInEasing
+            ),
+            repeatMode = if (isExcited) RepeatMode.Restart else RepeatMode.Reverse
         ),
-        label = "swayRotation"
+        label = "tilt"
     )
+
+    val colorIndex = ((position.x + position.y) / 50f).toInt() % rainbowColors.size
+    val noteColor = if (rainbowMode) rainbowColors[colorIndex] else Color(0xFF5d4a36)
 
     Text(
         text = note,
-        fontSize = 32.sp,
-        color = Color(0xFF5d4a36),
-        modifier = modifier
-            .offset(x = position.x.dp, y = (position.y + offsetY).dp)
-            .graphicsLayer(rotationZ = rotation)
+        fontSize = if (isExcited) 22.sp else 18.sp,
+        color = noteColor,
+        modifier = Modifier
+            .offset(x = offsetX.dp, y = position.y.dp)
+            .rotate(rotation)
     )
 }
 
+
+//🎯 END STEP 6: UPDATE FloatingMusicNote FUNCTION
+
+//🎯 STEP 3: REPLACE GuitarRecordButton OPENING
 @Composable
 fun GuitarRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    var isStrumming by remember { mutableStateOf(false) }
+    var strummedNotesCount by remember { mutableStateOf(0) }
+    val infiniteTransition = rememberInfiniteTransition(label = "strum")
+
+    // Reset strum animation after 3 seconds
+    LaunchedEffect(isStrumming) {
+        if (isStrumming) {
+            delay(3000)
+            isStrumming = false
+            strummedNotesCount = 0
+        }
+    }
+
     val scale by animateFloatAsState(
         targetValue = if (isRecording) 1.05f else 1f,
         animationSpec = tween(200),
@@ -239,14 +297,44 @@ fun GuitarRecordButton(
     Box(
         modifier = modifier
             .width(280.dp)
-            .height(140.dp)  // Compact height!
+            .height(140.dp)
             .scale(scale)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        // Check if drag starts near top
+                        if (offset.y < size.height * 1.0f) {//was 0.3
+                            // Potential strum starting
+                        }
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                    },
+                    onDragEnd = {
+                        // Trigger strum effect
+                        isStrumming = true
+                        strummedNotesCount = 20 // Extra notes!
+
+                        // Play B chord sound
+                        try {
+                            val mediaPlayer = MediaPlayer.create(context, R.raw.bchord)
+                            mediaPlayer?.setOnCompletionListener { mp ->
+                                mp.release()
+                            }
+                            mediaPlayer?.start()
+                        } catch (e: Exception) {
+                            // Silently fail if sound file missing
+                        }
+                    }
+                )
+            }
             .clickable(
-                indication = null,  // No ripple!
+                indication = null,
                 interactionSource = remember { MutableInteractionSource() }
             ) { onClick() },
-        contentAlignment = Alignment.TopCenter  // Changed to TopCenter!
-    ) {
+        contentAlignment = Alignment.TopCenter
+    ) { //🎯 END STEP 3: REPLACE GuitarRecordButton OPENING
+
         // Floating music notes (20 notes with sway animation) - STAY VERTICAL!
         val musicNotes = listOf(
             // Top area
@@ -284,11 +372,35 @@ fun GuitarRecordButton(
             Triple("♫", Offset(140f, 180f), 0.95f),
             Triple("♪", Offset(95f, 90f), 1.35f)
         )
-
+//🎯 STEP 4: UPDATE MUSIC NOTES RENDERING
+        // Draw original notes
         musicNotes.forEach { (note, position, delay) ->
-            FloatingMusicNote(note = note, position = position, delay = delay)
+            FloatingMusicNote(
+                note = note,
+                position = position,
+                delay = delay,
+                isExcited = isStrumming,
+                rainbowMode = isStrumming
+            )
         }
 
+        // Draw EXTRA excited rainbow notes when strummed
+        if (isStrumming) {
+            repeat(strummedNotesCount) { index ->
+                val randomX = Random.nextFloat() * 280f
+                val randomY = Random.nextFloat() * 300f
+                val randomDelay = Random.nextFloat() * 2f
+                val randomNote = listOf("♪", "♬", "♫").random()
+
+                ExcitedRainbowNote(
+                    note = randomNote,
+                    startPosition = Offset(randomX, randomY),
+                    colorIndex = index % rainbowColors.size
+                )
+            }
+        }
+
+//🎯 END STEP 4: UPDATE MUSIC NOTES RENDERING
         // Pulsing glow when recording
        /* if (isRecording) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -328,9 +440,10 @@ fun GuitarRecordButton(
                 fun scalePoint(x: Float, y: Float) = Offset(scaleX(x), scaleY(y))
 
                 // Colors
-                val woodBrown = Color(0xFF8B4513)
+                val woodBrown = Color(0x998B4513)
                 val darkBrown = Color(0xFF5d4a36)
                 val soundHoleCream = Color(0xFFF5F1E8)
+                val goldenPegs = Color(0xFFFFE400)
 
                 // Stripe colors
                 val stripePurple = Color(0xFFB8A8C8)
@@ -339,7 +452,7 @@ fun GuitarRecordButton(
 
                 // === GUITAR NECK (ACTUALLY 50% LONGER NOW!) ===
                 val neckRect = androidx.compose.ui.geometry.Rect(
-                    scalePoint(335f, 190f),  // ← WAY UP! (was 345f)
+                    scalePoint(335f, 90f),  // ← LONGE! (was 190f)
                     scalePoint(379f, 555f)   // ← Bottom stays same
                 )
 // Neck is now 365 pixels instead of 210 = 74% LONGER!
@@ -357,11 +470,20 @@ fun GuitarRecordButton(
                 )
 
 // === HEADSTOCK ===
-                val headstockPath = Path().apply {
+                /*val headstockPath = Path().apply {
                     moveTo(scaleX(335f), scaleY(190f))
                     lineTo(scaleX(330f), scaleY(160f))
                     lineTo(scaleX(384f), scaleY(160f))
                     lineTo(scaleX(379f), scaleY(190f))
+                    close()
+                }*/
+
+
+                val headstockPath = Path().apply {
+                    moveTo(scaleX(335f), scaleY(200f))
+                    lineTo(scaleX(330f), scaleY(90f))
+                    lineTo(scaleX(384f), scaleY(90f))
+                    lineTo(scaleX(379f), scaleY(200f))
                     close()
                 }
                 drawPath(headstockPath, color = woodBrown)
@@ -378,15 +500,26 @@ fun GuitarRecordButton(
                 }
 
 // === TUNING PEGS ===
+
+                /*340f to 165f,
+                340f to 175f,
+                374f to 165f,
+                374f to 175f,
+                408f to 165f,
+                408f to 175f,*/
+
                 listOf(
-                    340f to 165f,
-                    340f to 175f,
-                    374f to 165f,
-                    374f to 175f
+                    330f to 110f,
+                    330f to 180f,
+                    330f to 145f,
+                    380f to 110f,
+                    380f to 180f,
+                    380f to 145f,
+
                 ).forEach { (x, y) ->
                     drawCircle(
-                        color = darkBrown,
-                        radius = 4.dp.toPx(),
+                        color = goldenPegs,
+                        radius = 2.dp.toPx(),
                         center = scalePoint(x, y)
                     )
                 }
@@ -652,7 +785,71 @@ fun GuitarRecordButton(
         } // End Box for guitar
     } // End outer Box
 }
+// STEP 5: ADD NEW ExcitedRainbowNote COMPOSABLE
 
+@Composable
+fun ExcitedRainbowNote(
+    note: String,
+    startPosition: Offset,
+    colorIndex: Int
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "excited")
+
+    // Crazy movement
+    val offsetX by infiniteTransition.animateFloat(
+        initialValue = startPosition.x,
+        targetValue = startPosition.x + Random.nextFloat() * 60f - 30f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(300, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "x"
+    )
+
+    val offsetY by infiniteTransition.animateFloat(
+        initialValue = startPosition.y,
+        targetValue = startPosition.y + Random.nextFloat() * 60f - 30f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "y"
+    )
+
+    // Spinning
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing)
+        ),
+        label = "spin"
+    )
+
+    // Pulsing size
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(250),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
+    Text(
+        text = note,
+        fontSize = 20.sp,
+        color = rainbowColors[colorIndex],
+        modifier = Modifier
+            .offset(x = offsetX.dp, y = offsetY.dp)
+            .rotate(rotation)
+            .scale(scale)
+    )
+}
+
+
+//END STEP 5: ADD NEW ExcitedRainbowNote COMPOSABLE
 // ============================================
 // 🎸 GUITAR RECORDING ITEM (CPD's Style!)
 // ============================================

@@ -135,7 +135,7 @@ fun DifficultySquircle(
                         cap = StrokeCap.Round,
                         pathEffect = PathEffect.dashPathEffect(
                             intervals = floatArrayOf(progressLength, perimeter - progressLength),
-                            phase = perimeter * 0.25f // Start from top (12 o'clock)
+                            phase = perimeter * 0.18f // Start from top (12 o'clock) was 0.25 - wrong value.
                         )
                     )
                 )
