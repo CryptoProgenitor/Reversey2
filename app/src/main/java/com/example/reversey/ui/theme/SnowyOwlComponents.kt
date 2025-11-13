@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -75,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
+import com.example.reversey.ui.components.DifficultySquircle
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -1193,29 +1195,21 @@ fun SnowyOwlAttemptItem(
     var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
-    val isPlaying = currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
 
-    val cardOuter = Color(0xFF282832).copy(alpha = 0.6f) // 60% transparent for owl roaming
-    val cardInner = Color(0xFF14141e).copy(alpha = 0.6f) // 60% transparent for owl roaming
+    val cardOuter = Color(0xFF282832).copy(alpha = 0.6f)
+    val cardInner = Color(0xFF14141e).copy(alpha = 0.6f)
     val headerBg = Color(0xFF505064).copy(alpha = 0.5f)
     val borderColor = Color(0xFF787896).copy(alpha = 0.35f)
     val mysteriousPurple = Color(0xFF9B4F96).copy(alpha = 0.85f)
     val deepSlatePurple = Color(0xFF6B4C7C).copy(alpha = 0.85f)
     val progressBlue = Color(0xFFADD8E6).copy(alpha = 0.5f)
 
-    // Calculate moon face emoji based on score
-    val scorePercent = if (attempt.score > 1f) attempt.score.toInt() else (attempt.score * 100).toInt()
-    val moonFace = when {
-        scorePercent >= 80 -> "🌝" // Happy full moon
-        scorePercent >= 50 -> "🌗" // Neutral quarter moon
-        else -> "🌚" // Sad new moon
-    }
-
-    // Outer card - right edge aligned with recording card (4dp), extra left indent
+    // Outer card with 30dp indent
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 34.dp, end = 4.dp, top = 4.dp, bottom = 2.dp) // 4dp base + 30dp indent = 34dp left, 4dp right matches recording
+            .padding(start = 24.dp, end = 6.dp, top = 8.dp, bottom = 8.dp)
             .background(cardOuter, RoundedCornerShape(20.dp))
             .border(2.dp, borderColor, RoundedCornerShape(20.dp))
             .padding(6.dp)
@@ -1224,87 +1218,125 @@ fun SnowyOwlAttemptItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(cardInner, RoundedCornerShape(15.dp))
-                .padding(8.dp) // Reduced from 12.dp
+                .padding(12.dp)
         ) {
-            // Header row - "Go to Parent" button, Player name box, Delete button (all separate)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                // "Go to Parent" button (separate box on left)
-                if (onJumpToParent != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(Color(0xFF4A6FA5).copy(alpha = 0.7f), RoundedCornerShape(10.dp))
-                            .border(2.dp, Color(0xFF3B5A8C).copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-                            .clickable { onJumpToParent() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        OwlHomeIcon(Color.White)
-                    }
-                }
-
-                // Player name box (separate, clickable to rename)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(headerBg, RoundedCornerShape(12.dp))
-                        .border(2.dp, borderColor, RoundedCornerShape(12.dp))
-                        .clickable { if (onRenamePlayer != null) showRenameDialog = true }
-                        .padding(12.dp)
+                // Left side: Player name + buttons
+                Column(
+                    modifier = Modifier.weight(1f)
                 ) {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Jump icon OUTSIDE + Player name box
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Challenge type icon - 50% sized version of playback buttons
-                        Box(modifier = Modifier.size(16.dp)) {
-                            if (attempt.challengeType == ChallengeType.REVERSE) {
-                                OwlRewindIcon(Color.White.copy(alpha = 0.7f))
-                            } else {
-                                OwlPlayIcon(Color.White.copy(alpha = 0.7f))
+                        // Jump to parent icon - OUTSIDE LEFT
+                        if (onJumpToParent != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clickable { onJumpToParent() }
+                            ) {
+                                OwlHomeIcon(Color.White.copy(alpha = 0.9f))
                             }
                         }
 
-                        // Player name
-                        Text(
-                            text = attempt.playerName,
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        // Player name box
+                        Box(
+                            modifier = Modifier
+                                .background(headerBg, RoundedCornerShape(8.dp))
+                                .border(2.dp, borderColor, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .clickable { showRenameDialog = true } // SHORT CLICK for rename
+                        ) {
+                            Text(
+                                text = attempt.playerName,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 120.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(22.dp))
+
+                    // Control buttons with labels
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (onShareAttempt != null) {
+                            OwlControlButton(
+                                color = mysteriousPurple,
+                                label = "Share",
+                                onClick = { showShareDialog = true }
+                            ) { OwlShareIcon(Color.White) }
+                        }
+
+                        OwlControlButton(
+                            color = deepSlatePurple,
+                            label = if (isPlayingThis && !isPaused) "Pause" else "Play",
+                            onClick = {
+                                if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath)
+                            }
+                        ) {
+                            if (isPlayingThis && !isPaused) {
+                                OwlPauseIcon(Color.White)
+                            } else {
+                                OwlPlayIcon(Color.White)
+                            }
+                        }
+
+                        if (attempt.reversedAttemptFilePath != null) {
+                            OwlControlButton(
+                                color = mysteriousPurple,
+                                label = "Rev",
+                                onClick = { onPlay(attempt.reversedAttemptFilePath!!) }
+                            ) { OwlRewindIcon(Color.White) }
+                        }
+
+                        if (onDeleteAttempt != null) {
+                            OwlControlButton(
+                                color = deepSlatePurple,
+                                label = "Del",
+                                onClick = { showDeleteDialog = true }
+                            ) { OwlDeleteIcon(Color.White) }
+                        }
                     }
                 }
 
-                // Delete button (separate box on right)
-                if (onDeleteAttempt != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(Color(0xFF8B3A6F).copy(alpha = 0.7f), RoundedCornerShape(10.dp))
-                            .border(2.dp, Color(0xFF6B2C5C).copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-                            .clickable { showDeleteDialog = true },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        OwlDeleteIcon(Color.White)
-                    }
-                }
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Right: DifficultySquircle (matching egg/guitar)
+                DifficultySquircle(
+                    score = attempt.score.toInt(),
+                    difficulty = attempt.difficulty,
+                    challengeType = attempt.challengeType,
+                    emoji = "🦉",
+                    width = 100.dp,
+                    height = 130.dp,
+                    onClick = { showScoreDialog = true }
+                )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // MIDDLE ROW: Progress bar - full width
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
-            ) {
-                if (isPlaying) {
+            // Progress bar at bottom
+            if (isPlayingThis) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                ) {
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
@@ -1338,85 +1370,10 @@ fun SnowyOwlAttemptItem(
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // BOTTOM ROW: Buttons + Score
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Share button
-                if (onShareAttempt != null) {
-                    OwlControlButton(
-                        color = mysteriousPurple,
-                        label = "share",
-                        onClick = { showShareDialog = true }
-                    ) {
-                        OwlShareIcon(Color.White)
-                    }
-                }
-
-                // Play/Pause button
-                OwlControlButton(
-                    color = deepSlatePurple,
-                    label = if (isPlaying && !isPaused) "pause" else "play",
-                    onClick = {
-                        if (isPlaying && !isPaused) {
-                            onPause()
-                        } else {
-                            onPlay(attempt.attemptFilePath)
-                        }
-                    }
-                ) {
-                    if (isPlaying && !isPaused) {
-                        OwlPauseIcon(Color.White)
-                    } else {
-                        OwlPlayIcon(Color.White)
-                    }
-                }
-
-                // Rev button
-                if (attempt.reversedAttemptFilePath != null) {
-                    OwlControlButton(
-                        color = mysteriousPurple,
-                        label = "rev",
-                        onClick = { onPlay(attempt.reversedAttemptFilePath!!) }
-                    ) {
-                        OwlRewindIcon(Color.White)
-                    }
-                }
-
-                // Moon face scoring circle (right side) - 90% size
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(Color(0xFFADD8E6).copy(alpha = 0.3f), CircleShape)
-                        .border(3.dp, Color(0xFFADD8E6).copy(alpha = 0.6f), CircleShape)
-                        .clickable { showScoreDialog = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = moonFace,
-                            fontSize = 25.sp
-                        )
-                        Text(
-                            text = "${scorePercent}%",
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
         }
     }
 
-    // Share dialog - FORWARD vs REVERSED options
+    // Dialogs remain unchanged
     if (showShareDialog && onShareAttempt != null) {
         AlertDialog(
             onDismissRequest = { showShareDialog = false },
@@ -1458,7 +1415,6 @@ fun SnowyOwlAttemptItem(
         )
     }
 
-    // Rename dialog
     if (showRenameDialog && onRenamePlayer != null) {
         var newName by remember { mutableStateOf(attempt.playerName) }
         AlertDialog(
@@ -1468,7 +1424,11 @@ fun SnowyOwlAttemptItem(
                 TextField(
                     value = newName,
                     onValueChange = { newName = it },
-                    label = { Text("Player Name") }
+                    label = { Text("Player Name") },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = cardInner,
+                        unfocusedContainerColor = cardInner
+                    )
                 )
             },
             confirmButton = {
@@ -1488,7 +1448,6 @@ fun SnowyOwlAttemptItem(
         )
     }
 
-    // Delete dialog
     if (showDeleteDialog && onDeleteAttempt != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -1511,8 +1470,13 @@ fun SnowyOwlAttemptItem(
         )
     }
 
-    // Score Explanation Dialog
     if (showScoreDialog) {
+        val scorePercent = if (attempt.score > 1f) attempt.score.toInt() else (attempt.score * 100).toInt()
+        val moonFace = when {
+            scorePercent >= 80 -> "🌝"
+            scorePercent >= 50 -> "🌗"
+            else -> "🌚"
+        }
         OwlScoreDialog(
             attempt = attempt,
             scorePercent = scorePercent,
