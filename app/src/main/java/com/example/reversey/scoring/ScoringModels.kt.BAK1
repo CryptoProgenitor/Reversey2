@@ -285,8 +285,8 @@ object ScoringPresets {
                 mfccWeight = 0.15f,
                 pitchTolerance = 25f,              // CHANGED: was 15f (default) (+67% more forgiving!)
                 minScoreThreshold = 0.18f,         // CHANGED: was 0.20f (default) (-10%)
-                perfectScoreThreshold = 0.75f,     // 🎯 Target 85% (was 0.78f)
-                scoreCurve = 1.6f                  // 🎯 Target 85% (was 2.0f - more suppression)
+                perfectScoreThreshold = 0.78f,     // CHANGED: was .75f (default) (-6%)
+                scoreCurve = 2.0f                  // Exponent = 0.5 (moderate boost)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.30f,   // CHANGED: was 0.35f (default)
@@ -301,7 +301,7 @@ object ScoringPresets {
             scaling = ScoreScalingParameters(),
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.35f,         // ✅ Working threshold (was 0.3f)
+                mfccVarianceThreshold = 0.3f,
                 pitchMonotoneThreshold = 2.5f,         // ← LOOSENED (was 10f)
                 pitchOscillationRate = 0.5f,
                 spectralEntropyThreshold = 0.35f,      // ← LOOSENED (was 0.5f)
@@ -322,8 +322,8 @@ object ScoringPresets {
                 mfccWeight = 0.1f,
                 pitchTolerance = 15f,              // CHANGED: was 8f (+88% more forgiving!)
                 minScoreThreshold = 0.25f,         // CHANGED: was 0.3f (-17%)
-                perfectScoreThreshold = 0.72f,     // 🎯 Target 60% (was 0.82f)
-                scoreCurve = 1.2f                  // 🎯 Target 60% (was 1.0f)
+                perfectScoreThreshold = 0.82f,     // CHANGED: was 0.9f (-9%)
+                scoreCurve = 1.0f                  // Exponent = 1.0 (LINEAR - no adjustment)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.45f,  // CHANGED: was 0.5f
@@ -346,8 +346,8 @@ object ScoringPresets {
             ),
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
-                mfccVarianceThreshold = 0.35f,         // ✅ Match Normal (was 0.4f)
-                pitchMonotoneThreshold = 2.5f,         // ✅ Match Normal (was 12f)
+                mfccVarianceThreshold = 0.4f,
+                pitchMonotoneThreshold = 12f,
                 pitchOscillationRate = 0.45f,
                 spectralEntropyThreshold = 0.6f,
                 zcrMinThreshold = 0.025f,
@@ -367,8 +367,8 @@ object ScoringPresets {
                 mfccWeight = 0.08f,                    // CHANGED: was 0.05f
                 pitchTolerance = 8f,                   // CHANGED: was 5f (+60% more forgiving!)
                 minScoreThreshold = 0.32f,             // CHANGED: was 0.4f (-20%)
-                perfectScoreThreshold = 0.68f,         // 🎯 Target 45% (was 0.88f)
-                scoreCurve = 0.9f                      // 🎯 Target 45% (was 0.7f)
+                perfectScoreThreshold = 0.88f,         // CHANGED: was 0.95f (-7%)
+                scoreCurve = 0.7f                      // Exponent = 1.43 (mild suppression)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.55f,     // CHANGED: was 0.6f
@@ -391,8 +391,8 @@ object ScoringPresets {
             ),
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
-                mfccVarianceThreshold = 0.35f,         // ✅ Match Normal (was 0.45f)
-                pitchMonotoneThreshold = 2.5f,         // ✅ Match Normal (was 14f)
+                mfccVarianceThreshold = 0.45f,         // CHANGED: was 0.5f
+                pitchMonotoneThreshold = 14f,          // CHANGED: was 15f
                 pitchOscillationRate = 0.42f,          // CHANGED: was 0.4f
                 spectralEntropyThreshold = 0.65f,      // CHANGED: was 0.7f
                 zcrMinThreshold = 0.028f,              // CHANGED: was 0.03f
@@ -412,8 +412,8 @@ object ScoringPresets {
                 mfccWeight = 0.02f,
                 pitchTolerance = 5f,                   // CHANGED: was 3f (+67% more forgiving!)
                 minScoreThreshold = 0.42f,             // CHANGED: was 0.5f (-16%)
-                perfectScoreThreshold = 0.65f,         // 🎯 Target 30% (was 0.93f)
-                scoreCurve = 0.7f                      // 🎯 Target 30% (was 0.5f)
+                perfectScoreThreshold = 0.93f,         // CHANGED: was 0.98f (-5%)
+                scoreCurve = 0.5f                      // Exponent = 2.0 (strong suppression)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.65f,     // CHANGED: was 0.7f
@@ -439,8 +439,8 @@ object ScoringPresets {
             ),
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
-                mfccVarianceThreshold = 0.35f,         // ✅ Match Normal (was 0.55f)
-                pitchMonotoneThreshold = 2.5f,         // ✅ Match Normal (was 16f)
+                mfccVarianceThreshold = 0.55f,         // CHANGED: was 0.6f
+                pitchMonotoneThreshold = 16f,          // CHANGED: was 18f
                 pitchOscillationRate = 0.37f,          // CHANGED: was 0.35f
                 spectralEntropyThreshold = 0.75f,      // CHANGED: was 0.8f
                 zcrMinThreshold = 0.033f,              // CHANGED: was 0.035f
