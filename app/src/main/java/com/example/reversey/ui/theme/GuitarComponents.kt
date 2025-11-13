@@ -313,7 +313,7 @@ fun GuitarRecordButton(
                     onDragEnd = {
                         // Trigger strum effect
                         isStrumming = true
-                        strummedNotesCount = 20 // Extra notes!
+                        //strummedNotesCount = 20 // Extra notes!
 
                         // Play B chord sound
                         try {
@@ -336,42 +336,44 @@ fun GuitarRecordButton(
     ) { //🎯 END STEP 3: REPLACE GuitarRecordButton OPENING
 
         // Floating music notes (20 notes with sway animation) - STAY VERTICAL!
+        // Floating music notes (20 notes with sway animation) - STAY VERTICAL!
         val musicNotes = listOf(
             // Top area
-            Triple("♪", Offset(20f, 10f), 0f),
-            Triple("♬", Offset(70f, 5f), 0.5f),
-            Triple("♫", Offset(120f, 15f), 1f),
-            Triple("♪", Offset(170f, 8f), 1.5f),
-            Triple("♬", Offset(220f, 12f), 0.3f),
-            Triple("♫", Offset(260f, 18f), 0.8f),
+            Triple("♪", Offset(20f, 20f), 0f),
+            Triple("♬", Offset(35f, 35f), 0.5f),
+            Triple("♫", Offset(55f, 15f), 1f),
+            Triple("♪", Offset(75f, 20f), 1.5f),
+            Triple("♬", Offset(105f, 12f), 0.3f),
+            Triple("♫", Offset(145f, 18f), 0.8f),
 
             // Left side
-            Triple("♪", Offset(5f, 60f), 1.2f),
-            Triple("♬", Offset(15f, 110f), 0.6f),
-            Triple("♫", Offset(10f, 160f), 1.4f),
-            Triple("♪", Offset(20f, 210f), 0.2f),
-            Triple("♬", Offset(8f, 260f), 0.9f),
+            Triple("♪", Offset(5f, 26f), 1.2f),
+            Triple("♬", Offset(15f, 33f), 0.6f),
+            Triple("♫", Offset(10f, 75f), 1.4f),
+            Triple("♪", Offset(20f, 101f), 0.2f),
+            Triple("♬", Offset(8f, 120f), 0.9f),
 
             // Right side
-            Triple("♫", Offset(265f, 50f), 0.4f),
-            Triple("♪", Offset(270f, 100f), 1.1f),
-            Triple("♬", Offset(275f, 150f), 0.7f),
-            Triple("♫", Offset(268f, 200f), 1.3f),
-            Triple("♪", Offset(272f, 250f), 0.1f),
+            Triple("♫", Offset(165f, 5f), 0.4f),
+            Triple("♪", Offset(170f, 30f), 1.1f),
+            Triple("♬", Offset(175f, 77f), 0.7f),
+            Triple("♫", Offset(168f, 100f), 1.3f),
+            Triple("♪", Offset(172f, 130f), 0.1f),
 
             // Bottom area
-            Triple("♬", Offset(40f, 290f), 1.6f),
-            Triple("♫", Offset(90f, 295f), 0.35f),
-            Triple("♪", Offset(140f, 288f), 0.85f),
-            Triple("♬", Offset(190f, 292f), 1.45f),
-            Triple("♫", Offset(240f, 297f), 0.65f),
+            Triple("♬", Offset(10f, 110f), 1.6f),
+            Triple("♫", Offset(45f, 90f), 0.35f),
+            Triple("♪", Offset(100f, 130f), 0.85f),
+            Triple("♬", Offset(110f, 100f), 1.45f),
+            Triple("♫", Offset(140f, 80f), 0.65f),
 
             // Center scattered
-            Triple("♪", Offset(50f, 130f), 1.25f),
-            Triple("♬", Offset(230f, 140f), 0.55f),
-            Triple("♫", Offset(140f, 180f), 0.95f),
+            Triple("♪", Offset(80f, 80f), 1.25f),
+            Triple("♬", Offset(0f, 140f), 0.55f),
+            Triple("♫", Offset(140f, 100f), 0.95f),
             Triple("♪", Offset(95f, 90f), 1.35f)
         )
+
 //🎯 STEP 4: UPDATE MUSIC NOTES RENDERING
         // Draw original notes
         musicNotes.forEach { (note, position, delay) ->
@@ -387,7 +389,7 @@ fun GuitarRecordButton(
         // Draw EXTRA excited rainbow notes when strummed
         if (isStrumming) {
             repeat(strummedNotesCount) { index ->
-                val randomX = Random.nextFloat() * 280f
+                val randomX = Random.nextFloat() * 280f //
                 val randomY = Random.nextFloat() * 300f
                 val randomDelay = Random.nextFloat() * 2f
                 val randomNote = listOf("♪", "♬", "♫").random()
@@ -469,15 +471,7 @@ fun GuitarRecordButton(
                     style = Stroke(width = 2.dp.toPx())
                 )
 
-// === HEADSTOCK ===
-                /*val headstockPath = Path().apply {
-                    moveTo(scaleX(335f), scaleY(190f))
-                    lineTo(scaleX(330f), scaleY(160f))
-                    lineTo(scaleX(384f), scaleY(160f))
-                    lineTo(scaleX(379f), scaleY(190f))
-                    close()
-                }*/
-
+                // === HEADSTOCK ===
 
                 val headstockPath = Path().apply {
                     moveTo(scaleX(335f), scaleY(200f))
@@ -525,7 +519,7 @@ fun GuitarRecordButton(
                 }
 
 // === STRINGS ===
-                listOf(350f, 355f, 360f, 365f).forEach { x ->
+                listOf(345f,350f, 355f, 360f, 365f,370f).forEach { x ->
                     drawLine(
                         color = darkBrown.copy(alpha = 0.7f),
                         start = scalePoint(x, 160f),
@@ -533,6 +527,8 @@ fun GuitarRecordButton(
                         strokeWidth = 1.dp.toPx()
                     )
                 }
+
+
 
                 // === EXACT SVG BODY PATH ===
                 val guitarBodyPath = Path().apply {
@@ -762,14 +758,40 @@ fun GuitarRecordButton(
                 )
 
                 // === STRINGS (FROM NEW HEADSTOCK TO BOTTOM) ===
-                listOf(350f, 355f, 360f, 365f).forEach { x ->
+                listOf(345f,350f, 355f, 360f, 365f,370f).forEach { x ->
                     drawLine(
                         color = darkBrown.copy(alpha = 0.7f),
-                        start = scalePoint(x, 315f),  // Start from new headstock position
-                        end = scalePoint(x, 1030f),
+                        start = scalePoint(x, 100f),  // Start from new headstock position
+                        end = scalePoint(x, 1000f),
                         strokeWidth = 1.dp.toPx()
                     )
                 }
+
+                // === STRING ANCHOR ===
+
+                val stringBarPath = Path().apply {
+                    moveTo(scaleX(340f), scaleY(995f))
+                    lineTo(scaleX(340f), scaleY(1005f))
+                    lineTo(scaleX(375f), scaleY(1005f))
+                    lineTo(scaleX(375f), scaleY(995f))
+                    close()
+                }
+
+                drawPath(stringBarPath, color = woodBrown)
+                drawPath(stringBarPath, color = darkBrown, style = Stroke(width = 2.dp.toPx()))
+
+                // === BRIDGE ===
+
+                val bridgePath = Path().apply {
+                    moveTo(scaleX(330f), scaleY(915f))
+                    lineTo(scaleX(330f), scaleY(925f))
+                    lineTo(scaleX(385f), scaleY(925f))
+                    lineTo(scaleX(385f), scaleY(915f))
+                    close()
+                }
+
+                drawPath(bridgePath, color = woodBrown)
+                drawPath(bridgePath, color = darkBrown, style = Stroke(width = 2.dp.toPx()))
 
                 drawContext.canvas.restore() // Restore from 80° rotation
 

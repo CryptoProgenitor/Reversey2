@@ -1,5 +1,110 @@
 package com.example.reversey.scoring
 
+/*═══════════════════════════════════════════════════════════════════════
+ReVerseY v17.0.1 - 13 Nov 2025 DIFFICULTY SCORING TUNING  ✅
+═══════════════════════════════════════════════════════════════════════
+
+TARGET SCORE CURVE:
+Easy:   100% ✅ (already working)
+Normal:  85% 🔧 (was 100%)
+Hard:    60% 🔧 (was rejecting with garbage)
+Expert:  45% 🔧 (was rejecting with garbage)
+Master:  30% 🔧 (was rejecting with garbage)
+
+═══════════════════════════════════════════════════════════════════════
+CHANGES APPLIED
+═══════════════════════════════════════════════════════════════════════
+
+📊 SCORING CURVE ADJUSTMENTS
+────────────────────────────────────────────────────────────────────────
+
+NORMAL MODE - Target: 85%
+Before:
+perfectScoreThreshold = 0.78f
+scoreCurve = 2.0f
+After:
+perfectScoreThreshold = 0.75f  ⬇️ Lower to suppress score
+scoreCurve = 1.6f              ⬇️ More suppression (was boost)
+
+HARD MODE - Target: 60%
+Before:
+perfectScoreThreshold = 0.82f
+scoreCurve = 1.0f
+After:
+perfectScoreThreshold = 0.72f  ⬇️ Lower for more suppression
+scoreCurve = 1.2f              ⬆️ Slight boost (was linear)
+
+EXPERT MODE - Target: 45%
+Before:
+perfectScoreThreshold = 0.88f
+scoreCurve = 0.7f
+After:
+perfectScoreThreshold = 0.68f  ⬇️ Significant reduction
+scoreCurve = 0.9f              ⬆️ Slight boost (less suppression)
+
+MASTER MODE - Target: 30%
+Before:
+perfectScoreThreshold = 0.93f
+scoreCurve = 0.5f
+After:
+perfectScoreThreshold = 0.65f  ⬇️ Major reduction
+scoreCurve = 0.7f              ⬆️ Less aggressive suppression
+
+────────────────────────────────────────────────────────────────────────
+🗑️ GARBAGE DETECTION THRESHOLD FIXES
+────────────────────────────────────────────────────────────────────────
+
+The problem: Hard/Expert/Master had stricter garbage thresholds than Normal,
+causing valid attempts to be rejected as "garbage" instead of being scored.
+
+SOLUTION: Match all difficulties to Normal's WORKING thresholds:
+mfccVarianceThreshold = 0.35f
+pitchMonotoneThreshold = 2.5f
+
+═══════════════════════════════════════════════════════════════════════
+HOW scoreCurve WORKS (Reminder)
+═══════════════════════════════════════════════════════════════════════
+
+scoreCurve is an EXPONENT applied to raw scores:
+finalScore = rawScore ^ (1 / scoreCurve)
+
+Lower scoreCurve = HIGHER exponent = MORE SUPPRESSION
+Higher scoreCurve = LOWER exponent = MORE BOOST
+
+═══════════════════════════════════════════════════════════════════════
+TESTING CHECKLIST
+═══════════════════════════════════════════════════════════════════════
+
+Test with the SAME attempt across all difficulties:
+
+□ Easy Mode
+Expected: 100% (should be very close to perfect)
+
+□ Normal Mode
+Expected: ~85% (good match but not perfect)
+Should NOT reject as garbage
+
+□ Hard Mode
+Expected: ~60% (decent attempt)
+Should NOT reject as garbage
+
+□ Expert Mode
+Expected: ~45% (struggling)
+Should NOT reject as garbage
+
+□ Master Mode
+Expected: ~30% (barely passing)
+Should NOT reject as garbage
+
+═══════════════════════════════════════════════════════════════════════
+NEXT STEPS
+═══════════════════════════════════════════════════════════════════════
+
+- Too high? Lower perfectScoreThreshold or scoreCurve
+- Too low? Raise perfectScoreThreshold or scoreCurve
+
+═══════════════════════════════════════════════════════════════════════*/
+
 // ===== PRESERVE EXISTING STRUCTURE EXACTLY =====
 data class ScoringParameters(
     // --- PITCH-FOCUSED WEIGHTS (since pitch is more important than timbre) ---
