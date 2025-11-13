@@ -576,7 +576,7 @@ private fun CherryBlossomTrees() {
         // Artistic tree placements - scattered at different heights
         val trees = listOf(
             // Format: (xPosition, yPosition from top, trunkHeight, blossom size)
-            TreeData(0.12f, 0.35f, 70.dp.toPx(), 40.dp.toPx()),  // Left side, mid-high
+            TreeData(0.12f, 0.25f, 70.dp.toPx(), 40.dp.toPx()),  // Left side, mid-high
             TreeData(0.88f, 0.28f, 65.dp.toPx(), 38.dp.toPx()),  // Right side, higher
             TreeData(0.30f, 0.45f, 75.dp.toPx(), 42.dp.toPx()),  // Left-center, lower
             TreeData(0.65f, 0.40f, 68.dp.toPx(), 39.dp.toPx()),  // Right-center, mid

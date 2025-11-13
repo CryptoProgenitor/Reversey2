@@ -160,6 +160,7 @@ fun UnifiedAttemptItem(
                 onJumpToParent = onJumpToParent
             )
         }
+ 
 
         // 🥚 EGG THEME
         aesthetic.id == "egg" -> {
