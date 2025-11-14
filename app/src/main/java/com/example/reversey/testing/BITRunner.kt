@@ -83,7 +83,9 @@ class BITRunner @Inject constructor(
             }
 
             // Apply NORMAL difficulty preset
-            scoringEngine.applyPreset(ScoringPresets.normalMode())
+            val preset = ScoringPresets.normalMode()
+            preset.garbage.enableGarbageDetection = false
+            scoringEngine.applyPreset(preset)
 
             // 🎯 FIXED: Load the "Original" baseline audio ONCE
             Log.d(TAG, "Loading baseline comparison audio: bit_test_baseline.wav")

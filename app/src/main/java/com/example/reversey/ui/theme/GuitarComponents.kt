@@ -66,6 +66,7 @@ import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.components.DifficultySquircle
 import android.media.MediaPlayer
+import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerInputChange
@@ -74,6 +75,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlin.random.Random
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.rotate
 import com.example.reversey.R
@@ -269,13 +271,22 @@ fun GuitarRecordButton(
     var isStrumming by remember { mutableStateOf(false) }
     var strummedNotesCount by remember { mutableStateOf(0) }
     val infiniteTransition = rememberInfiniteTransition(label = "strum")
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
     // Reset strum animation after 3 seconds
     LaunchedEffect(isStrumming) {
         if (isStrumming) {
-            delay(3000)
+            delay(10000)
             isStrumming = false
             strummedNotesCount = 0
+        }
+    }
+
+    // Cleanup on dispose
+    DisposableEffect(Unit) {
+        onDispose {
+            mediaPlayer?.release()
+            mediaPlayer = null
         }
     }
 
@@ -299,34 +310,38 @@ fun GuitarRecordButton(
             .width(280.dp)
             .height(140.dp)
             .scale(scale)
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        // Check if drag starts near top
-                        if (offset.y < size.height * 1.0f) {//was 0.3
-                            // Potential strum starting
-                        }
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                    },
-                    onDragEnd = {
-                        // Trigger strum effect
-                        isStrumming = true
-                        //strummedNotesCount = 20 // Extra notes!
-
-                        // Play B chord sound
-                        try {
-                            val mediaPlayer = MediaPlayer.create(context, R.raw.bchord)
-                            mediaPlayer?.setOnCompletionListener { mp ->
-                                mp.release()
+            .pointerInput(isRecording) {  // ← Key parameter added!
+                if (!isRecording) {  // ← Check BEFORE detecting gestures
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            // Check if drag starts near top
+                            if (offset.y < size.height * 0.3f) {
+                                // Potential strum starting
                             }
-                            mediaPlayer?.start()
-                        } catch (e: Exception) {
-                            // Silently fail if sound file missing
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            // Trigger strum effect
+                            isStrumming = true
+                            strummedNotesCount = 20
+
+                            // Play E chord sound
+                            try {
+                                mediaPlayer?.release()
+                                mediaPlayer = MediaPlayer.create(context, R.raw.e_chord)
+                                mediaPlayer?.setOnCompletionListener { mp ->
+                                    mp.release()
+                                    mediaPlayer = null
+                                }
+                                mediaPlayer?.start()
+                            } catch (e: Exception) {
+                                Log.e("GuitarStrum", "Error: ${e.message}")
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
             .clickable(
                 indication = null,
@@ -389,8 +404,8 @@ fun GuitarRecordButton(
         // Draw EXTRA excited rainbow notes when strummed
         if (isStrumming) {
             repeat(strummedNotesCount) { index ->
-                val randomX = Random.nextFloat() * 280f //
-                val randomY = Random.nextFloat() * 300f
+                val randomX = Random.nextFloat() * 340f - 300f  // Range: -300 to 310
+                val randomY = Random.nextFloat() * 340f - 00f  // Range: -20 to 320
                 val randomDelay = Random.nextFloat() * 2f
                 val randomNote = listOf("♪", "♬", "♫").random()
 
@@ -762,23 +777,11 @@ fun GuitarRecordButton(
                     drawLine(
                         color = darkBrown.copy(alpha = 0.7f),
                         start = scalePoint(x, 100f),  // Start from new headstock position
-                        end = scalePoint(x, 1000f),
+                        end = scalePoint(x, 920f),
                         strokeWidth = 1.dp.toPx()
                     )
                 }
 
-                // === STRING ANCHOR ===
-
-                val stringBarPath = Path().apply {
-                    moveTo(scaleX(340f), scaleY(995f))
-                    lineTo(scaleX(340f), scaleY(1005f))
-                    lineTo(scaleX(375f), scaleY(1005f))
-                    lineTo(scaleX(375f), scaleY(995f))
-                    close()
-                }
-
-                drawPath(stringBarPath, color = woodBrown)
-                drawPath(stringBarPath, color = darkBrown, style = Stroke(width = 2.dp.toPx()))
 
                 // === BRIDGE ===
 

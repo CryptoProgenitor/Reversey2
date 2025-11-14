@@ -61,6 +61,9 @@ class ScoringEngine @Inject constructor(
             }
             applyPreset(preset)
 
+            // 🎯 CRITICAL: Signal that engine is ready (prevents race condition)
+            _isInitialized.value = true
+
             Log.d("HILT_VERIFY", "🎯 Loaded saved difficulty: ${difficulty.displayName}")
         }
     }
@@ -78,6 +81,10 @@ class ScoringEngine @Inject constructor(
     private val _currentDifficulty = MutableStateFlow(DifficultyLevel.NORMAL)
     val currentDifficultyFlow: StateFlow<DifficultyLevel> = _currentDifficulty.asStateFlow()
 
+    // 🎯 NEW: Track initialization state to prevent race conditions
+    private val _isInitialized = MutableStateFlow(false)
+    val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
+
     fun scoreAttempt(
         originalAudio: FloatArray, // Renamed for clarity
         playerAttempt: FloatArray,
@@ -92,6 +99,9 @@ class ScoringEngine @Inject constructor(
         Log.d("ScoringEngine", "⚖️ 4. PITCH vs VOICE: ${parameters.pitchWeight}/${parameters.mfccWeight} (Easy=0.75/0.25, Master=0.98/0.02)")
         Log.d("ScoringEngine", "❌ 5. WRONG CONTENT PENALTY: ${contentParams.wrongContentStandardPenalty}f (Easy=0.3f, Master=0.9f)")
         Log.d("ScoringEngine", "✅ 6. CONTENT DETECTION: ${contentParams.contentDetectionBestThreshold}f (Easy=0.25f, Master=0.7f)")
+        Log.d("ScoringEngine", "🗑️ 7. GARBAGE MONOTONE: ${garbageParams.pitchMonotoneThreshold}f")
+        Log.d("ScoringEngine", "🗑️ 8. GARBAGE ENTROPY: ${garbageParams.spectralEntropyThreshold}f")
+        Log.d("ScoringEngine", "🗑️ 9. GARBAGE MAX SCORE: ${garbageParams.garbageScoreMax}")
         Log.d("ScoringEngine", "=======================================")
         Log.d("ScoringEngine", "🎯 Scoring with difficulty: ${_currentDifficulty.value.displayName}")
         val attemptRMS = audioProcessor.calculateRMS(playerAttempt)
@@ -140,11 +150,16 @@ class ScoringEngine @Inject constructor(
 
         // Handle garbage detection result
         if (garbageAnalysis.isGarbage) {
+            // --- GARBAGE SCORE CLAMP (prevents unintended 0 or 100 bursts) ---
+            val clampedGarbageScore = garbageParams.garbageScoreMax.coerceIn(0, 20)
+
+            Log.d("ScoringEngine", "🗑️ Garbage clamp applied: $clampedGarbageScore (max=${garbageParams.garbageScoreMax})")
+
             Log.d("ScoringEngine", "🚫 GARBAGE DETECTED - Confidence: ${garbageAnalysis.confidence}")
             Log.d("ScoringEngine", "Failed Filters: ${garbageAnalysis.failedFilters}")
 
             return ScoringResult(
-                score = garbageParams.garbageScoreMax,
+                score = clampedGarbageScore,
                 rawScore = 0f,
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = buildList {
@@ -153,7 +168,8 @@ class ScoringEngine @Inject constructor(
                     if (garbageAnalysis.failedFilters.isNotEmpty()) {
                         add("Issues: ${garbageAnalysis.failedFilters.take(2).joinToString(", ")}")
                     }
-                }
+                },
+                isGarbage = true
             )
         }
 
@@ -186,17 +202,44 @@ class ScoringEngine @Inject constructor(
 
         val variancePenalty = calculatePitchVariancePenalty(originalPitchSequence, attemptPitchSequence)
         rawScore *= variancePenalty
-        Log.d("ScoringEngine", String.format("Score after Variance Penalty (%.2fx): %.3f", variancePenalty, rawScore))
+        Log.d(
+            "ScoringEngine",
+            String.format("Score after Variance Penalty (%.2fx): %.3f", variancePenalty, rawScore)
+        )
 
         val consistency = (1 - abs(metrics.pitch - metrics.mfcc)) * parameters.consistencyBonus
         val confidence = min(1f, attemptRMS * scalingParams.rmsConfidenceMultiplier) * parameters.confidenceBonus
         val scoreWithBonuses = rawScore * (1 + consistency + confidence)
-        Log.d("ScoringEngine", String.format("Score after Bonuses (Cons: %.2f, Conf: %.2f): %.3f", consistency, confidence, scoreWithBonuses))
+        Log.d(
+            "ScoringEngine",
+            String.format(
+                "Score after Bonuses (Cons: %.2f, Conf: %.2f): %.3f",
+                consistency,
+                confidence,
+                scoreWithBonuses
+            )
+        )
 
-        val finalScore = scaleScore(scoreWithBonuses, challengeType)
+        // --- HUMMING SOFT PENALTY (Option B) ---
+        // Only applied if garbage detector flagged humming AND this wasn't rejected as garbage
+        val hummingDetected = garbageAnalysis.filterResults["humming_detected"] == 1f
+
+        val adjustedScoreWithBonuses = if (hummingDetected && !garbageAnalysis.isGarbage) {
+            Log.d(
+                "ScoringEngine",
+                "🎤 HUMMING DETECTED — applying soft penalty (scoreWithBonuses × 0.5). " +
+                        "Before=${"%.3f".format(scoreWithBonuses)}"
+            )
+            scoreWithBonuses * 0.5f
+        } else {
+            scoreWithBonuses
+        }
+
+        val finalScore = scaleScore(adjustedScoreWithBonuses, challengeType)
         Log.d("ScoringEngine", "--------------------")
         Log.d("ScoringEngine", "FINAL SCORE: $finalScore")
         Log.d("ScoringEngine", "--------------------")
+
 
         return ScoringResult(score = finalScore, rawScore = rawScore, metrics = metrics, feedback = generateFeedback(finalScore, metrics))
     }
@@ -232,8 +275,6 @@ class ScoringEngine @Inject constructor(
         return mfccs
     }
 
-    // ***** CRITICAL FIX #1: Fixed absoluteSimilarity calculation *****
-    // start of private fun calculatePitchSimilarity
     private fun calculatePitchSimilarity(originalPitches: List<Float>, attemptPitches: List<Float>): Float {
         if (originalPitches.size < 2 || attemptPitches.size < 2) return 0.0f
 
@@ -244,12 +285,49 @@ class ScoringEngine @Inject constructor(
         val minLen = min(originalPitches.size, attemptPitches.size)
 
         // Calculate pitch variance to detect monotone attempts
+        // Calculate pitch variance to detect monotone attempts
         val originalVariance = calculatePitchVariance(originalPitches)
         val attemptVariance = calculatePitchVariance(attemptPitches)
-        val monotonePenalty = if (originalVariance > melodicParams.monotoneDetectionThreshold && attemptVariance < melodicParams.flatSpeechThreshold) melodicParams.monotonePenalty else 1.0f
-        Log.d("ScoringEngine", String.format("Variance: Orig=%.2f, Attempt=%.2f, Penalty=%.2f", originalVariance, attemptVariance, monotonePenalty))
 
-        // Calculate similarity for ALL frames
+        // Soft multiplicative penalty when the original has melody but the attempt is noticeably flatter
+        val monotonePenalty =
+            if (originalVariance > melodicParams.monotoneDetectionThreshold &&
+                attemptVariance < melodicParams.flatSpeechThreshold
+            ) {
+                melodicParams.monotonePenalty
+            } else {
+                1.0f
+            }
+
+        Log.d(
+            "ScoringEngine",
+            String.format(
+                "Variance: Orig=%.2f, Attempt=%.2f, Penalty=%.2f",
+                originalVariance, attemptVariance, monotonePenalty
+            )
+        )
+
+        // --- EXTREME MONOTONE GUARD ---
+        // Only treat as "hard monotone" when variance is *very* low.
+        // This protects short phrases like "hello, hello" from being wiped out,
+        // but still crushes pure hums / buzzes when the original is melodic.
+        val hardMonotoneThreshold = 0.08f
+        if (attemptVariance < hardMonotoneThreshold &&
+            originalVariance > melodicParams.monotoneDetectionThreshold
+        ) {
+            Log.d(
+                "ScoringEngine",
+                String.format(
+                    "⚠ HARD MONOTONE DETECTION (variance=%.3f < %.2f) → minimal pitch score",
+                    attemptVariance,
+                    hardMonotoneThreshold
+                )
+            )
+            return 0.05f
+        }
+
+        // --- PER-FRAME PITCH SIMILARITY ---
+        // --- PER-FRAME PITCH SIMILARITY ---
         val pitchSimilarities = (0 until minLen).map { i ->
             val original = originalPitches[i]
             val attempt = attemptPitches[i]
@@ -264,16 +342,19 @@ class ScoringEngine @Inject constructor(
                 else -> 0.0f
             }
         }
+
         val absoluteSimilarity = pitchSimilarities.average().toFloat() * monotonePenalty
+        Log.d("ScoringEngine", String.format("Absolute Similarity (raw): %.3f", absoluteSimilarity))
 
         Log.d("ScoringEngine", "--- PITCH ANALYSIS ---")
         Log.d("ScoringEngine", String.format("Absolute Similarity: %.3f", absoluteSimilarity))
-
         Log.d("ScoringEngine", "🔍 EXTRACTING MELODY SIGNATURES")
+
+        // Melody signatures
         val originalSignature = extractMelodySignature(originalPitches)
         val attemptSignature = extractMelodySignature(attemptPitches)
 
-// NEW: Melodic Requirement Analysis
+        // NEW: Melodic Requirement Analysis
         val originalMelodicVariation = calculateMelodicVariation(originalPitches)
         val attemptMelodicVariation = calculateMelodicVariation(attemptPitches)
 
@@ -283,7 +364,6 @@ class ScoringEngine @Inject constructor(
 
         Log.d("ScoringEngine", "🔍 CALCULATING CONTENT SIMILARITY")
         val baseContentMetrics = calculateContentSimilarity(originalSignature, attemptSignature)
-
 
         // NEW: Content-Aware Melodic Penalty System
         val contentIndicators = listOf(
@@ -297,14 +377,23 @@ class ScoringEngine @Inject constructor(
 
         val melodicRequirementPenalty = when {
             // CONTENT SEEMS RIGHT: Apply light melody-only penalties
-            bestContentScore > contentParams.contentDetectionBestThreshold || avgContentScore > contentParams.contentDetectionAvgThreshold -> {
+            bestContentScore > contentParams.contentDetectionBestThreshold ||
+                    avgContentScore > contentParams.contentDetectionAvgThreshold -> {
                 when {
-                    originalMelodicVariation > contentParams.highMelodicThreshold && attemptMelodicVariation < contentParams.lowMelodicThreshold -> {
-                        Log.d("ScoringEngine", "📝 RIGHT CONTENT, FLAT DELIVERY: Light penalty (words correct, needs melody)")
+                    originalMelodicVariation > contentParams.highMelodicThreshold &&
+                            attemptMelodicVariation < contentParams.lowMelodicThreshold -> {
+                        Log.d(
+                            "ScoringEngine",
+                            "📝 RIGHT CONTENT, FLAT DELIVERY: Light penalty (words correct, needs melody)"
+                        )
                         contentParams.rightContentFlatPenalty
                     }
-                    originalMelodicVariation > contentParams.mediumMelodicThreshold && attemptMelodicVariation < contentParams.insufficientMelodyThreshold -> {
-                        Log.d("ScoringEngine", "🎵 RIGHT CONTENT, DIFFERENT MELODY: Minor penalty (words right, melody different)")
+                    originalMelodicVariation > contentParams.mediumMelodicThreshold &&
+                            attemptMelodicVariation < contentParams.insufficientMelodyThreshold -> {
+                        Log.d(
+                            "ScoringEngine",
+                            "🎵 RIGHT CONTENT, DIFFERENT MELODY: Minor penalty (words right, melody different)"
+                        )
                         contentParams.rightContentDifferentMelodyPenalty
                     }
                     else -> {
@@ -314,11 +403,13 @@ class ScoringEngine @Inject constructor(
                 }
             }
             // CONTENT SEEMS WRONG: Apply harsh penalties
-            originalMelodicVariation > contentParams.highMelodicThreshold && attemptMelodicVariation < contentParams.lowMelodicThreshold -> {
+            originalMelodicVariation > contentParams.highMelodicThreshold &&
+                    attemptMelodicVariation < contentParams.lowMelodicThreshold -> {
                 Log.d("ScoringEngine", "🚨 WRONG CONTENT + FLAT DELIVERY: Severe penalty")
                 contentParams.wrongContentFlatPenalty
             }
-            originalMelodicVariation > contentParams.mediumMelodicThreshold && attemptMelodicVariation < contentParams.insufficientMelodyThreshold -> {
+            originalMelodicVariation > contentParams.mediumMelodicThreshold &&
+                    attemptMelodicVariation < contentParams.insufficientMelodyThreshold -> {
                 Log.d("ScoringEngine", "❌ WRONG CONTENT + INSUFFICIENT MELODY: Heavy penalty")
                 contentParams.wrongContentInsufficientPenalty
             }
@@ -328,55 +419,84 @@ class ScoringEngine @Inject constructor(
             }
         }
 
-        Log.d("ScoringEngine", "🧠 CONTENT ANALYSIS: Best=${String.format("%.3f", bestContentScore)}, Avg=${String.format("%.3f", avgContentScore)}")
+        Log.d(
+            "ScoringEngine",
+            "🧠 CONTENT ANALYSIS: Best=${String.format("%.3f", bestContentScore)}, " +
+                    "Avg=${String.format("%.3f", avgContentScore)}"
+        )
 
-// Apply penalty to content metrics
+        // Apply penalty to content metrics
         val contentMetrics = ContentMetrics(
             contourSimilarity = baseContentMetrics.contourSimilarity,
             intervalSimilarity = baseContentMetrics.intervalSimilarity,
             phraseSimilarity = baseContentMetrics.phraseSimilarity,
             rhythmSimilarity = baseContentMetrics.rhythmSimilarity,
-            overallContentScore = (baseContentMetrics.overallContentScore * (1f - melodicRequirementPenalty)).coerceIn(0f, 1f)
+            overallContentScore = (baseContentMetrics.overallContentScore * (1f - melodicRequirementPenalty))
+                .coerceIn(0f, 1f)
         )
 
-        Log.d("ScoringEngine", "📊 MELODIC PENALTY: Base=${String.format("%.3f", baseContentMetrics.overallContentScore)}, Penalty=${String.format("%.1f", melodicRequirementPenalty * 100)}%, Final=${String.format("%.3f", contentMetrics.overallContentScore)}")
-
+        Log.d(
+            "ScoringEngine",
+            "📊 MELODIC PENALTY: Base=${String.format("%.3f", baseContentMetrics.overallContentScore)}, " +
+                    "Penalty=${String.format("%.1f", melodicRequirementPenalty * 100)}%, " +
+                    "Final=${String.format("%.3f", contentMetrics.overallContentScore)}"
+        )
+        //REPLACE FROM HERE...
         Log.d("ScoringEngine", "🔍 CALCULATING VOCAL EFFORT SIMILARITY (for comparison)")
         val vocalEffortSimilarity = calculateVocalEffortSimilarity(originalPitches, attemptPitches)
 
-// Combine melody signature content with vocal effort (weighted)
-        val hybridContentScore = (contentMetrics.overallContentScore * 0.7f) + (vocalEffortSimilarity * 0.3f)
+        val isNormal = (_currentDifficulty.value == DifficultyLevel.NORMAL)
 
-        Log.d("ScoringEngine", "--- PITCH ANALYSIS ---")
-        Log.d("ScoringEngine", String.format("Absolute Similarity: %.3f", absoluteSimilarity))
-        Log.d("ScoringEngine", String.format("Content Similarity (Melody): %.3f", contentMetrics.overallContentScore))
-        Log.d("ScoringEngine", String.format("Content Similarity (Vocal Effort): %.3f", vocalEffortSimilarity))
-        Log.d("ScoringEngine", String.format("Hybrid Content Score: %.3f", hybridContentScore))
-        Log.d("ScoringEngine", String.format("Final Pitch Score: %.3f", hybridContentScore))
+        // --- NORMAL MODE REBALANCED COMBINATION ---
+        val combinedScore = if (isNormal) {
 
-        Log.d("ScoringEngine", "--- DETAILED CONTENT METRICS ---")
-        Log.d("ScoringEngine", String.format("Contour Similarity: %.3f", contentMetrics.contourSimilarity))
-        Log.d("ScoringEngine", String.format("Interval Similarity: %.3f", contentMetrics.intervalSimilarity))
-        Log.d("ScoringEngine", String.format("Phrase Similarity: %.3f", contentMetrics.phraseSimilarity))
-        Log.d("ScoringEngine", String.format("Rhythm Similarity: %.3f", contentMetrics.rhythmSimilarity))
+            val combined = (
+                    absoluteSimilarity * 0.55f +
+                            contentMetrics.overallContentScore * 0.35f +
+                            vocalEffortSimilarity * 0.10f
+                    ).coerceIn(0f, 1f)
 
-        // FIX: Use direct correlation for high-similarity audio (BIT + precise matching)
-        // Use content analysis for divergent attempts (gameplay with wrong lyrics)
-        val useDirectCorrelation = absoluteSimilarity > 0.85f
+            Log.d(
+                "ScoringEngine",
+                String.format(
+                    "🎯 NORMAL MODE weighting → abs=%.3f content=%.3f effort=%.3f → combined=%.3f",
+                    absoluteSimilarity,
+                    contentMetrics.overallContentScore,
+                    vocalEffortSimilarity,
+                    combined
+                )
+            )
+
+            combined
+        } else {
+            // ORIGINAL behaviour for other difficulties
+            (contentMetrics.overallContentScore * 0.7f) + (vocalEffortSimilarity * 0.3f)
+        }
+
+        // DIRECT correlation rule ONLY applies to non-normal modes
+        val useDirectCorrelation = (!isNormal && absoluteSimilarity > 0.85f)
 
         val finalScore = if (useDirectCorrelation) {
             Log.d("ScoringEngine", "✅ High similarity detected - using direct correlation")
             absoluteSimilarity
         } else {
-            Log.d("ScoringEngine", "📊 Low similarity - using content analysis")
-            hybridContentScore
+            combinedScore
         }
 
-        Log.d("ScoringEngine", String.format("Final Pitch Score: %.3f (method: %s)",
-            finalScore, if (useDirectCorrelation) "DIRECT" else "CONTENT"))
+        Log.d(
+            "ScoringEngine",
+            String.format(
+                "Final Pitch Score: %.3f (method: %s)",
+                finalScore,
+                if (useDirectCorrelation) "DIRECT" else "COMBINED"
+            )
+        )
 
         return finalScore
+
+        // TO HERE
     }
+
 
     private fun calculatePitchVariance(pitches: List<Float>): Float {
         val activePitches = pitches.filter { it != 0f }
@@ -446,33 +566,6 @@ class ScoringEngine @Inject constructor(
         return 1f // Variance penalty is now disabled in the parameters
     }
 
-    private fun calculateContentSimilarity(originalPitches: List<Float>, attemptPitches: List<Float>): Float {
-        // 1. Vocal density: how much actual singing vs silence?
-        val originalDensity = originalPitches.count { it != 0f } / originalPitches.size.toFloat()
-        val attemptDensity = attemptPitches.count { it != 0f } / attemptPitches.size.toFloat()
-        val densityScore = 1f - abs(originalDensity - attemptDensity)
-
-        // 2. Pitch range similarity
-        val originalActive = originalPitches.filter { it != 0f }
-        val attemptActive = attemptPitches.filter { it != 0f }
-        if (originalActive.isEmpty() || attemptActive.isEmpty()) return 0f
-
-        val originalMean = originalActive.average().toFloat()
-        val attemptMean = attemptActive.average().toFloat()
-        val rangeScore = exp(-abs(originalMean - attemptMean) / 8f)
-
-        // 3. Melodic complexity similarity
-        val originalVariance = calculatePitchVariance(originalPitches)
-        val attemptVariance = calculatePitchVariance(attemptPitches)
-        val complexityScore = if (max(originalVariance, attemptVariance) > 0) {
-            min(originalVariance, attemptVariance) / max(originalVariance, attemptVariance)
-        } else 0f
-
-        Log.d("ScoringEngine", String.format("Content Similarity - Density: %.3f, Range: %.3f, Complexity: %.3f",
-            densityScore, rangeScore, complexityScore))
-
-        return densityScore * 0.4f + rangeScore * 0.4f + complexityScore * 0.2f
-    }
 
     private fun calculateVocalEffortSimilarity(originalPitches: List<Float>, attemptPitches: List<Float>): Float {
         // 1. Vocal effort: how much singing vs silence
@@ -556,6 +649,40 @@ class ScoringEngine @Inject constructor(
 
     // START: Melody Signature Extraction Functions
     private fun extractMelodySignature(pitches: List<Float>): MelodySignature {
+
+        // --- HARD MONOTONE CHECK (prevents fake intervals/contours) ---
+        val activePitches = pitches.filter { it != 0f }
+
+        if (activePitches.size < 3) {
+            Log.d("ScoringEngine", "🚫 Signature: too few active pitches → monotone/no melody")
+            return MelodySignature(
+                pitchContour = emptyList(),
+                intervalSequence = emptyList(),
+                phraseBreaks = emptyList(),
+                rhythmPattern = emptyList(),
+                vocalDensity = 0f
+            )
+        }
+
+        // Compute std dev early to detect monotone attempts
+        val mean = activePitches.average().toFloat()
+        val variance = activePitches
+            .map { (it - mean) * (it - mean) }
+            .average()
+            .toFloat()
+        val std = kotlin.math.sqrt(variance)
+
+        if (std < 0.01f) {
+            Log.d("ScoringEngine", "🚫 Signature: monotone pitch contour detected (std=$std)")
+            return MelodySignature(
+                pitchContour = emptyList(),
+                intervalSequence = emptyList(),
+                phraseBreaks = emptyList(),
+                rhythmPattern = emptyList(),
+                vocalDensity = 0f
+            )
+        }
+
         Log.d("ScoringEngine", "🎵 Extracting melody signature from ${pitches.size} pitch frames")
 
         // 1. Extract pitch contour (relative changes)
@@ -607,7 +734,8 @@ class ScoringEngine @Inject constructor(
         // Calculate musical intervals between consecutive notes
         return activePitches.zipWithNext { current, next ->
             abs(next - current) // Absolute interval size (ignore direction)
-        }.filter { it > 0.15f } // Was 0.5f. Lowered to catch melody but still filter micro-noise.
+        }.filter { it > 0.8f }  // Require real musical movement, ignore jitter
+
     }
 
     private fun detectPhraseBreaks(pitches: List<Float>): List<Int> {
@@ -647,6 +775,23 @@ class ScoringEngine @Inject constructor(
         originalSignature: MelodySignature,
         attemptSignature: MelodySignature
     ): ContentMetrics {
+
+        // --- MONOTONE ATTEMPT BLOCK ---
+        if (attemptSignature.pitchStdDev < 0.01f ||
+            attemptSignature.intervalSequence.stdDev() < 0.01f) {
+
+            Log.d("ScoringEngine",
+                "🚫 ContentSimilarity skipped (monotone / non-melodic attempt)")
+
+            return ContentMetrics(
+                contourSimilarity = 0f,
+                intervalSimilarity = 0f,
+                phraseSimilarity = 0f,
+                rhythmSimilarity = 0f,
+                overallContentScore = 0f
+            )
+        }
+
         Log.d("ScoringEngine", "🎯 Calculating content similarity between melody signatures")
 
         // 1. Compare pitch contours (melody shape)
@@ -728,10 +873,22 @@ class ScoringEngine @Inject constructor(
     }
 
     private fun compareIntervalSequences(intervals1: List<Float>, intervals2: List<Float>): Float {
+
+
+        // If either sequence has fewer than 2 intervals, treat as non-musical.
+        if (intervals1.size < 2 || intervals2.size < 2) {
+            Log.d("ScoringEngine", "⚠ IntervalSimilarity → 0.0 (insufficient intervals)")
+            return 0f
+        }
+
         if (intervals1.isEmpty() || intervals2.isEmpty()) return 0f
 
         val minLength = min(intervals1.size, intervals2.size)
         if (minLength == 0) return 0f
+        // 🔒 Prevent flat/monotone attempts from faking interval similarity
+        val attemptStd = intervals2.stdDev()
+        if (attemptStd < 0.01f) return 0f
+
 
         // Compare musical intervals with tolerance for microtonal differences
         val similarities = (0 until minLength).map { i ->
@@ -1177,5 +1334,13 @@ class ScoringEngine @Inject constructor(
     }
 
     fun getGarbageParameters(): GarbageDetectionParameters = garbageParams
+
+    private fun List<Float>.stdDev(): Float {
+        if (this.isEmpty()) return 0f
+        val mean = this.average().toFloat()
+        val variance = this.sumOf { (it - mean).pow(2).toDouble() }.toFloat() / this.size
+        return sqrt(variance)
+    }
+
 
 }

@@ -1,110 +1,5 @@
 package com.example.reversey.scoring
 
-/*═══════════════════════════════════════════════════════════════════════
-ReVerseY v17.0.1 - 13 Nov 2025 DIFFICULTY SCORING TUNING  ✅
-═══════════════════════════════════════════════════════════════════════
-
-TARGET SCORE CURVE:
-Easy:   100% ✅ (already working)
-Normal:  85% 🔧 (was 100%)
-Hard:    60% 🔧 (was rejecting with garbage)
-Expert:  45% 🔧 (was rejecting with garbage)
-Master:  30% 🔧 (was rejecting with garbage)
-
-═══════════════════════════════════════════════════════════════════════
-CHANGES APPLIED
-═══════════════════════════════════════════════════════════════════════
-
-📊 SCORING CURVE ADJUSTMENTS
-────────────────────────────────────────────────────────────────────────
-
-NORMAL MODE - Target: 85%
-Before:
-perfectScoreThreshold = 0.78f
-scoreCurve = 2.0f
-After:
-perfectScoreThreshold = 0.75f  ⬇️ Lower to suppress score
-scoreCurve = 1.6f              ⬇️ More suppression (was boost)
-
-HARD MODE - Target: 60%
-Before:
-perfectScoreThreshold = 0.82f
-scoreCurve = 1.0f
-After:
-perfectScoreThreshold = 0.72f  ⬇️ Lower for more suppression
-scoreCurve = 1.2f              ⬆️ Slight boost (was linear)
-
-EXPERT MODE - Target: 45%
-Before:
-perfectScoreThreshold = 0.88f
-scoreCurve = 0.7f
-After:
-perfectScoreThreshold = 0.68f  ⬇️ Significant reduction
-scoreCurve = 0.9f              ⬆️ Slight boost (less suppression)
-
-MASTER MODE - Target: 30%
-Before:
-perfectScoreThreshold = 0.93f
-scoreCurve = 0.5f
-After:
-perfectScoreThreshold = 0.65f  ⬇️ Major reduction
-scoreCurve = 0.7f              ⬆️ Less aggressive suppression
-
-────────────────────────────────────────────────────────────────────────
-🗑️ GARBAGE DETECTION THRESHOLD FIXES
-────────────────────────────────────────────────────────────────────────
-
-The problem: Hard/Expert/Master had stricter garbage thresholds than Normal,
-causing valid attempts to be rejected as "garbage" instead of being scored.
-
-SOLUTION: Match all difficulties to Normal's WORKING thresholds:
-mfccVarianceThreshold = 0.35f
-pitchMonotoneThreshold = 2.5f
-
-═══════════════════════════════════════════════════════════════════════
-HOW scoreCurve WORKS (Reminder)
-═══════════════════════════════════════════════════════════════════════
-
-scoreCurve is an EXPONENT applied to raw scores:
-finalScore = rawScore ^ (1 / scoreCurve)
-
-Lower scoreCurve = HIGHER exponent = MORE SUPPRESSION
-Higher scoreCurve = LOWER exponent = MORE BOOST
-
-═══════════════════════════════════════════════════════════════════════
-TESTING CHECKLIST
-═══════════════════════════════════════════════════════════════════════
-
-Test with the SAME attempt across all difficulties:
-
-□ Easy Mode
-Expected: 100% (should be very close to perfect)
-
-□ Normal Mode
-Expected: ~85% (good match but not perfect)
-Should NOT reject as garbage
-
-□ Hard Mode
-Expected: ~60% (decent attempt)
-Should NOT reject as garbage
-
-□ Expert Mode
-Expected: ~45% (struggling)
-Should NOT reject as garbage
-
-□ Master Mode
-Expected: ~30% (barely passing)
-Should NOT reject as garbage
-
-═══════════════════════════════════════════════════════════════════════
-NEXT STEPS
-═══════════════════════════════════════════════════════════════════════
-
-- Too high? Lower perfectScoreThreshold or scoreCurve
-- Too low? Raise perfectScoreThreshold or scoreCurve
-
-═══════════════════════════════════════════════════════════════════════*/
-
 // ===== PRESERVE EXISTING STRUCTURE EXACTLY =====
 data class ScoringParameters(
     // --- PITCH-FOCUSED WEIGHTS (since pitch is more important than timbre) ---
@@ -292,7 +187,8 @@ data class ScoringResult(
     val score: Int,           // 0-100
     val rawScore: Float,      // 0-1
     val metrics: SimilarityMetrics,
-    val feedback: List<String>
+    val feedback: List<String>,
+    val isGarbage: Boolean = false
 )
 
 data class SimilarityMetrics(
@@ -304,12 +200,25 @@ data class SimilarityMetrics(
  * Represents the melodic "DNA" of an audio recording
  */
 data class MelodySignature(
-    val pitchContour: List<Float>,       // Relative pitch changes (semitones)
-    val intervalSequence: List<Float>,   // Musical intervals between notes
-    val phraseBreaks: List<Int>,         // Indices where melodic phrases end
-    val rhythmPattern: List<Float>,      // Duration ratios between vocal segments
-    val vocalDensity: Float             // Percentage of audio that contains voice
-)
+    val pitchContour: List<Float>,
+    val intervalSequence: List<Float>,
+    val phraseBreaks: List<Int>,
+    val rhythmPattern: List<Float>,
+    val vocalDensity: Float
+) {
+
+    // Standard deviation of pitch contour (monotone detection)
+    val pitchStdDev: Float
+        get() = if (pitchContour.isEmpty()) 0f else {
+            val mean = pitchContour.average().toFloat()
+            val variance = pitchContour
+                .map { (it - mean) * (it - mean) }
+                .average()
+                .toFloat()
+            kotlin.math.sqrt(variance)
+        }
+}
+
 
 /**
  * Content similarity metrics for debugging
@@ -345,7 +254,7 @@ object ScoringPresets {
                 mfccWeight = 0.25f,
                 pitchTolerance = 35f,              // CHANGED: was 20f (+75% more forgiving)
                 minScoreThreshold = 0.12f,         // CHANGED: was 0.15f (-20%)
-                perfectScoreThreshold = 0.70f,     // CHANGED: was 0.75f (-7%)
+                perfectScoreThreshold = 0.8f,     // CHANGED: was 0.75f (-7%)
                 scoreCurve = 2.5f                  // Exponent = 0.4 (generous boost)
             ),
             content = ContentDetectionParameters(
@@ -390,15 +299,15 @@ object ScoringPresets {
                 mfccWeight = 0.15f,
                 pitchTolerance = 25f,              // CHANGED: was 15f (default) (+67% more forgiving!)
                 minScoreThreshold = 0.18f,         // CHANGED: was 0.20f (default) (-10%)
-                perfectScoreThreshold = 0.75f,     // 🎯 Target 85% (was 0.78f)
-                scoreCurve = 1.6f                  // 🎯 Target 85% (was 2.0f - more suppression)
+                perfectScoreThreshold = 0.9f,     // CHANGED: was .75f (default) (-6%)
+                scoreCurve = 2.5f                  // Exponent = 0.5 (moderate boost)
             ),
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.30f,   // CHANGED: was 0.35f (default)
-                contentDetectionAvgThreshold = 0.20f,    // CHANGED: was 0.25f (default)
-                rightContentFlatPenalty = 0.15f,         // CHANGED: was 0.2f (default)
-                rightContentDifferentMelodyPenalty = 0.08f, // CHANGED: was 0.1f (default)
-                wrongContentStandardPenalty = 0.40f      // CHANGED: was 0.5f (default) (-20% less harsh!)
+                contentDetectionBestThreshold = 0.4f,   // ← INCREASED (was 0.35f)
+                contentDetectionAvgThreshold = 0.3f,    // ← INCREASED (was 0.25f)
+                rightContentFlatPenalty = 0.15f,
+                rightContentDifferentMelodyPenalty = 0.08f,
+                wrongContentStandardPenalty = 0.6f       // ← INCREASED (was 0.5f)
             ),
             melodic = MelodicAnalysisParameters(),
             musical = MusicalSimilarityParameters(),
@@ -406,10 +315,10 @@ object ScoringPresets {
             scaling = ScoreScalingParameters(),
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.35f,         // ✅ Working threshold (was 0.3f)
-                pitchMonotoneThreshold = 2.5f,         // ← LOOSENED (was 10f)
+                mfccVarianceThreshold = 0.4f,
+                pitchMonotoneThreshold = 1f,         // ←  (was 2.5)
                 pitchOscillationRate = 0.5f,
-                spectralEntropyThreshold = 0.35f,      // ← LOOSENED (was 0.5f)
+                spectralEntropyThreshold = 0.6f,      // ←  (was .35f)
                 zcrMinThreshold = 0.02f,
                 zcrMaxThreshold = 0.2f,
                 silenceRatioMin = 0.1f,
@@ -427,8 +336,8 @@ object ScoringPresets {
                 mfccWeight = 0.1f,
                 pitchTolerance = 15f,              // CHANGED: was 8f (+88% more forgiving!)
                 minScoreThreshold = 0.25f,         // CHANGED: was 0.3f (-17%)
-                perfectScoreThreshold = 0.72f,     // 🎯 Target 60% (was 0.82f)
-                scoreCurve = 1.2f                  // 🎯 Target 60% (was 1.0f)
+                perfectScoreThreshold = 0.85f,     // CHANGED: was 0.9f (-9%)
+                scoreCurve = 2.5f                  // Exponent = 1.0 (LINEAR - no adjustment)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.45f,  // CHANGED: was 0.5f
@@ -451,8 +360,8 @@ object ScoringPresets {
             ),
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
-                mfccVarianceThreshold = 0.35f,         // ✅ Match Normal (was 0.4f)
-                pitchMonotoneThreshold = 2.5f,         // ✅ Match Normal (was 12f)
+                mfccVarianceThreshold = 0.4f,
+                pitchMonotoneThreshold = 12f,
                 pitchOscillationRate = 0.45f,
                 spectralEntropyThreshold = 0.6f,
                 zcrMinThreshold = 0.025f,
@@ -472,8 +381,8 @@ object ScoringPresets {
                 mfccWeight = 0.08f,                    // CHANGED: was 0.05f
                 pitchTolerance = 8f,                   // CHANGED: was 5f (+60% more forgiving!)
                 minScoreThreshold = 0.32f,             // CHANGED: was 0.4f (-20%)
-                perfectScoreThreshold = 0.68f,         // 🎯 Target 45% (was 0.88f)
-                scoreCurve = 0.9f                      // 🎯 Target 45% (was 0.7f)
+                perfectScoreThreshold = 0.55f,         // CHANGED: was 0.95f (-7%)
+                scoreCurve = 2.5f                      // Exponent = 1.43 (mild suppression)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.55f,     // CHANGED: was 0.6f
@@ -496,8 +405,8 @@ object ScoringPresets {
             ),
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
-                mfccVarianceThreshold = 0.35f,         // ✅ Match Normal (was 0.45f)
-                pitchMonotoneThreshold = 2.5f,         // ✅ Match Normal (was 14f)
+                mfccVarianceThreshold = 0.45f,         // CHANGED: was 0.5f
+                pitchMonotoneThreshold = 14f,          // CHANGED: was 15f
                 pitchOscillationRate = 0.42f,          // CHANGED: was 0.4f
                 spectralEntropyThreshold = 0.65f,      // CHANGED: was 0.7f
                 zcrMinThreshold = 0.028f,              // CHANGED: was 0.03f
@@ -517,8 +426,8 @@ object ScoringPresets {
                 mfccWeight = 0.02f,
                 pitchTolerance = 5f,                   // CHANGED: was 3f (+67% more forgiving!)
                 minScoreThreshold = 0.42f,             // CHANGED: was 0.5f (-16%)
-                perfectScoreThreshold = 0.65f,         // 🎯 Target 30% (was 0.93f)
-                scoreCurve = 0.7f                      // 🎯 Target 30% (was 0.5f)
+                perfectScoreThreshold = 0.50f,         // CHANGED: was 0.98f (-5%)
+                scoreCurve = 2.5f                      // Exponent = 2.0 (strong suppression)
             ),
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.65f,     // CHANGED: was 0.7f
@@ -544,8 +453,8 @@ object ScoringPresets {
             ),
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,  // 🔧 DISABLED for curve testing
-                mfccVarianceThreshold = 0.35f,         // ✅ Match Normal (was 0.55f)
-                pitchMonotoneThreshold = 2.5f,         // ✅ Match Normal (was 16f)
+                mfccVarianceThreshold = 0.55f,         // CHANGED: was 0.6f
+                pitchMonotoneThreshold = 16f,          // CHANGED: was 18f
                 pitchOscillationRate = 0.37f,          // CHANGED: was 0.35f
                 spectralEntropyThreshold = 0.75f,      // CHANGED: was 0.8f
                 zcrMinThreshold = 0.033f,              // CHANGED: was 0.035f

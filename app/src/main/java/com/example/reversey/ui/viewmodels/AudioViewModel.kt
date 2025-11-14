@@ -39,6 +39,9 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.sqrt
 import com.example.reversey.data.repositories.RecordingNamesRepository
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
+
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
     val isRecording: Boolean = false,
@@ -56,7 +59,8 @@ data class AudioUiState(
     val scrollToIndex: Int? = null,
     val pendingChallengeType: ChallengeType? = null,
     val showQualityWarning: Boolean = false,
-    val qualityWarningMessage: String = ""
+    val qualityWarningMessage: String = "",
+    val isScoring: Boolean = false  // 🎯 DUPLICATE SCORING GUARD: Prevents multiple simultaneous scoring operations
 )
 
 
@@ -81,6 +85,10 @@ class AudioViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AudioUiState())
     val uiState = _uiState.asStateFlow()
 
+    // 🎯 NEW: Track scoring engine readiness to prevent race conditions
+    private val _isScoringReady = MutableStateFlow(false)
+    val isScoringReady: StateFlow<Boolean> = _isScoringReady.asStateFlow()
+
     // SURGICAL FIX #1: Add error message helper
     private fun showUserMessage(message: String) {
         _uiState.update { it.copy(statusText = message) }
@@ -93,6 +101,17 @@ class AudioViewModel @Inject constructor(
 
     init {
         loadRecordings()
+
+        // 🎯 NEW: Wait for scoring engine to initialize (prevents race condition)
+        viewModelScope.launch {
+            scoringEngine.isInitialized
+                .filter { it == true }
+                .collect {
+                    _isScoringReady.value = true
+                    Log.d("HILT_VERIFY", "🎯 Scoring engine ready for AudioViewModel")
+                }
+        }
+
         viewModelScope.launch {
             settingsDataStore.tutorialCompleted.collect { completed ->
                 if (!completed) {
@@ -178,6 +197,13 @@ class AudioViewModel @Inject constructor(
 
     // SURGICAL FIX #4: Improved startAttemptRecording with user feedback and permission checking
     fun startAttemptRecording(recording: Recording, challengeType: ChallengeType) {
+
+        // 🎯 CRITICAL: Prevent scoring before engine is ready (race condition fix)
+        if (!_isScoringReady.value) {
+            showUserMessage("Scoring engine is initialising... please wait a moment.")
+            return
+        }
+
         // Check if already recording
         if (uiState.value.isRecording || recordingJob != null) {
             showUserMessage("Recording already in progress")
@@ -399,13 +425,21 @@ class AudioViewModel @Inject constructor(
     }
 
     private fun handleAttemptCompletion(attemptFile: File?) {
+        // 🎯 DUPLICATE SCORING GUARD: Prevent multiple simultaneous scoring operations
+        if (_uiState.value.isScoring) {
+            Log.d("SCORING_GUARD", "🚫 Scoring already in progress - blocking duplicate call to handleAttemptCompletion")
+            return
+        }
         val parentPath = _uiState.value.parentRecordingPath
         // Get the challenge type we stored when recording started
         val challengeType = _uiState.value.pendingChallengeType
 
         if (attemptFile != null && parentPath != null && challengeType != null) {
+            // 🎯 SET SCORING FLAG BEFORE LAUNCHING COROUTINE
+            _uiState.update { it.copy(isScoring = true, statusText = "Processing attempt...") }
             viewModelScope.launch(Dispatchers.IO) {
                 try {
+                    Log.d("SCORING_GUARD", "🎯 Starting scoring operation in handleAttemptCompletion")
                     // Create reversed version of attempt
                     Log.d("AudioViewModel", "Creating reversed version of attempt: ${attemptFile.absolutePath}")
                     val reversedAttemptFile = repository.reverseWavFile(attemptFile)
@@ -481,6 +515,18 @@ class AudioViewModel @Inject constructor(
                             }
                         }
 
+                        // 🚫 GARBAGE DETECTION WARNING TRIGGER
+                        if (scoringResult.isGarbage) {
+                            withContext(Dispatchers.Main) {
+                                _uiState.update { currentState ->
+                                    currentState.copy(
+                                        showQualityWarning = true,
+                                        qualityWarningMessage = "Trash audio detected! Need real vocals, not whatever that was 😅"
+                                    )
+                                }
+                            }
+                        }
+
                         // Create player attempt WITH the challengeType AND real scoring metrics
                         val attempt = PlayerAttempt(
                             playerName = "Player ${parentRecording.attempts.size + 1}",
@@ -519,6 +565,7 @@ class AudioViewModel @Inject constructor(
                                 isRecordingAttempt = false,
                                 parentRecordingPath = null,
                                 pendingChallengeType = null, // <-- Clear pending type
+                                isScoring = false,  // 🎯 CLEAR SCORING FLAG ON SUCCESS
                                 statusText = "Attempt scored: ${scoringResult.score}%",
                                 scrollToIndex = scrollToIndex,
                                 attemptToRename = if (scoringResult.score > 70) Pair(parentPath, attempt) else null
@@ -533,6 +580,7 @@ class AudioViewModel @Inject constructor(
                             isRecordingAttempt = false,
                             parentRecordingPath = null,
                             pendingChallengeType = null, // <-- Clear pending type
+                            isScoring = false,  // 🎯 CLEAR SCORING FLAG ON ERROR
                             statusText = "Error processing attempt: ${e.message}"
                         )
                     }
@@ -545,6 +593,7 @@ class AudioViewModel @Inject constructor(
                     isRecordingAttempt = false,
                     parentRecordingPath = null,
                     pendingChallengeType = null, // <-- Clear pending type
+                    isScoring = false,  // 🎯 CLEAR SCORING FLAG WHEN NO VALID ATTEMPT
                     statusText = "Attempt recording failed"
                 )
             }

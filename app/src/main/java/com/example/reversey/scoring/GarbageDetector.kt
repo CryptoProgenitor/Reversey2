@@ -69,17 +69,26 @@ class GarbageDetector(
             )
         }
 
-        // ADD THIS DEBUG BLOCK RIGHT HERE:
+        // DEBUG: Current garbage thresholds
         Log.d("GarbageDetector", "=== GARBAGE PARAMETERS ===")
         Log.d("GarbageDetector", "pitchMonotoneThreshold: ${parameters.pitchMonotoneThreshold}")
         Log.d("GarbageDetector", "spectralEntropyThreshold: ${parameters.spectralEntropyThreshold}")
         Log.d("GarbageDetector", "mfccVarianceThreshold: ${parameters.mfccVarianceThreshold}")
-        Log.d("GarbageDetector", "garbageScoreThreshold: 0.4f")
+        Log.d("GarbageDetector", "garbageScoreThreshold: 0.6f")
         Log.d("GarbageDetector", "========================")
 
         val failedFilters = mutableListOf<String>()
         val filterResults = mutableMapOf<String, Float>()
         var garbageScore = 0f
+
+        // === BASE FEATURE: VOICED-FRAME RATIO ===
+        val voicedFrames = pitches.count { it != 0f }
+        val voicedFrameRatio = if (pitches.isNotEmpty()) {
+            voicedFrames.toFloat() / pitches.size
+        } else 0f
+
+        filterResults["voiced_frame_ratio"] = voicedFrameRatio
+        Log.d("GarbageDetector", "voicedFrameRatio=$voicedFrameRatio")
 
         // === FILTER 1: MFCC VARIANCE (Repetition Detection) ===
         if (mfccFrames.size >= 2) {
@@ -92,13 +101,15 @@ class GarbageDetector(
             }
         }
 
-        // === FILTER 2: PITCH CONTOUR (Monotone/Oscillation Detection) ===
+        // === FILTER 2: PITCH CONTOUR (Monotone/Oscillation) ===
         if (pitches.size >= 3) {
             val pitchAnalysis = audioProcessor.analyzePitchContour(pitches, parameters)
+
             filterResults["pitch_stddev"] = pitchAnalysis.stdDev
             filterResults["pitch_oscillation"] = pitchAnalysis.oscillationRate
 
-            if (pitchAnalysis.isMonotone) {
+            // Singing safety: monotone only counts when voicing is low (humming)
+            if (pitchAnalysis.isMonotone && voicedFrameRatio < 0.35f) {
                 garbageScore += 0.25f
                 failedFilters.add("Monotone/droning detected")
             }
@@ -109,28 +120,26 @@ class GarbageDetector(
             }
         }
 
-        // === FILTER 3: SPECTRAL ENTROPY (Complexity Detection) ===
+        // === FILTER 3: SPECTRAL ENTROPY (Complexity) ===
         if (audioFrames.isNotEmpty()) {
-            // Sample first 10 frames for efficiency
             val entropyFrames = audioFrames.take(10)
             val entropies = entropyFrames.mapNotNull { frame ->
-                if (frame.isNotEmpty()) {
-                    audioProcessor.calculateSpectralEntropy(frame)
-                } else null
+                if (frame.isNotEmpty()) audioProcessor.calculateSpectralEntropy(frame) else null
             }
 
             if (entropies.isNotEmpty()) {
                 val avgEntropy = entropies.average().toFloat()
                 filterResults["spectral_entropy"] = avgEntropy
 
-                if (avgEntropy < parameters.spectralEntropyThreshold) {
+                // Singing safety: low entropy + high voicing = normal singing
+                if (avgEntropy < parameters.spectralEntropyThreshold && voicedFrameRatio < 0.40f) {
                     garbageScore += 0.20f
                     failedFilters.add("Low audio complexity (noise/hum)")
                 }
             }
         }
 
-        // === FILTER 4: ZERO CROSSING RATE (Voice Signature Detection) ===
+        // === FILTER 4: ZERO CROSSING RATE ===
         if (audioFrames.isNotEmpty()) {
             val zcr = audioProcessor.analyzeZeroCrossingRate(audioFrames)
             filterResults["zero_crossing_rate"] = zcr
@@ -141,7 +150,30 @@ class GarbageDetector(
             }
         }
 
-        // === FILTER 5: SILENCE RATIO (Natural Pause Detection) ===
+        // === FILTER X: HUMMING / PURE-TONE DETECTION ===
+        // Uses already-computed features to decide if this sounds like a hum
+        val mfccVar = filterResults["mfcc_variance"] ?: 999f
+        val entropy = filterResults["spectral_entropy"] ?: 10f
+        val zcr = filterResults["zero_crossing_rate"] ?: 1f
+
+        val isLikelyHumming =
+            mfccVar < 20f &&    // very little MFCC movement = smooth timbre
+                    entropy < 2.5f &&   // low spectral complexity = steady vowel/hum
+                    zcr < 0.05f         // very stable zero-crossing = almost no consonants
+
+        filterResults["humming_detected"] = if (isLikelyHumming) 1f else 0f
+
+        if (isLikelyHumming) {
+            failedFilters.add("Humming/tone-like delivery")
+            garbageScore += 0.10f    // small bump, not enough to force garbage alone
+            Log.d(
+                "GarbageDetector",
+                "🎤 HUMMING FLAGGED (mfccVar=$mfccVar, entropy=$entropy, zcr=$zcr)"
+            )
+        }
+
+
+        // === FILTER 5: SILENCE RATIO ===
         if (audioFrames.isNotEmpty()) {
             val silenceRatio = audioProcessor.calculateSilenceRatio(audioFrames, parameters.silenceThreshold)
             filterResults["silence_ratio"] = silenceRatio
@@ -153,24 +185,25 @@ class GarbageDetector(
         }
 
         // === FINAL VERDICT ===
-        // garbageScore > 0.4 means multiple filters failed = high confidence it's garbage
-        val isGarbage = garbageScore > 0.4f
+        val isGarbageRaw = garbageScore > 0.6f
+        val multiFilterReject = failedFilters.size >= 2
+        val finalGarbage = isGarbageRaw && multiFilterReject
 
-        // Logging for debugging
         Log.d("GarbageDetector", "=== GARBAGE ANALYSIS ===")
         Log.d("GarbageDetector", "Filter Results: $filterResults")
         Log.d("GarbageDetector", "Failed Filters: $failedFilters")
-        Log.d("GarbageDetector", "Garbage Score: $garbageScore (threshold: 0.5)")
-        Log.d("GarbageDetector", "Verdict: ${if (isGarbage) "🚫 REJECT" else "✅ ACCEPT"}")
+        Log.d("GarbageDetector", "Garbage Score: $garbageScore (threshold: 0.6)")
+        Log.d("GarbageDetector", "Final Verdict: ${if (finalGarbage) "🚫 REJECT" else "✅ ACCEPT"}")
         Log.d("GarbageDetector", "========================")
 
         return GarbageAnalysis(
-            isGarbage = isGarbage,
+            isGarbage = finalGarbage,
             confidence = garbageScore,
             failedFilters = failedFilters,
             filterResults = filterResults
         )
     }
+
 
     /**
      * Update garbage detection parameters

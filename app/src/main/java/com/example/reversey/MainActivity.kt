@@ -618,7 +618,7 @@ fun AudioReverserApp(
                 onDismissRequest = { viewModel.dismissQualityWarning() },
                 title = {
                     Text(
-                        "Recording Too Quiet",
+                        "Poor Quality Recording",
                         style = MaterialTheme.typography.headlineSmall
                     )
                 },
