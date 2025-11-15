@@ -11,6 +11,8 @@ import com.example.reversey.data.models.Recording
 import com.example.reversey.utils.formatFileName
 import com.example.reversey.utils.getRecordingsDir
 import com.example.reversey.utils.writeWavHeader
+import com.example.reversey.scoring.VocalModeDetector
+import com.example.reversey.scoring.VocalMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -22,7 +24,10 @@ import kotlin.experimental.and
 import kotlin.math.abs
 
 
-class RecordingRepository(private val context: Context) {
+class RecordingRepository(
+    private val context: Context,
+    private val vocalModeDetector: VocalModeDetector
+) {
 
 
     suspend fun loadRecordings(): List<Recording> = withContext(Dispatchers.IO) {
@@ -38,7 +43,13 @@ class RecordingRepository(private val context: Context) {
                     val reversedFile = File(dir, file.name.replace(".wav", "_reversed.wav"))
 
                     Recording(
-                        name = formatFileName(file.name),
+                        name = vocalModeDetector.classifyVocalMode(file).let { analysis ->
+                            when(analysis.mode) {
+                                VocalMode.SPEECH -> "🗣️ "
+                                VocalMode.SINGING -> "🎵 "
+                                VocalMode.UNKNOWN -> "❓ "
+                            } + formatFileName(file.name)
+                        },
                         originalPath = file.absolutePath,
                         reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null,
                         attempts = emptyList() // Attempts will be loaded and merged in ViewModel

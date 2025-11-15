@@ -111,7 +111,8 @@ class ScoringEngine @Inject constructor(
                 score = 0,
                 rawScore = 0f,
                 metrics = SimilarityMetrics(0f, 0f),
-                feedback = listOf("🎤 Silence was recorded. Please try singing next time!")
+                feedback = listOf("🎤 Silence was recorded. Please try singing next time!"),
+                isGarbage = false
             )
         }
 
@@ -119,7 +120,7 @@ class ScoringEngine @Inject constructor(
 
         if (alignedOriginal.isEmpty() || alignedAttempt.isEmpty()) {
             Log.d("ScoringEngine", "AUDIO ALIGNMENT FAILED: Resulting audio is empty.")
-            return ScoringResult(score = 0, rawScore = 0f, metrics = SimilarityMetrics(0f, 0f), feedback = listOf("Error: Could not process short recording."))
+            return ScoringResult(score = 0, rawScore = 0f, metrics = SimilarityMetrics(0f, 0f), feedback = listOf("Error: Could not process short recording."), isGarbage = false)
         }
 
         // ========================================================================
@@ -241,7 +242,7 @@ class ScoringEngine @Inject constructor(
         Log.d("ScoringEngine", "--------------------")
 
 
-        return ScoringResult(score = finalScore, rawScore = rawScore, metrics = metrics, feedback = generateFeedback(finalScore, metrics))
+        return ScoringResult(score = finalScore, rawScore = rawScore, metrics = metrics, feedback = generateFeedback(finalScore, metrics), isGarbage = false)
     }
 
     private fun getPitchSequence(audio: FloatArray, sampleRate: Int): List<Float> {

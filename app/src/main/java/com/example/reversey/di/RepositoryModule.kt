@@ -5,6 +5,7 @@ import com.example.reversey.data.repositories.AttemptsRepository
 import com.example.reversey.data.repositories.RecordingNamesRepository
 import com.example.reversey.data.repositories.RecordingRepository
 import com.example.reversey.data.repositories.SettingsDataStore
+import com.example.reversey.scoring.VocalModeDetector
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -21,8 +22,11 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideRecordingRepository(@ApplicationContext context: Context): RecordingRepository {
-        return RecordingRepository(context)
+    fun provideRecordingRepository(
+        @ApplicationContext context: Context,
+        vocalModeDetector: VocalModeDetector
+    ): RecordingRepository {
+        return RecordingRepository(context, vocalModeDetector)
     }
 
     @Provides
@@ -43,10 +47,3 @@ object RepositoryModule {
         return RecordingNamesRepository(context)
     }
 }
-
-
-
-
-
-
-

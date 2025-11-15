@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import android.media.MediaPlayer
 import android.os.Build.VERSION.SDK_INT
+import android.util.Log
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
@@ -50,7 +51,10 @@ import com.example.reversey.R
 import kotlinx.coroutines.delay
 import com.example.reversey.testing.BITRunner
 import android.widget.Toast
-
+import com.example.reversey.testing.VocalModeDetectorTuner
+import com.example.reversey.audio.processing.AudioProcessor
+import androidx.compose.material.icons.filled.Tune
+import kotlinx.coroutines.withContext
 
 /**
  * 🎨 MULTI-SCREEN THEMED MENU MODAL
@@ -799,10 +803,202 @@ private fun SettingsContent(
             modifier = Modifier.padding(horizontal = 8.dp)
         )
         // ADD THIS AFTER LINE 802 in ThemedMenuModal.kt
-// Right after the "Enable advanced scoring diagnostics" text
+        // Right after the "Enable advanced scoring diagnostics" text
 
-        // ADD THIS AFTER LINE 802 in ThemedMenuModal.kt
-// Right after the "Enable advanced scoring diagnostics" text
+        // 🔧 Vocal Detector Tuning - Only in DEBUG builds (add this before your BITrunner block)
+        // 🎵 Vocal Mode Detector Tuner - Only in DEBUG builds
+        // 🎵 Vocal Mode Detector Tuner - Only in DEBUG builds
+        if (BuildConfig.DEBUG) {
+            var tunerRunning by remember { mutableStateOf(false) }
+            var tunerProgress by remember { mutableStateOf("Ready") }
+            var currentTest by remember { mutableStateOf(0) }
+            var totalTests by remember { mutableStateOf(4000) }
+            var progressPercentage by remember { mutableStateOf(0f) }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !tunerRunning) {
+                        if (!tunerRunning) {
+                            tunerRunning = true
+                            scope.launch {
+                                try {
+                                    Log.d("VocalTuner", "=== VOCAL TUNER START ===")
+
+                                    // Create tuner with AudioProcessor
+                                    tunerProgress = "Initializing..."
+                                    Log.d("VocalTuner", "Creating AudioProcessor...")
+                                    val audioProcessor = AudioProcessor()
+                                    Log.d("VocalTuner", "Creating VocalModeDetectorTuner...")
+                                    val tuner = VocalModeDetectorTuner(audioProcessor)
+
+                                    tunerProgress = "Loading training data..."
+                                    Log.d("VocalTuner", "Loading training data from assets...")
+                                    val dataLoaded = tuner.loadTrainingDataFromAssets(context)
+                                    Log.d("VocalTuner", "Training data loaded: $dataLoaded")
+
+                                    if (!dataLoaded) {
+                                        throw Exception("Failed to load training data from assets")
+                                    }
+
+                                    tunerProgress = "Running optimization..."
+                                    Log.d("VocalTuner", "Starting optimization on background thread...")
+
+                                    // Run heavy optimization on background thread
+                                    val result = withContext(kotlinx.coroutines.Dispatchers.Default) {
+                                        Log.d("VocalTuner", "Background optimization started...")
+                                        val optimizationResult = tuner.runOptimization(
+                                            progressCallback = { current, total, percentage ->
+                                                currentTest = current
+                                                totalTests = total
+                                                progressPercentage = percentage
+                                                tunerProgress = "Testing $current of $total (${percentage.toInt()}%)"
+                                            },
+                                            statusCallback = { status ->
+                                                tunerProgress = status
+                                            }
+                                        )
+                                        Log.d("VocalTuner", "Optimization complete! Accuracy: ${optimizationResult.accuracy}")
+                                        optimizationResult
+                                    }
+
+                                    // Write results to Downloads (back on main thread)
+                                    tunerProgress = "Writing results file..."
+                                    Log.d("VocalTuner", "Writing results to Downloads...")
+                                    val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                                        android.os.Environment.DIRECTORY_DOWNLOADS
+                                    )
+                                    val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                                        .format(java.util.Date())
+                                    val outputFile = java.io.File(downloadsDir, "ReVerseY_VocalTuner_${timestamp}.txt")
+
+                                    // Generate update code manually
+                                    val updateCode = """
+//=== VocalModeDetector Optimal Configuration ===
+// Generated by VocalModeDetectorTuner BIT
+// Accuracy: ${(result.accuracy * 100).toInt()}% (${result.correctClassifications}/${result.totalSamples})
+// Parameters: ${result.parameters}
+// Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date())}
+
+// 1. Update VocalDetectionParameters defaults:
+data class VocalDetectionParameters(
+    val speechConfidenceThreshold: Float = ${result.parameters.speechThreshold}f,
+    val singingConfidenceThreshold: Float = ${result.parameters.singingThreshold}f,
+    // ... other parameters unchanged
+)
+
+// 2. In classifyFeatures() method, update singing weights:
+val singingStabilityContrib = features.pitchStability * ${result.parameters.stabilityWeight}f
+val singingContourContrib = features.pitchContour * ${result.parameters.contourWeight}f  
+val singingVoicedContrib = features.voicedRatio * ${result.parameters.voicedWeight}f
+
+// 3. In analyzePitchContour() method, update normalization:
+val contour = (avgInterval / ${result.parameters.contourNormalizer}f).coerceIn(0f, 1f)
+
+// 4. In extractVocalFeatures() method, update MFCC normalization:
+(audioProcessor.calculateMFCCVariance(mfccFrames) / ${result.parameters.mfccNormalizer}f).coerceIn(0f, 1f)
+
+/* CLASSIFICATION RESULTS:
+${result.detailReport}
+*/
+                                    """.trimIndent()
+
+                                    outputFile.writeText(updateCode)
+                                    Log.d("VocalTuner", "Results written to: ${outputFile.absolutePath}")
+
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Optimization complete! Accuracy: ${(result.accuracy * 100).toInt()}% - Results saved to ${outputFile.name}",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                    Log.d("VocalTuner", "=== VOCAL TUNER SUCCESS ===")
+
+                                } catch (e: Exception) {
+                                    Log.e("VocalTuner", "ERROR: ${e.message}", e)
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Tuner Failed: ${e.message}",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                } finally {
+                                    tunerRunning = false
+                                    tunerProgress = "Ready"
+                                    Log.d("VocalTuner", "Tuner finished - UI reset")
+                                }
+                            }
+                           /* ```
+
+                            **🔧 FIXES:**
+                            - **Background thread:** `withContext(Dispatchers.Default)` for heavy optimization
+                                    - **Extensive logging:** Every step logged with "VocalTuner" tag
+                            - **UI thread safety:** File I/O back on main thread
+
+                            **Test and check logcat:** `adb logcat | grep VocalTuner`*/
+                        }
+                    },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (tunerRunning) colors.secondaryContainer else colors.surfaceVariant.copy(
+                        alpha = 0.5f
+                    )
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Tune,
+                            contentDescription = "Tune Vocal Detector",
+                            tint = if (tunerRunning) colors.onSecondaryContainer else colors.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                if (tunerRunning) "Tuning Vocal Detector..." else "Auto-Tune Vocal Detector",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                tunerProgress,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            // Add after line 985 (after the tunerProgress Text closing parenthesis):
+
+                            // Progress bar when running
+                            if (tunerRunning && currentTest > 0) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                LinearProgressIndicator(
+                                    progress = { progressPercentage / 100f },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = colors.primary,
+                                    trackColor = colors.surfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "${progressPercentage.toInt()}% complete",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                    if (tunerRunning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
+            }
+        }
 
         // 🔧 BIT (Built-In Test) Button - Only in DEBUG builds
         if (BuildConfig.DEBUG) {
