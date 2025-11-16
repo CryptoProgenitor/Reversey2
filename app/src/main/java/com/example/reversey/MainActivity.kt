@@ -102,13 +102,16 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import com.example.reversey.ui.components.AnalysisToast
 
 import com.example.reversey.utils.*
-import com.example.reversey.ui.debug.DebugPanel
+//import com.example.reversey.ui.debug.DebugPanel
 import com.example.reversey.ui.components.ThemedMenuModal
 import com.example.reversey.ui.components.TutorialOverlay
 
 import com.example.reversey.ui.components.ModalScreen
+import com.example.reversey.scoring.VocalMode
+import com.example.reversey.scoring.DifficultyLevel
 
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
@@ -162,7 +165,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
     var showClearAllDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val scoringEngine = audioViewModel.scoringEngine
+
     var showDebugPanel by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -177,7 +180,7 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
-                    scoringEngine = scoringEngine,
+
                     navController = navController,
                     showDebugPanel = showDebugPanel,  // ✅ NEW
                     onShowDebugPanelChange = { showDebugPanel = it }  // ✅ NEW
@@ -197,10 +200,10 @@ fun MainApp(themeViewModel: ThemeViewModel) {
         },
         onClearAll = { showClearAllDialog = true },
         themeViewModel = themeViewModel,
-        scoringEngine = scoringEngine,
+        //scoringEngine = audioViewModel,
         audioViewModel = audioViewModel,
-        showDebugPanel = showDebugPanel,
-        onShowDebugPanelChange = { showDebugPanel = it },
+        //showDebugPanel = showDebugPanel,
+        //onShowDebugPanelChange = { showDebugPanel = it },
         initialScreen = modalInitialScreen,
         onDismiss = { showMenuModal = false; modalInitialScreen = ModalScreen.Menu },
     )
@@ -213,11 +216,11 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                 .padding(16.dp),
             contentAlignment = Alignment.BottomStart
         ) {
-            DebugPanel(
-                scoringEngine = scoringEngine,
+            /*DebugPanel(
+                scoringEngine = audioViewModel,
                 isVisible = showDebugPanel,
                 onDismiss = { showDebugPanel = false }
-            )
+            )*/
         }
     }
 }  // ← End of MainApp
@@ -232,7 +235,7 @@ fun AudioReverserApp(
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
     isGameModeEnabled: Boolean,
-    scoringEngine: ScoringEngine,  // <-- ADD THIS LINE
+
     navController: NavController, // 🔧 ADD THIS - so DifficultyIndicator can navigate
     openMenuToSettings: () -> Unit,  // ← ADD THIS
     showDebugPanel: Boolean,  // ✅ NEW
@@ -345,7 +348,7 @@ fun AudioReverserApp(
                     },
                     actions = {
                         // NEW: Difficulty indicator in top-right
-                        val currentDifficulty by scoringEngine.currentDifficultyFlow.collectAsState()
+                        val currentDifficulty by viewModel.currentDifficultyFlow.collectAsState()
                         DifficultyIndicator(
                             difficulty = currentDifficulty,
                             onClick = openMenuToSettings,
@@ -446,7 +449,7 @@ fun AudioReverserApp(
                                     onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
                                     isGameModeEnabled = isGameModeEnabled,
                                     onStartAttempt = { rec: Recording, type: ChallengeType ->
-                                        viewModel.startAttemptRecording(rec, type)
+                                        viewModel.startAttempt(rec.originalPath)
                                     }
                                 )
                             }//keep me
@@ -647,6 +650,11 @@ fun AudioReverserApp(
                 }
             )
         }
+
+        // 🎯 Analysis Toast - General overlay for audio processing
+        AnalysisToast(
+            isVisible = uiState.showAnalysisToast
+        )
     }
 }
 

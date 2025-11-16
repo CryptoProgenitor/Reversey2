@@ -473,7 +473,7 @@ class SpeechScoringEngine @Inject constructor(
         if (originalMfccs.isEmpty() || attemptMfccs.isEmpty()) return 0f
 
         return dtw(originalMfccs, attemptMfccs) { a, b ->
-            euclideanDistance(a, b) / audioParams.dtwNormalizationFactor
+            euclideanDistance(a, b) / getCurrentScoringParameters().dtwNormalizationFactor
         }
     }
 
@@ -520,4 +520,10 @@ class SpeechScoringEngine @Inject constructor(
         applyPreset(preset)
         Log.d("SPEECH_ENGINE", "🎤 Updated to ${newDifficulty.displayName} speech preset")
     }
+
+    private fun getCurrentScoringParameters(): ScoringParameters {
+        // Simple fallback - use default ScoringParameters with proper dtwNormalizationFactor
+        return ScoringParameters()
+    }
+
 }

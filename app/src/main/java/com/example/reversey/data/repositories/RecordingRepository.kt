@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.Build
+import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import com.example.reversey.AudioConstants
 import com.example.reversey.data.models.Recording
@@ -17,18 +20,47 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.experimental.and
 import kotlin.math.abs
 
+// 🎯 GLUTE: WAV header validation - check file is completely written
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+suspend fun isWavFileComplete(file: File): Boolean = withContext(Dispatchers.IO) {
+    try {
+        if (file.length() < 44) return@withContext false
+
+        val headerBytes = file.inputStream().use {
+            it.readNBytes(44)
+        }
+
+        // Parse WAV header - ChunkSize field at bytes 4-7
+        val declaredChunkSize = ByteBuffer.wrap(headerBytes, 4, 4)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .int
+
+        val expectedFileSize = declaredChunkSize + 8  // ChunkSize + 8 byte header
+        val actualFileSize = file.length()
+
+        Log.d("RecordingRepository", "WAV CHECK: ${file.name} - expected=$expectedFileSize, actual=$actualFileSize")
+
+        return@withContext actualFileSize >= expectedFileSize
+
+    } catch (e: Exception) {
+        Log.w("RecordingRepository", "WAV header check failed for ${file.name}: ${e.message}")
+        return@withContext false
+    }
+}
 
 class RecordingRepository(
     private val context: Context,
     private val vocalModeDetector: VocalModeDetector
 ) {
-
 
     suspend fun loadRecordings(): List<Recording> = withContext(Dispatchers.IO) {
         val dir = getRecordingsDir(context)
@@ -42,18 +74,35 @@ class RecordingRepository(
                 try {
                     val reversedFile = File(dir, file.name.replace(".wav", "_reversed.wav"))
 
+                    Log.d("RecordingRepository", "=== LOAD RECORDINGS DEBUG ===")
+                    Log.d("RecordingRepository", "PROCESSING FILE: ${file.name}")
+                    Log.d("RecordingRepository", "THREAD: ${Thread.currentThread().name}")
+                    Log.d("RecordingRepository", "FILES IN DIR: ${originalFiles.map { "${it.name}(${it.length()})" }}")
+                    Log.d("RecordingRepository", "CURRENT FILE AGE: ${System.currentTimeMillis() - file.lastModified()}ms")
+
+                    // 🎯 BRUTE FORCE: Just wait for file write completion
+                    //CHANGES!!!
+
+                    delay(1000) // Wait 1000ms for OS to finish writing file
+
+                    val vocalAnalysis = vocalModeDetector.classifyVocalMode(file)  // 🎯 SINGLE SAFE CALL
+
+                    Log.d("RecordingRepository", "VOCAL ANALYSIS RESULT: mode=${vocalAnalysis.mode}, confidence=${vocalAnalysis.confidence}")
+
                     Recording(
-                        name = vocalModeDetector.classifyVocalMode(file).let { analysis ->
+                        name = vocalAnalysis.let { analysis ->
                             when(analysis.mode) {
-                                VocalMode.SPEECH -> "🗣️ "
-                                VocalMode.SINGING -> "🎵 "
+                                VocalMode.SPEECH -> "💬🗣️ "
+                                VocalMode.SINGING -> "🎵🎼 "
                                 VocalMode.UNKNOWN -> "❓ "
                             } + formatFileName(file.name)
                         },
                         originalPath = file.absolutePath,
                         reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null,
-                        attempts = emptyList() // Attempts will be loaded and merged in ViewModel
+                        attempts = emptyList(), // Attempts will be loaded and merged in ViewModel
+                        vocalAnalysis = vocalAnalysis  // 🎯 FIXED: Use cached result instead of duplicate call
                     )
+
                 } catch (_: Exception) {
                     null // Skip invalid files
                 }
@@ -155,7 +204,6 @@ class RecordingRepository(
             addWavHeader(file)
         }
     }
-
 
     suspend fun reverseWavFile(originalFile: File?): File? = withContext(Dispatchers.IO) {
         if (originalFile == null || !originalFile.exists() || originalFile.length() < 44) {

@@ -3,6 +3,7 @@ package com.example.reversey.scoring
 import android.util.Log
 import com.example.reversey.audio.processing.AudioProcessor
 import kotlin.math.sqrt
+import java.io.FileInputStream
 
 /**
  * Vocal Mode Classification Results
@@ -66,14 +67,28 @@ class VocalModeDetector(
      */
     fun classifyVocalMode(audioFile: java.io.File): VocalAnalysis {
         try {
+            Log.d("VocalModeDetector", "=== CALL START: ${audioFile.name} ===")
+            Log.d("VocalModeDetector", "Call stack: ${Thread.currentThread().stackTrace.drop(3).take(3).joinToString(" -> ") { "${it.className}.${it.methodName}" }}")
             Log.d("VocalModeDetector", "Analyzing file: ${audioFile.name}")
 
             // Read WAV file and extract audio data
-            val (audioData, sampleRate) = readWavFile(audioFile)
-            if (audioData.isEmpty()) {
+            val (rawAudioData, sampleRate) = readWavFile(audioFile)
+            if (rawAudioData.isEmpty()) {
                 Log.w("VocalModeDetector", "No audio data found in file")
                 return VocalAnalysis(VocalMode.UNKNOWN, 0f, VocalFeatures(0f, 0f, 0f, 0f))
             }
+
+// 🔥 FIXED: Trim leading silence and skip transients
+            val trimmed = trimLeadingSilence(rawAudioData)
+            val skip = (sampleRate * 0.1).toInt() // Skip first 100ms
+            val audioData = if (skip < trimmed.size) trimmed.copyOfRange(skip, trimmed.size) else trimmed
+
+            if (audioData.size < 2048) {
+                Log.w("VocalModeDetector", "Too little audio after trimming")
+                return VocalAnalysis(VocalMode.SPEECH, 0.4f, VocalFeatures(0f, 0f, 0f, 0f))
+            }
+
+            Log.d("VocalModeDetector", "Analysis data: ${audioData.size} samples after trimming & skip")
 
             // Process audio in frames for analysis
             val frameSize = 1024
@@ -120,7 +135,9 @@ class VocalModeDetector(
      */
     private fun readWavFile(file: java.io.File): Pair<FloatArray, Int> {
         try {
-            val bytes = file.readBytes()
+            val bytes = FileInputStream(file).use { fis ->
+                fis.readBytes()
+            }
             if (bytes.size < 44) {
                 return Pair(floatArrayOf(), 44100) // Empty with default sample rate
             }
@@ -292,4 +309,30 @@ class VocalModeDetector(
         val variance = sumOf { (it - mean).toDouble() * (it - mean).toDouble() }.toFloat() / size
         return sqrt(variance)
     }
+
+    /**
+     * 🔥 NEW: Trim leading silence (mic warm-up frames)
+     */
+    private fun trimLeadingSilence(
+        data: FloatArray,
+        threshold: Float = 0.003f,
+        windowSize: Int = 1024
+    ): FloatArray {
+        var idx = 0
+        val limit = data.size - windowSize
+
+        while (idx < limit) {
+            var maxAmp = 0f
+            for (i in idx until idx + windowSize) {
+                val v = kotlin.math.abs(data[i])
+                if (v > maxAmp) maxAmp = v
+            }
+            if (maxAmp > threshold) break
+            idx += windowSize
+        }
+
+        Log.d("VocalModeDetector", "Trimmed ${idx} silent samples (${idx.toFloat()/44100f}s)")
+        return data.copyOfRange(idx, data.size)
+    }
+
 }

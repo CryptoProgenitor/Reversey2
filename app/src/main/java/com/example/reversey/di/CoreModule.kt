@@ -45,6 +45,7 @@ object CoreModule {
         return VocalModeDetector(audioProcessor)
     }
 
+
     // AFTER the existing provideVocalModeDetector() method
 // ADD these 4 new provider methods:
 
@@ -79,7 +80,7 @@ object CoreModule {
         singingEngine: SingingScoringEngine,
         vocalRouter: VocalModeRouter
     ): ScoreAcquisitionDataConcentrator {
-        return ScoreAcquisitionDataConcentrator(speechEngine, singingEngine, vocalRouter)
+        return ScoreAcquisitionDataConcentrator()
     }
 
 }

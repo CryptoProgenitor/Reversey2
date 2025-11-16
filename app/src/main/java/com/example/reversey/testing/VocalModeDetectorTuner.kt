@@ -147,7 +147,12 @@ class VocalModeDetectorTuner(
                     return false
                 }
 
-                // Process audio in frames (same as CustomVocalModeDetector)
+                // 🔥 APPLY SILENCE TRIMMING TO TRAINING DATA
+                val trimmed = trimLeadingSilence(audioData)
+                val skip = (sampleRate * 0.1).toInt()
+                val finalData = if (skip < trimmed.size) trimmed.copyOfRange(skip, trimmed.size) else trimmed
+
+                // Process audio in frames (same as VocalModeDetector)
                 val frameSize = 1024
                 val hopSize = 512
                 val audioFrames = mutableListOf<FloatArray>()
@@ -155,8 +160,8 @@ class VocalModeDetectorTuner(
                 val mfccFrames = mutableListOf<FloatArray>()
 
                 var i = 0
-                while (i + frameSize <= audioData.size) {
-                    val frame = audioData.sliceArray(i until i + frameSize)
+                while (i + frameSize <= finalData.size) {
+                    val frame = finalData.sliceArray(i until i + frameSize)
                     audioFrames.add(frame)
 
                     val pitch = audioProcessor.extractPitchYIN(frame, sampleRate)
@@ -182,6 +187,30 @@ class VocalModeDetectorTuner(
     }
 
     /**
+     * 🔥 Trim leading silence (same as VocalModeDetector)
+     */
+    private fun trimLeadingSilence(
+        data: FloatArray,
+        threshold: Float = 0.003f,
+        windowSize: Int = 1024
+    ): FloatArray {
+        var idx = 0
+        val limit = data.size - windowSize
+
+        while (idx < limit) {
+            var maxAmp = 0f
+            for (i in idx until idx + windowSize) {
+                val v = kotlin.math.abs(data[i])
+                if (v > maxAmp) maxAmp = v
+            }
+            if (maxAmp > threshold) break
+            idx += windowSize
+        }
+
+        return data.copyOfRange(idx, data.size)
+    }
+
+    /**
      * Create temporary file from asset for processing
      */
     private fun createTempFileFromAsset(context: android.content.Context, assetPath: String): File {
@@ -195,7 +224,7 @@ class VocalModeDetectorTuner(
     }
 
     /**
-     * Read WAV file - copied exactly from your implementation
+     * Read WAV file - copied exactly from VocalModeDetector
      */
     private fun readWavFile(file: File): Pair<FloatArray, Int> {
         try {
@@ -218,102 +247,50 @@ class VocalModeDetectorTuner(
             return Pair(audioData, sampleRate)
 
         } catch (e: Exception) {
+            Log.e(TAG, "Error reading WAV: ${e.message}")
             return Pair(floatArrayOf(), 44100)
         }
     }
 
     /**
-     * Test parameter configuration against training data
-     * OPTIMIZED: Uses cached audio data instead of reprocessing files
+     * Find optimal parameters through grid search
      */
-    fun testParameters(params: TuningParameters): TuningResult {
-        var correct = 0
-        val results = mutableListOf<String>()
-
-        // Create custom detector with test parameters
-        val customDetector = CustomVocalModeDetector(audioProcessor, params)
-
-        trainingSamples.forEach { sample ->
-            try {
-                // Use cached audio data - this is the MASSIVE speedup!
-                val cachedData = cachedAudioData[sample.file.name]
-                val analysis = if (cachedData != null) {
-                    customDetector.classifyVocalModeFromCache(cachedData)
-                } else {
-                    // Fallback to file processing if cache miss (shouldn't happen)
-                    customDetector.classifyVocalMode(sample.file)
-                }
-
-                val isCorrect = analysis.mode == sample.expectedMode
-                if (isCorrect) correct++
-
-                results.add(
-                    "${sample.file.name}: ${sample.expectedMode} → ${analysis.mode} " +
-                            "(${(analysis.confidence * 100).toInt()}%) ${if (isCorrect) "✓" else "✗"}"
-                )
-
-                Log.d(TAG, "Test ${sample.description}: expected ${sample.expectedMode}, " +
-                        "got ${analysis.mode} (${analysis.confidence}) ${if (isCorrect) "PASS" else "FAIL"}")
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Error testing ${sample.file.name}: ${e.message}")
-                results.add("${sample.file.name}: ERROR - ${e.message}")
-            }
+    fun findOptimalParameters(progressCallback: ((String) -> Unit)? = null): TuningResult? {
+        if (trainingSamples.isEmpty()) {
+            Log.e(TAG, "No training samples loaded")
+            return null
         }
 
-        val accuracy = correct.toFloat() / trainingSamples.size
-        val detailReport = results.joinToString("\n")
-
-        return TuningResult(params, accuracy, correct, trainingSamples.size, detailReport)
-    }
-
-    /**
-     * Run grid search optimization to find best parameters
-     * ENHANCED: Pre-processes audio once, then runs fast cached tests
-     */
-    fun runOptimization(
-        progressCallback: ((Int, Int, Float) -> Unit)? = null,
-        statusCallback: ((String) -> Unit)? = null
-    ): TuningResult {
-        Log.i(TAG, "Starting parameter optimization...")
-
-        // Pre-process all audio files first - this takes time once, saves massive time later
-        statusCallback?.invoke("Pre-processing audio files...")
-        val preprocessed = preProcessTrainingData { status -> statusCallback?.invoke(status) }
-        if (!preprocessed) {
-            throw Exception("Failed to pre-process training audio")
+        if (cachedAudioData.isEmpty()) {
+            Log.e(TAG, "No cached audio data - call preProcessTrainingData() first")
+            return null
         }
 
-        var bestResult = TuningResult(
-            TuningParameters(0f, 0f, 0f, 0f, 0f, 0f, 0f),
-            0f, 0, 0, ""
-        )
+        Log.i(TAG, "Starting parameter grid search...")
 
-        val searchRanges = ParameterSearchRanges()
-        var testCount = 0
-        val startTime = System.currentTimeMillis()
+        val ranges = ParameterSearchRanges()
+        var bestResult: TuningResult? = null
+        var totalCombinations = 0
+        var testedCombinations = 0
 
-        // Calculate total tests once
-        val totalTests = searchRanges.speechThresholds.size *
-                searchRanges.singingThresholds.size *
-                searchRanges.stabilityWeights.size *
-                searchRanges.contourWeights.size *
-                searchRanges.voicedWeights.size *
-                searchRanges.contourNormalizers.size *
-                searchRanges.mfccNormalizers.size
+        // Calculate total combinations for progress tracking
+        totalCombinations = ranges.speechThresholds.size *
+                ranges.singingThresholds.size *
+                ranges.stabilityWeights.size *
+                ranges.contourWeights.size *
+                ranges.voicedWeights.size *
+                ranges.contourNormalizers.size *
+                ranges.mfccNormalizers.size
 
-        Log.i(TAG, "Will test $totalTests parameter combinations")
-        progressCallback?.invoke(0, totalTests, 0.0f)
-        statusCallback?.invoke("Testing parameters...")
+        Log.i(TAG, "Testing $totalCombinations parameter combinations...")
 
-        // Grid search across parameter space - now fast with cached audio!
-        searchRanges.speechThresholds.forEach { speechThresh ->
-            searchRanges.singingThresholds.forEach { singingThresh ->
-                searchRanges.stabilityWeights.forEach { stabilityWeight ->
-                    searchRanges.contourWeights.forEach { contourWeight ->
-                        searchRanges.voicedWeights.forEach { voicedWeight ->
-                            searchRanges.contourNormalizers.forEach { contourNorm ->
-                                searchRanges.mfccNormalizers.forEach { mfccNorm ->
+        for (speechThresh in ranges.speechThresholds) {
+            for (singingThresh in ranges.singingThresholds) {
+                for (stabilityWeight in ranges.stabilityWeights) {
+                    for (contourWeight in ranges.contourWeights) {
+                        for (voicedWeight in ranges.voicedWeights) {
+                            for (contourNorm in ranges.contourNormalizers) {
+                                for (mfccNorm in ranges.mfccNormalizers) {
 
                                     val params = TuningParameters(
                                         speechThresh, singingThresh,
@@ -321,79 +298,78 @@ class VocalModeDetectorTuner(
                                         contourNorm, mfccNorm
                                     )
 
-                                    val result = testParameters(params)
-                                    testCount++
+                                    val result = evaluateParameters(params)
+                                    testedCombinations++
 
-                                    // Progress callback - call every test for real-time progress
-                                    progressCallback?.invoke(testCount, totalTests, (testCount.toFloat() / totalTests.toFloat()) * 100f)
-
-                                    if (result.accuracy > bestResult.accuracy) {
+                                    if (bestResult == null || result.accuracy > bestResult.accuracy) {
                                         bestResult = result
-                                        Log.i(TAG, "New best: ${result.accuracy * 100}% with $params")
-
-                                        // Early termination if perfect accuracy found
-                                        if (result.accuracy >= 1.0f) {
-                                            Log.i(TAG, "Perfect accuracy achieved! Stopping early.")
-                                            return@forEach
-                                        }
+                                        Log.i(TAG, "New best accuracy: ${result.accuracy} with params: $params")
                                     }
 
-                                    if (testCount % 100 == 0) {
-                                        Log.d(TAG, "Tested $testCount configurations, best: ${bestResult.accuracy * 100}%")
+                                    // Progress update every 100 tests
+                                    if (testedCombinations % 100 == 0) {
+                                        val progress = (testedCombinations * 100f / totalCombinations).toInt()
+                                        progressCallback?.invoke("Tested $testedCombinations/$totalCombinations ($progress%) - Best: ${bestResult?.accuracy ?: 0f}")
                                     }
                                 }
-
-                                // Early exit if perfect found
-                                if (bestResult.accuracy >= 1.0f) return@forEach
                             }
-                            if (bestResult.accuracy >= 1.0f) return@forEach
                         }
-                        if (bestResult.accuracy >= 1.0f) return@forEach
                     }
-                    if (bestResult.accuracy >= 1.0f) return@forEach
                 }
-                if (bestResult.accuracy >= 1.0f) return@forEach
             }
-            if (bestResult.accuracy >= 1.0f) return@forEach
         }
 
-        val endTime = System.currentTimeMillis()
-        val durationSec = (endTime - startTime) / 1000f
-
-        Log.i(TAG, "Optimization complete! Best accuracy: ${bestResult.accuracy * 100}% in ${durationSec}s")
-        Log.i(TAG, "Best parameters: ${bestResult.parameters}")
-
+        Log.i(TAG, "Grid search complete. Best accuracy: ${bestResult?.accuracy}")
         return bestResult
     }
 
     /**
-     * Generate update code for VocalModeDetector.kt
+     * Evaluate a specific parameter set
      */
-    fun generateUpdateCode(result: TuningResult): String {
+    private fun evaluateParameters(params: TuningParameters): TuningResult {
+        val detector = CustomVocalModeDetector(audioProcessor, params)
+        var correctClassifications = 0
+        val results = mutableListOf<String>()
+
+        trainingSamples.forEach { sample ->
+            val cachedData = cachedAudioData[sample.file.name]
+            if (cachedData != null) {
+                val analysis = detector.classifyVocalModeFromCache(cachedData)
+                val correct = analysis.mode == sample.expectedMode
+                if (correct) correctClassifications++
+
+                results.add("${sample.description}: expected=${sample.expectedMode}, got=${analysis.mode}, confidence=${analysis.confidence} ${if (correct) "✓" else "✗"}")
+            }
+        }
+
+        val accuracy = correctClassifications.toFloat() / trainingSamples.size
+        val detailReport = results.joinToString("\n")
+
+        return TuningResult(params, accuracy, correctClassifications, trainingSamples.size, detailReport)
+    }
+
+    /**
+     * Generate code snippet for applying the optimal parameters
+     */
+    fun generateOptimizedCode(result: TuningResult): String {
         return """
-//=== VocalModeDetector Optimal Configuration ===
-// Generated by VocalModeDetectorTuner BIT
-// Accuracy: ${(result.accuracy * 100).toInt()}% (${result.correctClassifications}/${result.totalSamples})
-// Parameters: ${result.parameters}
-// Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date())}
+// OPTIMIZED PARAMETERS - Generated by VocalModeDetectorTuner
+// Accuracy: ${result.accuracy} (${result.correctClassifications}/${result.totalSamples} correct)
 
-// 1. Update VocalDetectionParameters defaults:
-data class VocalDetectionParameters(
-    val speechConfidenceThreshold: Float = ${result.parameters.speechThreshold}f,
-    val singingConfidenceThreshold: Float = ${result.parameters.singingThreshold}f,
-    // ... other parameters unchanged
-)
+// 1. In classifyFeatures() method, update thresholds:
+val speechThreshold = ${result.parameters.speechThreshold}f
+val singingThreshold = ${result.parameters.singingThreshold}f
 
-// 2. In classifyFeatures() method, update singing weights:
+// 2. In classifyFeatures() method, update singing score calculation:
 val singingStabilityContrib = features.pitchStability * ${result.parameters.stabilityWeight}f
-val singingContourContrib = features.pitchContour * ${result.parameters.contourWeight}f  
+val singingContourContrib = features.pitchContour * ${result.parameters.contourWeight}f
 val singingVoicedContrib = features.voicedRatio * ${result.parameters.voicedWeight}f
 
-// 3. In analyzePitchContour() method, update normalization:
+// 3. In extractVocalFeatures() method, update contour normalization:
 val contour = (avgInterval / ${result.parameters.contourNormalizer}f).coerceIn(0f, 1f)
 
 // 4. In extractVocalFeatures() method, update MFCC normalization:
-(audioProcessor.calculateMFCCVariance(mfccFrames) / ${result.parameters.mfccNormalizer}f).coerceIn(0f, 1f)
+(calculateMFCCVariance(mfccFrames) / ${result.parameters.mfccNormalizer}f).coerceIn(0f, 1f)
 
 /* CLASSIFICATION RESULTS:
 ${result.detailReport}
@@ -421,8 +397,7 @@ private class ParameterSearchRanges {
 }
 
 /**
- * Custom VocalModeDetector for testing - NO INHERITANCE
- * ENHANCED: Supports cached audio data for massive speedup
+ * Custom VocalModeDetector for testing with silence trimming
  */
 private class CustomVocalModeDetector(
     private val audioProcessor: AudioProcessor,
@@ -430,7 +405,7 @@ private class CustomVocalModeDetector(
 ) {
 
     /**
-     * NEW: Classify from cached audio data - this is the speedup!
+     * Classify from cached audio data
      */
     fun classifyVocalModeFromCache(cachedData: CachedAudioData): VocalAnalysis {
         try {
@@ -448,79 +423,6 @@ private class CustomVocalModeDetector(
     }
 
     /**
-     * Original file-based classification (fallback)
-     */
-    fun classifyVocalMode(audioFile: File): VocalAnalysis {
-        try {
-            // Read WAV file (copied from your implementation)
-            val (audioData, sampleRate) = readWavFile(audioFile)
-            if (audioData.isEmpty()) {
-                return VocalAnalysis(VocalMode.UNKNOWN, 0f, VocalFeatures(0f, 0f, 0f, 0f))
-            }
-
-            // Process audio in frames (copied from your implementation)
-            val frameSize = 1024
-            val hopSize = 512
-            val audioFrames = mutableListOf<FloatArray>()
-            val pitches = mutableListOf<Float>()
-            val mfccFrames = mutableListOf<FloatArray>()
-
-            var i = 0
-            while (i + frameSize <= audioData.size) {
-                val frame = audioData.sliceArray(i until i + frameSize)
-                audioFrames.add(frame)
-
-                val pitch = audioProcessor.extractPitchYIN(frame, sampleRate)
-                pitches.add(pitch)
-
-                val mfcc = audioProcessor.extractMFCC(frame, sampleRate)
-                mfccFrames.add(mfcc)
-
-                i += hopSize
-            }
-
-            // Extract features with custom parameters
-            val features = extractVocalFeaturesCustom(audioFrames, pitches, mfccFrames)
-
-            // Classify with custom logic
-            val (mode, confidence) = classifyFeaturesCustom(features)
-
-            return VocalAnalysis(mode, confidence, features)
-
-        } catch (e: Exception) {
-            return VocalAnalysis(VocalMode.UNKNOWN, 0f, VocalFeatures(0f, 0f, 0f, 0f))
-        }
-    }
-
-    /**
-     * Read WAV file - copied exactly from your implementation
-     */
-    private fun readWavFile(file: File): Pair<FloatArray, Int> {
-        try {
-            val bytes = file.readBytes()
-            if (bytes.size < 44) {
-                return Pair(floatArrayOf(), 44100)
-            }
-
-            val sampleRate = java.nio.ByteBuffer.wrap(bytes, 24, 4)
-                .order(java.nio.ByteOrder.LITTLE_ENDIAN).int
-
-            val pcmData = bytes.sliceArray(44 until bytes.size)
-            val audioData = FloatArray(pcmData.size / 2)
-            for (i in audioData.indices) {
-                val sample = ((pcmData[i * 2 + 1].toInt() shl 8) or
-                        (pcmData[i * 2].toInt() and 0xFF)).toShort()
-                audioData[i] = sample.toFloat() / Short.MAX_VALUE
-            }
-
-            return Pair(audioData, sampleRate)
-
-        } catch (e: Exception) {
-            return Pair(floatArrayOf(), 44100)
-        }
-    }
-
-    /**
      * Extract features with custom normalization parameters
      */
     private fun extractVocalFeaturesCustom(
@@ -529,7 +431,7 @@ private class CustomVocalModeDetector(
         mfccFrames: List<FloatArray>
     ): VocalFeatures {
 
-        // 1. Pitch Stability (copied from your implementation)
+        // 1. Pitch Stability
         val validPitches = pitches.filter { it > 0f }
         val pitchStability = if (validPitches.size >= 3) {
             val pitchStdDev = validPitches.stdDev()
@@ -548,7 +450,7 @@ private class CustomVocalModeDetector(
             (audioProcessor.calculateMFCCVariance(mfccFrames) / customParams.mfccNormalizer).coerceIn(0f, 1f)
         } else 0f
 
-        // 4. Voiced Ratio (copied from your implementation)
+        // 4. Voiced Ratio
         val voicedRatio = if (pitches.isNotEmpty()) {
             validPitches.size.toFloat() / pitches.size
         } else 0f
@@ -557,34 +459,36 @@ private class CustomVocalModeDetector(
     }
 
     /**
-     * Classify features with custom weights and thresholds
+     * 🔥 FIXED: Classify features with correct property names
      */
     private fun classifyFeaturesCustom(features: VocalFeatures): Pair<VocalMode, Float> {
 
-        // Speech indicators (copied from your implementation)
+        // Speech indicators - using CORRECT property names
         val speechStabilityContrib = (1f - features.pitchStability) * 0.4f
         val speechContourContrib = (1f - features.pitchContour) * 0.3f
         val speechMfccContrib = features.mfccSpread * 0.1f
         val speechScore = speechStabilityContrib + speechContourContrib + speechMfccContrib
 
-        // Singing indicators (custom weights)
+        // Singing indicators (custom weights) - using CORRECT property names
         val singingStabilityContrib = features.pitchStability * customParams.stabilityWeight
         val singingContourContrib = features.pitchContour * customParams.contourWeight
         val singingVoicedContrib = features.voicedRatio * customParams.voicedWeight
         val singingScore = singingStabilityContrib + singingContourContrib + singingVoicedContrib
 
+        // 🔥 FIXED: Simple comparison without operator issues
+        // REPLACE the entire when block with:
         return when {
-            speechScore > customParams.speechThreshold && singingScore > customParams.singingThreshold -> {
-                if (speechScore > singingScore) VocalMode.SPEECH to speechScore else VocalMode.SINGING to singingScore
+            speechScore >= customParams.speechThreshold && singingScore >= customParams.singingThreshold -> {
+                if (speechScore >= singingScore) VocalMode.SPEECH to speechScore else VocalMode.SINGING to singingScore
             }
-            speechScore > customParams.speechThreshold -> VocalMode.SPEECH to speechScore
-            singingScore > customParams.singingThreshold -> VocalMode.SINGING to singingScore
+            speechScore >= customParams.speechThreshold -> VocalMode.SPEECH to speechScore
+            singingScore >= customParams.singingThreshold -> VocalMode.SINGING to singingScore
             else -> VocalMode.SPEECH to 0.25f
         }
     }
 
     /**
-     * Standard deviation calculation (copied from your implementation)
+     * Standard deviation calculation
      */
     private fun List<Float>.stdDev(): Float {
         if (isEmpty()) return 0f

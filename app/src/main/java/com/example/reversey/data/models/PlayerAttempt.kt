@@ -2,6 +2,8 @@ package com.example.reversey.data.models
 
 import androidx.compose.runtime.Immutable
 import com.example.reversey.scoring.DifficultyLevel
+// 🎯 DUAL PIPELINE CHANGE 2A: Add ScoringEngineType import
+import com.example.reversey.scoring.ScoringEngineType
 
 /**
  * Represents a single player's attempt to match a reversed recording.
@@ -15,6 +17,7 @@ import com.example.reversey.scoring.DifficultyLevel
  * @param rawScore The raw score value before percentage conversion from ScoringEngine.
  * @param challengeType The type of challenge (REVERSE or FORWARD).
  * @param difficulty The difficulty level at which this attempt was made.
+ * @param scoringEngine Which engine scored this attempt (Speech/Singing/null for legacy).
  */
 @Immutable
 data class PlayerAttempt(
@@ -26,5 +29,6 @@ data class PlayerAttempt(
     val mfccSimilarity: Float = 0f,  // Real MFCC similarity from ScoringEngine
     val rawScore: Float = 0f,        // Real raw score from ScoringEngine
     val challengeType: ChallengeType, // Challenge type
-    val difficulty: DifficultyLevel = DifficultyLevel.NORMAL // Difficulty level when attempt was made
+    val difficulty: DifficultyLevel = DifficultyLevel.NORMAL, // Difficulty level when attempt was made
+    val scoringEngine: ScoringEngineType? = null // 🎯 DUAL PIPELINE CHANGE 2B: Which engine scored this attempt
 )

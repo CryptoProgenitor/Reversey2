@@ -33,7 +33,7 @@ import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.ui.viewmodels.ThemeViewModel
-import com.example.reversey.scoring.ScoringEngine
+//import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.scoring.ScoringPresets
 import com.example.reversey.ui.viewmodels.AudioViewModel
@@ -55,6 +55,7 @@ import com.example.reversey.testing.VocalModeDetectorTuner
 import com.example.reversey.audio.processing.AudioProcessor
 import androidx.compose.material.icons.filled.Tune
 import kotlinx.coroutines.withContext
+
 
 /**
  * 🎨 MULTI-SCREEN THEMED MENU MODAL
@@ -79,10 +80,10 @@ fun ThemedMenuModal(
     onNavigateHome: () -> Unit,
     onClearAll: () -> Unit,
     themeViewModel: ThemeViewModel,
-    scoringEngine: ScoringEngine,
+    //scoringEngine: ScoringEngine,
     audioViewModel: AudioViewModel,
-    showDebugPanel: Boolean,
-    onShowDebugPanelChange: (Boolean) -> Unit,
+    //showDebugPanel: Boolean,
+    //onShowDebugPanelChange: (Boolean) -> Unit,
     initialScreen: ModalScreen = ModalScreen.Menu  // ← NEW: Allow opening at specific screen
 ) {
 
@@ -175,10 +176,10 @@ fun ThemedMenuModal(
                                 aesthetic = aesthetic,
                                 colors = colors,
                                 themeViewModel = themeViewModel,
-                                scoringEngine = scoringEngine,
+                                //scoringEngine = scoringEngine,
                                 audioViewModel = audioViewModel,
-                                showDebugPanel = showDebugPanel,
-                                onShowDebugPanelChange = onShowDebugPanelChange
+                                //showDebugPanel = showDebugPanel,
+                                //onShowDebugPanelChange = onShowDebugPanelChange
                             )
 
                             ModalScreen.Themes -> ThemesContent(
@@ -449,16 +450,16 @@ private fun SettingsContent(
     aesthetic: AestheticThemeData,
     colors: ColorScheme,
     themeViewModel: ThemeViewModel,
-    scoringEngine: ScoringEngine,
+    //scoringEngine: ScoringEngine,
     audioViewModel: AudioViewModel,
-    showDebugPanel: Boolean,
-    onShowDebugPanelChange: (Boolean) -> Unit
+    //showDebugPanel: Boolean,
+    //onShowDebugPanelChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     // State collection
-    var currentDifficulty by remember { mutableStateOf(scoringEngine.getCurrentDifficulty()) }
+    ///var currentDifficulty by remember { mutableStateOf(scoringEngine.getCurrentDifficulty()) }
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
@@ -503,7 +504,7 @@ private fun SettingsContent(
         )
 
         // Difficulty buttons in 2 rows
-        Column(
+        /*Column(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Row 1: Easy, Normal, Hard
@@ -572,7 +573,7 @@ private fun SettingsContent(
                     modifier = Modifier.width(90.dp)
                 )
             }
-        }
+        }*/
 
         HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
 
@@ -785,7 +786,7 @@ private fun SettingsContent(
 
         SectionTitle("DEVELOPER OPTIONS", aesthetic)
 
-        SettingRow(
+        /*SettingRow(
             label = "Show Debug Panel",
             aesthetic = aesthetic,
             colors = colors
@@ -801,7 +802,7 @@ private fun SettingsContent(
             style = MaterialTheme.typography.bodySmall,
             color = aesthetic.secondaryTextColor,
             modifier = Modifier.padding(horizontal = 8.dp)
-        )
+        )*/
         // ADD THIS AFTER LINE 802 in ThemedMenuModal.kt
         // Right after the "Enable advanced scoring diagnostics" text
 
@@ -842,6 +843,16 @@ private fun SettingsContent(
                                     if (!dataLoaded) {
                                         throw Exception("Failed to load training data from assets")
                                     }
+// FROM HERE====================================
+                                    tunerProgress = "Pre-processing training data..."
+                                    Log.d("VocalTuner", "Pre-processing training data...")
+                                    val preprocessed = tuner.preProcessTrainingData { status ->
+                                        tunerProgress = status
+                                    }
+
+                                    if (!preprocessed) {
+                                        throw Exception("Failed to pre-process training data")
+                                    }
 
                                     tunerProgress = "Running optimization..."
                                     Log.d("VocalTuner", "Starting optimization on background thread...")
@@ -849,19 +860,29 @@ private fun SettingsContent(
                                     // Run heavy optimization on background thread
                                     val result = withContext(kotlinx.coroutines.Dispatchers.Default) {
                                         Log.d("VocalTuner", "Background optimization started...")
-                                        val optimizationResult = tuner.runOptimization(
-                                            progressCallback = { current, total, percentage ->
-                                                currentTest = current
-                                                totalTests = total
-                                                progressPercentage = percentage
-                                                tunerProgress = "Testing $current of $total (${percentage.toInt()}%)"
-                                            },
-                                            statusCallback = { status ->
-                                                tunerProgress = status
+
+                                        // 🔥 FIXED: Use correct method name and callback
+                                        val optimizationResult = tuner.findOptimalParameters { progressString ->
+                                            // Parse progress string to extract numbers for UI
+                                            val regex = """Tested (\d+)/(\d+) \((\d+)%\)""".toRegex()
+                                            val match = regex.find(progressString)
+                                            if (match != null) {
+                                                currentTest = match.groupValues[1].toIntOrNull() ?: 0
+                                                totalTests = match.groupValues[2].toIntOrNull() ?: 4000
+                                                progressPercentage = match.groupValues[3].toFloatOrNull() ?: 0f
+                                                tunerProgress = progressString
+                                            } else {
+                                                tunerProgress = progressString
                                             }
-                                        )
-                                        Log.d("VocalTuner", "Optimization complete! Accuracy: ${optimizationResult.accuracy}")
+                                        }
+
+                                        Log.d("VocalTuner", "Optimization complete! Accuracy: ${optimizationResult?.accuracy}")
                                         optimizationResult
+                                    }
+
+                                    // Check if optimization succeeded
+                                    if (result == null) {
+                                        throw Exception("Optimization failed - no result returned")
                                     }
 
                                     // Write results to Downloads (back on main thread)
@@ -874,36 +895,8 @@ private fun SettingsContent(
                                         .format(java.util.Date())
                                     val outputFile = java.io.File(downloadsDir, "ReVerseY_VocalTuner_${timestamp}.txt")
 
-                                    // Generate update code manually
-                                    val updateCode = """
-//=== VocalModeDetector Optimal Configuration ===
-// Generated by VocalModeDetectorTuner BIT
-// Accuracy: ${(result.accuracy * 100).toInt()}% (${result.correctClassifications}/${result.totalSamples})
-// Parameters: ${result.parameters}
-// Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date())}
-
-// 1. Update VocalDetectionParameters defaults:
-data class VocalDetectionParameters(
-    val speechConfidenceThreshold: Float = ${result.parameters.speechThreshold}f,
-    val singingConfidenceThreshold: Float = ${result.parameters.singingThreshold}f,
-    // ... other parameters unchanged
-)
-
-// 2. In classifyFeatures() method, update singing weights:
-val singingStabilityContrib = features.pitchStability * ${result.parameters.stabilityWeight}f
-val singingContourContrib = features.pitchContour * ${result.parameters.contourWeight}f  
-val singingVoicedContrib = features.voicedRatio * ${result.parameters.voicedWeight}f
-
-// 3. In analyzePitchContour() method, update normalization:
-val contour = (avgInterval / ${result.parameters.contourNormalizer}f).coerceIn(0f, 1f)
-
-// 4. In extractVocalFeatures() method, update MFCC normalization:
-(audioProcessor.calculateMFCCVariance(mfccFrames) / ${result.parameters.mfccNormalizer}f).coerceIn(0f, 1f)
-
-/* CLASSIFICATION RESULTS:
-${result.detailReport}
-*/
-                                    """.trimIndent()
+                                    // 🔥 FIXED: Use correct method for generating code
+                                    val updateCode = tuner.generateOptimizedCode(result)
 
                                     outputFile.writeText(updateCode)
                                     Log.d("VocalTuner", "Results written to: ${outputFile.absolutePath}")
@@ -914,7 +907,7 @@ ${result.detailReport}
                                         android.widget.Toast.LENGTH_LONG
                                     ).show()
                                     Log.d("VocalTuner", "=== VOCAL TUNER SUCCESS ===")
-
+//TO HERE=========================================================================================================
                                 } catch (e: Exception) {
                                     Log.e("VocalTuner", "ERROR: ${e.message}", e)
                                     android.widget.Toast.makeText(
@@ -1007,7 +1000,7 @@ ${result.detailReport}
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Card(
+            /*Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(enabled = !bitRunning) {
@@ -1082,7 +1075,7 @@ ${result.detailReport}
                         )
                     }
                 }
-            }
+            }*/
         }
     }
 }

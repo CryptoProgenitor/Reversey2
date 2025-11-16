@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reversey.scoring.*
 
-@Composable
+/*@Composable
 fun DebugPanel(
     scoringEngine: ScoringEngine,
     isVisible: Boolean,
@@ -123,7 +123,7 @@ fun DebugPanel(
             }
         }
     }
-}
+}*/
 
 @Composable
 private fun BasicParametersTab(
