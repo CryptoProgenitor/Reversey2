@@ -681,7 +681,7 @@ fun EnhancedRecordButton(
             colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Mic, "Request Permission", tint = Color.White, modifier = Modifier.size(32.dp))
+                Icon(Icons.Default.Mic, "Request Permission", tint = Color.White, modifier = Modifier.size(22.dp))
                 Text("Grant\nPermission", color = Color.White, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }

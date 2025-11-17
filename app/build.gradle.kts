@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 88
-        versionName = "18.0.0h-working difficulty buttons"
+        versionName = "18.0.0i-GPT-streamlined-AudioViewModel"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
