@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.reversey.data.models.ChallengeType
-import com.example.reversey.scoring.ScoringResult
+import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.MaterialColors
 
@@ -62,8 +62,7 @@ import com.example.reversey.ui.theme.MaterialColors
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun ScoreExplanationDialog(
-    score: ScoringResult,
-    challengeType: ChallengeType,
+    attempt: PlayerAttempt,
     onDismiss: () -> Unit
 ) {
     // ✅ Access theme data through unified system
@@ -151,8 +150,7 @@ fun ScoreExplanationDialog(
 
                 // ✅ Single unified score card with theme-aware styling
                 UnifiedScoreCard(
-                    score = score,
-                    challengeType = challengeType,
+                    attempt = attempt,
                     aesthetic = aesthetic,
                     colors = colors,
                     rotation = rotation,
@@ -172,8 +170,7 @@ fun ScoreExplanationDialog(
  */
 @Composable
 private fun UnifiedScoreCard(
-    score: ScoringResult,
-    challengeType: ChallengeType,
+    attempt: PlayerAttempt,
     aesthetic: com.example.reversey.ui.theme.AestheticThemeData,
     colors: ColorScheme,
     rotation: Float,
@@ -300,12 +297,13 @@ private fun UnifiedScoreCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ✅ Score display using theme emoji
+            val rawScore = attempt.score
             val emoji = aesthetic.scoreEmojis[
                 when {
-                    score.score >= 90 -> 90
-                    score.score >= 80 -> 80
-                    score.score >= 70 -> 70
-                    score.score >= 60 -> 60
+                    rawScore >= 90 -> 90
+                    rawScore >= 80 -> 80
+                    rawScore >= 70 -> 70
+                    rawScore >= 60 -> 60
                     else -> 0
                 }
             ] ?: "🎤"
@@ -318,7 +316,7 @@ private fun UnifiedScoreCard(
 
             // ✅ Score text using Material 3 colors
             Text(
-                text = "${score.score}%",
+                text = "${attempt.score}%",
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 color = colors.primary,
@@ -331,16 +329,14 @@ private fun UnifiedScoreCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // âœ… Show actual feedback from scoring system
-
             // DEBUG: Check what feedback we have
-            android.util.Log.d("ScoreDialog", "Feedback items: ${score.feedback}")
-            android.util.Log.d("ScoreDialog", "Feedback size: ${score.feedback.size}")
+            android.util.Log.d("ScoreDialog", "Feedback items: ${attempt.feedback}")
+            android.util.Log.d("ScoreDialog", "Feedback size: ${attempt.feedback.size}")
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                score.feedback.forEach { feedbackLine ->
+                attempt.feedback.forEach { feedbackLine ->
                     Text(
                         text = feedbackLine,
                         fontSize = 18.sp,
@@ -355,19 +351,19 @@ private fun UnifiedScoreCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ✅ Metrics using Material 3 styling
-            MetricsSection(score, colors)
+            // ✅ Metrics using Material 3 styling (from PlayerAttempt)
+            MetricsSection(attempt, colors)
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // ✅ Tips using theme-aware content
-            TipsSection(score, challengeType, aesthetic, colors)
+            TipsSection(attempt, aesthetic, colors)
         }
     }
 }
 
 @Composable
-private fun MetricsSection(score: ScoringResult, colors: ColorScheme) {
+private fun MetricsSection(attempt: PlayerAttempt, colors: ColorScheme) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = colors.surfaceVariant.copy(alpha = 0.5f)
@@ -382,8 +378,8 @@ private fun MetricsSection(score: ScoringResult, colors: ColorScheme) {
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            MetricRow("Pitch Similarity", score.metrics.pitch, colors)
-            MetricRow("Voice Matching", score.metrics.mfcc, colors)
+            MetricRow("Pitch Similarity", attempt.pitchSimilarity, colors)
+            MetricRow("Voice Matching", attempt.mfccSimilarity, colors)
         }
     }
 }
@@ -405,7 +401,7 @@ private fun MetricRow(label: String, value: Float, colors: ColorScheme) {
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             LinearProgressIndicator(
-                progress = value,
+                progress = value.coerceIn(0f, 1f),
                 modifier = Modifier
                     .width(80.dp)
                     .padding(end = 8.dp),
@@ -422,12 +418,15 @@ private fun MetricRow(label: String, value: Float, colors: ColorScheme) {
 
 @Composable
 private fun TipsSection(
-    score: ScoringResult,
-    challengeType: ChallengeType,
+    attempt: PlayerAttempt,
     aesthetic: com.example.reversey.ui.theme.AestheticThemeData,
     colors: ColorScheme
 ) {
-    val tips = generateThemeAwareTips(score, challengeType, aesthetic.id)
+    val tips = generateThemeAwareTips(
+        score = attempt.score,
+        challengeType = attempt.challengeType,
+        themeId = aesthetic.id
+    ).take(3)
 
     LazyColumn(
         modifier = Modifier.height(120.dp),
@@ -452,14 +451,20 @@ private fun TipsSection(
 }
 
 /**
- * ✅ Theme-aware header generation (replaces separate functions for each theme)
+ * ✅ Theme-aware header generation (still available if you hook it into UI)
  */
-private fun getThemeAwareHeader(score: Int, challengeType: ChallengeType, themeId: String): String {
-    val challengeText = if (challengeType == ChallengeType.REVERSE) "reverse singing" else "vocal mimicry"
+private fun getThemeAwareHeader(
+    score: Int,
+    challengeType: ChallengeType,
+    themeId: String
+): String {
+    val challengeText =
+        if (challengeType == ChallengeType.REVERSE) "reverse singing" else "vocal mimicry"
 
     return when (themeId) {
         "steampunk" -> {
-            val steamChallenge = if (challengeType == ChallengeType.REVERSE) "phonographic reversal" else "vocal apparatus mimicry"
+            val steamChallenge =
+                if (challengeType == ChallengeType.REVERSE) "phonographic reversal" else "vocal apparatus mimicry"
             when {
                 score >= 95 -> "EXTRAORDINARY MASTERY of $steamChallenge!"
                 score >= 90 -> "Most splendid $steamChallenge performance!"
@@ -470,8 +475,10 @@ private fun getThemeAwareHeader(score: Int, challengeType: ChallengeType, themeI
                 else -> "$steamChallenge requires mechanical precision!"
             }
         }
+
         "cyberpunk" -> {
-            val cyberChallenge = if (challengeType == ChallengeType.REVERSE) "audio_reverse_hack" else "voice_pattern_clone"
+            val cyberChallenge =
+                if (challengeType == ChallengeType.REVERSE) "audio_reverse_hack" else "voice_pattern_clone"
             when {
                 score >= 95 -> "NEURAL_LINK_PERFECTED: $cyberChallenge"
                 score >= 90 -> "SYSTEM_HACKED: Elite $cyberChallenge"
@@ -482,8 +489,10 @@ private fun getThemeAwareHeader(score: Int, challengeType: ChallengeType, themeI
                 else -> "SYSTEM_ERROR: $cyberChallenge failed"
             }
         }
+
         "graphite_sketch" -> {
-            val artChallenge = if (challengeType == ChallengeType.REVERSE) "reverse melody sketch" else "voice drawing"
+            val artChallenge =
+                if (challengeType == ChallengeType.REVERSE) "reverse melody sketch" else "voice drawing"
             when {
                 score >= 95 -> "Perfect $artChallenge - frame worthy!"
                 score >= 90 -> "Beautiful $artChallenge artwork!"
@@ -494,6 +503,7 @@ private fun getThemeAwareHeader(score: Int, challengeType: ChallengeType, themeI
                 else -> "Every artist starts with rough $artChallenge!"
             }
         }
+
         else -> {
             // Default encouraging headers for Y2K, Scrapbook, etc.
             when {
@@ -510,34 +520,65 @@ private fun getThemeAwareHeader(score: Int, challengeType: ChallengeType, themeI
 }
 
 /**
- * ✅ Theme-aware tips generation (replaces separate functions for each theme)
+ * ✅ Theme-aware tips generation using INT score (no ScoringResult dependency)
  */
-private fun generateThemeAwareTips(score: ScoringResult, challengeType: ChallengeType, themeId: String): List<String> {
+private fun generateThemeAwareTips(
+    score: Int,
+    challengeType: ChallengeType,
+    themeId: String
+): List<String> {
     return when (themeId) {
         "steampunk" -> generateSteampunkTips(score, challengeType)
         "cyberpunk" -> generateCyberpunkTips(score, challengeType)
         "graphite_sketch" -> generateGraphiteTips(score, challengeType)
         else -> generateEncouragingTips(score, challengeType)
-    }.take(3)
+    }
 }
 
-// ... (keep existing tip generation functions for now)
-private fun generateEncouragingTips(score: ScoringResult, challengeType: ChallengeType): List<String> {
-    // ... existing implementation
-    return listOf("Practice makes perfect!", "Keep trying!", "You're improving!")
+private fun generateEncouragingTips(
+    score: Int,
+    challengeType: ChallengeType
+): List<String> {
+    // TODO: replace placeholders with your full logic if you had it before
+    return listOf(
+        "Practice makes perfect!",
+        "Keep trying!",
+        "You're improving!"
+    )
 }
 
-private fun generateSteampunkTips(score: ScoringResult, challengeType: ChallengeType): List<String> {
-    // ... existing implementation
-    return listOf("Calibrate your vocal apparatus", "Check steam pressure", "Oil the gears")
+private fun generateSteampunkTips(
+    score: Int,
+    challengeType: ChallengeType
+): List<String> {
+    // TODO: replace placeholders with your full logic if you had it before
+    return listOf(
+        "Calibrate your vocal apparatus.",
+        "Check steam pressure in your delivery.",
+        "Oil the gears of your timing."
+    )
 }
 
-private fun generateCyberpunkTips(score: ScoringResult, challengeType: ChallengeType): List<String> {
-    // ... existing implementation
-    return listOf("Upgrade neural interface", "Boost signal strength", "Debug the code")
+private fun generateCyberpunkTips(
+    score: Int,
+    challengeType: ChallengeType
+): List<String> {
+    // TODO: replace placeholders with your full logic if you had it before
+    return listOf(
+        "Upgrade your neural interface.",
+        "Boost your signal clarity.",
+        "Debug your rhythm subroutine."
+    )
 }
 
-private fun generateGraphiteTips(score: ScoringResult, challengeType: ChallengeType): List<String> {
-    // ... existing implementation
-    return listOf("Sharpen your pencil", "Practice shading", "Study references")
+private fun generateGraphiteTips(
+    score: Int,
+    challengeType: ChallengeType
+): List<String> {
+    // TODO: replace placeholders with your full logic if you had it before
+    return listOf(
+        "Sharpen your vocal outline.",
+        "Smooth out your tonal shading.",
+        "Study the reference recording closely."
+    )
 }

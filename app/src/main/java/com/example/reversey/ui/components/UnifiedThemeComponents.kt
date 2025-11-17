@@ -1281,8 +1281,7 @@ private fun ScrapbookDialogs(
         }
 
         ScoreExplanationDialog(
-            score = scoringResult,
-            challengeType = attempt.challengeType,
+            attempt = attempt,
             onDismiss = onDismissScore
         )
     }
@@ -1401,8 +1400,7 @@ private fun ModernDialogs(
         }
 
         ScoreExplanationDialog(
-            score = scoringResult,
-            challengeType = attempt.challengeType,
+            attempt = attempt,
             onDismiss = onDismissScore
         )
     }
