@@ -162,6 +162,7 @@ class DefaultThemeComponents : ThemeComponents {
         )
     }
 
+
     @Composable
     override fun RecordButton(
         isRecording: Boolean,

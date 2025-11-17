@@ -46,6 +46,10 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import com.example.reversey.ui.components.AnalysisToast
+import com.example.reversey.scoring.ScoringResult
+import com.example.reversey.scoring.SimilarityMetrics
+import com.example.reversey.scoring.VocalAnalysis
+import com.example.reversey.scoring.VocalFeatures
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -111,6 +115,155 @@ class AudioViewModel @Inject constructor(
 
 
 
+
+    //**********************************************************************************************************
+    //*******************************USE REAL DATA TO FEED TO VOCAL MODE DETECTOR*******************************
+    //*******************************||||||||||||||||||||||||||||||||||||||||||*********************************
+    //*******************************vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv********************************
+    /*private suspend fun scoreDualPipeline(
+        referenceAudio: FloatArray,
+        attemptAudio: FloatArray,
+        challengeType: ChallengeType,
+        sampleRate: Int = 44100
+    ): ScoringResult {
+        // Create temp file for VocalModeDetector analysis
+        val tempFile = File.createTempFile("vocal_analysis_", ".wav", getApplication<Application>().cacheDir)
+
+        try {
+            // Write FloatArray to temp WAV file
+            writeSimpleWavFile(tempFile, referenceAudio, sampleRate)
+
+            // REAL ANALYSIS - Replace fake data with actual detection
+            val vocalAnalysis = vocalModeDetector.classifyVocalMode(tempFile)
+
+            // Route via VocalModeRouter
+            val routingDecision = vocalModeRouter.getRoutingDecision(vocalAnalysis)
+
+            // Call appropriate engine
+            return when (routingDecision.selectedEngine) {
+                ScoringEngineType.SPEECH_ENGINE -> speechScoringEngine.scoreAttempt(
+                    referenceAudio, attemptAudio, challengeType, sampleRate
+                )
+                ScoringEngineType.SINGING_ENGINE -> singingScoringEngine.scoreAttempt(
+                    referenceAudio, attemptAudio, challengeType, sampleRate
+                )
+            }
+        } finally {
+            tempFile.delete() // Clean up
+        }
+    }*/
+
+    private suspend fun scoreDualPipeline(
+        referenceAudio: FloatArray,
+        attemptAudio: FloatArray,
+        challengeType: ChallengeType,
+        sampleRate: Int = 44100
+    ): ScoringResult {
+        Log.d("DUAL_PIPELINE", "🚀 === DUAL SCORING PIPELINE START ===")
+        Log.d("DUAL_PIPELINE", "Reference audio: ${referenceAudio.size} samples")
+        Log.d("DUAL_PIPELINE", "Attempt audio: ${attemptAudio.size} samples")
+        Log.d("DUAL_PIPELINE", "Challenge type: $challengeType")
+
+        // Create temp file for VocalModeDetector analysis
+        val tempFile = File.createTempFile("vocal_analysis_", ".wav", getApplication<Application>().cacheDir)
+        Log.d("DUAL_PIPELINE", "✅ Temp file created: ${tempFile.name} (${tempFile.length()} bytes)")
+
+        try {
+            // Write FloatArray to temp WAV file
+            Log.d("DUAL_PIPELINE", "📁 Writing audio to temp WAV file...")
+            writeSimpleWavFile(tempFile, referenceAudio, sampleRate)
+            Log.d("DUAL_PIPELINE", "✅ WAV file written: ${tempFile.length()} bytes")
+
+            // REAL ANALYSIS - Replace fake data with actual detection
+            Log.d("DUAL_PIPELINE", "🔍 === VOCAL MODE DETECTION START ===")
+            val vocalAnalysis = vocalModeDetector.classifyVocalMode(tempFile)
+            Log.d("DUAL_PIPELINE", "✅ VocalModeDetector result:")
+            Log.d("DUAL_PIPELINE", "   Mode: ${vocalAnalysis.mode}")
+            Log.d("DUAL_PIPELINE", "   Confidence: ${vocalAnalysis.confidence}")
+            Log.d("DUAL_PIPELINE", "   Features: ${vocalAnalysis.features}")
+
+            // Route via VocalModeRouter
+            Log.d("DUAL_PIPELINE", "🧭 === VOCAL MODE ROUTING START ===")
+            val routingDecision = vocalModeRouter.getRoutingDecision(vocalAnalysis)
+            Log.d("DUAL_PIPELINE", "✅ VocalModeRouter decision:")
+            Log.d("DUAL_PIPELINE", "   Selected Engine: ${routingDecision.selectedEngine}")
+            Log.d("DUAL_PIPELINE", "   Routed Mode: ${routingDecision.routedMode}")
+
+            // Call appropriate engine
+            Log.d("DUAL_PIPELINE", "⚙️ === SCORING ENGINE EXECUTION ===")
+            val result = when (routingDecision.selectedEngine) {
+                ScoringEngineType.SPEECH_ENGINE -> {
+                    Log.d("DUAL_PIPELINE", "🗣️ Calling SpeechScoringEngine.scoreAttempt()")
+                    val speechResult = speechScoringEngine.scoreAttempt(
+                        referenceAudio, attemptAudio, challengeType, sampleRate
+                    )
+                    Log.d("DUAL_PIPELINE", "✅ SpeechScoringEngine completed: score=${speechResult.score}")
+                    speechResult
+                }
+                ScoringEngineType.SINGING_ENGINE -> {
+                    Log.d("DUAL_PIPELINE", "🎵 Calling SingingScoringEngine.scoreAttempt()")
+                    val singingResult = singingScoringEngine.scoreAttempt(
+                        referenceAudio, attemptAudio, challengeType, sampleRate
+                    )
+                    Log.d("DUAL_PIPELINE", "✅ SingingScoringEngine completed: score=${singingResult.score}")
+                    singingResult
+                }
+            }
+
+            Log.d("DUAL_PIPELINE", "🎯 === DUAL PIPELINE COMPLETE ===")
+            Log.d("DUAL_PIPELINE", "Final result: ${result.score} (${result.feedback.joinToString()})")
+            return result
+
+        } finally {
+            tempFile.delete() // Clean up
+            Log.d("DUAL_PIPELINE", "🧹 Temp file cleaned up: ${tempFile.name}")
+        }
+    }
+
+    private fun writeSimpleWavFile(file: File, audioData: FloatArray, sampleRate: Int) {
+        file.outputStream().use { fos ->
+            val dataSize = audioData.size * 2 // 16-bit samples
+            val fileSize = 36 + dataSize
+
+            // WAV header
+            fos.write("RIFF".toByteArray())
+            fos.write(intToLittleEndian(fileSize))
+            fos.write("WAVE".toByteArray())
+            fos.write("fmt ".toByteArray())
+            fos.write(intToLittleEndian(16)) // PCM format size
+            fos.write(shortToLittleEndian(1)) // PCM format
+            fos.write(shortToLittleEndian(1)) // Mono
+            fos.write(intToLittleEndian(sampleRate))
+            fos.write(intToLittleEndian(sampleRate * 2)) // Byte rate
+            fos.write(shortToLittleEndian(2)) // Block align
+            fos.write(shortToLittleEndian(16)) // Bits per sample
+            fos.write("data".toByteArray())
+            fos.write(intToLittleEndian(dataSize))
+
+            // PCM data
+            audioData.forEach { sample ->
+                val intSample = (sample * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+                fos.write(shortToLittleEndian(intSample.toInt()))
+            }
+        }
+    }
+
+    private fun intToLittleEndian(value: Int) = byteArrayOf(
+        (value and 0xFF).toByte(),
+        ((value shr 8) and 0xFF).toByte(),
+        ((value shr 16) and 0xFF).toByte(),
+        ((value shr 24) and 0xFF).toByte()
+    )
+
+    private fun shortToLittleEndian(value: Int) = byteArrayOf(
+        (value and 0xFF).toByte(),
+        ((value shr 8) and 0xFF).toByte()
+    )
+
+//*******************************^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^********************************
+//*******************************||||||||||||||||||||||||||||||||||||||||||*********************************
+//*******************************USE REAL DATA TO FEED TO VOCAL MODE DETECTOR*******************************
+//**********************************************************************************************************
     // SURGICAL FIX #1: Add error message helper
     private fun showUserMessage(message: String) {
         _uiState.update { it.copy(statusText = message) }
@@ -118,7 +271,14 @@ class AudioViewModel @Inject constructor(
 
     // SURGICAL FIX #2: Add file validation helper
     private fun validateRecordedFile(file: File?): Boolean {
-        return file != null && file.exists() && file.length() > 100
+        Log.d("FILE_DEBUG", "🔍 Validating file: ${file?.absolutePath}")
+        Log.d("FILE_DEBUG", "📁 File exists: ${file?.exists()}")
+        Log.d("FILE_DEBUG", "📏 File size: ${file?.length()} bytes")
+
+        val isValid = file != null && file.exists() && file.length() > 100
+        Log.d("FILE_DEBUG", "✅ Validation result: $isValid")
+
+        return isValid
     }
 
     init {
@@ -235,23 +395,172 @@ class AudioViewModel @Inject constructor(
 
     // SURGICAL FIX #4: Improved stopRecording with better file validation
     fun stopRecording() {
+        // Cancel the recording job and wait for it to complete
         recordingJob?.cancel()
-        recordingJob = null
 
-        val recordedFile = currentRecordingFile
-        currentRecordingFile = null  // 🎯 GLUTE: Clear the tracking
+        viewModelScope.launch(Dispatchers.IO) {
+            // Wait for the recording job to actually finish
+            recordingJob?.join()  // ← CRITICAL MISSING PIECE!
+            recordingJob = null
 
-        if (validateRecordedFile(recordedFile)) {
-            _uiState.update { it.copy(isRecording = false, statusText = "Recording complete") }
-            loadRecordingsWithAnalysis()
-        } else {
-            _uiState.update { it.copy(isRecording = false, statusText = "Recording failed - file too short") }
+            // Small delay to ensure file is fully written
+            delay(100)
+
+            // Get the latest recorded file
+            val latestFile = repository.getLatestFile(isAttempt = _uiState.value.isRecordingAttempt)
+
+            Log.d("AudioViewModel", "=== STOP RECORDING ===")
+            Log.d("AudioViewModel", "Is attempt: ${_uiState.value.isRecordingAttempt}")
+            Log.d("AudioViewModel", "Latest file: ${latestFile?.absolutePath}")
+
+            if (_uiState.value.isRecordingAttempt) {
+                // Handle attempt completion
+                withContext(Dispatchers.Main) {
+                    handleAttemptCompletion(latestFile)  // ← THE MISSING CALL!
+                }
+            } else {
+                // [Keep your existing main recording logic from current version]
+                if (validateRecordedFile(latestFile)) {
+                    // Your existing challenge creation logic...
+                    val recordedFile = latestFile
+                    try {
+                        Log.d("AudioViewModel", "Creating reversed version...")
+                        repository.reverseWavFile(recordedFile)
+                        Log.d("AudioViewModel", "Reversed file created: ${recordedFile!!.absolutePath.replace(".wav", "_reversed.wav")}")
+                    } catch (e: Exception) {
+                        Log.e("AudioViewModel", "Error creating reversed file: ${e.message}")
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        _uiState.update { it.copy(isRecording = false, statusText = "Recording complete") }
+                        loadRecordingsWithAnalysis()  // ← Use your current method name
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        _uiState.update { it.copy(isRecording = false, statusText = "Recording failed - file too short") }
+                    }
+                }
+            }
         }
     }
 
+    private fun handleAttemptCompletion(attemptFile: File?) {
+        val parentPath = _uiState.value.parentRecordingPath
+        val challengeType = _uiState.value.pendingChallengeType
+
+        if (attemptFile != null && parentPath != null && challengeType != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    // Create reversed version of attempt
+                    Log.d("AudioViewModel", "Creating reversed version of attempt: ${attemptFile.absolutePath}")
+                    val reversedAttemptFile = repository.reverseWavFile(attemptFile)
+                    Log.d("AudioViewModel", "Reversed attempt file created: ${reversedAttemptFile?.absolutePath}")
+
+                    val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
+
+                    if (parentRecording != null) {
+                        // Use your current dual scoring system here!
+                        val scoringResult = when (challengeType) {
+                            ChallengeType.REVERSE -> {
+                                Log.d("AudioViewModel", "REVERSE scoring - parentReversedPath: ${parentRecording.reversedPath}")
+                                parentRecording.reversedPath?.let { reversedParentPath ->
+                                    try {
+                                        val reversedParentAudio = readAudioFile(reversedParentPath)
+                                        val attemptAudioPath = reversedAttemptFile?.absolutePath ?: attemptFile.absolutePath
+                                        val attemptAudio = readAudioFile(attemptAudioPath)
+
+                                        if (reversedParentAudio.isNotEmpty() && attemptAudio.isNotEmpty()) {
+                                            // ← INTEGRATE YOUR DUAL SCORING HERE!
+                                            scoreDualPipeline(reversedParentAudio, attemptAudio, ChallengeType.REVERSE)
+                                        } else {
+                                            ScoringResult(score = 0, rawScore = 0f, metrics = SimilarityMetrics(pitch = 0f, mfcc = 0f), feedback = emptyList())
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("AudioViewModel", "Exception in REVERSE scoring: ${e.message}", e)
+                                        ScoringResult(score = 0, rawScore = 0f, metrics = SimilarityMetrics(pitch = 0f, mfcc = 0f), feedback = emptyList())
+                                    }
+                                } ?: ScoringResult(score = 0, rawScore = 0f, metrics = SimilarityMetrics(pitch = 0f, mfcc = 0f), feedback = emptyList())
+                            }
+                            ChallengeType.FORWARD -> {
+                                Log.d("AudioViewModel", "FORWARD scoring - parentOriginalPath: ${parentRecording.originalPath}")
+                                val originalParentAudio = readAudioFile(parentRecording.originalPath)
+                                val attemptAudio = readAudioFile(attemptFile.absolutePath)
+
+                                if (originalParentAudio.isNotEmpty() && attemptAudio.isNotEmpty()) {
+                                    // ← INTEGRATE YOUR DUAL SCORING HERE!
+                                    scoreDualPipeline(originalParentAudio, attemptAudio, ChallengeType.FORWARD)
+                                } else {
+                                    ScoringResult(score = 0, rawScore = 0f, metrics = SimilarityMetrics(pitch = 0f, mfcc = 0f), feedback = emptyList())
+                                }
+                            }
+                        }
+
+                        // Create player attempt
+                        val attempt = PlayerAttempt(
+                            playerName = "Player ${parentRecording.attempts.size + 1}",
+                            attemptFilePath = attemptFile.absolutePath,
+                            reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
+                            score = scoringResult.score,
+                            pitchSimilarity = scoringResult.metrics.pitch,
+                            mfccSimilarity = scoringResult.metrics.mfcc,
+                            rawScore = scoringResult.rawScore,
+                            challengeType = challengeType,
+                            difficulty = DifficultyLevel.NORMAL//hardcoded difficulty placeholder!
+                        )
+
+                        val updatedRecordings = _uiState.value.recordings.map { recording ->
+                            if (recording.originalPath == parentPath) {
+                                recording.copy(attempts = recording.attempts + attempt)
+                            } else {
+                                recording
+                            }
+                        }
+
+                        val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+                        attemptsRepository.saveAttempts(attemptsMap)
+
+                        _uiState.update {
+                            it.copy(
+                                recordings = updatedRecordings,
+                                isRecording = false,
+                                isRecordingAttempt = false,
+                                parentRecordingPath = null,
+                                pendingChallengeType = null,
+                                statusText = "Attempt scored: ${scoringResult.score}%",
+                                attemptToRename = if (scoringResult.score > 70) Pair(parentPath, attempt) else null
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("AudioViewModel", "Error processing attempt", e)
+                    _uiState.update {
+                        it.copy(
+                            isRecording = false,
+                            isRecordingAttempt = false,
+                            parentRecordingPath = null,
+                            pendingChallengeType = null,
+                            statusText = "Error processing attempt: ${e.message}"
+                        )
+                    }
+                }
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    isRecording = false,
+                    isRecordingAttempt = false,
+                    parentRecordingPath = null,
+                    pendingChallengeType = null,
+                    statusText = "Attempt recording failed"
+                )
+            }
+        }
+    }
+
+
     // SURGICAL FIX #5: Attempt recording with better state management
     fun startAttempt(originalPath: String) {
-        if (uiState.value.isRecordingAttempt) {
+        if (uiState.value.isRecordingAttempt && uiState.value.isRecording) {
             showUserMessage("Attempt recording already in progress")
             return
         }
@@ -266,17 +575,23 @@ class AudioViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isRecordingAttempt = true,
+                isRecording = true,                    // 🔥 FIX: Legacy behaviour restored
                 parentRecordingPath = originalPath,
                 statusText = "Recording attempt...",
                 amplitudes = emptyList()
             )
         }
 
+        Log.d("RECORD_BUG", "📍 STEP 1: Set isRecording=true in startAttempt")
+        Log.d("RECORD_BUG", "📊 State: isRecording=${_uiState.value.isRecording}, isRecordingAttempt=${_uiState.value.isRecordingAttempt}")
+
         val attemptFile = createAudioFile(getApplication(), isAttempt = true)
         currentAttemptFile = attemptFile  // 🎯 GLUTE: Track the attempt file for proper cleanup
         recordingJob = viewModelScope.launch(Dispatchers.IO) {
             try {
+                Log.d("RECORD_BUG", "📞 About to call repository.startRecording")
                 repository.startRecording(attemptFile) { amplitude ->
+                    Log.d("RECORD_BUG", "📈 Amplitude callback received: $amplitude")
                     _uiState.update {
                         val newAmplitudes = it.amplitudes + amplitude
                         it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
@@ -284,9 +599,12 @@ class AudioViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
+                    Log.d("RECORD_BUG", "💥 Exception in startRecording: ${e.message}")
                     showUserMessage("Attempt recording failed: ${e.message}")
                     _uiState.update {
+                        Log.d("RECORD_BUG", "🚨 Exception handler - NOT clearing isRecording")
                         it.copy(
+                            isRecording = false,           // 🚨 ADD THIS LINE
                             isRecordingAttempt = false,
                             parentRecordingPath = null,
                             amplitudes = emptyList()
@@ -299,17 +617,25 @@ class AudioViewModel @Inject constructor(
 
     // SURGICAL FIX #6: Improved stop attempt with scoring integration
     fun stopAttempt() {
+        Log.d("FILE_DEBUG", "🎯 stopAttempt() called - currentAttemptFile: ${currentAttemptFile?.absolutePath}")
+
         recordingJob?.cancel()
         recordingJob = null
 
         val attemptFile = currentAttemptFile
-        currentAttemptFile = null  // 🎯 GLUTE: Clear the tracking
+        Log.d("FILE_DEBUG", "📝 Captured attemptFile: ${attemptFile?.absolutePath}")
+        Log.d("FILE_DEBUG", "🎯 About to validate attempt file: ${attemptFile?.absolutePath}")
+// Add 1000ms delay like "Ed Standard" - file system needs time to settle
+        Thread.sleep(1000)
+
         val parentPath = uiState.value.parentRecordingPath
         val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
 
         if (validateRecordedFile(attemptFile) && parentPath != null) {
+            currentAttemptFile = null  // 🎯 Clear ONLY after successful validation
             val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
             if (parentRecording != null) {
+                Log.d("RECORD_BUG", "🚨 CLEARING isRecording=false in handleStopAttempt")
                 _uiState.update {
                     it.copy(
                         isRecordingAttempt = false,
@@ -462,6 +788,12 @@ class AudioViewModel @Inject constructor(
     fun startChallengeAttempt(originalPath: String, challengeType: ChallengeType) {
         _uiState.update { it.copy(pendingChallengeType = challengeType) }
         startAttempt(originalPath)
+    }
+
+    // 🌉 BRIDGE: Compatibility layer for pro themes (Recording, ChallengeType) -> startAttempt(originalPath)
+    fun startAttemptRecording(recording: Recording, challengeType: ChallengeType) {
+        _uiState.update { it.copy(pendingChallengeType = challengeType) }
+        startAttempt(recording.originalPath)
     }
 
     // SURGICAL FIX #7: Add playback state cleanup

@@ -4,6 +4,7 @@ package com.example.reversey
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -372,7 +373,9 @@ fun AudioReverserApp(
 
                 // Enhanced Record Button with theme integration
                 EnhancedRecordButton(
-                    isRecording = uiState.isRecording,
+                    isRecording = uiState.isRecording.also { recording ->
+                        Log.d("RECORD_BUG", "🖥️ UI READS: isRecording=$recording, isRecordingAttempt=${uiState.isRecordingAttempt}")
+                    },
                     hasPermission = recordAudioPermissionState.status.isGranted,
                     onRequestPermission = { recordAudioPermissionState.launchPermissionRequest() },
                     onStartRecording = { viewModel.startRecording() },
@@ -449,7 +452,7 @@ fun AudioReverserApp(
                                     onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
                                     isGameModeEnabled = isGameModeEnabled,
                                     onStartAttempt = { rec: Recording, type: ChallengeType ->
-                                        viewModel.startAttempt(rec.originalPath)
+                                        viewModel.startAttemptRecording(rec, type)
                                     }
                                 )
                             }//keep me
