@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 88
-        versionName = "18.0.0g-working voice detector"
+        versionName = "18.0.0h-working difficulty buttons"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

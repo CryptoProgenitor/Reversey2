@@ -110,7 +110,7 @@ class AudioViewModel @Inject constructor(
     val isScoringReady: StateFlow<Boolean> = _isScoringReady.asStateFlow()
 
     // 🎯 GLUTE UI INTERFACE: Expose difficulty information for UI components
-    private val _currentDifficulty = MutableStateFlow(DifficultyLevel.NORMAL)
+    private val _currentDifficulty = MutableStateFlow(DifficultyLevel.NORMAL) // Overridden by saved settings
     val currentDifficultyFlow: StateFlow<DifficultyLevel> = _currentDifficulty.asStateFlow()
 
 
@@ -260,7 +260,7 @@ class AudioViewModel @Inject constructor(
         ((value shr 8) and 0xFF).toByte()
     )
 
-//*******************************^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^********************************
+    //*******************************^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^********************************
 //*******************************||||||||||||||||||||||||||||||||||||||||||*********************************
 //*******************************USE REAL DATA TO FEED TO VOCAL MODE DETECTOR*******************************
 //**********************************************************************************************************
@@ -298,6 +298,20 @@ class AudioViewModel @Inject constructor(
             settingsDataStore.tutorialCompleted.collect { completed ->
                 if (!completed) {
                     _uiState.update { it.copy(showTutorial = true) }
+                }
+            }
+        }
+
+        // 🎯 LOAD SAVED DIFFICULTY LEVEL
+        viewModelScope.launch {
+            settingsDataStore.getDifficultyLevel.collect { savedDifficultyName ->
+                try {
+                    val savedDifficulty = DifficultyLevel.valueOf(savedDifficultyName)
+                    _currentDifficulty.value = savedDifficulty
+                    Log.d("DIFFICULTY_LOAD", "Loaded saved difficulty: ${savedDifficulty.displayName}")
+                } catch (e: Exception) {
+                    Log.w("DIFFICULTY_LOAD", "Invalid difficulty '$savedDifficultyName', using NORMAL")
+                    _currentDifficulty.value = DifficultyLevel.NORMAL
                 }
             }
         }
@@ -505,7 +519,7 @@ class AudioViewModel @Inject constructor(
                             mfccSimilarity = scoringResult.metrics.mfcc,
                             rawScore = scoringResult.rawScore,
                             challengeType = challengeType,
-                            difficulty = DifficultyLevel.NORMAL//hardcoded difficulty placeholder!
+                            difficulty = _currentDifficulty.value
                         )
 
                         val updatedRecordings = _uiState.value.recordings.map { recording ->
@@ -742,7 +756,7 @@ class AudioViewModel @Inject constructor(
                     mfccSimilarity = 0.7f, // TODO: Get actual MFCC similarity from ScoringResult
                     rawScore = scoringResult.score.toFloat(), // Use score as rawScore for now
                     challengeType = challengeType,
-                    difficulty = DifficultyLevel.NORMAL,
+                    difficulty = _currentDifficulty.value,
                     scoringEngine = if (vocalAnalysis.mode == VocalMode.SINGING) ScoringEngineType.SINGING_ENGINE else ScoringEngineType.SPEECH_ENGINE
                 )
 
@@ -980,6 +994,12 @@ class AudioViewModel @Inject constructor(
     // 🎯 GLUTE DIFFICULTY MANAGEMENT: Unified difficulty control for dual engine system
     fun updateDifficulty(level: DifficultyLevel) {
         _currentDifficulty.value = level
+
+        // 💾 PERSIST DIFFICULTY SETTING
+        viewModelScope.launch {
+            settingsDataStore.saveDifficultyLevel(level.name)
+            Log.d("DIFFICULTY_SAVE", "Saved difficulty: ${level.displayName}")
+        }
 
         // Convert difficulty level to preset for backend engines
         val preset = when (level) {

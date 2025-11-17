@@ -35,7 +35,6 @@ import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.ui.viewmodels.ThemeViewModel
 //import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.scoring.DifficultyLevel
-import com.example.reversey.scoring.DifficultyConfig
 import com.example.reversey.scoring.ScoringPresets
 import com.example.reversey.ui.viewmodels.AudioViewModel
 import androidx.compose.ui.platform.LocalContext
@@ -460,7 +459,7 @@ private fun SettingsContent(
     val scope = rememberCoroutineScope()
 
     // State collection
-    val currentDifficulty by audioViewModel.currentDifficultyFlow.collectAsState()
+    ///var currentDifficulty by remember { mutableStateOf(scoringEngine.getCurrentDifficulty()) }
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
@@ -504,20 +503,77 @@ private fun SettingsContent(
             modifier = Modifier.padding(horizontal = 8.dp)
         )
 
-        // Difficulty buttons in single row for 3 levels
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // Difficulty buttons in 2 rows
+        /*Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            DifficultyConfig.supportedLevels.forEach { difficulty ->
+            // Row 1: Easy, Normal, Hard
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 DifficultyButton(
-                    difficulty = difficulty,
-                    isSelected = currentDifficulty == difficulty,
+                    difficulty = DifficultyLevel.EASY,
+                    preset = ScoringPresets.easyMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.EASY,
+                    scoringEngine = scoringEngine,
                     audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.weight(1f)
+                )
+
+                DifficultyButton(
+                    difficulty = DifficultyLevel.NORMAL,
+                    preset = ScoringPresets.normalMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.NORMAL,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.weight(1f)
+                )
+
+                DifficultyButton(
+                    difficulty = DifficultyLevel.HARD,
+                    preset = ScoringPresets.hardMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.HARD,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
                     modifier = Modifier.weight(1f)
                 )
             }
-        }
+
+            // Row 2: Expert, Master (centered with no truncation)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DifficultyButton(
+                    difficulty = DifficultyLevel.EXPERT,
+                    preset = ScoringPresets.expertMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.EXPERT,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.width(90.dp)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                DifficultyButton(
+                    difficulty = DifficultyLevel.MASTER,
+                    preset = ScoringPresets.masterMode(),
+                    isSelected = currentDifficulty == DifficultyLevel.MASTER,
+                    scoringEngine = scoringEngine,
+                    audioViewModel = audioViewModel,
+                    onDifficultyChanged = { currentDifficulty = it },
+                    modifier = Modifier.width(90.dp)
+                )
+            }
+        }*/
 
         HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
 
@@ -865,14 +921,14 @@ private fun SettingsContent(
                                     Log.d("VocalTuner", "Tuner finished - UI reset")
                                 }
                             }
-                            /* ```
+                           /* ```
 
-                             **🔧 FIXES:**
-                             - **Background thread:** `withContext(Dispatchers.Default)` for heavy optimization
-                                     - **Extensive logging:** Every step logged with "VocalTuner" tag
-                             - **UI thread safety:** File I/O back on main thread
+                            **🔧 FIXES:**
+                            - **Background thread:** `withContext(Dispatchers.Default)` for heavy optimization
+                                    - **Extensive logging:** Every step logged with "VocalTuner" tag
+                            - **UI thread safety:** File I/O back on main thread
 
-                             **Test and check logcat:** `adb logcat | grep VocalTuner`*/
+                            **Test and check logcat:** `adb logcat | grep VocalTuner`*/
                         }
                     },
                 colors = CardDefaults.cardColors(
