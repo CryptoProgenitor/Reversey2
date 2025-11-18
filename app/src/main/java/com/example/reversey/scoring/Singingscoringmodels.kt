@@ -66,6 +66,8 @@ object SingingScoringModels {
                 pitchTolerance = 25f,
                 minScoreThreshold = 0.15f,
                 perfectScoreThreshold = 0.85f,
+                reverseMinScoreThreshold = 0.12f,      // 80% of 0.15f (easier floor)
+                reversePerfectScoreThreshold = 0.77f,  // 90% of 0.85f (easier ceiling)
                 scoreCurve = 2.0f
             ),
 
@@ -131,7 +133,7 @@ object SingingScoringModels {
                 incredibleFeedbackThreshold = 85,
                 greatJobFeedbackThreshold = 65,
                 goodEffortFeedbackThreshold = 45,
-                reversePerfectScoreAdjustment = 0.92f
+                //reversePerfectScoreAdjustment = 0.92f
             ),
 
             // ----------------------- 🚫 GARBAGE ------------------------
@@ -178,6 +180,8 @@ object SingingScoringModels {
                 pitchTolerance = 20f,
                 minScoreThreshold = 0.22f,
                 perfectScoreThreshold = 0.92f,
+                reverseMinScoreThreshold = 0.18f,      // 80% of 0.22f
+                reversePerfectScoreThreshold = 0.83f,  // 90% of 0.92f
                 scoreCurve = 1.8f
             ),
 
@@ -212,7 +216,7 @@ object SingingScoringModels {
                 incredibleFeedbackThreshold = 88,
                 greatJobFeedbackThreshold = 70,
                 goodEffortFeedbackThreshold = 50,
-                reversePerfectScoreAdjustment = 0.95f
+                //reversePerfectScoreAdjustment = 0.95f
             ),
 
             garbage = GarbageDetectionParameters(
@@ -249,6 +253,8 @@ object SingingScoringModels {
                 pitchTolerance = 12f,
                 minScoreThreshold = 0.30f,
                 perfectScoreThreshold = 0.90f,
+                reverseMinScoreThreshold = 0.24f,      // 80% of 0.30f
+                reversePerfectScoreThreshold = 0.81f,  // 90% of 0.90f
                 scoreCurve = 1.5f
             ),
 
@@ -283,7 +289,7 @@ object SingingScoringModels {
                 incredibleFeedbackThreshold = 92,
                 greatJobFeedbackThreshold = 75,
                 goodEffortFeedbackThreshold = 55,
-                reversePerfectScoreAdjustment = 0.90f
+                //reversePerfectScoreAdjustment = 0.90f
             ),
 
             garbage = GarbageDetectionParameters(

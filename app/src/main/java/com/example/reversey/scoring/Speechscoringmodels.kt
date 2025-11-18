@@ -63,6 +63,8 @@ object SpeechScoringModels {
                 pitchTolerance = 50f,         // Very forgiving: speech varies wildly
                 minScoreThreshold = 0.08f,
                 perfectScoreThreshold = 0.75f,
+                reverseMinScoreThreshold = 0.06f,      // 80% of 0.08f (easier floor)
+                reversePerfectScoreThreshold = 0.68f,  // 90% of 0.75f (easier ceiling)
                 scoreCurve = 3.0f             // Larger curve = more forgiving scoring drop-off
             ),
 
@@ -112,7 +114,7 @@ object SpeechScoringModels {
                 incredibleFeedbackThreshold = 75,
                 greatJobFeedbackThreshold = 55,
                 goodEffortFeedbackThreshold = 35,
-                reversePerfectScoreAdjustment = 1.05f // Reverse easier for speech
+                //reversePerfectScoreAdjustment = 1.05f // Reverse easier for speech
             ),
 
             // --------------------------- 🚫 GARBAGE ---------------------------
@@ -154,6 +156,8 @@ object SpeechScoringModels {
                 pitchTolerance = 40f,
                 minScoreThreshold = 0.12f,
                 perfectScoreThreshold = 0.85f,
+                reverseMinScoreThreshold = 0.10f,      // 80% of 0.12f
+                reversePerfectScoreThreshold = 0.77f,  // 90% of 0.85f
                 scoreCurve = 2.8f
             ),
 
@@ -187,7 +191,7 @@ object SpeechScoringModels {
                 incredibleFeedbackThreshold = 80,
                 greatJobFeedbackThreshold = 60,
                 goodEffortFeedbackThreshold = 40,
-                reversePerfectScoreAdjustment = 1.0f
+                //reversePerfectScoreAdjustment = 1.0f
             ),
 
             garbage = GarbageDetectionParameters(
@@ -224,6 +228,8 @@ object SpeechScoringModels {
                 pitchTolerance = 30f,
                 minScoreThreshold = 0.18f,
                 perfectScoreThreshold = 0.80f,
+                reverseMinScoreThreshold = 0.14f,      // 80% of 0.18f
+                reversePerfectScoreThreshold = 0.72f,  // 90% of 0.80f
                 scoreCurve = 2.3f
             ),
 
@@ -257,7 +263,7 @@ object SpeechScoringModels {
                 incredibleFeedbackThreshold = 85,
                 greatJobFeedbackThreshold = 65,
                 goodEffortFeedbackThreshold = 45,
-                reversePerfectScoreAdjustment = 0.98f
+                //reversePerfectScoreAdjustment = 0.98f
             ),
 
             garbage = GarbageDetectionParameters(

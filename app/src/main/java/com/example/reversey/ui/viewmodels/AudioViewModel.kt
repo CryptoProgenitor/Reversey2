@@ -92,6 +92,14 @@ class AudioViewModel @Inject constructor(
     private val scoreAcquisitionDataConcentrator: ScoreAcquisitionDataConcentrator
 ) : AndroidViewModel(application) {
 
+    // =========================
+    // ORCHESTRATOR GETTER FOR TEST BLOCK IN MENU
+    // =========================
+    fun getOrchestrator(): VocalScoringOrchestrator {
+        return vocalScoringOrchestrator
+    }
+
+
     init {
         Log.d("HILT_VERIFY", "📱 AudioViewModel created - Speech: ${speechScoringEngine.hashCode()}, Singing: ${singingScoringEngine.hashCode()}")
     }
@@ -717,16 +725,18 @@ class AudioViewModel @Inject constructor(
                 val scoringResult = if (vocalAnalysis.mode == VocalMode.SINGING) {
                     Log.d("SCORING", "🎵 Using Singing Pipeline")
                     singingScoringEngine.scoreAttempt(
-                        reversedParentAudio,
-                        attemptAudio,
-                        challengeType
+                        originalAudio = reversedParentAudio,
+                        playerAttempt = attemptAudio,
+                        challengeType = challengeType,
+                        difficulty = _currentDifficulty.value
                     )
                 } else {
                     Log.d("SCORING", "🗣️ Using Speech Pipeline")
                     speechScoringEngine.scoreAttempt(
-                        reversedParentAudio,
-                        attemptAudio,
-                        challengeType
+                        originalAudio = reversedParentAudio,
+                        playerAttempt = attemptAudio,
+                        challengeType = challengeType,
+                        difficulty = _currentDifficulty.value
                     )
                 }
 

@@ -38,41 +38,50 @@ class VocalScoringOrchestrator @Inject constructor(
         val tempRef = File.createTempFile("rvy_detector_ref_", ".wav")
         writeSimpleWavFile(tempRef, referenceAudio, sampleRate)
 
+        val recordingId = ScoringDebugLogger.formatRecordingId(tempRef.absolutePath)
+
         // 2) Detect speech/singing mode
         val analysis = vocalModeDetector.classifyVocalMode(tempRef)
         Log.d("VSO", "Detector → mode=${analysis.mode}, confidence=${analysis.confidence}")
+        ScoringDebugLogger.logDetectorDecision(recordingId, analysis.mode)
 
         // 3) Route to SPEECH or SINGING engine
         val decision = vocalModeRouter.getRoutingDecision(analysis)
         Log.d("VSO", "Routing → ${decision.selectedEngine}")
+        ScoringDebugLogger.logRouterSelection(
+            recordingId = recordingId,
+            detectedMode = analysis.mode,
+            selectedEngine = decision.selectedEngine
+        )
 
         // 4) Pick the correct engine
-        val engine = when (decision.selectedEngine) {
-            ScoringEngineType.SPEECH_ENGINE -> speechScoringEngine
-            ScoringEngineType.SINGING_ENGINE -> singingScoringEngine
-        }
-
-        // 5) Call the correct engine method (REAL signature)
         val result = when (decision.selectedEngine) {
             ScoringEngineType.SPEECH_ENGINE -> {
-                (speechScoringEngine).scoreAttempt(
+                ScoringDebugLogger.logOrchestratorEngine(recordingId, ScoringEngineType.SPEECH_ENGINE)
+                ScoringDebugLogger.logSpeechEngineEnter(recordingId)
+
+                speechScoringEngine.scoreAttempt(
                     originalAudio = referenceAudio,
                     playerAttempt = attemptAudio,
                     challengeType = challengeType,
+                    difficulty = difficulty,
                     sampleRate = sampleRate
                 )
             }
 
             ScoringEngineType.SINGING_ENGINE -> {
-                (singingScoringEngine).scoreAttempt(
+                ScoringDebugLogger.logOrchestratorEngine(recordingId, ScoringEngineType.SINGING_ENGINE)
+                ScoringDebugLogger.logSingingEngineEnter(recordingId)
+
+                singingScoringEngine.scoreAttempt(
                     originalAudio = referenceAudio,
                     playerAttempt = attemptAudio,
                     challengeType = challengeType,
+                    difficulty = difficulty,
                     sampleRate = sampleRate
                 )
             }
         }
-
 
         // Cleanup temp file
         try { tempRef.delete() } catch (_: Exception) {}
@@ -80,6 +89,7 @@ class VocalScoringOrchestrator @Inject constructor(
         Log.d("VSO", "=== ORCHESTRATOR EXIT → score=${result.score} ===")
         return result
     }
+
 
     // WAV writer (16-bit PCM) for detector
     private fun writeSimpleWavFile(

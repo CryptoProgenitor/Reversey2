@@ -63,6 +63,8 @@ data class ScoringParameters(
     // --- Score scaling thresholds ---
     var minScoreThreshold: Float = 0.20f,      // raw score below this → 0 after scaling
     var perfectScoreThreshold: Float = 0.80f,  // raw score at/above this → 100 after scaling
+    var reverseMinScoreThreshold: Float = minScoreThreshold * 0.8f,     // 20% easier floor
+    var reversePerfectScoreThreshold: Float = perfectScoreThreshold * 0.9f, // 10% easier ceiling
     var scoreCurve: Float = 2.0f,             // exponent for curve shaping
 
     // --- Bonus weights ---
@@ -244,7 +246,11 @@ data class ScoringResult(
     val rawScore: Float,         // 0–1 (pre-scaled)
     val metrics: SimilarityMetrics,
     val feedback: List<String>,
-    val isGarbage: Boolean = false
+    val isGarbage: Boolean = false,
+    // DEBUG FIELDS:
+    val debugMinThreshold: Float = 0f,
+    val debugPerfectThreshold: Float = 0f,
+    val debugNormalizedScore: Float = 0f
 )
 
 data class SimilarityMetrics(

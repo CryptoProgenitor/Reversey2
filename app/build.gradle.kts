@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 88
-        versionName = "18.0.0p-GPT-ScoringModels+DualPipeline"
+        versionName = "18.0.0r-ClaudeFixedScoreTester"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -117,6 +117,19 @@ class SingingScoringEngine @Inject constructor(
         Log.d("SINGING_ENGINE", "   🎼 Pitch weight: ${parameters.pitchWeight}f (melody dominates)")
         Log.d("SINGING_ENGINE", "   🎼 Monotone threshold: ${garbageParams.pitchMonotoneThreshold}f")
 
+        // 🔍 Full preset + integrity audit (singing)
+        ScoringDebugLogger.logSingingPresetApplied(
+            presetName = "Singing.${preset.difficulty}",
+            preset = preset,
+            scoring = parameters,
+            content = contentParams,
+            melodic = melodicParams,
+            musical = musicalParams,
+            audio = audioParams,
+            scaling = scalingParams,
+            garbage = garbageParams
+        )
+
 
     }
 
@@ -129,8 +142,15 @@ class SingingScoringEngine @Inject constructor(
         originalAudio: FloatArray,
         playerAttempt: FloatArray,
         challengeType: ChallengeType,
+        difficulty: DifficultyLevel,
         sampleRate: Int = 44100
     ): ScoringResult {
+
+        Log.d("SINGING_TEST", "🎵 SINGING ENGINE CALLED!")
+
+        if (difficulty != _currentDifficulty.value) {
+            updateDifficulty(difficulty)
+        }
 
         Log.d("SINGING_ENGINE", "=== SINGING SCORING ENGINE ===")
         Log.d("SINGING_ENGINE", "🎵 Difficulty: ${_currentDifficulty.value.displayName}")
@@ -436,17 +456,24 @@ class SingingScoringEngine @Inject constructor(
     private fun scaleMusicalScore(rawScore: Float, challengeType: ChallengeType): Int {
         var scaledScore = rawScore
 
-        // Apply challenge type adjustments for singing (more demanding)
-        if (challengeType == ChallengeType.REVERSE) {
-            scaledScore *= scalingParams.reversePerfectScoreAdjustment
-            // Additional reverse singing difficulty
-            scaledScore *= 0.95f  // 5% additional difficulty for reverse singing
-            Log.d("SINGING_ENGINE", "🔄 Applied reverse singing adjustments")
+        // Use challenge-appropriate thresholds
+        val minThreshold = if (challengeType == ChallengeType.REVERSE) {
+            parameters.reverseMinScoreThreshold
+        } else {
+            parameters.minScoreThreshold
         }
 
-        // Musical scaling curve (more demanding than speech)
-        val normalizedScore = (scaledScore - parameters.minScoreThreshold) /
-                (parameters.perfectScoreThreshold - parameters.minScoreThreshold)
+        val perfectThreshold = if (challengeType == ChallengeType.REVERSE) {
+            parameters.reversePerfectScoreThreshold
+        } else {
+            parameters.perfectScoreThreshold
+        }
+
+
+        Log.d("SINGING_ENGINE", "🎯 Using thresholds: min=$minThreshold, perfect=$perfectThreshold for $challengeType")
+
+// Musical scaling curve (more demanding than speech)
+        val normalizedScore = (rawScore - minThreshold) / (perfectThreshold - minThreshold)
 
         val curveAdjustedScore = if (normalizedScore > 0) {
             normalizedScore.pow(1f / parameters.scoreCurve)
@@ -456,6 +483,12 @@ class SingingScoringEngine @Inject constructor(
 
         val finalScore = (curveAdjustedScore * 100f).roundToInt().coerceIn(0, 100)
         Log.d("SINGING_ENGINE", "🎼 Musical scaling: raw=$rawScore, normalized=$normalizedScore, curved=$curveAdjustedScore, final=$finalScore")
+
+        // ADD THESE DEBUG LOGS:
+        Log.d("SINGING_DEBUG", "🎵 THRESHOLDS: challengeType=$challengeType")
+        Log.d("SINGING_DEBUG", "🎵 minThreshold=$minThreshold (reverse=${parameters.reverseMinScoreThreshold}, forward=${parameters.minScoreThreshold})")
+        Log.d("SINGING_DEBUG", "🎵 perfectThreshold=$perfectThreshold (reverse=${parameters.reversePerfectScoreThreshold}, forward=${parameters.perfectScoreThreshold})")
+        Log.d("SINGING_DEBUG", "🎵 rawScore=$rawScore, normalizedScore=$normalizedScore, finalScore=$finalScore")
 
         return finalScore
     }
@@ -642,7 +675,7 @@ class SingingScoringEngine @Inject constructor(
 
     private fun getCurrentScoringParameters(): ScoringParameters {
         // Simple fallback - use default ScoringParameters with proper dtwNormalizationFactor
-        return ScoringParameters()
+        return parameters
     }
 
 }

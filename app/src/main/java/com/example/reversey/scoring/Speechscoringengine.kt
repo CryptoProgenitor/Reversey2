@@ -109,6 +109,19 @@ class SpeechScoringEngine @Inject constructor(
         Log.d("SPEECH_ENGINE", "   📊 Pitch tolerance: ${parameters.pitchTolerance}f")
         Log.d("SPEECH_ENGINE", "   📊 Content weight: ${parameters.mfccWeight}f (higher for speech)")
         Log.d("SPEECH_ENGINE", "   📊 Monotone threshold: ${garbageParams.pitchMonotoneThreshold}f")
+
+        // 🔍 Full preset + integrity audit (speech)
+        ScoringDebugLogger.logSpeechPresetApplied(
+            presetName = "Speech.${preset.difficulty}",
+            preset = preset,
+            scoring = parameters,
+            content = contentParams,
+            melodic = melodicParams,
+            musical = musicalParams,
+            audio = audioParams,
+            scaling = scalingParams,
+            garbage = garbageParams
+        )
     }
 
     /**
@@ -119,8 +132,13 @@ class SpeechScoringEngine @Inject constructor(
         originalAudio: FloatArray,
         playerAttempt: FloatArray,
         challengeType: ChallengeType,
+        difficulty: DifficultyLevel,
         sampleRate: Int = 44100
     ): ScoringResult {
+
+        if (difficulty != _currentDifficulty.value) {
+            updateDifficulty(difficulty)
+        }
 
         Log.d("SPEECH_ENGINE", "=== SPEECH SCORING ENGINE ===")
         Log.d("SPEECH_ENGINE", "🎤 Difficulty: ${_currentDifficulty.value.displayName}")
@@ -345,15 +363,23 @@ class SpeechScoringEngine @Inject constructor(
     private fun scaleSpeechScore(rawScore: Float, challengeType: ChallengeType): Int {
         var scaledScore = rawScore
 
-        // Apply challenge type adjustments for speech
-        if (challengeType == ChallengeType.REVERSE) {
-            scaledScore *= scalingParams.reversePerfectScoreAdjustment
-            Log.d("SPEECH_ENGINE", "🔄 Applied reverse speech adjustment: ${scalingParams.reversePerfectScoreAdjustment}")
+        // Use challenge-appropriate thresholds
+        val minThreshold = if (challengeType == ChallengeType.REVERSE) {
+            parameters.reverseMinScoreThreshold
+        } else {
+            parameters.minScoreThreshold
         }
 
-        // Speech-optimized scaling curve
-        val normalizedScore = (scaledScore - parameters.minScoreThreshold) /
-                (parameters.perfectScoreThreshold - parameters.minScoreThreshold)
+        val perfectThreshold = if (challengeType == ChallengeType.REVERSE) {
+            parameters.reversePerfectScoreThreshold
+        } else {
+            parameters.perfectScoreThreshold
+        }
+
+        Log.d("SPEECH_ENGINE", "🎯 Using thresholds: min=$minThreshold, perfect=$perfectThreshold for $challengeType")
+
+// Speech-optimized scaling curve
+        val normalizedScore = (rawScore - minThreshold) / (perfectThreshold - minThreshold)
 
         val curveAdjustedScore = if (normalizedScore > 0) {
             normalizedScore.pow(1f / parameters.scoreCurve)
@@ -519,7 +545,7 @@ class SpeechScoringEngine @Inject constructor(
 
     private fun getCurrentScoringParameters(): ScoringParameters {
         // Simple fallback - use default ScoringParameters with proper dtwNormalizationFactor
-        return ScoringParameters()
+        return parameters
     }
 
 }

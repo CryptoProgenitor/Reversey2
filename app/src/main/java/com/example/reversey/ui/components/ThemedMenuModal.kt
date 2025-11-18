@@ -56,7 +56,27 @@ import com.example.reversey.testing.VocalModeDetectorTuner
 import com.example.reversey.audio.processing.AudioProcessor
 import androidx.compose.material.icons.filled.Tune
 import kotlinx.coroutines.withContext
+import com.example.reversey.testing.ScoringStressTester
+import kotlinx.coroutines.launch
+import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.runtime.*
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+//import com.example.reversey.testing.ScoringStressTesterPanel
 
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 🎨 MULTI-SCREEN THEMED MENU MODAL
@@ -619,6 +639,7 @@ private fun SettingsContent(
         // Color preview and button to open picker
         var showColorPicker by remember { mutableStateOf(false) }
 
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -729,6 +750,39 @@ private fun SettingsContent(
         HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
 
         SectionTitle("DEVELOPER OPTIONS", aesthetic)
+
+        ////////////////////SCORE STRESS TESTER START//////////////////////////////////////////
+
+        var showStressTester by remember { mutableStateOf(false) }
+        var progress by remember { mutableStateOf<ScoringStressTester.Progress?>(null) }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .clickable { showStressTester = true }
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Scoring Stress Tester",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+// Panel shown *inside* SettingsContent, but no inner scroll now
+        if (showStressTester) {
+            StressTesterPanel(
+                progress = progress,
+                onClose = { showStressTester = false },
+                audioViewModel = audioViewModel
+            )
+        }
+
+
+        //====================SCORING TESTER END======================================================
 
         /*SettingRow(
             label = "Show Debug Panel",
@@ -937,6 +991,10 @@ private fun SettingsContent(
             }
         }
 
+
+
+
+
         // 🔧 BIT (Built-In Test) Button - Only in DEBUG builds
         if (BuildConfig.DEBUG) {
             var bitRunning by remember { mutableStateOf(false) }
@@ -1059,6 +1117,85 @@ private fun SettingRow(
         control()
     }
 }
+
+@Composable
+fun StressTesterPanel(
+    progress: ScoringStressTester.Progress?,
+    onClose: () -> Unit,
+    audioViewModel: AudioViewModel
+) {
+    val ctx = LocalContext.current
+    val orchestrator = audioViewModel.getOrchestrator()
+
+    // 🔁 Local progress state so we can update it from the tester
+    var localProgress by remember { mutableStateOf(progress) }
+
+    LaunchedEffect(Unit) {
+        ScoringStressTester.runAll(
+            context = ctx,
+            orchestrator = orchestrator,
+            onProgress = { p -> localProgress = p }
+        )
+        // when it finishes you’ll have the CSV in Downloads
+        // you can add a Toast here if you want
+    }
+
+    // Simple card-style panel, NO verticalScroll
+    Surface(
+        tonalElevation = 8.dp,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            Text(
+                "SCORING STRESS TEST",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            if (localProgress != null) {
+                val p = localProgress!!
+                val frac = p.current.toFloat() / p.total.toFloat()
+
+                LinearProgressIndicator(
+                    progress = { frac },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text("File: ${p.file}")
+                Text("Difficulty: ${p.difficulty.displayName}")
+                Text("Pass: ${p.pass}")
+                Text("${p.current} / ${p.total}")
+            } else {
+                Text("Preparing tests…")
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onClose) {
+                    Text("Close")
+                }
+            }
+        }
+    }
+}
+
+
+
 
 // ========== THEMES CONTENT ==========
 
