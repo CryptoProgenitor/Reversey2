@@ -80,7 +80,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.Recording
-import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.ui.components.DifficultyIndicator
 import com.example.reversey.ui.components.ThemedMenuModal
 import com.example.reversey.ui.components.TutorialOverlay

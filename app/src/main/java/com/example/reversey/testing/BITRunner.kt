@@ -2,11 +2,12 @@ package com.example.reversey.testing
 
 import android.content.Context
 import android.util.Log
-import com.example.reversey.scoring.ScoringEngine
 import com.example.reversey.scoring.DifficultyLevel
-import com.example.reversey.scoring.ScoringPresets
+// ❌ ScoringPresets removed – legacy
+// import com.example.reversey.scoring.ScoringPresets
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.R
+import com.example.reversey.scoring.VocalScoringOrchestrator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -26,7 +27,7 @@ import javax.inject.Singleton
 @Singleton
 class BITRunner @Inject constructor(
     private val context: Context,
-    private val scoringEngine: ScoringEngine
+    private val orchestrator: VocalScoringOrchestrator  // ✅ New dual-lane orchestrator
 ) {
     private val TAG = "BITRunner"
 
@@ -57,76 +58,90 @@ class BITRunner @Inject constructor(
         TestFile(R.raw.bit_test_fast, "bit_test_fast.wav", 70, 65, "Fast (1.5x speed)")
     )
 
-    suspend fun runAllTests(onProgress: (Int, Int) -> Unit): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val outputFile = File("/storage/emulated/0/Download/BIT_MultiFile_Results_$timestamp.txt")
+    suspend fun runAllTests(onProgress: (Int, Int) -> Unit): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val outputFile =
+                    File("/storage/emulated/0/Download/BIT_MultiFile_Results_$timestamp.txt")
 
-            // Write header
-            FileWriter(outputFile, false).use { writer ->
-                writer.write("╔══════════════════════════════════════════════════════════════════╗\n")
-                writer.write("║         ReVerseY Multi-File Parameter Validation                ║\n")
-                writer.write("╚══════════════════════════════════════════════════════════════════╝\n")
-                writer.write("\n")
-                writer.write("Started: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}\n")
-                writer.write("Test Type: Parameter validation across 15 synthetic test files\n")
-                writer.write("Mode: FORWARD only (REVERSE optional)\n")
-                writer.write("Difficulty: NORMAL preset\n")
-                writer.write("\n")
-                writer.write("Target Scores:\n")
-                writer.write("  • Perfect baseline: 90%\n")
-                writer.write("  • Good matches: 75-85%\n")
-                writer.write("  • Moderate errors: 50-70%\n")
-                writer.write("  • Garbage (monotone): 25%\n")
-                writer.write("\n")
-                writer.write("═".repeat(70) + "\n\n")
-            }
-
-            // Apply NORMAL difficulty preset
-            val preset = ScoringPresets.normalMode()
-            preset.garbage.enableGarbageDetection = false
-            scoringEngine.applyPreset(preset)
-
-            // 🎯 FIXED: Load the "Original" baseline audio ONCE
-            Log.d(TAG, "Loading baseline comparison audio: bit_test_baseline.wav")
-            val originalAudio = loadWavFile(R.raw.bit_test_baseline)
-
-            var testNumber = 1
-            val totalTests = testFiles.size
-            val results = mutableListOf<TestResult>()
-
-            // Run tests
-            testFiles.forEach { testFile ->
-                onProgress(testNumber, totalTests)
-
-                try {
-                    // 🎯 FIXED: Load the "Attempt" audio
-                    val attemptAudio = loadWavFile(testFile.resourceId)
-
-                    // 🎯 FIXED: Pass BOTH audio arrays to the test
-                    val result = runSingleTest(originalAudio, attemptAudio, testFile, ChallengeType.FORWARD, outputFile)
-                    results.add(result)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Test $testNumber failed", e)
-                    FileWriter(outputFile, true).use { writer ->
-                        writer.write("─".repeat(70) + "\n")
-                        writer.write("TEST #$testNumber: ${testFile.filename}\n")
-                        writer.write("❌ ERROR: ${e.message}\n\n")
-                    }
+                // Write header
+                FileWriter(outputFile, false).use { writer ->
+                    writer.write("╔══════════════════════════════════════════════════════════════════╗\n")
+                    writer.write("║         ReVerseY Multi-File Parameter Validation                ║\n")
+                    writer.write("╚══════════════════════════════════════════════════════════════════╝\n")
+                    writer.write("\n")
+                    writer.write("Started: ${
+                        SimpleDateFormat(
+                            "yyyy-MM-dd HH:mm:ss",
+                            Locale.US
+                        ).format(Date())
+                    }\n")
+                    writer.write("Test Type: Parameter validation across 15 synthetic test files\n")
+                    writer.write("Mode: FORWARD only (REVERSE optional)\n")
+                    writer.write("Difficulty: NORMAL preset\n")
+                    writer.write("\n")
+                    writer.write("Target Scores:\n")
+                    writer.write("  • Perfect baseline: 90%\n")
+                    writer.write("  • Good matches: 75-85%\n")
+                    writer.write("  • Moderate errors: 50-70%\n")
+                    writer.write("  • Garbage (monotone): 25%\n")
+                    writer.write("\n")
+                    writer.write("═".repeat(70) + "\n\n")
                 }
 
-                testNumber++
+                // 🔁 We no longer have ScoringPresets + ScoringEngine here.
+                //    The orchestrator and engines apply difficulty internally.
+                //    For BIT we standardise on NORMAL difficulty:
+                val difficulty = DifficultyLevel.NORMAL
+
+                // 🎯 Load the "Original" baseline audio ONCE
+                Log.d(TAG, "Loading baseline comparison audio: bit_test_baseline.wav")
+                val originalAudio = loadWavFile(R.raw.bit_test_baseline)
+
+                var testNumber = 1
+                val totalTests = testFiles.size
+                val results = mutableListOf<TestResult>()
+
+                // Run tests
+                for (testFile in testFiles) {
+                    onProgress(testNumber, totalTests)
+
+                    try {
+                        // 🎯 Load the "Attempt" audio
+                        val attemptAudio = loadWavFile(testFile.resourceId)
+
+                        // 🎯 Pass BOTH audio arrays into the orchestrated dual-lane scoring
+                        val result = runSingleTest(
+                            originalAudio = originalAudio,
+                            attemptAudio = attemptAudio,
+                            testFile = testFile,
+                            challengeType = ChallengeType.FORWARD,
+                            difficulty = difficulty,
+                            outputFile = outputFile
+                        )
+                        results.add(result)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Test $testNumber failed", e)
+                        FileWriter(outputFile, true).use { writer ->
+                            writer.write("─".repeat(70) + "\n")
+                            writer.write("TEST #$testNumber: ${testFile.filename}\n")
+                            writer.write("❌ ERROR: ${e.message}\n\n")
+                        }
+                    }
+
+                    testNumber++
+                }
+
+                // Write summary
+                writeSummary(outputFile, results)
+
+                Result.success("BIT Complete: ${results.size}/${totalTests} tests executed. Results: ${outputFile.name}")
+            } catch (e: Exception) {
+                Log.e(TAG, "BIT failed", e)
+                Result.failure(e)
             }
-
-            // Write summary
-            writeSummary(outputFile, results)
-
-            Result.success("BIT Complete: ${results.size}/${totalTests} tests executed. Results: ${outputFile.name}")
-        } catch (e: Exception) {
-            Log.e(TAG, "BIT failed", e)
-            Result.failure(e)
         }
-    }
 
     private data class TestResult(
         val filename: String,
@@ -138,26 +153,29 @@ class BITRunner @Inject constructor(
         val passed: Boolean
     )
 
-    private fun runSingleTest(
-        originalAudio: FloatArray,  // 🎯 CHANGED: The baseline audio
-        attemptAudio: FloatArray,   // 🎯 CHANGED: The test file audio
+    // ✅ NOW SUSPEND – because VocalScoringOrchestrator.scoreAttempt is suspend
+    private suspend fun runSingleTest(
+        originalAudio: FloatArray,   // The baseline audio
+        attemptAudio: FloatArray,    // The test file audio
         testFile: TestFile,
         challengeType: ChallengeType,
+        difficulty: DifficultyLevel,
         outputFile: File
     ): TestResult {
         val timestamp = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
 
-        // 🎯 FIXED: Run scoring comparing baseline (original) vs test file (attempt)
-        val result = scoringEngine.scoreAttempt(
-            originalAudio = originalAudio,   // The baseline: bit_test_baseline.wav
-            playerAttempt = attemptAudio,    // The test file: bit_test_pitch_025off.wav, etc.
+        // 🎯 NEW: Use orchestrator, not legacy ScoringEngine
+        val result = orchestrator.scoreAttempt(
+            referenceAudio = originalAudio,
+            attemptAudio = attemptAudio,
             challengeType = challengeType,
+            difficulty = difficulty,
             sampleRate = 44100
         )
 
         val target = testFile.targetForward
         val error = result.score - target
-        val passed = Math.abs(error) <= 10  // ±10 points tolerance
+        val passed = kotlin.math.abs(error) <= 10  // ±10 points tolerance
 
         // Write to file
         FileWriter(outputFile, true).use { writer ->
@@ -205,7 +223,7 @@ class BITRunner @Inject constructor(
             // Overall stats
             val passed = results.count { it.passed }
             val total = results.size
-            val avgError = results.map { Math.abs(it.error) }.average()
+            val avgError = results.map { kotlin.math.abs(it.error) }.average()
 
             writer.write("Tests Passed: $passed/$total (${passed * 100 / total}%)\n")
             writer.write("Average Error: ${String.format("%.1f", avgError)} points\n")
@@ -228,7 +246,7 @@ class BITRunner @Inject constructor(
             writer.write("\n")
 
             // Problem areas
-            val problemTests = results.filter { !it.passed }.sortedByDescending { Math.abs(it.error) }
+            val problemTests = results.filter { !it.passed }.sortedByDescending { kotlin.math.abs(it.error) }
             if (problemTests.isNotEmpty()) {
                 writer.write("Tests Needing Attention:\n")
                 problemTests.take(5).forEach { test ->
@@ -269,7 +287,14 @@ class BITRunner @Inject constructor(
 
             writer.write("\n")
             writer.write("═".repeat(70) + "\n")
-            writer.write("Completed: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}\n")
+            writer.write(
+                "Completed: ${
+                    SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm:ss",
+                        Locale.US
+                    ).format(Date())
+                }\n"
+            )
             writer.write("═".repeat(70) + "\n")
         }
     }

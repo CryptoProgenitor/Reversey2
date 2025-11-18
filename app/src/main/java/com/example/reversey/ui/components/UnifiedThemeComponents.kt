@@ -73,6 +73,7 @@ import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.data.models.Recording
+import com.example.reversey.scoring.DifficultyConfig
 import com.example.reversey.scoring.ScoringResult
 import com.example.reversey.scoring.SimilarityMetrics
 import com.example.reversey.ui.icons.EggIcons
@@ -376,14 +377,9 @@ private fun ScrapbookStyleAttemptItem(
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         ),
-                        color = when (attempt.difficulty) {
-                            DifficultyLevel.EASY -> Color(0xFF4CAF50)
-                            DifficultyLevel.NORMAL -> Color(0xFF2196F3)
-                            DifficultyLevel.HARD -> Color(0xFFFF9800)
-                            DifficultyLevel.EXPERT -> Color(0xFF9C27B0)
-                            DifficultyLevel.MASTER -> Color(0xFFFFD700)
-                        },
-                        modifier = Modifier
+                        color = DifficultyConfig.getColorForDifficulty(attempt.difficulty),
+
+                                modifier = Modifier
                             .background(
                                 color = Color.Black.copy(alpha = 0.1f),
                                 shape = RoundedCornerShape(4.dp)

@@ -15,6 +15,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.indicatorColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.reversey.scoring.DifficultyConfig
 import com.example.reversey.scoring.DifficultyLevel
 
 /**
@@ -37,13 +39,8 @@ fun DifficultyIndicator(
     onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler for navigation
     modifier: Modifier = Modifier
 ) {
-    val indicatorColor = when (difficulty) {
-        DifficultyLevel.EASY -> Color(0xFF4CAF50)      // Green
-        DifficultyLevel.NORMAL -> Color(0xFF2196F3)    // Blue
-        DifficultyLevel.HARD -> Color(0xFFFF9800)      // Orange
-        DifficultyLevel.EXPERT -> Color(0xFF9C27B0)    // Purple
-        DifficultyLevel.MASTER -> Color(0xFFFFD700)    // Gold
-    }
+    val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
+
 
     Card(
         modifier = modifier
@@ -84,13 +81,8 @@ fun CompactDifficultyIndicator(
     onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler
     modifier: Modifier = Modifier
 ) {
-    val indicatorColor = when (difficulty) {
-        DifficultyLevel.EASY -> Color(0xFF4CAF50)      // Green
-        DifficultyLevel.NORMAL -> Color(0xFF2196F3)    // Blue
-        DifficultyLevel.HARD -> Color(0xFFFF9800)      // Orange
-        DifficultyLevel.EXPERT -> Color(0xFF9C27B0)    // Purple
-        DifficultyLevel.MASTER -> Color(0xFFFFD700)    // Gold
-    }
+    val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
+
 
     Box(
         modifier = modifier
@@ -118,13 +110,8 @@ fun DetailedDifficultyCard(
     onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler
     modifier: Modifier = Modifier
 ) {
-    val indicatorColor = when (difficulty) {
-        DifficultyLevel.EASY -> Color(0xFF4CAF50)      // Green
-        DifficultyLevel.NORMAL -> Color(0xFF2196F3)    // Blue
-        DifficultyLevel.HARD -> Color(0xFFFF9800)      // Orange
-        DifficultyLevel.EXPERT -> Color(0xFF9C27B0)    // Purple
-        DifficultyLevel.MASTER -> Color(0xFFFFD700)    // Gold
-    }
+    val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
+
 
     Card(
         modifier = modifier

@@ -85,8 +85,6 @@ class SpeechScoringEngine @Inject constructor(
                 DifficultyLevel.EASY -> SpeechScoringModels.easyModeSpeech()
                 DifficultyLevel.NORMAL -> SpeechScoringModels.normalModeSpeech()
                 DifficultyLevel.HARD -> SpeechScoringModels.hardModeSpeech()
-                DifficultyLevel.EXPERT -> SpeechScoringModels.expertModeSpeech()
-                DifficultyLevel.MASTER -> SpeechScoringModels.masterModeSpeech()
             }
             applyPreset(preset)
 
@@ -514,8 +512,6 @@ class SpeechScoringEngine @Inject constructor(
             DifficultyLevel.EASY -> SpeechScoringModels.easyModeSpeech()
             DifficultyLevel.NORMAL -> SpeechScoringModels.normalModeSpeech()
             DifficultyLevel.HARD -> SpeechScoringModels.hardModeSpeech()
-            DifficultyLevel.EXPERT -> SpeechScoringModels.expertModeSpeech()
-            DifficultyLevel.MASTER -> SpeechScoringModels.masterModeSpeech()
         }
         applyPreset(preset)
         Log.d("SPEECH_ENGINE", "🎤 Updated to ${newDifficulty.displayName} speech preset")

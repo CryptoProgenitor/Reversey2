@@ -1,86 +1,66 @@
 package com.example.reversey.di
 
 import android.content.Context
-import com.example.reversey.data.repositories.SettingsDataStore
-import com.example.reversey.scoring.ScoringEngine
-import com.example.reversey.scoring.VocalModeDetector
 import com.example.reversey.audio.processing.AudioProcessor
+import com.example.reversey.data.repositories.SettingsDataStore
+import com.example.reversey.scoring.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import com.example.reversey.scoring.SpeechScoringEngine
-import com.example.reversey.scoring.SingingScoringEngine
-import com.example.reversey.scoring.ScoreAcquisitionDataConcentrator
-import com.example.reversey.scoring.VocalModeRouter
 
-/**
- * Hilt module providing core application dependencies
- * This ensures single instances of major components throughout the app
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object CoreModule {
 
     @Provides
     @Singleton
-    fun provideScoringEngine(
-        @ApplicationContext context: Context,
-        settingsDataStore: SettingsDataStore
-    ): ScoringEngine {
-        return ScoringEngine(context, settingsDataStore)
-    }
+    fun provideAudioProcessor(): AudioProcessor = AudioProcessor()
 
     @Provides
     @Singleton
-    fun provideAudioProcessor(): AudioProcessor {
-        return AudioProcessor()
-    }
+    fun provideVocalModeDetector(
+        audioProcessor: AudioProcessor
+    ): VocalModeDetector = VocalModeDetector(audioProcessor)
 
     @Provides
     @Singleton
-    fun provideVocalModeDetector(audioProcessor: AudioProcessor): VocalModeDetector {
-        return VocalModeDetector(audioProcessor)
-    }
-
-
-    // AFTER the existing provideVocalModeDetector() method
-// ADD these 4 new provider methods:
+    fun provideVocalModeRouter(): VocalModeRouter = VocalModeRouter()
 
     @Provides
     @Singleton
     fun provideSpeechScoringEngine(
         @ApplicationContext context: Context,
         settingsDataStore: SettingsDataStore
-    ): SpeechScoringEngine {
-        return SpeechScoringEngine(context, settingsDataStore)
-    }
+    ): SpeechScoringEngine = SpeechScoringEngine(context, settingsDataStore)
 
     @Provides
     @Singleton
     fun provideSingingScoringEngine(
         @ApplicationContext context: Context,
         settingsDataStore: SettingsDataStore
-    ): SingingScoringEngine {
-        return SingingScoringEngine(context, settingsDataStore)
-    }
+    ): SingingScoringEngine = SingingScoringEngine(context, settingsDataStore)
 
     @Provides
     @Singleton
-    fun provideVocalModeRouter(): VocalModeRouter {
-        return VocalModeRouter()
-    }
+    fun provideScoreAcquisitionDataConcentrator(): ScoreAcquisitionDataConcentrator =
+        ScoreAcquisitionDataConcentrator()
 
     @Provides
     @Singleton
-    fun provideScoreAcquisitionDataConcentrator(
+    fun provideVocalScoringOrchestrator(
+        detector: VocalModeDetector,
+        router: VocalModeRouter,
         speechEngine: SpeechScoringEngine,
-        singingEngine: SingingScoringEngine,
-        vocalRouter: VocalModeRouter
-    ): ScoreAcquisitionDataConcentrator {
-        return ScoreAcquisitionDataConcentrator()
+        singingEngine: SingingScoringEngine
+    ): VocalScoringOrchestrator {
+        return VocalScoringOrchestrator(
+            detector,
+            router,
+            speechEngine,
+            singingEngine
+        )
     }
-
 }

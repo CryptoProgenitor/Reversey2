@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 88
-        versionName = "18.0.0k-GPT-streamlined-AudioViewModel+PlayerAttempt+SADC+scorecard"
+        versionName = "18.0.0n-GPT-ScoringModels"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

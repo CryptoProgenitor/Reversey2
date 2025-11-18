@@ -24,6 +24,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import com.example.reversey.data.repositories.SettingsDataStore
+import com.example.reversey.scoring.GarbageDetectionParameters
+
 
 /**
  * 🎵 SINGING SCORING ENGINE
@@ -85,8 +87,6 @@ class SingingScoringEngine @Inject constructor(
                 DifficultyLevel.EASY -> SingingScoringModels.easyModeSinging()
                 DifficultyLevel.NORMAL -> SingingScoringModels.normalModeSinging()
                 DifficultyLevel.HARD -> SingingScoringModels.hardModeSinging()
-                DifficultyLevel.EXPERT -> SingingScoringModels.expertModeSinging()
-                DifficultyLevel.MASTER -> SingingScoringModels.masterModeSinging()
             }
             applyPreset(preset)
 
@@ -107,11 +107,19 @@ class SingingScoringEngine @Inject constructor(
         scalingParams = preset.scaling
         garbageParams = preset.garbage
 
+        // 🔗 Push difficulty-specific garbage params into the detector
+        garbageDetector.updateParameters(garbageParams)
+
+
+
         Log.d("SINGING_ENGINE", "🎵 Applied singing preset for ${preset.difficulty.displayName}")
         Log.d("SINGING_ENGINE", "   🎼 Pitch tolerance: ${parameters.pitchTolerance}f (strict for music)")
         Log.d("SINGING_ENGINE", "   🎼 Pitch weight: ${parameters.pitchWeight}f (melody dominates)")
         Log.d("SINGING_ENGINE", "   🎼 Monotone threshold: ${garbageParams.pitchMonotoneThreshold}f")
+
+
     }
+
 
     /**
      * Main singing scoring method
@@ -627,8 +635,6 @@ class SingingScoringEngine @Inject constructor(
             DifficultyLevel.EASY -> SingingScoringModels.easyModeSinging()
             DifficultyLevel.NORMAL -> SingingScoringModels.normalModeSinging()
             DifficultyLevel.HARD -> SingingScoringModels.hardModeSinging()
-            DifficultyLevel.EXPERT -> SingingScoringModels.expertModeSinging()
-            DifficultyLevel.MASTER -> SingingScoringModels.masterModeSinging()
         }
         applyPreset(preset)
         Log.d("SINGING_ENGINE", "🎵 Updated to ${newDifficulty.displayName} singing preset")

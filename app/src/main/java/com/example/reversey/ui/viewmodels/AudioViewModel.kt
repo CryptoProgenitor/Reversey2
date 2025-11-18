@@ -50,6 +50,7 @@ import com.example.reversey.scoring.ScoringResult
 import com.example.reversey.scoring.SimilarityMetrics
 import com.example.reversey.scoring.VocalAnalysis
 import com.example.reversey.scoring.VocalFeatures
+import com.example.reversey.scoring.VocalScoringOrchestrator
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -87,6 +88,7 @@ class AudioViewModel @Inject constructor(
     private val vocalModeRouter: VocalModeRouter,
     private val speechScoringEngine: SpeechScoringEngine,
     private val singingScoringEngine: SingingScoringEngine,
+    private val vocalScoringOrchestrator: VocalScoringOrchestrator,
     private val scoreAcquisitionDataConcentrator: ScoreAcquisitionDataConcentrator
 ) : AndroidViewModel(application) {
 
@@ -159,74 +161,30 @@ class AudioViewModel @Inject constructor(
         challengeType: ChallengeType,
         sampleRate: Int = 44100
     ): ScoringResult {
-        Log.d("DUAL_PIPELINE", "🚀 === DUAL SCORING PIPELINE START ===")
-        Log.d("DUAL_PIPELINE", "Reference audio: ${referenceAudio.size} samples")
-        Log.d("DUAL_PIPELINE", "Attempt audio: ${attemptAudio.size} samples")
-        Log.d("DUAL_PIPELINE", "Challenge type: $challengeType")
+        Log.d("DUAL_PIPELINE", "=== DUAL PIPELINE ENTRY → Orchestrator ===")
+        Log.d("DUAL_PIPELINE", "referenceSize=${referenceAudio.size}, attemptSize=${attemptAudio.size}")
+        Log.d("DUAL_PIPELINE", "challengeType=$challengeType")
 
-        // 🎯 SCORING_VERIFY: Track difficulty parameters
-        Log.d("SCORING_VERIFY", "🎚️ === PARAMETER VERIFICATION START ===")
-        Log.d("SCORING_VERIFY", "Current difficulty: ${_currentDifficulty.value.displayName}")
-        Log.d("SCORING_VERIFY", "Challenge type: $challengeType")
-        Log.d("SCORING_VERIFY", "Reference audio size: ${referenceAudio.size} samples")
-        Log.d("SCORING_VERIFY", "Attempt audio size: ${attemptAudio.size} samples")
+        // Difficulty currently selected in the UI / settings
+        val difficulty = _currentDifficulty.value
+        Log.d("DUAL_PIPELINE", "SCORING_VERIFY: difficulty=$difficulty")
 
+        // 🔁 TRUE SINGLE ENTRY POINT:
+        // Let the orchestrator handle detection + routing + engine choice
+        val result = vocalScoringOrchestrator.scoreAttempt(
+            referenceAudio = referenceAudio,
+            attemptAudio = attemptAudio,
+            challengeType = challengeType,
+            difficulty = difficulty,
+            sampleRate = sampleRate
+        )
 
-        // Create temp file for VocalModeDetector analysis
-        val tempFile = File.createTempFile("vocal_analysis_", ".wav", getApplication<Application>().cacheDir)
-        Log.d("DUAL_PIPELINE", "✅ Temp file created: ${tempFile.name} (${tempFile.length()} bytes)")
+        Log.d("DUAL_PIPELINE", "🎯 === DUAL PIPELINE COMPLETE via Orchestrator ===")
+        Log.d("DUAL_PIPELINE", "Final result: ${result.score} (${result.feedback.joinToString()})")
 
-        try {
-            // Write FloatArray to temp WAV file
-            Log.d("DUAL_PIPELINE", "📁 Writing audio to temp WAV file...")
-            writeSimpleWavFile(tempFile, referenceAudio, sampleRate)
-            Log.d("DUAL_PIPELINE", "✅ WAV file written: ${tempFile.length()} bytes")
-
-            // REAL ANALYSIS - Replace fake data with actual detection
-            Log.d("DUAL_PIPELINE", "🔍 === VOCAL MODE DETECTION START ===")
-            val vocalAnalysis = vocalModeDetector.classifyVocalMode(tempFile)
-            Log.d("DUAL_PIPELINE", "✅ VocalModeDetector result:")
-            Log.d("DUAL_PIPELINE", "   Mode: ${vocalAnalysis.mode}")
-            Log.d("DUAL_PIPELINE", "   Confidence: ${vocalAnalysis.confidence}")
-            Log.d("DUAL_PIPELINE", "   Features: ${vocalAnalysis.features}")
-
-            // Route via VocalModeRouter
-            Log.d("DUAL_PIPELINE", "🧭 === VOCAL MODE ROUTING START ===")
-            val routingDecision = vocalModeRouter.getRoutingDecision(vocalAnalysis)
-            Log.d("DUAL_PIPELINE", "✅ VocalModeRouter decision:")
-            Log.d("DUAL_PIPELINE", "   Selected Engine: ${routingDecision.selectedEngine}")
-            Log.d("DUAL_PIPELINE", "   Routed Mode: ${routingDecision.routedMode}")
-
-            // Call appropriate engine
-            Log.d("DUAL_PIPELINE", "⚙️ === SCORING ENGINE EXECUTION ===")
-            val result = when (routingDecision.selectedEngine) {
-                ScoringEngineType.SPEECH_ENGINE -> {
-                    Log.d("DUAL_PIPELINE", "🗣️ Calling SpeechScoringEngine.scoreAttempt()")
-                    val speechResult = speechScoringEngine.scoreAttempt(
-                        referenceAudio, attemptAudio, challengeType, sampleRate
-                    )
-                    Log.d("DUAL_PIPELINE", "✅ SpeechScoringEngine completed: score=${speechResult.score}")
-                    speechResult
-                }
-                ScoringEngineType.SINGING_ENGINE -> {
-                    Log.d("DUAL_PIPELINE", "🎵 Calling SingingScoringEngine.scoreAttempt()")
-                    val singingResult = singingScoringEngine.scoreAttempt(
-                        referenceAudio, attemptAudio, challengeType, sampleRate
-                    )
-                    Log.d("DUAL_PIPELINE", "✅ SingingScoringEngine completed: score=${singingResult.score}")
-                    singingResult
-                }
-            }
-
-            Log.d("DUAL_PIPELINE", "🎯 === DUAL PIPELINE COMPLETE ===")
-            Log.d("DUAL_PIPELINE", "Final result: ${result.score} (${result.feedback.joinToString()})")
-            return result
-
-        } finally {
-            tempFile.delete() // Clean up
-            Log.d("DUAL_PIPELINE", "🧹 Temp file cleaned up: ${tempFile.name}")
-        }
+        return result
     }
+
 
     private fun writeSimpleWavFile(file: File, audioData: FloatArray, sampleRate: Int) {
         file.outputStream().use { fos ->
@@ -1041,11 +999,10 @@ class AudioViewModel @Inject constructor(
     }
     // 🎯 PURE DUAL PIPELINE: Apply preset to both engines
     fun updateScoringEngine(preset: Presets) {
-        // TODO: Apply to both engines for consistent difficulty
-        // NOTE: applyPreset methods are private in scoring engines
-        Log.d("PRESET", "⚠️ Cannot apply preset - methods are private. Need public API.")
-        // speechScoringEngine.applyPreset(preset)
-        // singingScoringEngine.applyPreset(preset)
+        val difficulty = _currentDifficulty.value
+        speechScoringEngine.updateDifficulty(difficulty)
+        singingScoringEngine.updateDifficulty(difficulty)
+        Log.d("PRESET", "✅ Applied ${difficulty.displayName} to both engines")
     }
 
     // 🎯 ESSENTIAL: WAV file to FloatArray converter for scoring engines

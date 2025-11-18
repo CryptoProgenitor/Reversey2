@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.scoring.DifficultyConfig
 import com.example.reversey.scoring.DifficultyLevel
 
 /**
@@ -68,13 +69,8 @@ fun DifficultySquircle(
     modifier: Modifier = Modifier
 ) {
     // Difficulty colors
-    val difficultyColor = when (difficulty) {
-        DifficultyLevel.EASY -> Color(0xFF4CAF50)    // Green
-        DifficultyLevel.NORMAL -> Color(0xFF2196F3)  // Blue
-        DifficultyLevel.HARD -> Color(0xFFFF9800)    // Orange
-        DifficultyLevel.EXPERT -> Color(0xFF9C27B0)  // Purple
-        DifficultyLevel.MASTER -> Color(0xFFFFD700)  // Gold
-    }
+    val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
+
 
     Box(
         modifier = modifier

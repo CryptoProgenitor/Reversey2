@@ -1,7 +1,6 @@
 package com.example.reversey.scoring
 
 import androidx.compose.ui.graphics.Color
-import com.example.reversey.scoring.DifficultyLevel
 
 /**
  * 🎯 SINGLE SOURCE OF TRUTH - DIFFICULTY CONFIGURATION
@@ -47,16 +46,27 @@ object DifficultyConfig {
     )
 
     /**
-     * 🎛️ PRESET MAPPING - Links difficulty to scoring presets
+     * 🎛️ PRESET MAPPING - Difficulty → BOTH preset sets
+     *
+     * Returns a pair:
+     *   first  = speech preset
+     *   second = singing preset
+     *
+     * The orchestrator chooses the correct one at runtime.
      */
-    fun getPresetForDifficulty(difficulty: DifficultyLevel): Presets {
+    fun getPresetForDifficulty(difficulty: DifficultyLevel): Pair<Presets, Presets> {
         return when (difficulty) {
-            DifficultyLevel.EASY -> ScoringPresets.easyMode()
-            DifficultyLevel.NORMAL -> ScoringPresets.normalMode()
-            DifficultyLevel.HARD -> ScoringPresets.hardMode()
-            else -> ScoringPresets.normalMode() // Fallback to Normal
+            DifficultyLevel.EASY ->
+                SpeechScoringModels.easyModeSpeech() to SingingScoringModels.easyModeSinging()
+
+            DifficultyLevel.NORMAL ->
+                SpeechScoringModels.normalModeSpeech() to SingingScoringModels.normalModeSinging()
+
+            DifficultyLevel.HARD ->
+                SpeechScoringModels.hardModeSpeech() to SingingScoringModels.hardModeSinging()
         }
     }
+
 
     /**
      * 🎨 GET COLOR - Safe color retrieval with fallback
