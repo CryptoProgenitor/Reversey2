@@ -1,5 +1,5 @@
 package com.example.reversey.ui.theme
-//GEMINI COMPILES BUT NO CLICK-ON-OWL
+//GPT SNOW
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -100,6 +100,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.graphics.nativeCanvas
 
 /**
  * Data class for heart bubble animations
@@ -390,7 +391,8 @@ data class SnowflakeData(
     var y: Float,
     val size: Float,
     val speed: Float,
-    val drift: Float
+    val drift: Float,
+    val emoji: String = listOf("❄️", "❅", "❆").random()
 )
 
 @Composable
@@ -419,7 +421,7 @@ fun SnowyOwlSnowflakes() {
             while (true) {
                 withFrameMillis {
                     snowflakes = snowflakes.map { snowflake ->
-                        var newY = snowflake.y + snowflake.speed
+                        var newY = snowflake.y + snowflake.speed *0.3f
                         var newX = snowflake.x + snowflake.drift
 
                         if (newY > screenHeight) {
@@ -447,14 +449,31 @@ fun AnimatedSnowflake(data: SnowflakeData) {
             .offset(x = data.x.dp, y = data.y.dp)
             .size(data.size.dp)
     ) {
-        drawCircle(
-            color = Color.White.copy(alpha = 0.8f),
-            radius = size.minDimension / 2,
-            center = Offset(size.width / 2, size.height / 2),
-            style = Fill
-        )
+
+        drawContext.canvas.nativeCanvas.apply {
+
+            val emoji = data.emoji
+            val textSizePx = data.size * 22f
+            val paint = android.graphics.Paint().apply {
+                textSize = textSizePx
+                isAntiAlias = true
+                isSubpixelText = true
+                isFilterBitmap = true
+                alpha = 255
+            }
+                        val drawX = size.width * 0.1f
+            val drawY = size.height * 0.75f
+
+            drawText(
+                emoji,
+                drawX,
+                drawY,
+                paint
+            )
+        }
     }
 }
+
 
 // ============================================
 // 🦉 INTERACTIVE FLYING OWL WITH HEART BUBBLES & HOOT (V2 Implementation)
@@ -523,18 +542,20 @@ fun SnowyOwlFlying() {
                 val now = System.currentTimeMillis()
 
                 // Medium spread ±70px horizontally
-                val spreadX = Random.nextFloat() * 140f - 70f
+                val spreadX = Random.nextFloat() * 320f - 160f
                 val endX = tapX + spreadX
 
                 // Floating upwards 260–340px
-                val endY = tapY - (260f + Random.nextFloat() * 80f)
+                val endY = tapY - (350f + Random.nextFloat() * 80f)
 
                 // Bézier control points for drifting
-                val c1X = tapX + (Random.nextFloat() * 60f - 30f)
-                val c1Y = tapY - 90f
+                // More exaggerated drift curves
+                val c1X = tapX + (Random.nextFloat() * 120f - 60f)
+                val c1Y = tapY - (140f + Random.nextFloat() * 40f)
 
-                val c2X = endX + (Random.nextFloat() * 60f - 30f)
-                val c2Y = tapY - 200f - Random.nextFloat() * 40f
+                val c2X = endX + (Random.nextFloat() * 160f - 80f)
+                val c2Y = tapY - (260f + Random.nextFloat() * 100f)
+
 
                 // Total float time for 1 bubble
                 val duration = 2500L + Random.nextLong(0, 500)
@@ -557,7 +578,9 @@ fun SnowyOwlFlying() {
                 heartBubbles = heartBubbles + newHeart
 
                 // 🫧 Delay between hearts → EXACTLY 300ms bubble rhythm
-                delay(300L)
+                // Wider timing = less clustering
+                delay(380L + Random.nextLong(0, 70))
+
             }
         }
     }
@@ -2778,3 +2801,5 @@ private fun randomArcticColor(): Color {
         else -> Color(0xFFF9B9D0)        // soft pink
     }
 }
+
+

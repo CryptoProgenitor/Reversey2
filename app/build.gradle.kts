@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 89
-        versionName = "18.0.0x-UpdateWolTheme-GPT"
+        versionName = "18.0.0y-UpdateWolTheme-GPT#2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
