@@ -19,8 +19,8 @@ android {
         applicationId = "com.example.reversey"
         minSdk = 26
         targetSdk = 35
-        versionCode = 88
-        versionName = "18.0.0r-ClaudeFixedScoreTester"
+        versionCode = 89
+        versionName = "18.0.0s-GeminiComprehensiveScoreTester"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

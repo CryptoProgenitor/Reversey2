@@ -152,6 +152,8 @@ class SingingScoringEngine @Inject constructor(
             updateDifficulty(difficulty)
         }
 
+        val currentPreset = SingingScoringModels.presetFor(difficulty) // <--- ADDED FOR LOGGING
+
         Log.d("SINGING_ENGINE", "=== SINGING SCORING ENGINE ===")
         Log.d("SINGING_ENGINE", "🎵 Difficulty: ${_currentDifficulty.value.displayName}")
         Log.d("SINGING_ENGINE", "🎼 Pitch tolerance: ${parameters.pitchTolerance}f (music-precise)")
@@ -167,7 +169,8 @@ class SingingScoringEngine @Inject constructor(
                 rawScore = 0f,
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("🎵 Please sing louder - we need to hear your beautiful voice!"),
-                isGarbage = false
+                isGarbage = false,
+                debugPresets = currentPreset // <--- ADDED FOR LOGGING
             )
         }
 
@@ -180,7 +183,8 @@ class SingingScoringEngine @Inject constructor(
                 rawScore = 0f,
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("Recording too short for musical analysis - sing longer!"),
-                isGarbage = false
+                isGarbage = false,
+                debugPresets = currentPreset // <--- ADDED FOR LOGGING
             )
         }
 
@@ -202,7 +206,8 @@ class SingingScoringEngine @Inject constructor(
                 rawScore = garbageParams.garbageScoreMax / 100f,
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("Please sing with clear musical notes - that didn't sound like singing!"),
-                isGarbage = true
+                isGarbage = true,
+                debugPresets = currentPreset // <--- ADDED FOR LOGGING
             )
         }
 
@@ -267,7 +272,8 @@ class SingingScoringEngine @Inject constructor(
             metrics = metrics,
             feedback = generateMusicalFeedback(finalScore, metrics, challengeType,
                 musicalComplexityBonus, intervalAccuracy, harmonicRichness),
-            isGarbage = false
+            isGarbage = false,
+            debugPresets = currentPreset // <--- ADDED FOR LOGGING
         )
     }
 

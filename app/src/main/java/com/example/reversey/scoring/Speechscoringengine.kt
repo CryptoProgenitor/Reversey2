@@ -140,6 +140,8 @@ class SpeechScoringEngine @Inject constructor(
             updateDifficulty(difficulty)
         }
 
+        val currentPreset = SpeechScoringModels.presetFor(difficulty) // <--- ADDED FOR LOGGING
+
         Log.d("SPEECH_ENGINE", "=== SPEECH SCORING ENGINE ===")
         Log.d("SPEECH_ENGINE", "🎤 Difficulty: ${_currentDifficulty.value.displayName}")
         Log.d("SPEECH_ENGINE", "🎵 Pitch tolerance: ${parameters.pitchTolerance}f (speech-optimized)")
@@ -155,7 +157,8 @@ class SpeechScoringEngine @Inject constructor(
                 rawScore = 0f,
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("🎤 Please speak more clearly - we detected silence!"),
-                isGarbage = false
+                isGarbage = false,
+                debugPresets = currentPreset // <--- ADDED FOR LOGGING
             )
         }
 
@@ -168,7 +171,8 @@ class SpeechScoringEngine @Inject constructor(
                 rawScore = 0f,
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("Recording too short to analyze - please try again!"),
-                isGarbage = false
+                isGarbage = false,
+                debugPresets = currentPreset // <--- ADDED FOR LOGGING
             )
         }
 
@@ -190,7 +194,8 @@ class SpeechScoringEngine @Inject constructor(
                 rawScore = garbageParams.garbageScoreMax / 100f,
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("Please speak clearly with real words - that sounded like noise!"),
-                isGarbage = true
+                isGarbage = true,
+                debugPresets = currentPreset // <--- ADDED FOR LOGGING
             )
         }
 
@@ -239,7 +244,8 @@ class SpeechScoringEngine @Inject constructor(
             rawScore = rawScore,
             metrics = metrics,
             feedback = generateSpeechFeedback(finalScore, metrics, challengeType),
-            isGarbage = false
+            isGarbage = false,
+            debugPresets = currentPreset // <--- ADDED FOR LOGGING
         )
     }
 

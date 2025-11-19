@@ -4,25 +4,25 @@ package com.example.reversey.scoring
  * ✅ CANONICAL SCORING CORE (DUAL PIPELINE)
  *
  * This file is the SINGLE SOURCE OF TRUTH for:
- *  - DifficultyLevel (Easy / Normal / Hard)
- *  - ScoringParameters
- *  - AudioProcessingParameters
- *  - ContentDetectionParameters
- *  - MelodicAnalysisParameters
- *  - MusicalSimilarityParameters
- *  - ScoreScalingParameters
- *  - GarbageDetectionParameters
- *  - ScoringResult / SimilarityMetrics
- *  - MelodySignature / ContentMetrics
- *  - Presets + ScoringPresets
+ * - DifficultyLevel (Easy / Normal / Hard)
+ * - ScoringParameters
+ * - AudioProcessingParameters
+ * - ContentDetectionParameters
+ * - MelodicAnalysisParameters
+ * - MusicalSimilarityParameters
+ * - ScoreScalingParameters
+ * - GarbageDetectionParameters
+ * - ScoringResult / SimilarityMetrics
+ * - MelodySignature / ContentMetrics
+ * - Presets + ScoringPresets
  *
  * Used by:
- *  - SpeechScoringEngine
- *  - SingingScoringEngine
- *  - GarbageDetector
- *  - AudioProcessor
- *  - DifficultyConfig
- *  - ScoreAcquisitionDataConcentrator
+ * - SpeechScoringEngine
+ * - SingingScoringEngine
+ * - GarbageDetector
+ * - AudioProcessor
+ * - DifficultyConfig
+ * - ScoreAcquisitionDataConcentrator
  */
 
 // ============================================================
@@ -247,10 +247,11 @@ data class ScoringResult(
     val metrics: SimilarityMetrics,
     val feedback: List<String>,
     val isGarbage: Boolean = false,
+    val debugPresets: Presets? = null, // <--- ADDED FOR LOGGING
     // DEBUG FIELDS:
     val debugMinThreshold: Float = 0f,
     val debugPerfectThreshold: Float = 0f,
-    val debugNormalizedScore: Float = 0f
+    val debugNormalizedScore: Float = 0f,
 )
 
 data class SimilarityMetrics(

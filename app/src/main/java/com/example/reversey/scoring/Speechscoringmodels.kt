@@ -151,22 +151,22 @@ object SpeechScoringModels {
             difficulty = DifficultyLevel.NORMAL,
 
             scoring = ScoringParameters(
-                pitchWeight = 0.70f,
-                mfccWeight = 0.30f,
+                pitchWeight = 0.85f,       // UP from 0.70f - more content/timing weight
+                mfccWeight = 0.15f,        // DOWN from 0.30f - less voice similarity bias
                 pitchTolerance = 40f,
                 minScoreThreshold = 0.12f,
-                perfectScoreThreshold = 0.85f,
+                perfectScoreThreshold = 0.80f,   // DOWN from 0.85f - easier to get high scores
                 reverseMinScoreThreshold = 0.10f,      // 80% of 0.12f
                 reversePerfectScoreThreshold = 0.77f,  // 90% of 0.85f
-                scoreCurve = 2.8f
+                scoreCurve = 3.2f,               // UP from 2.8f - more forgiving curve
             ),
 
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.30f,
-                contentDetectionAvgThreshold = 0.20f,
+                contentDetectionBestThreshold = 0.20f,     // DOWN from 0.30f - easier to detect good content
+                contentDetectionAvgThreshold = 0.15f,      // DOWN from 0.20f - easier average detection
                 rightContentFlatPenalty = 0.08f,
                 rightContentDifferentMelodyPenalty = 0.04f,
-                wrongContentStandardPenalty = 0.50f
+                wrongContentStandardPenalty = 0.70f,       // UP from 0.50f - harder penalty for wrong words
             ),
 
             melodic = MelodicAnalysisParameters(

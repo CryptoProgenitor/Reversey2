@@ -11,25 +11,24 @@ import com.example.reversey.scoring.SpeechScoringModels.normalModeSpeech
  *
  * ReVerseY evaluates singing using a large set of parameters grouped into:
  *
- *  • SCORING  — How raw correctness is evaluated (pitch, timbre, tolerance)
- *  • CONTENT  — Whether the sung words/syllables match the reference audio
- *  • MELODIC  — Shape, variation, vocal range, and movement of melody
- *  • MUSICAL  — Intervals, phrasing, and rhythmic structure
- *  • AUDIO    — Low-level audio preprocessing (defaults kept)
- *  • SCALING  — Converts internal score into final 0–100 + feedback labels
- *  • GARBAGE  — Detects non-singing (humming, static, monotone buzzing)
+ * • SCORING  — How raw correctness is evaluated (pitch, timbre, tolerance)
+ * • CONTENT  — Whether the sung words/syllables match the reference audio
+ * • MELODIC  — Shape, variation, vocal range, and movement of melody
+ * • MUSICAL  — Intervals, phrasing, and rhythmic structure
+ * • AUDIO    — Low-level audio preprocessing (defaults kept)
+ * • SCALING  — Converts internal score into final 0–100 + feedback labels
+ * • GARBAGE  — Detects non-singing (humming, static, monotone buzzing)
  *
  * SINGING MODE is stricter about:
- *   - pitch accuracy
- *   - melodic variation
- *   - interval correctness
- *   - rhythm shape
+ * - pitch accuracy
+ * - melodic intervals
+ * - musical phrasing
  *
  * And more forgiving about:
- *   - minor phonetic errors when melody is correct
+ * - minor phonetic errors when melody is correct
  *
  * This file implements ONLY the 3 supported difficulty levels:
- *   EASY, NORMAL, HARD
+ * EASY, NORMAL, HARD
  *
  * EXPERT and MASTER modes have been intentionally removed.
  */
@@ -141,10 +140,10 @@ object SingingScoringModels {
              * GARBAGE DETECTION:
              * Detects when the user is NOT really singing:
              *
-             *  - humming
-             *  - static
-             *  - monotone buzzing
-             *  - barely any vocal variety
+             * - humming
+             * - static
+             * - monotone buzzing
+             * - barely any vocal variety
              */
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
@@ -321,9 +320,9 @@ object SingingScoringModels {
     //SingingScoringModels.presetFor(difficulty)
     fun presetFor(level: DifficultyLevel): Presets {
         return when (level) {
-            DifficultyLevel.EASY -> easyModeSpeech()
-            DifficultyLevel.NORMAL -> normalModeSpeech()
-            DifficultyLevel.HARD -> hardModeSpeech()
+            DifficultyLevel.EASY -> easyModeSinging() // <--- CORRECTED
+            DifficultyLevel.NORMAL -> normalModeSinging() // <--- CORRECTED
+            DifficultyLevel.HARD -> hardModeSinging() // <--- CORRECTED
         }
     }
 }

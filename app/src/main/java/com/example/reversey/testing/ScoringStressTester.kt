@@ -13,14 +13,22 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.reversey.scoring.Presets
+import com.example.reversey.scoring.SingingScoringModels
+import com.example.reversey.scoring.SpeechScoringModels
 
 /**
  * FULLY SELF-CONTAINED STRESS TESTER
  * -----------------------------------
- * No placeholders
- * No fake classes
- * No missing WavDecoder
- * Guaranteed to compile
+ * Feature: Automatic Test File Discovery based on asset folder structure.
+ * * New Structure (MUST be set up):
+ * assets/bit_audio/
+ * ├── baselines/
+ * │   ├── baseline_speech.wav
+ * │   └── baseline_singing.wav
+ * └── test_files/
+ * ├── speech/ <-- CONTAINS speech_fwd_clean.wav etc.
+ * └── singing/ <-- CONTAINS sing_fwd_clean.wav etc.
  */
 
 object ScoringStressTester {
@@ -28,32 +36,13 @@ object ScoringStressTester {
     private const val TAG = "StressTester"
     private const val PASSES = 1
 
-    // These MUST exist in assets/training_data/
-    private val testFilenames = listOf(
-        "speech_fwd_clean.wav",
-        "speech_fwd_noisy.wav",
-        "speech_fwd_pitchdown.wav",
-        "speech_fwd_pitchup.wav",
-        "speech_rev_clean.wav",
-        "speech_rev_noisy.wav",
-        "speech_rev_pitchdown.wav",
-        "speech_rev_pitchup.wav",
+    // --- NEW CONSTANTS FOR FILE PATHS ---
+    private const val BASE_ASSET_PATH = "bit_audio"
+    private const val TEST_FILES_PATH = "$BASE_ASSET_PATH/test_files"
+    private const val BASELINE_PATH = "$BASE_ASSET_PATH/baselines"
 
-        "sing_fwd_clean.wav",
-        "sing_fwd_noisy.wav",
-        "sing_fwd_off_pitch.wav",        // NEW
-        "sing_fwd_pitchdown.wav",
-        "sing_fwd_pitchup.wav",
-        "sing_fwd_tempo_fast.wav",       // NEW
-        "sing_fwd_tempo_slow.wav",       // NEW
-        "sing_fwd_very_noisy.wav",       // NEW
-        "sing_rev_clean.wav",
-        "sing_rev_distorted.wav",        // NEW
-        "sing_rev_noisy.wav",
-        "sing_rev_pitchdown.wav",
-        "sing_rev_pitchup.wav",
-        "sing_rev_quiet.wav"             // NEW
-    )
+    // The hardcoded list is now REMOVED
+    // private val testFilenames = listOf(...)
 
     private val difficulties = listOf(
         DifficultyLevel.EASY,
@@ -70,7 +59,65 @@ object ScoringStressTester {
     )
 
     // -----------------------------------------------------
-    // UNIVERSAL WAV DECODER (NO DEPENDENCIES)
+    // UTILITY: FLATTEN PRESETS (REQUIRED FOR CSV LOGGING)
+    // -----------------------------------------------------
+    private fun Presets.getFlattenedParameters(): Map<String, Any> {
+        val params = mutableMapOf<String, Any>()
+
+        // SCORING PARAMETERS
+        params["scoring_pitchWeight"] = this.scoring.pitchWeight
+        params["scoring_mfccWeight"] = this.scoring.mfccWeight
+        params["scoring_pitchTolerance"] = this.scoring.pitchTolerance
+        params["scoring_minScoreThreshold"] = this.scoring.minScoreThreshold
+        params["scoring_perfectScoreThreshold"] = this.scoring.perfectScoreThreshold
+        params["scoring_reverseMinScoreThreshold"] = this.scoring.reverseMinScoreThreshold
+        params["scoring_reversePerfectScoreThreshold"] = this.scoring.reversePerfectScoreThreshold
+        params["scoring_scoreCurve"] = this.scoring.scoreCurve
+        params["scoring_consistencyBonus"] = this.scoring.consistencyBonus
+        params["scoring_confidenceBonus"] = this.scoring.confidenceBonus
+
+        // CONTENT DETECTION PARAMETERS
+        params["content_bestThreshold"] = this.content.contentDetectionBestThreshold
+        params["content_avgThreshold"] = this.content.contentDetectionAvgThreshold
+        params["content_rightFlatPenalty"] = this.content.rightContentFlatPenalty
+        params["content_rightMelodyPenalty"] = this.content.rightContentDifferentMelodyPenalty
+        params["content_wrongStandardPenalty"] = this.content.wrongContentStandardPenalty
+
+        // MELODIC ANALYSIS PARAMETERS
+        params["melodic_monotoneDetectionThreshold"] = this.melodic.monotoneDetectionThreshold
+        params["melodic_flatSpeechThreshold"] = this.melodic.flatSpeechThreshold
+        params["melodic_monotonePenalty"] = this.melodic.monotonePenalty
+        params["melodic_rangeWeight"] = this.melodic.melodicRangeWeight
+        params["melodic_transitionWeight"] = this.melodic.melodicTransitionWeight
+        params["melodic_varianceWeight"] = this.melodic.melodicVarianceWeight
+        params["melodic_silenceToSilenceScore"] = this.melodic.silenceToSilenceScore
+
+        // MUSICAL SIMILARITY PARAMETERS
+        params["musical_sameIntervalScore"] = this.musical.sameIntervalScore
+        params["musical_closeIntervalScore"] = this.musical.closeIntervalScore
+        params["musical_emptyPhrasesPenalty"] = this.musical.emptyPhrasesPenalty
+        params["musical_emptyRhythmPenalty"] = this.musical.emptyRhythmPenalty
+
+        // SCALING PARAMETERS
+        params["scaling_incredibleThreshold"] = this.scaling.incredibleFeedbackThreshold
+        params["scaling_greatJobThreshold"] = this.scaling.greatJobFeedbackThreshold
+        params["scaling_goodEffortThreshold"] = this.scaling.goodEffortFeedbackThreshold
+
+        // GARBAGE DETECTION PARAMETERS
+        params["garbage_mfccVarianceThreshold"] = this.garbage.mfccVarianceThreshold
+        params["garbage_pitchMonotoneThreshold"] = this.garbage.pitchMonotoneThreshold
+        params["garbage_pitchOscillationRate"] = this.garbage.pitchOscillationRate
+        params["garbage_spectralEntropyThreshold"] = this.garbage.spectralEntropyThreshold
+        params["garbage_zcrMinThreshold"] = this.garbage.zcrMinThreshold
+        params["garbage_zcrMaxThreshold"] = this.garbage.zcrMaxThreshold
+        params["garbage_silenceRatioMin"] = this.garbage.silenceRatioMin
+        params["garbage_scoreMax"] = this.garbage.garbageScoreMax
+
+        return params
+    }
+
+    // -----------------------------------------------------
+    // UNIVERSAL WAV DECODER (UNCHANGED)
     // -----------------------------------------------------
     private fun decodeWav(bytes: ByteArray): Pair<FloatArray, Int> {
         val stream = ByteArrayInputStream(bytes)
@@ -104,37 +151,63 @@ object ScoringStressTester {
     }
 
     // -----------------------------------------------------
-    // LOAD ALL ASSETS INTO RAM
+    // LOAD ALL ASSETS INTO RAM (AUTO-DISCOVERY IMPLEMENTATION)
     // -----------------------------------------------------
     private suspend fun loadAllTestAudio(context: Context): List<CachedAudio> =
         withContext(Dispatchers.IO) {
 
             val list = mutableListOf<CachedAudio>()
 
-            for (fname in testFilenames) {
-                val isSpeech = fname.startsWith("speech")
-                val direction = if (fname.contains("fwd")) ChallengeType.FORWARD else ChallengeType.REVERSE
+            // List the sub-folders inside test_files: speech and singing
+            val modeDirs = context.assets.list(TEST_FILES_PATH) ?: emptyArray()
 
-                val input = context.assets.open("bit_audio/$fname")
-                val bytes = input.readBytes()
-                input.close()
+            for (modeDir in modeDirs) {
+                // Determine if it's speech or singing based on the folder name itself
+                val isSpeech = modeDir.equals("speech", ignoreCase = true)
+                val modePath = "$TEST_FILES_PATH/$modeDir"
 
-                val (samples, sr) = decodeWav(bytes)
+                // List all WAV files within the specific mode directory
+                val modeFiles = context.assets.list(modePath)
+                    ?.filter { it.endsWith(".wav", ignoreCase = true) }
+                    ?: emptyList()
 
-                list += CachedAudio(
-                    name = fname,
-                    samples = samples,
-                    sampleRate = sr,
-                    isSpeech = isSpeech,
-                    direction = direction
-                )
+                for (fname in modeFiles) {
+                    val fullPath = "$modePath/$fname"
+
+                    // Determine direction (fwd or rev) from the filename based on convention
+                    val direction = when {
+                        fname.contains("_fwd_", ignoreCase = true) -> ChallengeType.FORWARD
+                        fname.contains("_rev_", ignoreCase = true) -> ChallengeType.REVERSE
+                        else -> {
+                            Log.w(TAG, "Skipping file $fname in $modePath: Direction (fwd/rev) not clearly identified.")
+                            continue
+                        }
+                    }
+
+                    try {
+                        // Load the audio file
+                        context.assets.open(fullPath).use { input ->
+                            val bytes = input.readBytes()
+                            val (samples, sr) = decodeWav(bytes)
+
+                            list += CachedAudio(
+                                name = fname,
+                                samples = samples,
+                                sampleRate = sr,
+                                isSpeech = isSpeech,
+                                direction = direction
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to load audio file: $fullPath", e)
+                    }
+                }
             }
-
             list
         }
 
     // -----------------------------------------------------
-    // PUBLIC ENTRY POINT
+    // PUBLIC ENTRY POINT (UPDATED FOR NEW BASELINE LOADING AND LOGGING)
     // -----------------------------------------------------
     suspend fun runAll(
         context: Context,
@@ -144,28 +217,33 @@ object ScoringStressTester {
 
         val cached = loadAllTestAudio(context)
 
-        // Load baselines
-        val speechBaseline = run {
-            val input = context.assets.open("bit_audio/baseline_speech.wav")
-            val bytes = input.readBytes()
-            input.close()
-            val (samples, sr) = decodeWav(bytes)
-            samples
+        if (cached.isEmpty()) {
+            Log.w(TAG, "No test audio files found in $TEST_FILES_PATH. Aborting test.")
+            throw IllegalStateException("No test audio files found. Check asset folder structure.")
         }
 
-        val singingBaseline = run {
-            val input = context.assets.open("bit_audio/baseline_singing.wav")
-            val bytes = input.readBytes()
-            input.close()
-            val (samples, sr) = decodeWav(bytes)
-            samples
+        // Load baselines from the BASKETLINES folder
+        val speechBaseline = loadBaseline(context, "baseline_speech.wav")
+        val singingBaseline = loadBaseline(context, "baseline_singing.wav")
+
+        if (speechBaseline == null || singingBaseline == null) {
+            throw IllegalStateException("Missing one or both baseline files in $BASELINE_PATH.")
         }
 
         val total = cached.size * difficulties.size * PASSES
         var done = 0
 
         val report = StringBuilder()
-        report.append("file,pass,difficulty,mode,direction,score\n")
+
+        // Use an arbitrary preset (EASY Speech) to generate the full, ordered list of parameter keys for the header
+        val headerParamsKeys = SpeechScoringModels.easyModeSpeech().getFlattenedParameters().keys.toList()
+
+        // 1. Build the CSV Header
+        report.append("file,pass,difficulty,mode,direction,score")
+        for (paramName in headerParamsKeys) {
+            report.append(",$paramName")
+        }
+        report.append("\n")
 
         for (difficulty in difficulties) {
             for (audio in cached) {
@@ -174,6 +252,8 @@ object ScoringStressTester {
                     val reference = if (audio.isSpeech) speechBaseline else singingBaseline
                     val attempt = audio.samples  // Test the variation against baseline
 
+                    // NOTE: The orchestrator will use the difficulty set above, and the scoring
+                    // engine will retrieve the correct preset and attach it to the result.
                     val result = orchestrator.scoreAttempt(
                         referenceAudio = reference,
                         attemptAudio = attempt,
@@ -194,9 +274,20 @@ object ScoringStressTester {
                         )
                     )
 
+                    // Extract and flatten the parameters for this specific score
+                    val flattenedParams = result.debugPresets?.getFlattenedParameters() ?: emptyMap()
+
+                    // 2. Start the Data Row
                     report.append(
-                        "${audio.name},${pass + 1},${difficulty.displayName},${if (audio.isSpeech) "speech" else "singing"},${audio.direction},${result.score}\n"
+                        "${audio.name},${pass + 1},${difficulty.displayName},${if (audio.isSpeech) "speech" else "singing"},${audio.direction},${result.score}"
                     )
+
+                    // 3. Append all parameter values in the correct order
+                    for (paramName in headerParamsKeys) {
+                        // Use toString() to ensure floats are written correctly. Use the map key to ensure column order matches header.
+                        report.append(",${flattenedParams[paramName]?.toString() ?: ""}")
+                    }
+                    report.append("\n")
                 }
             }
         }
@@ -212,6 +303,23 @@ object ScoringStressTester {
         Log.d(TAG, "WROTE REPORT → ${outFile.absolutePath}")
 
         outFile
+    }
+
+    /**
+     * Helper function to load a single baseline audio file.
+     */
+    private fun loadBaseline(context: Context, filename: String): FloatArray? {
+        val fullPath = "$BASELINE_PATH/$filename"
+        return try {
+            context.assets.open(fullPath).use { input ->
+                val bytes = input.readBytes()
+                val (samples, _) = decodeWav(bytes)
+                samples
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "CRITICAL: Failed to load baseline file: $fullPath", e)
+            null
+        }
     }
 
     data class Progress(
