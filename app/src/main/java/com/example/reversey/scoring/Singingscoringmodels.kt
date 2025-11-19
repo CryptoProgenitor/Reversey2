@@ -1,9 +1,5 @@
 package com.example.reversey.scoring
 
-import com.example.reversey.scoring.SpeechScoringModels.easyModeSpeech
-import com.example.reversey.scoring.SpeechScoringModels.hardModeSpeech
-import com.example.reversey.scoring.SpeechScoringModels.normalModeSpeech
-
 /**
  * 🎵 SINGING SCORING MODELS — FULLY COMMENTED
  *
@@ -32,143 +28,79 @@ import com.example.reversey.scoring.SpeechScoringModels.normalModeSpeech
  *
  * EXPERT and MASTER modes have been intentionally removed.
  */
+
+
+/**
+ * 🎵 SINGING SCORING MODELS — RE-CALIBRATED
+ *
+ * Calibrated Nov 2025 for "No Nonsense" Scoring.
+ *
+ * • EASY:   Forgiving (Curve 1.8). "Feel Good" mode.
+ * • NORMAL: Linear (Curve 1.0). "Reality Check" mode.
+ * • HARD:   Punishing (Curve 0.25). "Sniper" mode.
+ */
 object SingingScoringModels {
 
     // -------------------------------------------------------------------------
-    // 🎵 EASY MODE — Beginner-friendly
+    // 🎵 EASY MODE — The "Feel Good" Mode
     // -------------------------------------------------------------------------
-    /**
-     * EASY MODE
-     * - Makes it fun for beginners.
-     * - High tolerance for pitch errors (you don't have to be in tune).
-     * - Melodic analysis is softer.
-     * - Garbage detector is forgiving.
-     */
     fun easyModeSinging(): Presets {
         return Presets(
             difficulty = DifficultyLevel.EASY,
 
-            // ----------------------- 🎯 SCORING ------------------------
-            /**
-             * SCORING PARAMETERS:
-             *
-             * - pitchWeight:     How important pitch accuracy is to the score.
-             * - mfccWeight:      How much timbre (voice character) matters.
-             * - pitchTolerance:  How far off pitch you can be before scoring drops.
-             * - minScoreThreshold:  Below this, almost no points rewarded.
-             * - perfectScoreThreshold:  When raw score counts as “perfect”.
-             * - scoreCurve:      Higher = more forgiving; lower = stricter.
-             */
             scoring = ScoringParameters(
-                pitchWeight = 0.85f,
-                mfccWeight = 0.15f,
-                pitchTolerance = 25f,
+                pitchWeight = 0.90f,
+                mfccWeight = 0.10f,
+                pitchTolerance = 25f,          // Loose tolerance
                 minScoreThreshold = 0.15f,
-                perfectScoreThreshold = 0.85f,
-                reverseMinScoreThreshold = 0.12f,      // 80% of 0.15f (easier floor)
-                reversePerfectScoreThreshold = 0.77f,  // 90% of 0.85f (easier ceiling)
-                scoreCurve = 2.0f
+                perfectScoreThreshold = 0.92f, // Lower bar for perfection
+                scoreCurve = 1.8f              // 🚀 Inflation Curve (B becomes A+)
             ),
 
-            // ----------------------- 📝 CONTENT ------------------------
-            /**
-             * CONTENT DETECTION:
-             *
-             * These measure how well the words match the reference.
-             * For singing, melody matters more than exact pronunciation.
-             */
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.30f,
-                contentDetectionAvgThreshold = 0.20f,
-                rightContentFlatPenalty = 0.25f,           // If the word is right but sung flat
-                rightContentDifferentMelodyPenalty = 0.15f,// Word right, melody wrong
-                wrongContentStandardPenalty = 0.20f        // Incorrect syllable/word
+                // Trap Door 0.70: Safe for almost everyone, but stops humming.
+                contentDetectionBestThreshold = 0.70f,
+                contentDetectionAvgThreshold = 0.50f,
+
+                rightContentFlatPenalty = 0.20f,
+                rightContentDifferentMelodyPenalty = 0.10f,
+                wrongContentStandardPenalty = 0.20f // Still crushes humming to 0
             ),
 
-            // ----------------------- 🎶 MELODIC ------------------------
-            /**
-             * MELODIC ANALYSIS:
-             *
-             * Looks at how the pitch moves:
-             * - Is the singer monotone?
-             * - Do they follow the general shape of the melody?
-             * - Do they have some range?
-             */
             melodic = MelodicAnalysisParameters(
                 monotoneDetectionThreshold = 2.5f,
                 flatSpeechThreshold = 0.5f,
-                monotonePenalty = 0.3f,
-                melodicRangeWeight = 0.35f,
-                melodicTransitionWeight = 0.4f,
-                melodicVarianceWeight = 0.25f
+                monotonePenalty = 0.3f
             ),
 
-            // ----------------------- 🎼 MUSICAL ------------------------
-            /**
-             * MUSICAL SIMILARITY:
-             *
-             * - Checks interval correctness (distance between notes).
-             * - Checks rhythmic structure (empty or missing phrases).
-             * - Ensures the melodic shape follows the reference.
-             */
             musical = MusicalSimilarityParameters(
                 sameIntervalScore = 1.0f,
                 closeIntervalScore = 0.85f,
                 similarIntervalScore = 0.6f,
-                emptyPhrasesPenalty = 0.40f,
-                emptyRhythmPenalty = 0.30f
+                emptyPhrasesPenalty = 0.30f
             ),
 
-            // ----------------------- 🔊 AUDIO --------------------------
-            audio = AudioProcessingParameters(), // defaults kept
+            audio = AudioProcessingParameters(),
 
-            // ----------------------- 📈 SCALING ------------------------
-            /**
-             * SCORE SCALING:
-             * Converts internal score (0–1 float) into 0–100 for UI,
-             * and determines when to show positive feedback.
-             */
             scaling = ScoreScalingParameters(
                 incredibleFeedbackThreshold = 85,
                 greatJobFeedbackThreshold = 65,
                 goodEffortFeedbackThreshold = 45,
-                //reversePerfectScoreAdjustment = 0.92f
             ),
 
-            // ----------------------- 🚫 GARBAGE ------------------------
-            /**
-             * GARBAGE DETECTION:
-             * Detects when the user is NOT really singing:
-             *
-             * - humming
-             * - static
-             * - monotone buzzing
-             * - barely any vocal variety
-             */
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
                 mfccVarianceThreshold = 0.35f,
                 pitchMonotoneThreshold = 12f,
-                pitchOscillationRate = 0.4f,
                 spectralEntropyThreshold = 0.6f,
-                zcrMinThreshold = 0.02f,
-                zcrMaxThreshold = 0.18f,
-                silenceRatioMin = 0.12f,
                 garbageScoreMax = 15
             )
         )
     }
 
     // -------------------------------------------------------------------------
-    // 🎵 NORMAL MODE — Balanced and fair
+    // 🎵 NORMAL MODE — Linear Reality (The Standard)
     // -------------------------------------------------------------------------
-    /**
-     * NORMAL MODE
-     * - Requires reasonably accurate singing.
-     * - Pitch must be closer.
-     * - Melody needs to follow the reference more closely.
-     * - Content detection is stricter.
-     */
     fun normalModeSinging(): Presets {
         return Presets(
             difficulty = DifficultyLevel.NORMAL,
@@ -176,37 +108,33 @@ object SingingScoringModels {
             scoring = ScoringParameters(
                 pitchWeight = 0.90f,
                 mfccWeight = 0.10f,
-                pitchTolerance = 20f,
+                pitchTolerance = 20f,          // Standard precision
                 minScoreThreshold = 0.22f,
-                perfectScoreThreshold = 0.92f,
-                reverseMinScoreThreshold = 0.18f,      // 80% of 0.22f
-                reversePerfectScoreThreshold = 0.83f,  // 90% of 0.92f
-                scoreCurve = 1.8f
+                perfectScoreThreshold = 0.98f, // ⬆️ Raised: Must be nearly perfect for 100
+                scoreCurve = 1.0f              // 📏 Linear: What you get is what you score
             ),
 
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.45f,
-                contentDetectionAvgThreshold = 0.35f,
+                // Catches humming (<0.60) but allows accents/gender diffs (0.78+).
+                contentDetectionBestThreshold = 0.75f,
+                contentDetectionAvgThreshold = 0.55f,
+
                 rightContentFlatPenalty = 0.30f,
                 rightContentDifferentMelodyPenalty = 0.20f,
-                wrongContentStandardPenalty = 0.40f
+                wrongContentStandardPenalty = 0.20f // The Crusher (Trap Door)
             ),
 
             melodic = MelodicAnalysisParameters(
                 monotoneDetectionThreshold = 3.0f,
                 flatSpeechThreshold = 0.4f,
-                monotonePenalty = 0.4f,
-                melodicRangeWeight = 0.35f,
-                melodicTransitionWeight = 0.4f,
-                melodicVarianceWeight = 0.25f
+                monotonePenalty = 0.4f
             ),
 
             musical = MusicalSimilarityParameters(
                 sameIntervalScore = 1.0f,
                 closeIntervalScore = 0.85f,
                 similarIntervalScore = 0.6f,
-                emptyPhrasesPenalty = 0.35f,
-                emptyRhythmPenalty = 0.25f
+                emptyPhrasesPenalty = 0.35f
             ),
 
             audio = AudioProcessingParameters(),
@@ -215,71 +143,56 @@ object SingingScoringModels {
                 incredibleFeedbackThreshold = 88,
                 greatJobFeedbackThreshold = 70,
                 goodEffortFeedbackThreshold = 50,
-                //reversePerfectScoreAdjustment = 0.95f
             ),
 
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
                 mfccVarianceThreshold = 0.45f,
                 pitchMonotoneThreshold = 15f,
-                pitchOscillationRate = 0.35f,
                 spectralEntropyThreshold = 0.70f,
-                zcrMinThreshold = 0.025f,
-                zcrMaxThreshold = 0.15f,
-                silenceRatioMin = 0.15f,
                 garbageScoreMax = 12
             )
         )
     }
 
     // -------------------------------------------------------------------------
-    // 🎵 HARD MODE — Demanding musical precision
+    // 🎵 HARD MODE — The Punisher (Nuclear Winter)
     // -------------------------------------------------------------------------
-    /**
-     * HARD MODE
-     * - Designed for confident singers.
-     * - Low pitch tolerance, high penalties for monotone or flat delivery.
-     * - Intervals and musical phrasing matter a lot.
-     * - Garbage detector is strict.
-     */
     fun hardModeSinging(): Presets {
         return Presets(
             difficulty = DifficultyLevel.HARD,
 
             scoring = ScoringParameters(
-                pitchWeight = 0.93f,
-                mfccWeight = 0.07f,
-                pitchTolerance = 12f,
+                pitchWeight = 0.95f,           // Melody is everything
+                mfccWeight = 0.05f,
+                pitchTolerance = 12f,          // 🎯 Sniper tolerance (12 cents)
                 minScoreThreshold = 0.30f,
-                perfectScoreThreshold = 0.90f,
-                reverseMinScoreThreshold = 0.24f,      // 80% of 0.30f
-                reversePerfectScoreThreshold = 0.81f,  // 90% of 0.90f
-                scoreCurve = 1.5f
+                perfectScoreThreshold = 0.99f, // Perfection required
+                scoreCurve = 0.25f             // 📉 Nuclear Curve: Crushes anything < 90%
             ),
 
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.55f,
-                contentDetectionAvgThreshold = 0.40f,
+                // 0.78 is the "Sniper" threshold.
+                // Requires clear articulation and close pitch match.
+                contentDetectionBestThreshold = 0.78f,
+                contentDetectionAvgThreshold = 0.60f,
+
                 rightContentFlatPenalty = 0.40f,
                 rightContentDifferentMelodyPenalty = 0.25f,
-                wrongContentStandardPenalty = 0.45f
+                wrongContentStandardPenalty = 0.10f // Absolute annihilation (0.1x)
             ),
 
             melodic = MelodicAnalysisParameters(
-                monotoneDetectionThreshold = 5.0f,
-                flatSpeechThreshold = 0.2f,
-                monotonePenalty = 0.6f,
-                melodicRangeWeight = 0.45f,
-                melodicTransitionWeight = 0.35f,
-                melodicVarianceWeight = 0.20f
+                monotoneDetectionThreshold = 4.0f,
+                flatSpeechThreshold = 0.3f,
+                monotonePenalty = 0.6f
             ),
 
             musical = MusicalSimilarityParameters(
                 sameIntervalScore = 1.0f,
-                closeIntervalScore = 0.85f,
-                similarIntervalScore = 0.5f,
-                emptyPhrasesPenalty = 0.40f,
-                emptyRhythmPenalty = 0.30f
+                closeIntervalScore = 0.80f,
+                similarIntervalScore = 0.4f,
+                emptyPhrasesPenalty = 0.50f
             ),
 
             audio = AudioProcessingParameters(),
@@ -288,25 +201,20 @@ object SingingScoringModels {
                 incredibleFeedbackThreshold = 92,
                 greatJobFeedbackThreshold = 75,
                 goodEffortFeedbackThreshold = 55,
-                //reversePerfectScoreAdjustment = 0.90f
             ),
 
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
                 mfccVarianceThreshold = 0.50f,
                 pitchMonotoneThreshold = 18f,
-                pitchOscillationRate = 0.30f,
                 spectralEntropyThreshold = 0.75f,
-                zcrMinThreshold = 0.028f,
-                zcrMaxThreshold = 0.12f,
-                silenceRatioMin = 0.18f,
-                garbageScoreMax = 10
+                garbageScoreMax = 5
             )
         )
     }
 
     // -------------------------------------------------------------------------
-    // List of difficulty presets (only the 3 supported levels)
+    // Helper Methods
     // -------------------------------------------------------------------------
     fun getAllSingingDifficultyPresets(): List<Pair<DifficultyLevel, () -> Presets>> {
         return listOf(
@@ -316,13 +224,11 @@ object SingingScoringModels {
         )
     }
 
-    //helper function This allows the orchestrator to call:
-    //SingingScoringModels.presetFor(difficulty)
     fun presetFor(level: DifficultyLevel): Presets {
         return when (level) {
-            DifficultyLevel.EASY -> easyModeSinging() // <--- CORRECTED
-            DifficultyLevel.NORMAL -> normalModeSinging() // <--- CORRECTED
-            DifficultyLevel.HARD -> hardModeSinging() // <--- CORRECTED
+            DifficultyLevel.EASY -> easyModeSinging()
+            DifficultyLevel.NORMAL -> normalModeSinging()
+            DifficultyLevel.HARD -> hardModeSinging()
         }
     }
 }

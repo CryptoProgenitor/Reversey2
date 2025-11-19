@@ -28,10 +28,10 @@ import com.example.reversey.data.repositories.SettingsDataStore
 /**
  * 🎤 SPEECH SCORING ENGINE
  *
- * Specialized scoring engine optimized for speech patterns.
+ * Specialised scoring engine optimised for speech patterns.
  * Uses SpeechScoringModels parameter sets and speech-appropriate algorithms.
  *
- * SPEECH OPTIMIZATIONS:
+ * SPEECH OPTIMISATIONS:
  * - Higher pitch tolerance (speech is naturally less melodic)
  * - Content-focused scoring (getting words right matters most)
  * - Reduced melodic requirements (monotone speech acceptable)
@@ -49,7 +49,7 @@ class SpeechScoringEngine @Inject constructor(
     private val audioProcessor = AudioProcessor()
     private val garbageDetector = GarbageDetector(audioProcessor)
 
-    // Speech-optimized parameter instances
+    // Speech-optimised parameter instances
     private var parameters = ScoringParameters()
     private var audioParams = AudioProcessingParameters()
     private var contentParams = ContentDetectionParameters()
@@ -70,7 +70,7 @@ class SpeechScoringEngine @Inject constructor(
     init {
         Log.d("HILT_VERIFY", "🎤 SpeechScoringEngine created - Instance: ${this.hashCode()}")
 
-        // Load saved difficulty and apply speech-optimized presets
+        // Load saved difficulty and apply speech-optimised presets
         engineScope.launch {
             val savedDifficulty = settingsDataStore.getDifficultyLevel.first()
             val difficulty = try {
@@ -80,7 +80,7 @@ class SpeechScoringEngine @Inject constructor(
             }
             _currentDifficulty.value = difficulty
 
-            // Apply speech-optimized preset parameters
+            // Apply speech-optimised preset parameters
             val preset = when(difficulty) {
                 DifficultyLevel.EASY -> SpeechScoringModels.easyModeSpeech()
                 DifficultyLevel.NORMAL -> SpeechScoringModels.normalModeSpeech()
@@ -94,7 +94,7 @@ class SpeechScoringEngine @Inject constructor(
     }
 
     /**
-     * Apply speech-optimized preset parameters
+     * Apply speech-optimised preset parameters
      */
     private fun applyPreset(preset: Presets) {
         parameters = preset.scoring
@@ -126,7 +126,7 @@ class SpeechScoringEngine @Inject constructor(
 
     /**
      * Main speech scoring method
-     * Optimized for speech patterns and content accuracy
+     * Optimised for speech patterns and content accuracy
      */
     fun scoreAttempt(
         originalAudio: FloatArray,
@@ -144,7 +144,7 @@ class SpeechScoringEngine @Inject constructor(
 
         Log.d("SPEECH_ENGINE", "=== SPEECH SCORING ENGINE ===")
         Log.d("SPEECH_ENGINE", "🎤 Difficulty: ${_currentDifficulty.value.displayName}")
-        Log.d("SPEECH_ENGINE", "🎵 Pitch tolerance: ${parameters.pitchTolerance}f (speech-optimized)")
+        Log.d("SPEECH_ENGINE", "🎵 Pitch tolerance: ${parameters.pitchTolerance}f (speech-optimised)")
         Log.d("SPEECH_ENGINE", "📝 Content focus: ${parameters.mfccWeight}f MFCC weight")
         Log.d("SPEECH_ENGINE", "🗣️ Challenge type: $challengeType")
 
@@ -170,7 +170,7 @@ class SpeechScoringEngine @Inject constructor(
                 score = 0,
                 rawScore = 0f,
                 metrics = SimilarityMetrics(0f, 0f),
-                feedback = listOf("Recording too short to analyze - please try again!"),
+                feedback = listOf("Recording too short to analyse - please try again!"),
                 isGarbage = false,
                 debugPresets = currentPreset // <--- ADDED FOR LOGGING
             )
@@ -182,7 +182,7 @@ class SpeechScoringEngine @Inject constructor(
         val originalMfccSequence = getMfccSequence(alignedOriginal, sampleRate)
         val attemptMfccSequence = getMfccSequence(alignedAttempt, sampleRate)
 
-        // Speech-optimized garbage detection
+        // Speech-optimised garbage detection
         val garbageAnalysis = performSpeechGarbageDetection(
             alignedAttempt, attemptPitchSequence, attemptMfccSequence, sampleRate
         )
@@ -199,7 +199,7 @@ class SpeechScoringEngine @Inject constructor(
             )
         }
 
-        // Calculate speech-optimized similarity metrics
+        // Calculate speech-optimised similarity metrics
         val pitchSimilarity = calculateSpeechPitchSimilarity(originalPitchSequence, attemptPitchSequence)
         val mfccSimilarity = calculateMfccSimilarity(originalMfccSequence, attemptMfccSequence)
 
@@ -207,10 +207,24 @@ class SpeechScoringEngine @Inject constructor(
 
         val metrics = SimilarityMetrics(pitchSimilarity, mfccSimilarity)
 
-        // Speech-focused weighted score (emphasizes content over pure melody)
+        // Speech-focused weighted score (emphasises content over pure melody)
         var rawScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
         Log.d("SPEECH_ENGINE", "🎯 Raw weighted score: $rawScore")
 
+        // --- 1. CONTENT PENALTY LOGIC (FIXED) ---
+        // Verify if the MFCC match meets the minimum threshold for "correct words".
+        // We reuse mfccSimilarity to avoid recalculating DTW (saving CPU).
+        if (mfccSimilarity < contentParams.contentDetectionBestThreshold) {
+            // The user likely said the wrong words (or the match is very poor)
+            rawScore *= contentParams.wrongContentStandardPenalty
+
+            Log.d("SPEECH_ENGINE", "📉 Content Mismatch! MFCC ($mfccSimilarity) < Threshold (${contentParams.contentDetectionBestThreshold})")
+            Log.d("SPEECH_ENGINE", "   Applying wrongContentStandardPenalty: ${contentParams.wrongContentStandardPenalty}x -> New Score: $rawScore")
+        } else {
+            Log.d("SPEECH_ENGINE", "✅ Content Match! MFCC ($mfccSimilarity) >= Threshold (${contentParams.contentDetectionBestThreshold})")
+        }
+
+        // --- 2. VARIANCE PENALTY ---
         // Speech-appropriate variance penalty (more forgiving)
         val variancePenalty = calculateSpeechVariancePenalty(originalPitchSequence, attemptPitchSequence)
         rawScore *= variancePenalty
@@ -233,7 +247,7 @@ class SpeechScoringEngine @Inject constructor(
             scoreWithBonuses
         }
 
-        // Final speech-optimized scaling
+        // Final speech-optimised scaling
         val finalScore = scaleSpeechScore(adjustedScore, challengeType)
 
         Log.d("SPEECH_ENGINE", "🏁 FINAL SPEECH SCORE: $finalScore")
@@ -250,7 +264,7 @@ class SpeechScoringEngine @Inject constructor(
     }
 
     /**
-     * Speech-optimized pitch similarity calculation
+     * Speech-optimised pitch similarity calculation
      * More forgiving than singing, focuses on overall pattern rather than exact notes
      */
     private fun calculateSpeechPitchSimilarity(
@@ -265,7 +279,7 @@ class SpeechScoringEngine @Inject constructor(
         var totalSimilarity = 0f
         var validComparisons = 0
 
-        // Speech-optimized pitch comparison (more tolerant)
+        // Speech-optimised pitch comparison (more tolerant)
         for (i in 0 until minLen) {
             val origPitch = originalPitches[i]
             val attemptPitch = attemptPitches[i]
@@ -335,7 +349,7 @@ class SpeechScoringEngine @Inject constructor(
     }
 
     /**
-     * Speech-optimized garbage detection
+     * Speech-optimised garbage detection
      */
     private fun performSpeechGarbageDetection(
         audio: FloatArray,
@@ -354,7 +368,7 @@ class SpeechScoringEngine @Inject constructor(
             i += hopSize
         }
 
-        // Use speech-optimized parameters for garbage detection
+        // Use speech-optimised parameters for garbage detection
         return garbageDetector.detectGarbage(
             audioFrames = audioFrames,
             pitches = pitches,
@@ -364,7 +378,7 @@ class SpeechScoringEngine @Inject constructor(
     }
 
     /**
-     * Speech-optimized score scaling
+     * Speech-optimised score scaling
      */
     private fun scaleSpeechScore(rawScore: Float, challengeType: ChallengeType): Int {
         var scaledScore = rawScore
@@ -384,7 +398,7 @@ class SpeechScoringEngine @Inject constructor(
 
         Log.d("SPEECH_ENGINE", "🎯 Using thresholds: min=$minThreshold, perfect=$perfectThreshold for $challengeType")
 
-// Speech-optimized scaling curve
+// Speech-optimised scaling curve
         val normalizedScore = (rawScore - minThreshold) / (perfectThreshold - minThreshold)
 
         val curveAdjustedScore = if (normalizedScore > 0) {
@@ -442,7 +456,7 @@ class SpeechScoringEngine @Inject constructor(
         return feedback
     }
 
-    // Utility methods (similar to ScoringEngine but speech-optimized)
+    // Utility methods (similar to ScoringEngine but speech-optimised)
 
     private fun alignAudio(original: FloatArray, attempt: FloatArray): Pair<FloatArray, FloatArray> {
         Log.d("SPEECH_ENGINE", "🔧 Aligning speech audio...")

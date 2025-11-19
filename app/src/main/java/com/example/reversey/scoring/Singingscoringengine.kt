@@ -110,8 +110,6 @@ class SingingScoringEngine @Inject constructor(
         // 🔗 Push difficulty-specific garbage params into the detector
         garbageDetector.updateParameters(garbageParams)
 
-
-
         Log.d("SINGING_ENGINE", "🎵 Applied singing preset for ${preset.difficulty.displayName}")
         Log.d("SINGING_ENGINE", "   🎼 Pitch tolerance: ${parameters.pitchTolerance}f (strict for music)")
         Log.d("SINGING_ENGINE", "   🎼 Pitch weight: ${parameters.pitchWeight}f (melody dominates)")
@@ -129,8 +127,6 @@ class SingingScoringEngine @Inject constructor(
             scaling = scalingParams,
             garbage = garbageParams
         )
-
-
     }
 
 
@@ -230,6 +226,7 @@ class SingingScoringEngine @Inject constructor(
 
         // Music-focused weighted score (heavily emphasizes melody)
         var rawScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
+        Log.d("SINGING_ENGINE", "🎯 Base weighted score: $rawScore")
 
         // Apply musical bonuses
         rawScore += musicalComplexityBonus * 0.1f  // Up to 10% bonus for complexity
@@ -237,6 +234,30 @@ class SingingScoringEngine @Inject constructor(
         rawScore += harmonicRichness * 0.05f        // Up to 5% bonus for rich harmonics
 
         Log.d("SINGING_ENGINE", "🎯 Raw score with musical bonuses: $rawScore")
+
+        // --- 🔗 CONTENT DETECTION (With REVERSE HANDICAP) ---
+        // Placed AFTER bonuses to ensure we crush 'style points' if words are wrong.
+
+        // 🚨 EXPERIMENTAL: LOWER HURDLE FOR REVERSE SINGING
+        val effectiveThreshold = if (challengeType == ChallengeType.REVERSE) {
+            // Handicap: Lower threshold by 0.15 (e.g., 0.75 -> 0.60)
+            val adjusted = max(0.50f, contentParams.contentDetectionBestThreshold - 0.15f)
+            Log.d("SINGING_ENGINE", "🔄 Reverse Challenge Detected: Applying handicap (-0.15). New Threshold: $adjusted")
+            adjusted
+        } else {
+            contentParams.contentDetectionBestThreshold
+        }
+
+        if (mfccSimilarity < effectiveThreshold) {
+            // Trap Door OPEN -> Apply Crusher
+            Log.d("SINGING_ENGINE", "📉 Content Mismatch! MFCC ($mfccSimilarity) < Threshold ($effectiveThreshold)")
+            Log.d("SINGING_ENGINE", "   Applying wrongContentStandardPenalty: ${contentParams.wrongContentStandardPenalty}x")
+
+            rawScore *= contentParams.wrongContentStandardPenalty
+            Log.d("SINGING_ENGINE", "   ⬇️ New Score: $rawScore")
+        } else {
+            Log.d("SINGING_ENGINE", "✅ Content Match! MFCC ($mfccSimilarity) >= Threshold ($effectiveThreshold)")
+        }
 
         // Musical variance penalty (strict for singing)
         val variancePenalty = calculateMusicalVariancePenalty(originalPitchSequence, attemptPitchSequence)

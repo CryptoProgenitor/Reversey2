@@ -162,11 +162,17 @@ object SpeechScoringModels {
             ),
 
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.20f,     // DOWN from 0.30f - easier to detect good content
-                contentDetectionAvgThreshold = 0.15f,      // DOWN from 0.20f - easier average detection
+                // We set the bar at 0.80 to BLOCK it, while remaining safer than 0.85.
+                contentDetectionBestThreshold = 0.80f,
+                contentDetectionAvgThreshold = 0.45f,   // Adjusted ratio
                 rightContentFlatPenalty = 0.08f,
                 rightContentDifferentMelodyPenalty = 0.04f,
-                wrongContentStandardPenalty = 0.70f,       // UP from 0.50f - harder penalty for wrong words
+
+                // 🚨 PENALTY CALIBRATION 🚨
+                // This is a MULTIPLIER.
+                // 0.70 = retain 70% of score (Soft penalty).
+                // 0.50 = retain 50% of score (Hard penalty).
+                wrongContentStandardPenalty = 0.20f // ⬇️ Set to 0.50 to halve the score on wrong words
             ),
 
             melodic = MelodicAnalysisParameters(
