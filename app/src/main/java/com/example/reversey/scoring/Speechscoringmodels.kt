@@ -49,57 +49,36 @@ object SpeechScoringModels {
         return Presets(
             difficulty = DifficultyLevel.EASY,
 
-            // --------------------------- 🎯 SCORING ---------------------------
-            /**
-             * For speech:
-             *
-             * - pitchWeight is LOWER than singing
-             * - mfccWeight is HIGHER because timbre/formants carry more meaning
-             * - pitchTolerance is LARGE because speech pitch is less stable
-             */
             scoring = ScoringParameters(
                 pitchWeight = 0.65f,
                 mfccWeight = 0.35f,
-                pitchTolerance = 50f,         // Very forgiving: speech varies wildly
+                pitchTolerance = 50f,
                 minScoreThreshold = 0.08f,
                 perfectScoreThreshold = 0.75f,
-                reverseMinScoreThreshold = 0.06f,      // 80% of 0.08f (easier floor)
-                reversePerfectScoreThreshold = 0.68f,  // 90% of 0.75f (easier ceiling)
-                scoreCurve = 3.0f             // Larger curve = more forgiving scoring drop-off
+                reverseMinScoreThreshold = 0.06f,
+                reversePerfectScoreThreshold = 0.68f,
+                scoreCurve = 3.0f
             ),
 
-            // --------------------------- 📝 CONTENT ---------------------------
-            /**
-             * Content detection is more important for speech than singing.
-             * However, EASY mode significantly eases the thresholds.
-             */
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.20f,  // You only need a modestly good match
-                contentDetectionAvgThreshold = 0.10f,
-                reverseHandicap = 0.15f, // 🟢 EASY: Lowers 0.65 -> 0.50
-                rightContentFlatPenalty = 0.05f,        // Flat speech is totally fine
-                rightContentDifferentMelodyPenalty = 0.02f, // Melody barely matters in speech
-                wrongContentStandardPenalty = 0.35f     // Wrong words still matter
+                // 🟢 EASY CALIBRATION: Very lenient. Allows easy passing.
+                contentDetectionBestThreshold = 0.65f,  // ⬆️ Adjusted from 0.20f for stability
+                contentDetectionAvgThreshold = 0.35f,
+                reverseHandicap = 0.20f, // ⬆️ Max Help: 0.65 - 0.20 = 0.45 (Very Safe)
+                rightContentFlatPenalty = 0.05f,
+                rightContentDifferentMelodyPenalty = 0.02f,
+                wrongContentStandardPenalty = 0.35f
             ),
 
-            // --------------------------- 🎶 MELODIC ---------------------------
-            /**
-             * Speech does NOT require melodic shape.
-             * But some variation is still good (to avoid robotic monotone).
-             */
             melodic = MelodicAnalysisParameters(
-                monotoneDetectionThreshold = 0.5f, // Low threshold = easy acceptance
-                flatSpeechThreshold = 1.5f,        // Very forgiving of monotone delivery
-                monotonePenalty = 0.05f,          // Almost no penalty for monotone speech
-                melodicRangeWeight = 0.05f,       // Speech doesn't require range
-                melodicTransitionWeight = 0.05f,  // Transitions not important
-                melodicVarianceWeight = 0.90f     // ANY variation is rewarded
+                monotoneDetectionThreshold = 0.5f,
+                flatSpeechThreshold = 1.5f,
+                monotonePenalty = 0.05f,
+                melodicRangeWeight = 0.05f,
+                melodicTransitionWeight = 0.05f,
+                melodicVarianceWeight = 0.90f
             ),
 
-            // --------------------------- 🎼 MUSICAL ---------------------------
-            /**
-             * Speech is not musical, so musical rules are extremely relaxed.
-             */
             musical = MusicalSimilarityParameters(
                 sameIntervalScore = 0.8f,
                 closeIntervalScore = 0.7f,
@@ -107,74 +86,54 @@ object SpeechScoringModels {
                 emptyRhythmPenalty = 0.05f
             ),
 
-            // --------------------------- 🔊 AUDIO -----------------------------
             audio = AudioProcessingParameters(),
 
-            // --------------------------- 📈 SCALING ---------------------------
             scaling = ScoreScalingParameters(
                 incredibleFeedbackThreshold = 75,
                 greatJobFeedbackThreshold = 55,
                 goodEffortFeedbackThreshold = 35,
-                //reversePerfectScoreAdjustment = 1.05f // Reverse easier for speech
             ),
 
-            // --------------------------- 🚫 GARBAGE ---------------------------
-            /**
-             * In EASY mode, almost anything that resembles speech is accepted.
-             * Only extreme cases (static, pure tones, long silence) get filtered.
-             */
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.10f,  // Low = speech has low timbre variance
-                pitchMonotoneThreshold = 3f,    // Speech is allowed to be fairly monotone
-                pitchOscillationRate = 1.0f,    // High = big natural pitch movements are OK
+                mfccVarianceThreshold = 0.10f,
+                pitchMonotoneThreshold = 3f,
+                pitchOscillationRate = 1.0f,
                 spectralEntropyThreshold = 0.25f,
                 zcrMinThreshold = 0.005f,
-                zcrMaxThreshold = 0.45f,         // Wide range of consonant/unvoiced sounds allowed
+                zcrMaxThreshold = 0.45f,
                 silenceRatioMin = 0.02f,
-                garbageScoreMax = 30             // Very lenient
+                garbageScoreMax = 30
             )
         )
     }
 
     // -------------------------------------------------------------------------
-    // 🎤 NORMAL MODE — Balanced and realistic
+    // 🎤 NORMAL MODE — Balanced and realistic (LOCKED)
     // -------------------------------------------------------------------------
-    /**
-     * NORMAL MODE
-     * - More realistic speech expectations.
-     * - Tighter content matching.
-     * - Less pitch tolerance (still far more than singing).
-     * - Garbage filter less lenient, but still appropriate for speech.
-     */
     fun normalModeSpeech(): Presets {
         return Presets(
             difficulty = DifficultyLevel.NORMAL,
 
             scoring = ScoringParameters(
-                pitchWeight = 0.85f,       // UP from 0.70f - more content/timing weight
-                mfccWeight = 0.15f,        // DOWN from 0.30f - less voice similarity bias
+                pitchWeight = 0.85f,
+                mfccWeight = 0.15f,
                 pitchTolerance = 40f,
                 minScoreThreshold = 0.12f,
-                perfectScoreThreshold = 0.80f,   // DOWN from 0.85f - easier to get high scores
-                reverseMinScoreThreshold = 0.10f,      // 80% of 0.12f
-                reversePerfectScoreThreshold = 0.77f,  // 90% of 0.85f
-                scoreCurve = 3.2f,               // UP from 2.8f - more forgiving curve
+                perfectScoreThreshold = 0.80f,
+                reverseMinScoreThreshold = 0.10f,
+                reversePerfectScoreThreshold = 0.77f,
+                scoreCurve = 3.2f,
             ),
 
             content = ContentDetectionParameters(
-                // We set the bar at 0.80 to BLOCK it, while remaining safer than 0.85.
+                // 🎯 BASELINE: 0.80 is the standard trap door.
                 contentDetectionBestThreshold = 0.80f,
-                contentDetectionAvgThreshold = 0.45f,   // Adjusted ratio
-                reverseHandicap = 0.15f, // 🎯 NORMAL: Lowers 0.80 -> 0.65
+                contentDetectionAvgThreshold = 0.45f,
+                reverseHandicap = 0.15f, // 🎯 Standard Help: 0.80 - 0.15 = 0.65
                 rightContentFlatPenalty = 0.08f,
                 rightContentDifferentMelodyPenalty = 0.04f,
-
-                // 🚨 PENALTY CALIBRATION 🚨
-                // This is a MULTIPLIER.
-                // 0.70 = retain 70% of score (Soft penalty).
-                // 0.50 = retain 50% of score (Hard penalty).
-                wrongContentStandardPenalty = 0.20f // ⬇️ Set to 0.50 to halve the score on wrong words
+                wrongContentStandardPenalty = 0.20f
             ),
 
             melodic = MelodicAnalysisParameters(
@@ -199,7 +158,6 @@ object SpeechScoringModels {
                 incredibleFeedbackThreshold = 80,
                 greatJobFeedbackThreshold = 60,
                 goodEffortFeedbackThreshold = 40,
-                //reversePerfectScoreAdjustment = 1.0f
             ),
 
             garbage = GarbageDetectionParameters(
@@ -219,13 +177,6 @@ object SpeechScoringModels {
     // -------------------------------------------------------------------------
     // 🎤 HARD MODE — Demanding but speech-appropriate
     // -------------------------------------------------------------------------
-    /**
-     * HARD MODE
-     * - High speech clarity required.
-     * - Content detection thresholds significantly higher.
-     * - Garbage detector is much stricter (detects monotone attempts).
-     * - Pitch matters more — but still nothing like singing mode.
-     */
     fun hardModeSpeech(): Presets {
         return Presets(
             difficulty = DifficultyLevel.HARD,
@@ -236,15 +187,16 @@ object SpeechScoringModels {
                 pitchTolerance = 30f,
                 minScoreThreshold = 0.18f,
                 perfectScoreThreshold = 0.80f,
-                reverseMinScoreThreshold = 0.14f,      // 80% of 0.18f
-                reversePerfectScoreThreshold = 0.72f,  // 90% of 0.80f
+                reverseMinScoreThreshold = 0.14f,
+                reversePerfectScoreThreshold = 0.72f,
                 scoreCurve = 2.3f
             ),
 
             content = ContentDetectionParameters(
-                contentDetectionBestThreshold = 0.35f,
-                contentDetectionAvgThreshold = 0.25f,
-                reverseHandicap = 0.10f, // 🔥 HARD: Lowers 0.85 -> 0.75
+                // 🚨 FIX: Must be higher than Normal's 0.80
+                contentDetectionBestThreshold = 0.88f, // ⬆️ Set to 0.88 for high demand
+                contentDetectionAvgThreshold = 0.50f,
+                reverseHandicap = 0.10f, // Minimal Help: 0.88 - 0.10 = 0.78
                 rightContentFlatPenalty = 0.15f,
                 rightContentDifferentMelodyPenalty = 0.08f,
                 wrongContentStandardPenalty = 0.65f
@@ -272,7 +224,6 @@ object SpeechScoringModels {
                 incredibleFeedbackThreshold = 85,
                 greatJobFeedbackThreshold = 65,
                 goodEffortFeedbackThreshold = 45,
-                //reversePerfectScoreAdjustment = 0.98f
             ),
 
             garbage = GarbageDetectionParameters(
