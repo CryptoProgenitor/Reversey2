@@ -238,11 +238,13 @@ class SingingScoringEngine @Inject constructor(
         // --- 🔗 CONTENT DETECTION (With REVERSE HANDICAP) ---
         // Placed AFTER bonuses to ensure we crush 'style points' if words are wrong.
 
-        // 🚨 EXPERIMENTAL: LOWER HURDLE FOR REVERSE SINGING
+        // 🚨 REVERSE HANDICAP LOGIC (Dynamic) 🚨
         val effectiveThreshold = if (challengeType == ChallengeType.REVERSE) {
-            // Handicap: Lower threshold by 0.15 (e.g., 0.75 -> 0.60)
-            val adjusted = max(0.50f, contentParams.contentDetectionBestThreshold - 0.15f)
-            Log.d("SINGING_ENGINE", "🔄 Reverse Challenge Detected: Applying handicap (-0.15). New Threshold: $adjusted")
+            // Use the parameter from the preset
+            val handicap = contentParams.reverseHandicap
+            val adjusted = max(0.50f, contentParams.contentDetectionBestThreshold - handicap)
+
+            Log.d("SINGING_ENGINE", "🔄 Reverse Challenge: Threshold ${contentParams.contentDetectionBestThreshold} - Handicap $handicap = $adjusted")
             adjusted
         } else {
             contentParams.contentDetectionBestThreshold

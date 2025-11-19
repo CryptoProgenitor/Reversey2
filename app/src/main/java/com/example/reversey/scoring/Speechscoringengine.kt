@@ -211,17 +211,29 @@ class SpeechScoringEngine @Inject constructor(
         var rawScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
         Log.d("SPEECH_ENGINE", "🎯 Raw weighted score: $rawScore")
 
-        // --- 1. CONTENT PENALTY LOGIC (FIXED) ---
-        // Verify if the MFCC match meets the minimum threshold for "correct words".
-        // We reuse mfccSimilarity to avoid recalculating DTW (saving CPU).
-        if (mfccSimilarity < contentParams.contentDetectionBestThreshold) {
-            // The user likely said the wrong words (or the match is very poor)
-            rawScore *= contentParams.wrongContentStandardPenalty
+        // --- 1. CONTENT PENALTY LOGIC (With Reverse Handicap) ---
 
-            Log.d("SPEECH_ENGINE", "📉 Content Mismatch! MFCC ($mfccSimilarity) < Threshold (${contentParams.contentDetectionBestThreshold})")
-            Log.d("SPEECH_ENGINE", "   Applying wrongContentStandardPenalty: ${contentParams.wrongContentStandardPenalty}x -> New Score: $rawScore")
+        // 🚨 REVERSE HANDICAP LOGIC 🚨
+        // Calculates dynamic threshold based on challenge direction
+        val effectiveThreshold = if (challengeType == ChallengeType.REVERSE) {
+            val handicap = contentParams.reverseHandicap
+            val adjusted = max(0.40f, contentParams.contentDetectionBestThreshold - handicap)
+            Log.d("SPEECH_ENGINE", "🔄 Reverse Challenge: Threshold ${contentParams.contentDetectionBestThreshold} - Handicap $handicap = $adjusted")
+            adjusted
         } else {
-            Log.d("SPEECH_ENGINE", "✅ Content Match! MFCC ($mfccSimilarity) >= Threshold (${contentParams.contentDetectionBestThreshold})")
+            contentParams.contentDetectionBestThreshold
+        }
+
+        // Verify if the MFCC match meets the minimum threshold
+        if (mfccSimilarity < effectiveThreshold) {
+            // The user likely said the wrong words (or the match is very poor)
+            Log.d("SPEECH_ENGINE", "📉 Content Mismatch! MFCC ($mfccSimilarity) < Threshold ($effectiveThreshold)")
+            Log.d("SPEECH_ENGINE", "   Applying wrongContentStandardPenalty: ${contentParams.wrongContentStandardPenalty}x")
+
+            rawScore *= contentParams.wrongContentStandardPenalty
+            Log.d("SPEECH_ENGINE", "   ⬇️ New Score: $rawScore")
+        } else {
+            Log.d("SPEECH_ENGINE", "✅ Content Match! MFCC ($mfccSimilarity) >= Threshold ($effectiveThreshold)")
         }
 
         // --- 2. VARIANCE PENALTY ---

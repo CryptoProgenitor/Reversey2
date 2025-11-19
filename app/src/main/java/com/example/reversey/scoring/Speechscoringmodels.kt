@@ -76,6 +76,7 @@ object SpeechScoringModels {
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.20f,  // You only need a modestly good match
                 contentDetectionAvgThreshold = 0.10f,
+                reverseHandicap = 0.15f, // 🟢 EASY: Lowers 0.65 -> 0.50
                 rightContentFlatPenalty = 0.05f,        // Flat speech is totally fine
                 rightContentDifferentMelodyPenalty = 0.02f, // Melody barely matters in speech
                 wrongContentStandardPenalty = 0.35f     // Wrong words still matter
@@ -165,6 +166,7 @@ object SpeechScoringModels {
                 // We set the bar at 0.80 to BLOCK it, while remaining safer than 0.85.
                 contentDetectionBestThreshold = 0.80f,
                 contentDetectionAvgThreshold = 0.45f,   // Adjusted ratio
+                reverseHandicap = 0.15f, // 🎯 NORMAL: Lowers 0.80 -> 0.65
                 rightContentFlatPenalty = 0.08f,
                 rightContentDifferentMelodyPenalty = 0.04f,
 
@@ -242,6 +244,7 @@ object SpeechScoringModels {
             content = ContentDetectionParameters(
                 contentDetectionBestThreshold = 0.35f,
                 contentDetectionAvgThreshold = 0.25f,
+                reverseHandicap = 0.10f, // 🔥 HARD: Lowers 0.85 -> 0.75
                 rightContentFlatPenalty = 0.15f,
                 rightContentDifferentMelodyPenalty = 0.08f,
                 wrongContentStandardPenalty = 0.65f

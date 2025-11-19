@@ -61,6 +61,7 @@ object SingingScoringModels {
                 // Trap Door 0.70: Safe for almost everyone, but stops humming.
                 contentDetectionBestThreshold = 0.70f,
                 contentDetectionAvgThreshold = 0.50f,
+                reverseHandicap = 0.20f, // 🟢 EASY: Huge help (-20%)
 
                 rightContentFlatPenalty = 0.20f,
                 rightContentDifferentMelodyPenalty = 0.10f,
@@ -118,6 +119,7 @@ object SingingScoringModels {
                 // Catches humming (<0.60) but allows accents/gender diffs (0.78+).
                 contentDetectionBestThreshold = 0.75f,
                 contentDetectionAvgThreshold = 0.55f,
+                reverseHandicap = 0.15f, // 🎯 NORMAL: Validated Standard (-15%)
 
                 rightContentFlatPenalty = 0.30f,
                 rightContentDifferentMelodyPenalty = 0.20f,
@@ -176,6 +178,7 @@ object SingingScoringModels {
                 // Requires clear articulation and close pitch match.
                 contentDetectionBestThreshold = 0.78f,
                 contentDetectionAvgThreshold = 0.60f,
+                reverseHandicap = 0.08f, // 🔥 HARD: Minimal help (-8%)
 
                 rightContentFlatPenalty = 0.40f,
                 rightContentDifferentMelodyPenalty = 0.25f,

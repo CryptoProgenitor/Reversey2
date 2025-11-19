@@ -110,6 +110,9 @@ data class ContentDetectionParameters(
     // Content recognition thresholds
     var contentDetectionBestThreshold: Float = 0.35f,
     var contentDetectionAvgThreshold: Float = 0.25f,
+    // 🚨 NEW: Reverse Handicap (Default 0.0f = Disabled/Speech Safe)
+    // Singing Engine will override this in its presets.
+    var reverseHandicap: Float = 0.0f,
 
     // Melodic requirement thresholds
     var highMelodicThreshold: Float = 0.6f,
