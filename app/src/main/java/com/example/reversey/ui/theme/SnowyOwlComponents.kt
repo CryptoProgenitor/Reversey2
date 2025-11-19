@@ -1,5 +1,5 @@
 package com.example.reversey.ui.theme
-
+//GEMINI COMPILES BUT NO CLICK-ON-OWL
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -80,6 +80,78 @@ import com.example.reversey.ui.components.DifficultySquircle
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+import android.content.Context
+import android.media.SoundPool
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
+
+/**
+ * Data class for heart bubble animations
+ */
+data class HeartBubble(
+    val id: Int,
+    val startX: Float,
+    val startY: Float,
+    val offsetX: Float = Random.nextFloat() * 40f - 20f, // Random horizontal drift
+    val animationStartTime: Long = System.currentTimeMillis()
+)
+
+/**
+ * Sound manager for owl hoot - simplified version
+ */
+// 🦉🔊 REPLACEMENT OWLHOOTMANAGER CLASS
+class OwlHootManager(private val context: Context) {
+    // Flag to track if the sound is ready to play
+    private var isSoundLoaded: Boolean = false
+
+    private val soundPool: SoundPool = SoundPool.Builder()
+        .setMaxStreams(3)
+        .build().apply {
+            // Set a listener to know when the sound is ready
+            setOnLoadCompleteListener { soundPool, sampleId, status ->
+                if (sampleId == hootSoundId && status == 0) {
+                    isSoundLoaded = true
+                    android.util.Log.d("OwlHoot", "Hoot sound loaded successfully.")
+                }
+            }
+        }
+
+    private var hootSoundId: Int = 0
+
+    init {
+        try {
+            // Load the sound
+            hootSoundId = soundPool.load(context,
+                context.resources.getIdentifier("hoot", "raw", context.packageName), 1)
+        } catch (e: Exception) {
+            android.util.Log.w("OwlHoot", "Error loading hoot.wav: $e")
+        }
+    }
+
+    fun playHoot() {
+        // Only attempt to play if the sound has finished loading
+        if (hootSoundId != 0 && isSoundLoaded) {
+            soundPool.play(hootSoundId, 0.7f, 0.7f, 1, 0, 1.0f)
+            android.util.Log.d("OwlHoot", "Hoot played.")
+        } else {
+            android.util.Log.w("OwlHoot", "Hoot not played: sound not loaded or ID is 0.")
+        }
+    }
+
+    fun release() {
+        soundPool.release()
+    }
+}
 
 /**
  * 🦉 SNOWY OWL THEME COMPONENTS
@@ -180,14 +252,17 @@ class SnowyOwlComponents : ThemeComponents {
                 .fillMaxSize()
                 .background(aesthetic.primaryGradient)
         ) {
-            // Falling snowflakes
+            // BACKGROUND: snow behind everything
             SnowyOwlSnowflakes()
 
-            // Flying owl
-            SnowyOwlFlying()
-
-            // Content on top
+            // MAIN UI ABOVE SNOW
             content()
+
+            // 🦉 OWL OVERLAY – ON TOP, GETS TOUCH EVENTS
+            Box(modifier = Modifier.fillMaxSize()) {
+                SnowyOwlFlying()
+            }
+
         }
     }
 }
@@ -212,58 +287,30 @@ fun SnowyOwlRecordButton(
     )
 
     // Pulsing glow animation when recording
-    val infiniteTransition = rememberInfiniteTransition(label = "moonPulse")
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.8f,
+    val infiniteTransition = rememberInfiniteTransition(label = "moonGlow")
+    val glowRadius by infiniteTransition.animateFloat(
+        initialValue = 80f,
+        targetValue = 120f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
+            animation = tween(1500, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "glowAlpha"
+        label = "glowRadius"
     )
 
     Box(
-        modifier = modifier,
+        modifier = modifier.size(120.dp),
         contentAlignment = Alignment.Center
     ) {
-        // SUPER BRIGHT pulsing glow when recording (MAXIMUM VISIBILITY)
+        // Glowing background when recording
         if (isRecording) {
-            // Bright outer glow layer - NOT CLIPPED NOW
-            Canvas(modifier = Modifier.size(210.dp)) {
-                val glowRadius = size.minDimension / 2f
-                val center = Offset(size.width / 2f, size.height / 2f)
-
+            Canvas(modifier = Modifier.fillMaxSize()) {
                 drawCircle(
                     brush = Brush.radialGradient(
-                        0.33f to Color.Transparent,
-                        0.38f to Color(0xFFffffff).copy(alpha = glowAlpha),  // Full white
-                        0.48f to Color(0xFFffffff).copy(alpha = glowAlpha * 0.9f),
-                        0.60f to Color(0xFFf0f0f0).copy(alpha = glowAlpha * 0.75f),
-                        0.75f to Color(0xFFe0e0e0).copy(alpha = glowAlpha * 0.55f),
-                        0.90f to Color(0xFFd0d0d0).copy(alpha = glowAlpha * 0.3f),
-                        1.0f to Color.Transparent,
-                        center = center,
-                        radius = glowRadius
-                    ),
-                    radius = glowRadius,
-                    center = center
-                )
-            }
-
-            // Extra bright inner ring at moon edge for visibility
-            Canvas(modifier = Modifier.size(150.dp)) {
-                val glowRadius = size.minDimension / 2f
-                val center = Offset(size.width / 2f, size.height / 2f)
-
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        0.45f to Color.Transparent,
-                        0.50f to Color(0xFFffffff).copy(alpha = glowAlpha * 0.95f),  // Very bright
-                        0.70f to Color(0xFFffffff).copy(alpha = glowAlpha * 0.8f),
-                        0.90f to Color(0xFFf8f8f8).copy(alpha = glowAlpha * 0.5f),
-                        1.0f to Color.Transparent,
-                        center = center,
+                        colors = listOf(
+                            Color(0xFF4a5568).copy(alpha = 0.6f),
+                            Color.Transparent
+                        ),
                         radius = glowRadius
                     ),
                     radius = glowRadius,
@@ -272,254 +319,358 @@ fun SnowyOwlRecordButton(
             }
         }
 
-        // Text below moon button
-        if (isRecording) {
-            Text(
-                text = "🔴 Recording",
-                color = Color(0xFFFF69B4),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .offset(y = 50.dp)
-            )
-        }
-
-        // Moon button with clickable area
+        // Main moon button
         Canvas(
             modifier = Modifier
-                .size(140.dp)
-                .clickable(
-                    onClick = onClick,
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() }
-                )
+                .size(80.dp)
+                .clickable(onClick = onClick)
         ) {
-            val radius = size.minDimension / 2f
-            val center = Offset(size.width / 2f, size.height / 2f)
+            val centerX = size.width / 2
+            val centerY = size.height / 2
+            val radius = size.minDimension / 2 * 0.9f
 
-            // Moon background with craters
+            // Draw moon base
             drawCircle(
                 color = moonColor,
                 radius = radius,
-                center = center,
+                center = Offset(centerX, centerY),
                 style = Fill
             )
 
-            // Craters (always visible)
-            drawCrater(center, 0.3f, 0.15f, radius)
-            drawCrater(center, -0.25f, -0.2f, radius)
-            drawCrater(center, 0.15f, -0.35f, radius)
-            drawCrater(center, -0.4f, 0.25f, radius)
-
-            // Semi-transparent eclipse shadow (allows craters to show through)
+            // Draw eclipse overlay
             if (eclipseProgress > 0f) {
-                val eclipseOffset = Offset(
-                    center.x + radius * 0.3f * (1f - eclipseProgress),
-                    center.y
-                )
+                val eclipseRadius = radius * eclipseProgress
                 drawCircle(
-                    color = eclipseColor.copy(alpha = 0.7f), // Semi-transparent to show textures
-                    radius = radius * eclipseProgress,
-                    center = eclipseOffset,
+                    color = eclipseColor,
+                    radius = eclipseRadius,
+                    center = Offset(centerX - radius * 0.2f, centerY), // Offset for crescent
                     style = Fill
                 )
             }
 
-            // Moon border (extra bright when recording)
-            drawCircle(
-                color = if (isRecording) Color(0xFFe8e8e8) else Color(0xFFc0c0c0),
-                radius = radius,
-                center = center,
-                style = Stroke(width = if (isRecording) 4.dp.toPx() else 3.dp.toPx())
-            )
+            // Subtle moon crater details
+            if (eclipseProgress < 0.8f) {
+                val craterAlpha = (1f - eclipseProgress).coerceAtLeast(0f)
+                drawCircle(
+                    color = Color(0xFFd0d0d0).copy(alpha = craterAlpha),
+                    radius = radius * 0.15f,
+                    center = Offset(centerX + radius * 0.3f, centerY - radius * 0.4f)
+                )
+                drawCircle(
+                    color = Color(0xFFd0d0d0).copy(alpha = craterAlpha),
+                    radius = radius * 0.08f,
+                    center = Offset(centerX - radius * 0.2f, centerY + radius * 0.5f)
+                )
+            }
         }
     }
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCrater(
-    center: Offset,
-    offsetXRatio: Float,
-    offsetYRatio: Float,
-    moonRadius: Float
-) {
-    val craterCenter = Offset(
-        center.x + moonRadius * offsetXRatio,
-        center.y + moonRadius * offsetYRatio
-    )
-    val craterRadius = moonRadius * 0.15f
-
-    // Shadow
-    drawCircle(
-        color = Color(0xFFb0b0b0),
-        radius = craterRadius,
-        center = craterCenter
-    )
-    // Highlight
-    drawCircle(
-        color = Color(0xFFf0f0f0),
-        radius = craterRadius * 0.6f,
-        center = craterCenter.copy(
-            x = craterCenter.x - craterRadius * 0.2f,
-            y = craterCenter.y - craterRadius * 0.2f
-        )
-    )
 }
 
 // ============================================
 // ❄️ FALLING SNOWFLAKES
 // ============================================
 
-@Composable
-fun SnowyOwlSnowflakes() {
-    val snowflakes = remember {
-        List(15) { index ->
-            SnowflakeData(
-                x = Random.nextFloat(),
-                initialY = Random.nextFloat() * -0.3f,
-                speed = Random.nextFloat() * 0.5f + 0.3f,
-                size = Random.nextFloat() * 8f + 8f,
-                delay = index * 400
-            )
-        }
-    }
-
-    snowflakes.forEach { snowflake ->
-        AnimatedSnowflake(snowflake)
-    }
-}
-
 data class SnowflakeData(
-    val x: Float,
-    val initialY: Float,
-    val speed: Float,
+    var x: Float,
+    var y: Float,
     val size: Float,
-    val delay: Int
+    val speed: Float,
+    val drift: Float
 )
 
 @Composable
-fun AnimatedSnowflake(data: SnowflakeData) {
-    val infiniteTransition = rememberInfiniteTransition(label = "snowfall")
-
-    val yPosition by infiniteTransition.animateFloat(
-        initialValue = data.initialY,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = (20000 / data.speed).toInt(),
-                easing = LinearEasing,
-                delayMillis = data.delay
-            ),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "snowY"
-    )
-
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 8000,
-                easing = LinearEasing
-            ),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "snowRotation"
-    )
-
-    BoxWithConstraints {
-        Text(
-            text = "❄",
-            color = Color.White.copy(alpha = 0.4f),
-            fontSize = data.size.sp,
-            modifier = Modifier
-                .offset(
-                    x = (maxWidth.value * data.x).dp,
-                    y = (maxHeight.value * yPosition).dp
-                )
-                .graphicsLayer(rotationZ = rotation)
-        )
-    }
-}
-
-// ============================================
-// 🦉 FLYING OWL
-// ============================================
-
-@Composable
-fun SnowyOwlFlying() {
-    var owlX by remember { mutableStateOf(100f) }
-    var owlY by remember { mutableStateOf(250f) }
-    var baseY by remember { mutableStateOf(250f) }
-    var velocityX by remember { mutableStateOf(1.5f) }
-    var facingRight by remember { mutableStateOf(true) }
-    var flightPhase by remember { mutableStateOf(0f) }
+fun SnowyOwlSnowflakes() {
+    var snowflakes by remember { mutableStateOf(listOf<SnowflakeData>()) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenWidth = constraints.maxWidth.toFloat()
         val screenHeight = constraints.maxHeight.toFloat()
-        val owlWidth = 600f // Owl total width including wings
 
+        // Initialize snowflakes
+        LaunchedEffect(screenWidth, screenHeight) {
+            snowflakes = List(25) {
+                SnowflakeData(
+                    x = Random.nextFloat() * screenWidth,
+                    y = Random.nextFloat() * screenHeight,
+                    size = Random.nextFloat() * 8f + 2f,
+                    speed = Random.nextFloat() * 3f + 1f,
+                    drift = Random.nextFloat() * 2f - 1f
+                )
+            }
+        }
+
+        // Animate snowflakes
         LaunchedEffect(Unit) {
             while (true) {
-                withFrameMillis { frameTimeMillis ->
-                    // Update position
-                    owlX += velocityX
-                    flightPhase += 0.02f
+                withFrameMillis {
+                    snowflakes = snowflakes.map { snowflake ->
+                        var newY = snowflake.y + snowflake.speed
+                        var newX = snowflake.x + snowflake.drift
 
-                    // Sine wave vertical motion
-                    val verticalOffset = sin(flightPhase) * 70f
-                    owlY = baseY + verticalOffset
+                        if (newY > screenHeight) {
+                            newY = -snowflake.size
+                            newX = Random.nextFloat() * screenWidth
+                        }
 
-                    // Reverse completely off-screen (owl fully invisible before turning)
-                    if (owlX > screenWidth + 100f) {
-                        velocityX = -1.5f
-                        facingRight = false
-                        // Prefer top 30% of screen (70% chance), but allow full screen (30% chance)
-                        baseY = if (Random.nextFloat() < 0.7f) {
-                            // Top 30% range (with margin for sine wave)
-                            Random.nextFloat() * (screenHeight * 0.3f - 140f) + 70f
-                        } else {
-                            // Full screen range
-                            Random.nextFloat() * (screenHeight - 140f) + 70f
-                        }
-                        flightPhase = 0f
-                    } else if (owlX < -owlWidth - 700) {
-                        velocityX = 1.5f
-                        facingRight = true
-                        // Prefer top 30% of screen (70% chance), but allow full screen (30% chance)
-                        baseY = if (Random.nextFloat() < 0.7f) {
-                            // Top 30% range (with margin for sine wave)
-                            Random.nextFloat() * (screenHeight * 0.3f - 140f) + 70f
-                        } else {
-                            // Full screen range
-                            Random.nextFloat() * (screenHeight - 140f) + 70f
-                        }
-                        flightPhase = 0f
+                        snowflake.copy(x = newX, y = newY)
                     }
                 }
             }
         }
 
-        // Calculate wing flap angle (smooth sine wave for graceful flapping)
-        val wingFlapAngle = sin(flightPhase * 5f) * 17f  // Oscillate between -17° and +17° (like HTML: -8° to -25° and +8° to +25°)
-        val wingVerticalOffset = sin(flightPhase * 5f) * 8f // Oscillate between -8px and +8px (like HTML: -3px to +5px)
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer(
-                    translationX = owlX,
-                    translationY = owlY,
-                    scaleX = if (facingRight) 1f else -1f,
-                    rotationZ = cos(flightPhase) * 70f * 0.01f // Subtle tilt
-                )
-        ) {
-            drawOwl(wingFlapAngle, wingVerticalOffset)
+        // Render snowflakes
+        snowflakes.forEach { snowflake ->
+            AnimatedSnowflake(data = snowflake)
         }
     }
 }
+
+@Composable
+fun AnimatedSnowflake(data: SnowflakeData) {
+    Canvas(
+        modifier = Modifier
+            .offset(x = data.x.dp, y = data.y.dp)
+            .size(data.size.dp)
+    ) {
+        drawCircle(
+            color = Color.White.copy(alpha = 0.8f),
+            radius = size.minDimension / 2,
+            center = Offset(size.width / 2, size.height / 2),
+            style = Fill
+        )
+    }
+}
+
+// ============================================
+// 🦉 INTERACTIVE FLYING OWL WITH HEART BUBBLES & HOOT (V2 Implementation)
+// ============================================
+
+// ============================================
+// 🦉 SNOWY OWL FLIGHT — V3 (Perfect Tap Hitbox)
+// ============================================
+
+@Composable
+fun SnowyOwlFlying() {
+
+    val density = LocalDensity.current
+
+    // These match the coordinate space used in drawOwl()
+    val OWL_WIDTH_PX = 600f
+    val OWL_HEIGHT_PX = 380f
+
+    val owlWidthDp = with(density) { OWL_WIDTH_PX.toDp() }
+    val owlHeightDp = with(density) { OWL_HEIGHT_PX.toDp() }
+
+    // Owl state (in PX)
+    var owlX by remember { mutableStateOf(100f) }
+    var owlY by remember { mutableStateOf(250f) }
+    var baseY by remember { mutableStateOf(250f) }
+    var velocityX by remember { mutableStateOf(1.8f) }
+    var facingRight by remember { mutableStateOf(true) }
+    var phase by remember { mutableStateOf(0f) }
+
+    // ❤️ HEART STATE
+    var heartBubbles by remember { mutableStateOf(listOf<HeartBubble>()) }
+    var nextHeartId by remember { mutableStateOf(0) }
+
+    // ❤️ HEART STREAM EVENT BUS (must be val)
+    val heartTapEvents = remember { MutableSharedFlow<Pair<Float, Float>>() }
+
+    // Coroutine scope for launching events from callback
+    val scope = rememberCoroutineScope()
+
+    // 🔊 Sound
+    val context = LocalContext.current
+    val hootManager = remember { OwlHootManager(context) }
+
+    DisposableEffect(Unit) {
+        onDispose { hootManager.release() }
+    }
+
+    // 🔥 OWL TAP HANDLER (no composables here)
+    fun onOwlTapped(tapX: Float, tapY: Float) {
+        hootManager.playHoot()
+
+        // emit tap into flow
+        scope.launch {
+            heartTapEvents.emit(tapX to tapY)
+        }
+    }
+
+    // ❤️ CONSUME TAP EVENTS AND SPAWN STREAM OF HEARTS
+    LaunchedEffect(Unit) {
+        heartTapEvents.collect { (tapX, tapY) ->
+
+            repeat(6) {
+                heartBubbles = heartBubbles + HeartBubble(
+                    id = nextHeartId++,
+                    startX = tapX,
+                    startY = tapY
+                )
+
+                delay(40L + Random.nextLong(0, 40))  // PERFECT STREAM
+            }
+        }
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        val screenWidthPx = constraints.maxWidth.toFloat()
+        val screenHeightPx = constraints.maxHeight.toFloat()
+
+        // ✈ Flight loop (PX)
+        LaunchedEffect(Unit) {
+            while (true) {
+                withFrameMillis {
+                    phase += 0.02f
+                    owlY = baseY + sin(phase) * 70f
+                    owlX += velocityX
+
+                    if (owlX > screenWidthPx + OWL_WIDTH_PX * 0.4f) {
+                        velocityX = -1.8f
+                        facingRight = false
+                        baseY = Random.nextFloat() * (screenHeightPx * 0.6f)
+                        phase = 0f
+                    }
+
+                    if (owlX < -OWL_WIDTH_PX * 1.2f) {
+                        velocityX = 1.8f
+                        facingRight = true
+                        baseY = Random.nextFloat() * (screenHeightPx * 0.6f)
+                        phase = 0f
+                    }
+                }
+            }
+        }
+
+        // ❤️ Heart cleanup
+        LaunchedEffect(heartBubbles) {
+            if (heartBubbles.isNotEmpty()) {
+                delay(100)
+                val now = System.currentTimeMillis()
+                heartBubbles = heartBubbles.filter {
+                    now - it.animationStartTime < 2300
+                }
+            }
+        }
+
+        // Full-screen tap layer ON TOP of the canvas
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures { tapOffset ->
+                        val tx = tapOffset.x // px
+                        val ty = tapOffset.y // px
+
+                        val left = owlX
+                        val top = owlY
+                        val right = owlX + OWL_WIDTH_PX
+                        val bottom = owlY + OWL_HEIGHT_PX
+
+                        val hit = tx in left..right && ty in top..bottom
+
+                        if (hit) {
+                            onOwlTapped(tx, ty)
+                        }
+                    }
+                }
+        ) {
+            // 🦉 Draw the owl
+            Canvas(
+                modifier = Modifier
+                    .size(owlWidthDp, owlHeightDp)
+                    .graphicsLayer(
+                        translationX = owlX,
+                        translationY = owlY,
+                        scaleX = if (facingRight) 1f else -1f,
+                        rotationZ = cos(phase) * 2f
+                    )
+            ) {
+                val wingFlapAngle = sin(phase * 5f) * 17f
+                val wingVerticalOffset = sin(phase * 5f) * 8f
+                drawOwl(
+                    wingFlapAngle = wingFlapAngle,
+                    wingVerticalOffset = wingVerticalOffset
+                )
+            }
+        }
+
+        // ❤️ HEARTS OVERLAY
+        heartBubbles.forEach { heartBubble ->
+            HeartBubbleAnimation(heartBubble)
+        }
+    }
+}
+
+
+// ============================================
+// 💖 HEART ANIMATION (unchanged, correct)
+// ============================================
+
+@Composable
+fun HeartBubbleAnimation(hb: HeartBubble) {
+
+    val density = LocalDensity.current
+
+    // Each heart has its own independent animation state
+    var yPx by remember { mutableStateOf(hb.startY) }
+    var xPx by remember { mutableStateOf(hb.startX) }
+    var alpha by remember { mutableStateOf(1f) }
+    var scale by remember { mutableStateOf(1.2f) }
+
+    // Randomise the drift & speed per heart
+    val upwardSpeed = remember(hb.id) { 160f + Random.nextFloat() * 140f }
+    val horizontalDrift = remember(hb.id) { Random.nextFloat() * 50f - 25f }
+    val lifetime = 2000L                                                      // 2 seconds
+    val start = hb.animationStartTime
+
+    LaunchedEffect(hb.id) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            val t = ((now - start).coerceAtMost(lifetime).toFloat() / lifetime)
+
+            // Independent vertical rise
+            yPx = hb.startY - (t * upwardSpeed)
+
+            // Independent sideways drift
+            xPx = hb.startX + (horizontalDrift * t)
+
+            // Fade out at the end
+            alpha = if (t < 0.7f) 1f else 1f - ((t - 0.7f) / 0.3f)
+
+            // Gentle shrink toward the end
+            scale = 1.2f - (t * 0.3f)
+
+            // Stop when done
+            if (t >= 1f) break
+
+            withFrameNanos {}
+        }
+    }
+
+    // Convert px → dp
+    val xDp = with(density) { xPx.toDp() }
+    val yDp = with(density) { yPx.toDp() }
+
+    Box(
+        modifier = Modifier
+            .offset(x = xDp, y = yDp)
+            .graphicsLayer(
+                alpha = alpha.coerceIn(0f, 1f),
+                scaleX = scale,
+                scaleY = scale
+            )
+    ) {
+        Text(
+            text = "💖",
+            fontSize = 26.sp
+        )
+    }
+}
+
+
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     wingFlapAngle: Float = 0f,
@@ -1170,6 +1321,7 @@ fun SnowyOwlRecordingItem(
         )
     }
 }
+
 
 // ============================================
 // 🎮 ATTEMPT CARD

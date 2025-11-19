@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 89
-        versionName = "18.0.0v-GeminiScoresCalibrated+RevHandicap1"
+        versionName = "18.0.0W-UpdateWolTheme"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
