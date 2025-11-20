@@ -2,317 +2,192 @@ package com.example.reversey.scoring
 
 import android.util.Log
 import com.example.reversey.audio.processing.AudioProcessor
-import kotlin.math.sqrt
+import java.io.File
 import java.io.FileInputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import javax.inject.Inject
+import kotlin.math.sqrt
 
 /**
  * Vocal Mode Classification Results
  */
 data class VocalAnalysis(
     val mode: VocalMode,
-    val confidence: Float,        // 0.0-1.0 confidence in classification
+    val confidence: Float,
     val features: VocalFeatures
 )
 
-/**
- * Classification categories for vocal input
- */
-enum class VocalMode {
-    SPEECH,   // Conversational patterns - route to SpeechScoringEngine
-    SINGING,  // Melodic patterns - route to SingingScoringEngine
-    UNKNOWN   // Unclear pattern - use fallback strategy
-}
+enum class VocalMode { SPEECH, SINGING, UNKNOWN }
 
-/**
- * Extracted vocal characteristics for classification
- */
 data class VocalFeatures(
-    val pitchStability: Float,    // 0.0-1.0: Low = speech, High = singing
-    val pitchContour: Float,      // 0.0-1.0: Melodic movement intensity
-    val mfccSpread: Float,        // 0.0-1.0: Timbre variation complexity
-    val voicedRatio: Float        // 0.0-1.0: Percentage of voiced frames
+    val pitchStability: Float,
+    val pitchContour: Float,
+    val mfccSpread: Float,
+    val voicedRatio: Float
 )
 
-/**
- * Detection thresholds for vocal mode classification
- */
 data class VocalDetectionParameters(
-    // Classification thresholds - LOWERED FOR TESTING
-    val speechConfidenceThreshold: Float = 0.2f,  // Lowered from 0.3f for better speech detection
-    val singingConfidenceThreshold: Float = 0.4f,  // Lowered from 0.4f for better singing detection
-
-    // Feature analysis parameters
+    val speechConfidenceThreshold: Float = 0.2f,
+    val singingConfidenceThreshold: Float = 0.4f,
     val pitchStabilityThreshold: Float = 0.4f,
     val pitchContourThreshold: Float = 0.5f,
     val mfccSpreadThreshold: Float = 0.3f,
     val voicedRatioThreshold: Float = 0.6f
 )
 
-/**
- * Standalone Vocal Mode Detector
- *
- * Analyzes audio features to classify speech vs singing patterns.
- * Routes to appropriate scoring engine based on vocal characteristics.
- */
-class VocalModeDetector(
+class VocalModeDetector @Inject constructor(
     private val audioProcessor: AudioProcessor,
     private val parameters: VocalDetectionParameters = VocalDetectionParameters()
 ) {
 
-    /**
-     * Classify vocal input from audio file as SPEECH, SINGING, or UNKNOWN
-     *
-     * @param audioFile WAV file to analyze
-     * @return VocalAnalysis with classification and confidence
-     */
-    fun classifyVocalMode(audioFile: java.io.File): VocalAnalysis {
+    // --- ⚡ NEW: In-Memory Entry Point (High Performance) ---
+    fun classifyVocalMode(rawAudioData: FloatArray, sampleRate: Int): VocalAnalysis {
         try {
-            Log.d("VocalModeDetector", "=== CALL START: ${audioFile.name} ===")
-            Log.d("VocalModeDetector", "Call stack: ${Thread.currentThread().stackTrace.drop(3).take(3).joinToString(" -> ") { "${it.className}.${it.methodName}" }}")
-            Log.d("VocalModeDetector", "Analyzing file: ${audioFile.name}")
-
-            // Read WAV file and extract audio data
-            val (rawAudioData, sampleRate) = readWavFile(audioFile)
-            if (rawAudioData.isEmpty()) {
-                Log.w("VocalModeDetector", "No audio data found in file")
-                return VocalAnalysis(VocalMode.UNKNOWN, 0f, VocalFeatures(0f, 0f, 0f, 0f))
-            }
-
-// 🔥 FIXED: Trim leading silence and skip transients
+            // 1. Trim leading silence / transients
             val trimmed = trimLeadingSilence(rawAudioData)
-            val skip = (sampleRate * 0.1).toInt() // Skip first 100ms
+            // Skip first 100ms to avoid mic pop
+            val skip = (sampleRate * 0.1).toInt()
             val audioData = if (skip < trimmed.size) trimmed.copyOfRange(skip, trimmed.size) else trimmed
 
             if (audioData.size < 2048) {
                 Log.w("VocalModeDetector", "Too little audio after trimming")
-                return VocalAnalysis(VocalMode.SPEECH, 0.4f, VocalFeatures(0f, 0f, 0f, 0f))
+                // Default to speech if too short, low confidence
+                return VocalAnalysis(VocalMode.SPEECH, 0.2f, VocalFeatures(0f, 0f, 0f, 0f))
             }
 
-            Log.d("VocalModeDetector", "Analysis data: ${audioData.size} samples after trimming & skip")
-
-            // Process audio in frames for analysis
+            // 2. Process audio in frames
             val frameSize = 1024
             val hopSize = 512
             val audioFrames = mutableListOf<FloatArray>()
             val pitches = mutableListOf<Float>()
             val mfccFrames = mutableListOf<FloatArray>()
 
-            // Window the audio into frames
             var i = 0
             while (i + frameSize <= audioData.size) {
                 val frame = audioData.sliceArray(i until i + frameSize)
                 audioFrames.add(frame)
 
-                // Extract pitch for this frame
+                // Extract pitch
                 val pitch = audioProcessor.extractPitchYIN(frame, sampleRate)
-                if (i % 50 == 0) Log.d("VocalModeDetector", "Frame $i: pitch=$pitch") // Debug every 50th frame
                 pitches.add(pitch)
 
-                // Extract MFCC for this frame
+                // Extract MFCC
                 val mfcc = audioProcessor.extractMFCC(frame, sampleRate)
                 mfccFrames.add(mfcc)
 
                 i += hopSize
             }
 
-            Log.d("VocalModeDetector", "Processed ${audioFrames.size} frames, ${pitches.size} pitches")
+            Log.d("VocalModeDetector", "InMemory Analysis: Processed ${audioFrames.size} frames")
 
-            // Use existing classification method
+            // 3. Classify using existing logic
             return classifyVocalMode(audioFrames, pitches, mfccFrames)
 
         } catch (e: Exception) {
-            Log.e("VocalModeDetector", "Error analyzing file ${audioFile.name}: ${e.message}")
-            return VocalAnalysis(
-                VocalMode.UNKNOWN,
-                0f,
-                VocalFeatures(0f, 0f, 0f, 0f)
-            )
+            Log.e("VocalModeDetector", "Error analyzing memory buffer: ${e.message}")
+            return VocalAnalysis(VocalMode.UNKNOWN, 0f, VocalFeatures(0f, 0f, 0f, 0f))
         }
     }
 
-    /**
-     * Read WAV file and return audio data with sample rate
-     */
-    private fun readWavFile(file: java.io.File): Pair<FloatArray, Int> {
-        try {
-            val bytes = FileInputStream(file).use { fis ->
-                fis.readBytes()
+    // --- Legacy File Entry Point (Maintained for compatibility) ---
+    fun classifyVocalMode(audioFile: File): VocalAnalysis {
+        return try {
+            val (rawAudioData, sampleRate) = readWavFile(audioFile)
+            if (rawAudioData.isEmpty()) {
+                Log.w("VocalModeDetector", "No audio data found in file")
+                return VocalAnalysis(VocalMode.UNKNOWN, 0f, VocalFeatures(0f, 0f, 0f, 0f))
             }
-            if (bytes.size < 44) {
-                return Pair(floatArrayOf(), 44100) // Empty with default sample rate
-            }
-
-            // Parse WAV header to get sample rate
-            val sampleRate = java.nio.ByteBuffer.wrap(bytes, 24, 4)
-                .order(java.nio.ByteOrder.LITTLE_ENDIAN).int
-
-            // Extract PCM data (skip 44-byte header)
-            val pcmData = bytes.sliceArray(44 until bytes.size)
-
-            // Convert 16-bit PCM to FloatArray
-            val audioData = FloatArray(pcmData.size / 2)
-            for (i in audioData.indices) {
-                val sample = ((pcmData[i * 2 + 1].toInt() shl 8) or
-                        (pcmData[i * 2].toInt() and 0xFF)).toShort()
-                audioData[i] = sample.toFloat() / Short.MAX_VALUE
-            }
-
-            return Pair(audioData, sampleRate)
-
+            // Delegate to the new in-memory processing method
+            classifyVocalMode(rawAudioData, sampleRate)
         } catch (e: Exception) {
-            Log.e("VocalModeDetector", "Error reading WAV file: ${e.message}")
-            return Pair(floatArrayOf(), 44100)
+            Log.e("VocalModeDetector", "Error analyzing file ${audioFile.name}: ${e.message}")
+            VocalAnalysis(VocalMode.UNKNOWN, 0f, VocalFeatures(0f, 0f, 0f, 0f))
         }
     }
 
-    /**
-     * Classify vocal input as SPEECH, SINGING, or UNKNOWN
-     *
-     * @param audioFrames Audio data frames
-     * @param pitches Extracted pitch sequence
-     * @param mfccFrames MFCC feature frames
-     * @return VocalAnalysis with classification and confidence
-     */
+    // --- Internal Classification Logic ---
     fun classifyVocalMode(
         audioFrames: List<FloatArray>,
         pitches: List<Float>,
         mfccFrames: List<FloatArray>
     ): VocalAnalysis {
-
-        Log.d("VocalModeDetector", "=== VOCAL MODE ANALYSIS ===")
-
-        // Extract features for classification
         val features = extractVocalFeatures(audioFrames, pitches, mfccFrames)
-
-        Log.d("VocalModeDetector", "Features: stability=${features.pitchStability}, contour=${features.pitchContour}, mfcc=${features.mfccSpread}, voiced=${features.voicedRatio}")
-
-        // Apply classification logic
         val (mode, confidence) = classifyFeatures(features)
-
-        Log.d("VocalModeDetector", "Classification: $mode (confidence: $confidence)")
-        Log.d("VocalModeDetector", "==========================")
-
         return VocalAnalysis(mode, confidence, features)
     }
 
-    /**
-     * Extract vocal characteristics from audio data
-     */
     private fun extractVocalFeatures(
         audioFrames: List<FloatArray>,
         pitches: List<Float>,
         mfccFrames: List<FloatArray>
     ): VocalFeatures {
-
-        // 1. Pitch Stability (speech = unstable, singing = stable)
         val validPitches = pitches.filter { it > 0f }
+
+        // Pitch Stability
         val pitchStability = if (validPitches.size >= 3) {
             val pitchStdDev = validPitches.stdDev()
-            1f - (pitchStdDev / 50f).coerceIn(0f, 1f) // Normalize and invert
+            1f - (pitchStdDev / 50f).coerceIn(0f, 1f)
         } else 0f
 
-        // 2. Pitch Contour (melodic movement patterns)
+        // Pitch Contour
         val pitchContour = if (validPitches.size >= 3) {
             analyzePitchContour(validPitches)
         } else 0f
 
-        // 3. MFCC Spread (timbre variation)
+        // MFCC Spread
         val mfccSpread = if (mfccFrames.size >= 2) {
-            (audioProcessor.calculateMFCCVariance(mfccFrames) / 350f).coerceIn(0f, 1f) // Fixed: /300f for proper 13-coeff MFCC normalization
+            (audioProcessor.calculateMFCCVariance(mfccFrames) / 350f).coerceIn(0f, 1f)
         } else 0f
 
-        // 4. Voiced Ratio (percentage of voiced frames)
+        // Voiced Ratio
         val voicedRatio = if (pitches.isNotEmpty()) {
             validPitches.size.toFloat() / pitches.size
         } else 0f
 
-        Log.d("VocalModeDetector", "RAW FEATURES: Stability=$pitchStability | Contour=$pitchContour | MFCCSpread=$mfccSpread | VoicedRatio=$voicedRatio")
         return VocalFeatures(pitchStability, pitchContour, mfccSpread, voicedRatio)
     }
 
-    /**
-     * Classify features into vocal mode with confidence
-     */
     private fun classifyFeatures(features: VocalFeatures): Pair<VocalMode, Float> {
+        val speechScore = (1f - features.pitchStability) * 0.4f +
+                (1f - features.pitchContour) * 0.3f +
+                features.mfccSpread * 0.1f
 
-        // Speech indicators: low stability, low contour, varied timbre
-        val speechStabilityContrib = (1f - features.pitchStability) * 0.4f
-        val speechContourContrib = (1f - features.pitchContour) * 0.3f
-        val speechMfccContrib = features.mfccSpread * 0.1f
-        val speechScore = speechStabilityContrib + speechContourContrib + speechMfccContrib
-
-        // Singing indicators: high stability, melodic contour, sustained voicing
-        val singingStabilityContrib = features.pitchStability * 0.2f
-        val singingContourContrib = features.pitchContour * 0.3f
-        val singingVoicedContrib = features.voicedRatio * 0.5f// was 0.5f
-        val singingScore = singingStabilityContrib + singingContourContrib + singingVoicedContrib
-
-        Log.d("VocalModeDetector", "DECISION PROCESS: SpeechScore=$speechScore | SingingScore=$singingScore | Speech≥${parameters.speechConfidenceThreshold}? ${speechScore >= parameters.speechConfidenceThreshold} | Singing≥${parameters.singingConfidenceThreshold}? ${singingScore >= parameters.singingConfidenceThreshold}")
-        Log.d("VocalModeDetector", "SPEECH: ${speechStabilityContrib} + ${speechContourContrib} + ${speechMfccContrib} = $speechScore")
-        Log.d("VocalModeDetector", "SINGING: ${singingStabilityContrib} + ${singingContourContrib} + ${singingVoicedContrib} = $singingScore")
-        Log.d("VocalModeDetector", "THRESHOLDS: speech=${parameters.speechConfidenceThreshold}, singing=${parameters.singingConfidenceThreshold}")
+        val singingScore = features.pitchStability * 0.2f +
+                features.pitchContour * 0.3f +
+                features.voicedRatio * 0.5f
 
         return when {
             speechScore > parameters.speechConfidenceThreshold && singingScore > parameters.singingConfidenceThreshold -> {
-                val result = if (speechScore > singingScore) VocalMode.SPEECH to speechScore else VocalMode.SINGING to singingScore
-                val margin = kotlin.math.abs(speechScore - singingScore)
-                Log.d("VocalModeDetector", "BOTH QUALIFY: Selected ${result.first} with margin=$margin")
-                result
+                if (speechScore > singingScore) VocalMode.SPEECH to speechScore else VocalMode.SINGING to singingScore
             }
-            speechScore > parameters.speechConfidenceThreshold -> {
-                val margin = speechScore - parameters.speechConfidenceThreshold
-                Log.d("VocalModeDetector", "SPEECH ONLY: confidence=$speechScore, margin above threshold=$margin")
-                VocalMode.SPEECH to speechScore
-            }
-            singingScore > parameters.singingConfidenceThreshold -> {
-                val margin = singingScore - parameters.singingConfidenceThreshold
-                Log.d("VocalModeDetector", "SINGING ONLY: confidence=$singingScore, margin above threshold=$margin")
-                VocalMode.SINGING to singingScore
-            }
-            else -> {
-                val speechGap = parameters.speechConfidenceThreshold - speechScore
-                val singingGap = parameters.singingConfidenceThreshold - singingScore
-                Log.d("VocalModeDetector", "DEFAULTING TO SPEECH - speechGap=$speechGap, singingGap=$singingGap")
-                VocalMode.SPEECH to 0.25f
-            }
+            speechScore > parameters.speechConfidenceThreshold -> VocalMode.SPEECH to speechScore
+            singingScore > parameters.singingConfidenceThreshold -> VocalMode.SINGING to singingScore
+            else -> VocalMode.SPEECH to 0.25f // Fallback
         }
     }
 
-    /**
-     * Analyze pitch movement patterns for melodic characteristics
-     */
+    // --- Helpers ---
+
     private fun analyzePitchContour(pitches: List<Float>): Float {
         val validPitches = pitches.filter { it > 0f }
         if (validPitches.size < 3) return 0f
-
-        Log.d("VocalModeDetector", "Valid pitches count: ${validPitches.size} out of ${pitches.size}")
-        Log.d("VocalModeDetector", "First 10 valid pitches: ${validPitches.take(10)}")
-
         val intervals = validPitches.zipWithNext { a, b -> kotlin.math.abs(a - b) }
         val avgInterval = intervals.average().toFloat()
-
-        Log.d("VocalModeDetector", "First 10 intervals: ${intervals.take(10)}")
-        Log.d("VocalModeDetector", "Average interval: $avgInterval Hz")
-
-        val contour = (avgInterval / 15f).coerceIn(0f, 1f)  // Boosted: /12f instead of /20f for better melodic sensitivity
-        Log.d("VocalModeDetector", "Final contour: $contour")
-
-        return contour
+        return (avgInterval / 15f).coerceIn(0f, 1f)
     }
 
-    /**
-     * Calculate standard deviation for pitch analysis
-     */
     private fun List<Float>.stdDev(): Float {
         if (isEmpty()) return 0f
         val mean = average().toFloat()
-        val variance = sumOf { (it - mean).toDouble() * (it - mean).toDouble() }.toFloat() / size
+        // FIX: Convert calculation to Double for sumOf, then back to Float
+        val variance = sumOf {
+            val diff = it - mean
+            (diff * diff).toDouble()
+        }.toFloat() / size
         return sqrt(variance)
     }
 
-    /**
-     * 🔥 NEW: Trim leading silence (mic warm-up frames)
-     */
     private fun trimLeadingSilence(
         data: FloatArray,
         threshold: Float = 0.003f,
@@ -320,7 +195,6 @@ class VocalModeDetector(
     ): FloatArray {
         var idx = 0
         val limit = data.size - windowSize
-
         while (idx < limit) {
             var maxAmp = 0f
             for (i in idx until idx + windowSize) {
@@ -330,9 +204,26 @@ class VocalModeDetector(
             if (maxAmp > threshold) break
             idx += windowSize
         }
-
-        Log.d("VocalModeDetector", "Trimmed ${idx} silent samples (${idx.toFloat()/44100f}s)")
         return data.copyOfRange(idx, data.size)
     }
 
+    private fun readWavFile(file: File): Pair<FloatArray, Int> {
+        try {
+            val bytes = FileInputStream(file).use { it.readBytes() }
+            if (bytes.size < 44) return Pair(floatArrayOf(), 44100)
+
+            val sampleRate = ByteBuffer.wrap(bytes, 24, 4)
+                .order(ByteOrder.LITTLE_ENDIAN).int
+
+            val pcmData = bytes.sliceArray(44 until bytes.size)
+            val audioData = FloatArray(pcmData.size / 2)
+            for (i in audioData.indices) {
+                val sample = ((pcmData[i * 2 + 1].toInt() shl 8) or (pcmData[i * 2].toInt() and 0xFF)).toShort()
+                audioData[i] = sample.toFloat() / Short.MAX_VALUE
+            }
+            return Pair(audioData, sampleRate)
+        } catch (e: Exception) {
+            return Pair(floatArrayOf(), 44100)
+        }
+    }
 }
