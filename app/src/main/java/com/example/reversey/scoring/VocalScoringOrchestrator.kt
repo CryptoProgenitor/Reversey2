@@ -20,12 +20,11 @@ class VocalScoringOrchestrator @Inject constructor(
     ): ScoringResult {
 
         Log.d("VSO", "=== ORCHESTRATOR ENTRY ===")
-        // Virtual ID for logging (timestamp-based to satisfy Claude's suggestion)
         val recordingId = "mem_${System.currentTimeMillis()}"
 
-        // 1) Detect speech/singing mode DIRECTLY from memory
-        // ⚡ IO FIX: Eliminates disk write/read cycle
-        val analysis = vocalModeDetector.classifyVocalMode(referenceAudio, sampleRate)
+        // ⚡ FIX: Detect mode on the ATTEMPT (User's Voice)
+        // We must analyze the human audio to decide if they are singing or speaking.
+        val analysis = vocalModeDetector.classifyVocalMode(attemptAudio, sampleRate)
 
         Log.d("VSO", "Detector → mode=${analysis.mode}, confidence=${analysis.confidence}")
         ScoringDebugLogger.logDetectorDecision(recordingId, analysis.mode)
