@@ -256,7 +256,19 @@ class AudioViewModel @Inject constructor(
     }
 
     init {
-        loadRecordings()
+        // Sequential: cache cleanup THEN load recordings
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.cleanupAnalysisCache()
+            } catch (e: Exception) {
+                Log.e("AudioViewModel", "Cache cleanup failed", e)
+            }
+
+            // Load recordings after cleanup completes
+            withContext(Dispatchers.Main) {
+                loadRecordings()
+            }
+        }
 
         // 🎯 PURE DUAL PIPELINE: Wait for speech engine to initialize (unified fallback)
         viewModelScope.launch {
@@ -383,45 +395,65 @@ class AudioViewModel @Inject constructor(
 
     // SURGICAL FIX #4: Improved stopRecording with better file validation
     fun stopRecording() {
-        // Cancel the recording job and wait for it to complete
         recordingJob?.cancel()
 
+        val currentFile = currentRecordingFile
         viewModelScope.launch(Dispatchers.IO) {
-            // Wait for the recording job to actually finish
-            recordingJob?.join()  // ← CRITICAL MISSING PIECE!
+            recordingJob?.join()
             recordingJob = null
 
-            // Small delay to ensure file is fully written
-            delay(100)
+            // Smart poll for file completion
+            var attempts = 0
+            while (attempts < 20) {
+                if (currentFile != null && currentFile.exists() && currentFile.length() > 44) break
+                delay(50)
+                attempts++
+            }
 
-            // Get the latest recorded file
-            val latestFile = repository.getLatestFile(isAttempt = _uiState.value.isRecordingAttempt)
-
-            Log.d("AudioViewModel", "=== STOP RECORDING ===")
-            Log.d("AudioViewModel", "Is attempt: ${_uiState.value.isRecordingAttempt}")
-            Log.d("AudioViewModel", "Latest file: ${latestFile?.absolutePath}")
-
+            val latestFile = currentFile
             if (_uiState.value.isRecordingAttempt) {
-                // Handle attempt completion
                 withContext(Dispatchers.Main) {
-                    handleAttemptCompletion(latestFile)  // ← THE MISSING CALL!
+                    handleAttemptCompletion(repository.getLatestFile(true))
                 }
             } else {
-                // [Keep your existing main recording logic from current version]
                 if (validateRecordedFile(latestFile)) {
-                    // Your existing challenge creation logic...
-                    val recordedFile = latestFile
-                    try {
-                        Log.d("AudioViewModel", "Creating reversed version...")
-                        repository.reverseWavFile(recordedFile)
-                        Log.d("AudioViewModel", "Reversed file created: ${recordedFile!!.absolutePath.replace(".wav", "_reversed.wav")}")
-                    } catch (e: Exception) {
-                        Log.e("AudioViewModel", "Error creating reversed file: ${e.message}")
-                    }
+                    // Optimistic UI update with correct constructor
+                    val optimisticRecording = Recording(
+                        name = "🎤 New Recording",
+                        originalPath = latestFile!!.absolutePath,
+                        reversedPath = null,
+                        attempts = emptyList(),
+                        vocalAnalysis = com.example.reversey.scoring.VocalAnalysis(
+                            VocalMode.UNKNOWN,
+                            0.0f,
+                            com.example.reversey.scoring.VocalFeatures(0f, 0f, 0f, 0f)
+                        )
+                    )
 
                     withContext(Dispatchers.Main) {
-                        _uiState.update { it.copy(isRecording = false, statusText = "Recording complete") }
-                        loadRecordingsWithAnalysis()  // ← Use your current method name
+                        _uiState.update { state ->
+                            state.copy(
+                                isRecording = false,
+                                statusText = "Recording complete",
+                                recordings = listOf(optimisticRecording) + state.recordings,
+                                scrollToIndex = 0
+                            )
+                        }
+                    }
+
+                    // Background processing
+                    try {
+                        repository.reverseWavFile(latestFile)
+
+                        // Remove optimistic entry before loading real data
+                        withContext(Dispatchers.Main) {
+                            _uiState.update { state ->
+                                state.copy(recordings = state.recordings.drop(1))
+                            }
+                            loadRecordings()
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AudioViewModel", "Error processing file: ${e.message}")
                     }
                 } else {
                     withContext(Dispatchers.Main) {

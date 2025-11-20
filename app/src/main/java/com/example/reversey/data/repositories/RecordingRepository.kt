@@ -28,6 +28,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.experimental.and
 import kotlin.math.abs
+import org.json.JSONObject
 
 // 🎯 GLUTE: WAV header validation - check file is completely written
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -62,6 +63,7 @@ class RecordingRepository(
     private val vocalModeDetector: VocalModeDetector
 ) {
 
+    // ⚡ PERFORMANCE OPTIMIZED: Removed delay, added caching
     suspend fun loadRecordings(): List<Recording> = withContext(Dispatchers.IO) {
         val dir = getRecordingsDir(context)
         val originalFiles =
@@ -74,20 +76,23 @@ class RecordingRepository(
                 try {
                     val reversedFile = File(dir, file.name.replace(".wav", "_reversed.wav"))
 
-                    Log.d("RecordingRepository", "=== LOAD RECORDINGS DEBUG ===")
-                    Log.d("RecordingRepository", "PROCESSING FILE: ${file.name}")
-                    Log.d("RecordingRepository", "THREAD: ${Thread.currentThread().name}")
-                    Log.d("RecordingRepository", "FILES IN DIR: ${originalFiles.map { "${it.name}(${it.length()})" }}")
-                    Log.d("RecordingRepository", "CURRENT FILE AGE: ${System.currentTimeMillis() - file.lastModified()}ms")
+                    // ⚡ PERFORMANCE FIX: Proper WAV validation instead of delay
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        if (!isWavFileComplete(file)) {
+                            Log.d("RecordingRepository", "Skipping incomplete WAV: ${file.name}")
+                            return@mapNotNull null
+                        }
+                    } else {
+                        // Fallback for older Android versions
+                        if (file.length() < 44) {
+                            return@mapNotNull null
+                        }
+                    }
 
-                    // 🎯 BRUTE FORCE: Just wait for file write completion
-                    //CHANGES!!!
+                    // ⚡ PERFORMANCE FIX: Cached vocal analysis (only analyze new files)
+                    val vocalAnalysis = getCachedOrAnalyzeVocalMode(file)
 
-                    delay(1000) // Wait 1000ms for OS to finish writing file
-
-                    val vocalAnalysis = vocalModeDetector.classifyVocalMode(file)  // 🎯 SINGLE SAFE CALL
-
-                    Log.d("RecordingRepository", "VOCAL ANALYSIS RESULT: mode=${vocalAnalysis.mode}, confidence=${vocalAnalysis.confidence}")
+                    Log.d("RecordingRepository", "LOADED: ${file.name} - mode=${vocalAnalysis.mode}")
 
                     Recording(
                         name = vocalAnalysis.let { analysis ->
@@ -100,10 +105,11 @@ class RecordingRepository(
                         originalPath = file.absolutePath,
                         reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null,
                         attempts = emptyList(), // Attempts will be loaded and merged in ViewModel
-                        vocalAnalysis = vocalAnalysis  // 🎯 FIXED: Use cached result instead of duplicate call
+                        vocalAnalysis = vocalAnalysis
                     )
 
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Log.w("RecordingRepository", "Error loading recording ${file.name}: ${e.message}")
                     null // Skip invalid files
                 }
             }
@@ -255,5 +261,134 @@ class RecordingRepository(
             getRecordingsDir(context)
         }
         return dir.listFiles { _, name -> name.endsWith(".wav") && !name.contains("_reversed") }?.maxByOrNull { it.lastModified() }
+    }
+
+    // ⚡ VOCAL ANALYSIS CACHING SYSTEM - ELIMINATES 5+ SECOND DELAYS!
+    private data class CachedVocalAnalysis(
+        val mode: VocalMode,
+        val confidence: Float,
+        val pitchStability: Float,
+        val pitchContour: Float,
+        val mfccSpread: Float,
+        val voicedRatio: Float
+    )
+
+    /**
+     * Get cached vocal analysis or analyze if cache is invalid/missing
+     * This is the KEY performance fix - only analyze new files!
+     */
+    private suspend fun getCachedOrAnalyzeVocalMode(audioFile: File): com.example.reversey.scoring.VocalAnalysis {
+        val cacheFile = getCacheFileForAudio(audioFile)
+
+        // Check if cache exists and is newer than audio file
+        if (cacheFile.exists() && cacheFile.lastModified() > audioFile.lastModified()) {
+            try {
+                val cached = loadCachedAnalysis(cacheFile)
+                if (cached != null) {
+                    Log.d("RecordingRepository", "Using cached analysis for ${audioFile.name}")
+                    return com.example.reversey.scoring.VocalAnalysis(
+                        mode = cached.mode,
+                        confidence = cached.confidence,
+                        features = com.example.reversey.scoring.VocalFeatures(
+                            pitchStability = cached.pitchStability,
+                            pitchContour = cached.pitchContour,
+                            mfccSpread = cached.mfccSpread,
+                            voicedRatio = cached.voicedRatio
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w("RecordingRepository", "Failed to load cached analysis for ${audioFile.name}: ${e.message}")
+            }
+        }
+
+        // Analyze and cache on background thread (Dispatchers.Default for CPU-intensive work)
+        return withContext(Dispatchers.Default) {
+            Log.d("RecordingRepository", "Analyzing ${audioFile.name} (not cached)")
+            val analysis = vocalModeDetector.classifyVocalMode(audioFile)
+
+            // Save to cache
+            try {
+                saveCachedAnalysis(cacheFile, CachedVocalAnalysis(
+                    mode = analysis.mode,
+                    confidence = analysis.confidence,
+                    pitchStability = analysis.features.pitchStability,
+                    pitchContour = analysis.features.pitchContour,
+                    mfccSpread = analysis.features.mfccSpread,
+                    voicedRatio = analysis.features.voicedRatio
+                ))
+                Log.d("RecordingRepository", "Cached analysis for ${audioFile.name}")
+            } catch (e: Exception) {
+                Log.w("RecordingRepository", "Failed to cache analysis for ${audioFile.name}: ${e.message}")
+            }
+
+            analysis
+        }
+    }
+
+    private fun getCacheFileForAudio(audioFile: File): File {
+        val cacheDir = File(audioFile.parent, ".analysis_cache").apply { mkdirs() }
+        val baseName = audioFile.nameWithoutExtension
+        return File(cacheDir, "$baseName.analysis")
+    }
+
+    private fun loadCachedAnalysis(cacheFile: File): CachedVocalAnalysis? {
+        return try {
+            val json = JSONObject(cacheFile.readText())
+            CachedVocalAnalysis(
+                mode = VocalMode.valueOf(json.getString("mode")),
+                confidence = json.getDouble("confidence").toFloat(),
+                pitchStability = json.getDouble("pitchStability").toFloat(),
+                pitchContour = json.getDouble("pitchContour").toFloat(),
+                mfccSpread = json.getDouble("mfccSpread").toFloat(),
+                voicedRatio = json.getDouble("voicedRatio").toFloat()
+            )
+        } catch (e: Exception) {
+            Log.w("RecordingRepository", "Failed to parse cached analysis: ${e.message}")
+            null
+        }
+    }
+
+    private fun saveCachedAnalysis(cacheFile: File, analysis: CachedVocalAnalysis) {
+        val json = JSONObject().apply {
+            put("mode", analysis.mode.toString())
+            put("confidence", analysis.confidence.toDouble())
+            put("pitchStability", analysis.pitchStability.toDouble())
+            put("pitchContour", analysis.pitchContour.toDouble())
+            put("mfccSpread", analysis.mfccSpread.toDouble())
+            put("voicedRatio", analysis.voicedRatio.toDouble())
+            put("timestamp", System.currentTimeMillis())
+        }
+        cacheFile.writeText(json.toString())
+    }
+
+    /**
+     * Clean up old analysis cache files (call periodically)
+     */
+    suspend fun cleanupAnalysisCache() = withContext(Dispatchers.IO) {
+        try {
+            val recordingsDir = getRecordingsDir(context)
+            val cacheDir = File(recordingsDir, ".analysis_cache")
+
+            if (!cacheDir.exists()) return@withContext
+
+            val cacheFiles = cacheDir.listFiles() ?: return@withContext
+            var cleaned = 0
+
+            for (cacheFile in cacheFiles) {
+                val audioFileName = cacheFile.nameWithoutExtension + ".wav"
+                val audioFile = File(recordingsDir, audioFileName)
+
+                // Remove cache if audio file no longer exists
+                if (!audioFile.exists()) {
+                    cacheFile.delete()
+                    cleaned++
+                }
+            }
+
+            Log.d("RecordingRepository", "Cleaned $cleaned orphaned analysis cache files")
+        } catch (e: Exception) {
+            Log.w("RecordingRepository", "Error cleaning analysis cache: ${e.message}")
+        }
     }
 }
