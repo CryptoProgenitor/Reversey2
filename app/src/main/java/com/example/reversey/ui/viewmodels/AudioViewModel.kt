@@ -42,6 +42,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex // 🎯 CRITICAL: Mutex re-added
+import kotlinx.coroutines.sync.withLock // 🎯 CRITICAL: Mutex re-added
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -87,6 +89,9 @@ class AudioViewModel @Inject constructor(
     private val vocalScoringOrchestrator: VocalScoringOrchestrator,
     private val scoreAcquisitionDataConcentrator: ScoreAcquisitionDataConcentrator
 ) : AndroidViewModel(application) {
+
+    // 🎯 RE-INTRODUCED: Mutex for strict serialization of I/O operations
+    private val recordingProcessingMutex = Mutex()
 
     fun getOrchestrator(): VocalScoringOrchestrator {
         return vocalScoringOrchestrator
@@ -236,7 +241,7 @@ class AudioViewModel @Inject constructor(
     // --- RECORDING ACTIONS ---
 
     fun startRecording() {
-        if (uiState.value.isRecording) return
+        if (audioRecorderHelper.isRecording.value) return
 
         if (ActivityCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
@@ -244,71 +249,82 @@ class AudioViewModel @Inject constructor(
             return
         }
 
-        val file = createAudioFile(getApplication(), isAttempt = false)
-        currentRecordingFile = file
-
-        audioRecorderHelper.start(file)
-
-        _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
-    }
-
-    fun stopRecording() {
-        // ⚡ LOCK UI: Prevent double clicks immediately
-        _uiState.update { it.copy(isRecording = false, statusText = "Processing...") }
-
         viewModelScope.launch {
-            // Suspend until file is flushed
-            val file = audioRecorderHelper.stop()
+            // 🎯 MUTEX: Lock operation before starting file creation
+            recordingProcessingMutex.withLock {
+                if (audioRecorderHelper.isRecording.value) return@withLock
 
-            if (validateRecordedFile(file)) {
+                val file = createAudioFile(getApplication(), isAttempt = false)
+                currentRecordingFile = file
 
-                // 🎯 ROUTING LOGIC: Is this an attempt or a parent?
-                if (_uiState.value.isRecordingAttempt) {
-                    handleAttemptCompletion(file!!) // Hand off to scoring logic
-                } else {
-                    // It's a PARENT recording
-                    val optimisticRecording = Recording(
-                        name = "🎤 New Recording",
-                        originalPath = file!!.absolutePath,
-                        reversedPath = null,
-                        attempts = emptyList(),
-                        vocalAnalysis = com.example.reversey.scoring.VocalAnalysis(
-                            VocalMode.UNKNOWN, 0.0f, com.example.reversey.scoring.VocalFeatures(0f, 0f, 0f, 0f)
-                        )
-                    )
+                audioRecorderHelper.start(file)
 
-                    _uiState.update { state ->
-                        state.copy(
-                            statusText = "Recording complete",
-                            recordings = listOf(optimisticRecording) + state.recordings,
-                            scrollToIndex = 0
-                        )
-                    }
-
-                    withContext(Dispatchers.IO) {
-                        try {
-                            repository.reverseWavFile(file)
-                            withContext(Dispatchers.Main) {
-                                _uiState.update { state ->
-                                    state.copy(recordings = state.recordings.drop(1))
-                                }
-                                loadRecordings()
-                            }
-                        } catch (e: Exception) {
-                            Log.e("AudioViewModel", "Error processing file", e)
-                        }
-                    }
-                }
-            } else {
-                _uiState.update { it.copy(statusText = "Recording failed - file too short") }
+                _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
             }
         }
     }
 
-    // --- ATTEMPT HANDLING ---
+    fun stopRecording() {
+        // ⚡ FAST UI UPDATE: Disable button immediately
+        _uiState.update { it.copy(isRecording = false, statusText = "Processing...") }
+
+        viewModelScope.launch {
+            // 🎯 MUTEX: Lock operation during file flush and processing
+            recordingProcessingMutex.withLock {
+                val file = audioRecorderHelper.stop()
+
+                if (validateRecordedFile(file)) {
+
+                    if (!_uiState.value.isRecordingAttempt) {
+                        // 🎯 CRITICAL FIX: Use OPTIMISTIC_KEY to prevent LazyColumn crash
+                        val optimisticRecording = Recording(
+                            name = "🎤 New Recording",
+                            originalPath = "${file!!.absolutePath}_OPTIMISTIC",
+                            reversedPath = null,
+                            attempts = emptyList(),
+                            vocalAnalysis = com.example.reversey.scoring.VocalAnalysis(
+                                VocalMode.UNKNOWN, 0.0f, com.example.reversey.scoring.VocalFeatures(0f, 0f, 0f, 0f)
+                            )
+                        )
+
+                        _uiState.update { state ->
+                            state.copy(
+                                statusText = "Recording complete",
+                                recordings = listOf(optimisticRecording) + state.recordings,
+                                scrollToIndex = 0
+                            )
+                        }
+
+                        // Background processing
+                        withContext(Dispatchers.IO) {
+                            try {
+                                repository.reverseWavFile(file)
+                                withContext(Dispatchers.Main) {
+                                    // Remove the optimistic entry and reload the real entry
+                                    _uiState.update { state ->
+                                        state.copy(
+                                            recordings = state.recordings.filterNot { it.originalPath == optimisticRecording.originalPath }
+                                        )
+                                    }
+                                    loadRecordings()
+                                }
+                            } catch (e: Exception) {
+                                Log.e("AudioViewModel", "Error processing file", e)
+                            }
+                        }
+                    } else {
+                        handleAttemptCompletion(file!!)
+                    }
+                } else {
+                    // Failure (File too short)
+                    _uiState.update { it.copy(statusText = "Recording failed - file too short") }
+                }
+            }
+        }
+    }
 
     fun startAttempt(originalPath: String) {
-        if (uiState.value.isRecording) return
+        if (audioRecorderHelper.isRecording.value) return
 
         if (ActivityCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
@@ -316,50 +332,110 @@ class AudioViewModel @Inject constructor(
             return
         }
 
-        val attemptFile = createAudioFile(getApplication(), isAttempt = true)
-        currentAttemptFile = attemptFile
+        viewModelScope.launch {
+            // 🎯 MUTEX: Lock operation before starting file creation
+            recordingProcessingMutex.withLock {
+                if (audioRecorderHelper.isRecording.value) return@withLock
 
-        audioRecorderHelper.start(attemptFile)
+                // 🎯 DEFENSIVE CHECK: Ensure parent still exists before starting
+                val parentExists = uiState.value.recordings.any { it.originalPath == originalPath }
+                if (!parentExists) {
+                    showUserMessage("Error: Cannot start challenge. Parent recording not found.")
+                    return@withLock
+                }
 
-        _uiState.update {
-            it.copy(
-                isRecordingAttempt = true,
-                isRecording = true,
-                parentRecordingPath = originalPath,
-                statusText = "Recording attempt...",
-                amplitudes = emptyList()
-            )
+                val attemptFile = createAudioFile(getApplication(), isAttempt = true)
+                currentAttemptFile = attemptFile
+
+                audioRecorderHelper.start(attemptFile)
+
+                _uiState.update {
+                    it.copy(
+                        isRecordingAttempt = true,
+                        isRecording = true,
+                        parentRecordingPath = originalPath,
+                        statusText = "Recording attempt...",
+                        amplitudes = emptyList()
+                    )
+                }
+            }
         }
     }
 
-    // 🎯 THIS IS THE MISSING LINK!
+    fun stopAttempt() {
+        // ⚡ CRITICAL FIX: Lock UI immediately to prevent double-click race condition
+        _uiState.update { it.copy(
+            isRecording = false,
+            statusText = "Processing..."
+        )}
+
+        viewModelScope.launch {
+            // 🎯 MUTEX: Lock operation during file flush and scoring
+            recordingProcessingMutex.withLock {
+                val attemptFile = audioRecorderHelper.stop()
+
+                val parentPath = uiState.value.parentRecordingPath
+                val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
+
+                if (validateRecordedFile(attemptFile) && parentPath != null) {
+                    _uiState.update { it.copy(
+                        isRecordingAttempt = false,
+                        statusText = "Scoring attempt...",
+                        isScoring = true
+                    )}
+
+                    val parentRecording = uiState.value.recordings.find { it.originalPath == parentPath }
+                    if (parentRecording != null) {
+                        scoreAttempt(
+                            originalRecordingPath = parentRecording.originalPath,
+                            reversedRecordingPath = parentRecording.reversedPath ?: "",
+                            attemptFilePath = attemptFile!!.absolutePath,
+                            challengeType = challengeType
+                        )
+                    } else {
+                        // FINAL CLEANUP: If parent was deleted during recording, clear state
+                        _uiState.update {
+                            it.copy(
+                                isRecordingAttempt = false,
+                                parentRecordingPath = null,
+                                pendingChallengeType = null,
+                                isScoring = false,
+                                statusText = "Error: Parent not found after recording."
+                            )
+                        }
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isRecordingAttempt = false,
+                            parentRecordingPath = null,
+                            pendingChallengeType = null,
+                            isScoring = false,
+                            statusText = "Attempt recording failed"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private suspend fun handleAttemptCompletion(attemptFile: File) {
         val parentPath = uiState.value.parentRecordingPath
         val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
 
         if (parentPath != null) {
-            _uiState.update { it.copy(isRecordingAttempt = false, statusText = "Scoring attempt...", isScoring = true) }
-
-            val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
-            if (parentRecording != null) {
-                // Call the in-memory scoring method
-                scoreAttempt(
-                    originalRecordingPath = parentRecording.originalPath,
-                    reversedRecordingPath = parentRecording.reversedPath ?: "",
-                    attemptFilePath = attemptFile.absolutePath,
-                    challengeType = challengeType
-                )
-            }
+            scoreAttempt(
+                originalRecordingPath = parentPath,
+                reversedRecordingPath = uiState.value.recordings.find { it.originalPath == parentPath }?.reversedPath ?: "",
+                attemptFilePath = attemptFile.absolutePath,
+                challengeType = challengeType
+            )
         } else {
-            _uiState.update { it.copy(
-                isRecordingAttempt = false,
-                statusText = "Error: Parent not found"
-            )}
+            _uiState.update { it.copy(isRecordingAttempt = false, statusText = "Error: Parent not found") }
         }
     }
 
     // 🎯 IN-MEMORY SCORING
-    // 🎯 SURGICAL FIX #11: Restore Reversed Audio Generation
     private fun scoreAttempt(
         originalRecordingPath: String,
         reversedRecordingPath: String,
@@ -392,14 +468,13 @@ class AudioViewModel @Inject constructor(
                     sampleRate = AudioConstants.SAMPLE_RATE
                 )
 
-                // 4. Save Result to Repo (Now with Reversed Path!)
-                val parentRecording = _uiState.value.recordings.find { it.originalPath == originalRecordingPath }
+                // 4. Save Result to Repo
+                val parentRecording = uiState.value.recordings.find { it.originalPath == originalRecordingPath }
                 val playerIndex = (parentRecording?.attempts?.size ?: 0) + 1
 
                 val attempt = PlayerAttempt(
                     playerName = "Player $playerIndex",
                     attemptFilePath = attemptFilePath,
-                    // ✅ FIX: Pass the reversed file path here!
                     reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
                     score = scoringResult.score,
                     pitchSimilarity = scoringResult.metrics.pitch,
@@ -412,7 +487,7 @@ class AudioViewModel @Inject constructor(
                     isGarbage = scoringResult.isGarbage
                 )
 
-                val updatedRecordings = _uiState.value.recordings.map { recording ->
+                val updatedRecordings = uiState.value.recordings.map { recording ->
                     if (recording.originalPath == originalRecordingPath) {
                         recording.copy(attempts = recording.attempts + attempt)
                     } else {
@@ -595,7 +670,7 @@ class AudioViewModel @Inject constructor(
     }
 
     fun updateDifficulty(level: DifficultyLevel) {
-        _currentDifficulty.value = level
+        _currentDifficulty.update { level }
         viewModelScope.launch { settingsDataStore.saveDifficultyLevel(level.name) }
         val preset = when (level) {
             DifficultyLevel.EASY -> ScoringPresets.easyMode()

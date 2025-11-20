@@ -2,6 +2,8 @@ package com.example.reversey
 
 
 
+//import com.example.reversey.ui.debug.DebugPanel
+
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -80,12 +82,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.Recording
+import com.example.reversey.ui.components.AnalysisToast
 import com.example.reversey.ui.components.DifficultyIndicator
 import com.example.reversey.ui.components.ThemedMenuModal
 import com.example.reversey.ui.components.TutorialOverlay
 import com.example.reversey.ui.components.UnifiedAttemptItem
-import com.example.reversey.ui.components.UnifiedRecordingButton
 import com.example.reversey.ui.components.UnifiedRecordingItem
+import com.example.reversey.ui.menu.ModalScreen
 import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.theme.ReVerseYTheme
@@ -102,16 +105,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
-import com.example.reversey.ui.components.AnalysisToast
-
-import com.example.reversey.utils.*
-//import com.example.reversey.ui.debug.DebugPanel
-import com.example.reversey.ui.components.ThemedMenuModal
-import com.example.reversey.ui.components.TutorialOverlay
-
-import com.example.reversey.ui.components.ModalScreen
-import com.example.reversey.scoring.VocalMode
-import com.example.reversey.scoring.DifficultyLevel
 
 
 @AndroidEntryPoint  // ← ADD THIS ANNOTATION
