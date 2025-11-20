@@ -82,43 +82,32 @@ import kotlin.math.sin
 import kotlin.random.Random
 import android.content.Context
 import android.media.SoundPool
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.zIndex
 
 /**
  * Data class for heart bubble animations
  */
-// 💖 Arctic heart bubble model with bezier path & color
+// 💖 SIMPLIFIED HEART DATA MODEL
 data class HeartBubble(
     val id: Int,
-    val startX: Float,
-    val startY: Float,
-    val control1X: Float,
-    val control1Y: Float,
-    val control2X: Float,
-    val control2Y: Float,
-    val endX: Float,
-    val endY: Float,
+    val startX: Float, // PX
+    val startY: Float, // PX
     val color: Color,
-    val createdAt: Long = System.currentTimeMillis(),
-    val durationMs: Long = 2600L
+    val initialDriftX: Float, // Random horizontal drift distance (PX)
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 
@@ -268,17 +257,16 @@ class SnowyOwlComponents : ThemeComponents {
                 .fillMaxSize()
                 .background(aesthetic.primaryGradient)
         ) {
-            // BACKGROUND: snow behind everything
+            // Z-LAYER 1: Static background elements (Snow)
             SnowyOwlSnowflakes()
 
-            // MAIN UI ABOVE SNOW
+            // Z-LAYER 2: The main UI content (Cards, Buttons, etc.)
             content()
 
-            // 🦉 OWL OVERLAY – ON TOP, GETS TOUCH EVENTS
-            Box(modifier = Modifier.fillMaxSize()) {
-                SnowyOwlFlying()
-            }
-
+            // Z-LAYER 3 (Highest): The flying owl and its interactive hitbox.
+            // It sits physically on top, but its hitbox is now limited only
+            // to the owl's drawing area, allowing taps to fall through outside that area.
+            SnowyOwlFlying()
         }
     }
 }
@@ -461,7 +449,7 @@ fun AnimatedSnowflake(data: SnowflakeData) {
                 isFilterBitmap = true
                 alpha = 255
             }
-                        val drawX = size.width * 0.1f
+            val drawX = size.width * 0.1f
             val drawY = size.height * 0.75f
 
             drawText(
@@ -476,13 +464,9 @@ fun AnimatedSnowflake(data: SnowflakeData) {
 
 
 // ============================================
-// 🦉 INTERACTIVE FLYING OWL WITH HEART BUBBLES & HOOT (V2 Implementation)
+// 🦉 SNOWY OWL FLIGHT — Lightweight V7 (Visibility Optimised)
 // ============================================
-
-// ============================================
-// 🦉 SNOWY OWL FLIGHT — V3 (Perfect Tap Hitbox)
-// ============================================
-
+// 🦉 SNOWY OWL FLIGHT — Fixed Heart Spawn Position
 @Composable
 fun SnowyOwlFlying() {
 
@@ -499,7 +483,7 @@ fun SnowyOwlFlying() {
     var owlX by remember { mutableStateOf(100f) }
     var owlY by remember { mutableStateOf(250f) }
     var baseY by remember { mutableStateOf(250f) }
-    var velocityX by remember { mutableStateOf(1.8f) }
+    var velocityX by remember { mutableStateOf(1.7f) }
     var facingRight by remember { mutableStateOf(true) }
     var phase by remember { mutableStateOf(0f) }
 
@@ -507,7 +491,7 @@ fun SnowyOwlFlying() {
     var heartBubbles by remember { mutableStateOf(listOf<HeartBubble>()) }
     var nextHeartId by remember { mutableStateOf(0) }
 
-    // Tap event stream → used to spawn heart streams
+    // Tap event stream
     val heartTapEvents = remember {
         MutableSharedFlow<Pair<Float, Float>>(extraBufferCapacity = 32)
     }
@@ -528,63 +512,22 @@ fun SnowyOwlFlying() {
         }
     }
 
-    // Consume tap events and spawn a STREAM of hearts (no clumps)
-    // 🫧 ONE HEART EVERY 300ms — natural bubble flow
+    // Consume tap events and spawn a STREAM of hearts
     LaunchedEffect(Unit) {
         heartTapEvents.collect { (tapX, tapY) ->
-
-            // Continue creating hearts until the stream is naturally done:
-            // Bubble stream length = 6–10 hearts total
-            val heartCount = 6 + Random.nextInt(5)
-
-            repeat(heartCount) {
-
-                val now = System.currentTimeMillis()
-
-                // Medium spread ±70px horizontally
-                val spreadX = Random.nextFloat() * 320f - 160f
-                val endX = tapX + spreadX
-
-                // Floating upwards 260–340px
-                val endY = tapY - (350f + Random.nextFloat() * 80f)
-
-                // Bézier control points for drifting
-                // More exaggerated drift curves
-                val c1X = tapX + (Random.nextFloat() * 120f - 60f)
-                val c1Y = tapY - (140f + Random.nextFloat() * 40f)
-
-                val c2X = endX + (Random.nextFloat() * 160f - 80f)
-                val c2Y = tapY - (260f + Random.nextFloat() * 100f)
-
-
-                // Total float time for 1 bubble
-                val duration = 2500L + Random.nextLong(0, 500)
-
+            repeat(4) {
                 val newHeart = HeartBubble(
                     id = nextHeartId++,
                     startX = tapX,
                     startY = tapY,
-                    control1X = c1X,
-                    control1Y = c1Y,
-                    control2X = c2X,
-                    control2Y = c2Y,
-                    endX = endX,
-                    endY = endY,
                     color = randomArcticColor(),
-                    createdAt = now,
-                    durationMs = duration
+                    initialDriftX = Random.nextFloat() * 60f * if (Random.nextBoolean()) 1f else -1f
                 )
-
                 heartBubbles = heartBubbles + newHeart
-
-                // 🫧 Delay between hearts → EXACTLY 300ms bubble rhythm
-                // Wider timing = less clustering
-                delay(380L + Random.nextLong(0, 70))
-
+                delay(120L + Random.nextLong(0, 50))
             }
         }
     }
-
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
@@ -592,7 +535,10 @@ fun SnowyOwlFlying() {
         val screenWidthPx = constraints.maxWidth.toFloat()
         val screenHeightPx = constraints.maxHeight.toFloat()
 
-        // ✈ Flight loop (PX)
+        val verticalRange = screenHeightPx * 0.6f
+        val verticalOffset = screenHeightPx * 0.30f
+
+        // ✈ Flight loop
         LaunchedEffect(Unit) {
             while (isActive) {
                 withFrameMillis {
@@ -600,52 +546,59 @@ fun SnowyOwlFlying() {
                     owlY = baseY + sin(phase) * 70f
                     owlX += velocityX
 
-                    if (owlX > screenWidthPx + OWL_WIDTH_PX * 0.4f) {
-                        velocityX = -1.8f
+                    if (owlX > screenWidthPx + 50f) {
+                        velocityX = -1.5f
                         facingRight = false
-                        baseY = Random.nextFloat() * (screenHeightPx * 0.6f)
+                        baseY = Random.nextFloat() * verticalRange + verticalOffset
                         phase = 0f
-                    }
-
-                    if (owlX < -OWL_WIDTH_PX * 1.2f) {
-                        velocityX = 1.8f
+                    } else if (owlX < -OWL_WIDTH_PX - 50f) {
+                        velocityX = 1.5f
                         facingRight = true
-                        baseY = Random.nextFloat() * (screenHeightPx * 0.6f)
+                        baseY = Random.nextFloat() * verticalRange + verticalOffset
                         phase = 0f
                     }
                 }
             }
         }
 
-        // 💖 Heart cleanup based on lifespan
+        // Heart cleanup
         LaunchedEffect(heartBubbles) {
             if (heartBubbles.isNotEmpty()) {
                 delay(120)
                 val now = System.currentTimeMillis()
-                heartBubbles = heartBubbles.filter { h ->
-                    now - h.createdAt < h.durationMs + 300L
-                }
+                heartBubbles = heartBubbles.filter { h -> now - h.createdAt < 2500L }
             }
         }
 
-        // Full-screen tap layer ON TOP of the canvas
+        // The Hitbox/Drawing Container
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .offset(
+                    x = with(density) { owlX.toDp() },
+                    y = with(density) { owlY.toDp() }
+                )
+                .size(owlWidthDp, owlHeightDp)
                 .pointerInput(Unit) {
                     detectTapGestures { tapOffset ->
-                        val tx = tapOffset.x // px
-                        val ty = tapOffset.y // px
+                        // The tapOffset is relative to the Owl Box's top-left corner.
+                        val tx = tapOffset.x
+                        val ty = tapOffset.y
 
-                        val left = owlX
-                        val top = owlY
-                        val right = owlX + OWL_WIDTH_PX
-                        val bottom = owlY + OWL_HEIGHT_PX
-
-                        val hit = tx in left..right && ty in top..bottom
+                        // Check if tap is inside the owl's dimensions
+                        val hit = tx in 0f..OWL_WIDTH_PX && ty in 0f..OWL_HEIGHT_PX
 
                         if (hit) {
-                            onOwlTapped(tx, ty)
+                            // CALCULATE BEAK POSITION
+                            // The beak drawing logic puts the beak at roughly (460, 250) in the 600x380 canvas
+                            // When facing right: Beak X is ~460
+                            // When facing left (flipped): Beak X is mirrored. (Width - 460) + some offset logic or simply the calculated flipped position.
+                            // Simplified mirroring logic:
+
+                            val beakLocalX = if (facingRight) 460f else (OWL_WIDTH_PX - 460f) + 100f // Approx adjustment for flip center
+                            val beakLocalY = 250f
+
+                            // Global Beak Position = Owl Global Position + Beak Local Position
+                            onOwlTapped(owlX + beakLocalX, owlY + beakLocalY)
                         }
                     }
                 }
@@ -655,8 +608,6 @@ fun SnowyOwlFlying() {
                 modifier = Modifier
                     .size(owlWidthDp, owlHeightDp)
                     .graphicsLayer(
-                        translationX = owlX,
-                        translationY = owlY,
                         scaleX = if (facingRight) 1f else -1f,
                         rotationZ = cos(phase) * 2f
                     )
@@ -670,190 +621,87 @@ fun SnowyOwlFlying() {
             }
         }
 
-        // 💖 Hearts overlay (each heart animates itself)
+        // 💖 Hearts overlay
         heartBubbles.forEach { heartBubble ->
-            HeartBubbleAnimation(heartBubble = heartBubble)
+            LightweightHeartAnimation(heartBubble = heartBubble)
         }
     }
 }
 
-
-
-// ============================================
-// 💖 HEART ANIMATION (unchanged, correct)
-// ============================================
-
+// 💖 LIGHTWEIGHT HEART ANIMATION (Fixed: Starts at beak, floats up)
 @Composable
-fun HeartBubbleAnimation(heartBubble: HeartBubble) {
+fun LightweightHeartAnimation(heartBubble: HeartBubble) {
     val density = LocalDensity.current
+    val lifespan = 2500
 
-    // Single animation driving 0 → 1 over the heart's lifespan
-    val progress = remember { Animatable(0f) }
+    // 1. VERTICAL ANIMATION: Must use Animatable to force start at 0f
+    val yOffsetAnim = remember { androidx.compose.animation.core.Animatable(0f) }
 
+    // 2. HORIZONTAL ANIMATION: Must use Animatable to force start at 0f
+    val xOffsetAnim = remember { androidx.compose.animation.core.Animatable(0f) }
+
+    // 3. ALPHA & SCALE
+    val alphaAnim = remember { androidx.compose.animation.core.Animatable(1f) }
+    val scaleAnim = remember { androidx.compose.animation.core.Animatable(0.2f) } // Start small (pop-in)
+
+    // Launch animations when the heart is created
     LaunchedEffect(heartBubble.id) {
-        progress.snapTo(0f)
-        progress.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = heartBubble.durationMs.toInt(),
-                easing = LinearEasing
+        // Float UP
+        launch {
+            yOffsetAnim.animateTo(
+                targetValue = -250f, // Float up 250dp
+                animationSpec = tween(lifespan, easing = LinearEasing)
             )
-        )
+        }
+        // Drift LEFT/RIGHT
+        launch {
+            val driftDp = with(density) { heartBubble.initialDriftX.toDp().value }
+            xOffsetAnim.animateTo(
+                targetValue = driftDp,
+                animationSpec = tween(lifespan, easing = FastOutSlowInEasing)
+            )
+        }
+        // Fade OUT
+        launch {
+            delay(1000)
+            alphaAnim.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(1500, easing = LinearEasing)
+            )
+        }
+        // Pop IN (Scale)
+        launch {
+            scaleAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            )
+        }
     }
 
-    val t = progress.value.coerceIn(0f, 1f)
-
-    // Cubic Bezier position
-    val xPx = cubicBezier(
-        heartBubble.startX,
-        heartBubble.control1X,
-        heartBubble.control2X,
-        heartBubble.endX,
-        t
-    )
-    val yPx = cubicBezier(
-        heartBubble.startY,
-        heartBubble.control1Y,
-        heartBubble.control2Y,
-        heartBubble.endY,
-        t
-    )
-
-    // Fade-in & fade-out
-    val alpha = when {
-        t < 0.12f -> (t / 0.12f).coerceIn(0f, 1f)         // ease in
-        t > 0.78f -> ((1f - t) / 0.22f).coerceIn(0f, 1f)   // ease out
-        else -> 1f
-    }
-
-    // Scale pulse and gentle rotation
-    val scale = 0.85f + 0.25f * sin((t * Math.PI).toFloat())
-    val rotation = sin(t * 8f) * 12f
-
-    val xDp = with(density) { xPx.toDp() }
-    val yDp = with(density) { yPx.toDp() }
-
-    // Medium hearts (28 → 34 dp) depending on progress
-    val baseSize = 28.dp
-    val extraSize = 6.dp
-    val sizeDp = baseSize + extraSize * sin((t * Math.PI).toFloat()).coerceIn(0f, 1f)
+    // Correct start position logic
+    val startX_dp = with(density) { heartBubble.startX.toDp() }
+    val startY_dp = with(density) { heartBubble.startY.toDp() }
 
     Box(
         modifier = Modifier
-            .offset(x = xDp - sizeDp / 2, y = yDp - sizeDp / 2)
-            .size(sizeDp)
+            .offset(
+                x = startX_dp + xOffsetAnim.value.dp,
+                y = startY_dp + yOffsetAnim.value.dp
+            )
+            .size(36.dp) // Standard container size
             .graphicsLayer(
-                alpha = alpha,
-                scaleX = scale,
-                scaleY = scale,
-                rotationZ = rotation
-            )
+                alpha = alphaAnim.value,
+                scaleX = scaleAnim.value,
+                scaleY = scaleAnim.value
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val heartColor = heartBubble.color
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val heartSize = size.minDimension * 0.9f
-            val r = heartSize / 2.5f
-
-            // ♥ Heart path
-            val heartPath = Path().apply {
-                moveTo(center.x, center.y + r / 3f)
-                cubicTo(
-                    center.x - r, center.y - r / 2f,
-                    center.x - r, center.y + r,
-                    center.x, center.y + r * 1.2f
-                )
-                cubicTo(
-                    center.x + r, center.y + r,
-                    center.x + r, center.y - r / 2f,
-                    center.x, center.y + r / 3f
-                )
-                close()
-            }
-
-            // Filled heart
-            drawPath(
-                path = heartPath,
-                color = heartColor,
-                style = Fill
-            )
-
-            // Subtle highlight
-            drawCircle(
-                color = Color.White.copy(alpha = 0.25f),
-                radius = r * 0.5f,
-                center = Offset(center.x - r * 0.25f, center.y - r * 0.3f)
-            )
-
-            // --- ✨ Mixed sparkles around the heart ---
-
-            // base sparkle intensity
-            val sparklePhase = (t * 2f * Math.PI).toFloat()
-
-            fun sparklePos(angleDeg: Float, radiusMul: Float): Offset {
-                val rad = Math.toRadians(angleDeg.toDouble()).toFloat()
-                val dist = r * radiusMul
-                return Offset(
-                    center.x + cos(rad) * dist,
-                    center.y + sin(rad) * dist
-                )
-            }
-
-            // 1) Small white twinkles
-            val twinkleScale = 0.5f + 0.5f * (0.5f + 0.5f * sin(sparklePhase * 1.8f))
-            val twinkleRadius = r * 0.18f * twinkleScale
-
-            listOf(40f, 160f, 280f).forEach { angle ->
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.8f),
-                    radius = twinkleRadius,
-                    center = sparklePos(angle, 1.6f)
-                )
-            }
-
-            // 2) Color-matched starbursts (cross shape)
-            val burstPhase = 0.5f + 0.5f * sin(sparklePhase * 2.3f)
-            val burstLength = r * (0.8f + 0.4f * burstPhase)
-            val burstStroke = (r * 0.14f)
-
-            listOf(100f, 230f).forEach { angle ->
-                val pos = sparklePos(angle, 1.3f)
-                // Horizontal
-                drawLine(
-                    color = heartColor.copy(alpha = 0.9f),
-                    start = Offset(pos.x - burstLength / 2f, pos.y),
-                    end = Offset(pos.x + burstLength / 2f, pos.y),
-                    strokeWidth = burstStroke,
-                    cap = StrokeCap.Round
-                )
-                // Vertical
-                drawLine(
-                    color = heartColor.copy(alpha = 0.9f),
-                    start = Offset(pos.x, pos.y - burstLength / 2f),
-                    end = Offset(pos.x, pos.y + burstLength / 2f),
-                    strokeWidth = burstStroke,
-                    cap = StrokeCap.Round
-                )
-            }
-
-            // 3) Tiny color-matched glitter specks
-            val speckAlpha = 0.3f + 0.2f * sin(sparklePhase * 3.7f)
-            val speckRadius = r * 0.10f
-
-            listOf(20f, 85f, 195f, 315f).forEach { angle ->
-                drawCircle(
-                    color = heartColor.copy(alpha = speckAlpha),
-                    radius = speckRadius,
-                    center = sparklePos(angle, 2.0f)
-                )
-            }
-        }
+        Text(
+            text = "💖",
+            fontSize = with(LocalDensity.current) { 28.dp.toSp() }
+        )
     }
 }
-
-
-
-
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     wingFlapAngle: Float = 0f,
@@ -1177,7 +1025,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawWingAnimated(
 }
 
 // ============================================
-// 📱 RECORDING CARD
+// 📱 RECORDING CARD (UNCHANGED)
 // ============================================
 
 @Composable
@@ -1507,7 +1355,7 @@ fun SnowyOwlRecordingItem(
 
 
 // ============================================
-// 🎮 ATTEMPT CARD
+// 🎮 ATTEMPT CARD (UNCHANGED)
 // ============================================
 
 @Composable
@@ -1823,7 +1671,7 @@ fun SnowyOwlAttemptItem(
 
 
 // ============================================
-// 🌙 OWL SCORE DIALOG - Mysterious & Detailed
+// 🌙 OWL SCORE DIALOG - Mysterious & Detailed (UNCHANGED)
 // ============================================
 
 @Composable
@@ -2150,7 +1998,7 @@ fun OwlScoreDialog(
 }
 
 /**
- * Owl-themed metric row with mystical progress visualization
+ * Owl-themed metric row with mystical progress visualization (UNCHANGED)
  */
 @Composable
 fun OwlMetricRow(
@@ -2221,7 +2069,7 @@ fun OwlMetricRow(
                     modifier = Modifier
                         .fillMaxHeight()
                         .align(Alignment.CenterStart)
-                        .padding(start = (value * 100).dp.coerceAtMost(100.dp) - 8.dp)
+                        .padding(start = (value * 100).coerceAtMost(100f).dp - 8.dp)
                 ) {
                     drawCircle(
                         color = Color.White.copy(alpha = 0.6f),
@@ -2234,7 +2082,7 @@ fun OwlMetricRow(
 }
 
 // ============================================
-// 🎨 CONTROL BUTTON COMPONENT
+// 🎨 CONTROL BUTTON COMPONENT (UNCHANGED)
 // ============================================
 
 @Composable
@@ -2274,7 +2122,7 @@ fun OwlControlButton(
 }
 
 // ============================================
-// 🎨 RUNIC-STYLE ICONS (EXACT FROM HTML MOCKUP)
+// 🎨 RUNIC-STYLE ICONS (UNCHANGED)
 // ============================================
 
 @Composable
@@ -2688,7 +2536,7 @@ fun OwlHomeIcon(color: Color) {
     }
 }
 // ============================================
-// 🎤 COMPOSITE ICONS - MIC + ARROW
+// 🎤 COMPOSITE ICONS - MIC + ARROW (UNCHANGED)
 // ============================================
 
 @Composable
@@ -2785,14 +2633,6 @@ fun OwlMicLeftArrowIcon(color: Color) {
     }
 }
 
-private fun cubicBezier(p0: Float, p1: Float, p2: Float, p3: Float, t: Float): Float {
-    val u = 1f - t
-    return u * u * u * p0 +
-            3f * u * u * t * p1 +
-            3f * u * t * t * p2 +
-            t * t * t * p3
-}
-
 private fun randomArcticColor(): Color {
     return when (Random.nextInt(4)) {
         0 -> Color(0xFFFFFFFF)           // pure white
@@ -2801,5 +2641,3 @@ private fun randomArcticColor(): Color {
         else -> Color(0xFFF9B9D0)        // soft pink
     }
 }
-
-
