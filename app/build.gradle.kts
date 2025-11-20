@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 90
-        versionName = "18.1.0 - recording performance improvements"
+        versionName = "18.1.1_refactor"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
