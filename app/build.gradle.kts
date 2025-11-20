@@ -19,8 +19,8 @@ android {
         applicationId = "com.example.reversey"
         minSdk = 26
         targetSdk = 35
-        versionCode = 89
-        versionName = "18.0.0z-WorkingWolTheme3"
+        versionCode = 90
+        versionName = "18.1.0 - recording performance improvements"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
