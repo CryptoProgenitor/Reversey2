@@ -3,10 +3,13 @@ package com.example.reversey.ui.theme
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -24,8 +27,11 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -45,11 +51,13 @@ import com.example.reversey.data.models.Recording
 import com.example.reversey.scoring.DifficultyConfig
 import com.example.reversey.ui.components.ScoreExplanationDialog
 import com.example.reversey.ui.viewmodels.AudioViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.random.Random
 import kotlinx.coroutines.isActive
 
@@ -133,10 +141,19 @@ class ScrapbookThemeComponents : ThemeComponents {
         private val _scrollVelocity = MutableStateFlow(0f)
         val scrollVelocity = _scrollVelocity.asStateFlow()
 
+        // 🔹 NEW: event counter to force a pop every time
+        private val _scrollPopId = MutableStateFlow(0L)
+        val scrollPopId = _scrollPopId.asStateFlow()
+
         fun triggerScrollPop(velocity: Float) {
-            _scrollVelocity.value = velocity.coerceIn(0f, 1f)
+            val v = velocity.coerceIn(0f, 1f)
+            _scrollVelocity.value = v
+
+            // 🔹 Increment ID so LaunchedEffect always re-runs
+            _scrollPopId.value = _scrollPopId.value + 1L
         }
     }
+
 
     @Composable
     override fun RecordingItem(
@@ -315,15 +332,71 @@ class ScrapbookThemeComponents : ThemeComponents {
     }*/
 
     @Composable
-    override fun RecordButton(isRecording: Boolean, isProcessing: Boolean, aesthetic: AestheticThemeData, onStartRecording: () -> Unit, onStopRecording: () -> Unit) {
-        Button(onClick = {
-            println("DEBUG: Button clicked, calling triggerScrollPop(1f)")
-            ScrapbookThemeComponents.triggerScrollPop(1f)
-            println("DEBUG: triggerScrollPop called")
-        }) {
-            Text("Test Scroll Pop")
+    override fun RecordButton(
+        isRecording: Boolean,
+        isProcessing: Boolean,
+        aesthetic: AestheticThemeData,
+        onStartRecording: () -> Unit,
+        onStopRecording: () -> Unit
+    ) {
+        // SVG booklet as the base
+        val notebookPainter = painterResource(id = R.drawable.spiral_notebook)
+
+        // Subtle scale pulse when recording
+        val scale by animateFloatAsState(
+            targetValue = if (isRecording) 1.05f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "record_booklet_scale"
+        )
+
+        Box(
+            modifier = Modifier
+                .size(140.dp) // tweak to taste
+                .graphicsLayer(scaleX = scale, scaleY = scale)
+                .clickable {
+                    if (isRecording) onStopRecording() else onStartRecording()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            // The booklet SVG
+            Image(
+                painter = notebookPainter,
+                contentDescription = if (isRecording) "Stop recording" else "Start recording",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            // Bottom-right REC / STOP pill on top of the booklet
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(10.dp)
+                    .background(
+                        color = Color(0xCC000000),
+                        shape = RoundedCornerShape(50)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(
+                            color = if (isRecording) Color(0xFFFF5252) else Color(0xFFB0BEC5),
+                            shape = CircleShape
+                        )
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isRecording) "STOP" else "REC",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
         }
     }
+
+
 
     @Composable
     override fun AppBackground(aesthetic: AestheticThemeData, content: @Composable () -> Unit) {
@@ -335,7 +408,25 @@ class ScrapbookThemeComponents : ThemeComponents {
         SwirlingPastelBackground(
             audioLevel = amplitude,
             isRecording = isRecording,
-            content = content
+            content = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, _ ->
+                                val velocity = kotlin.math.sqrt(
+                                    change.position.x * change.position.x +
+                                            change.position.y * change.position.y
+                                ) / 100f
+                                if (velocity > 0.2f) {
+                                    triggerScrollPop(1f)
+                                }
+                            }
+                        }
+                ) {
+                    content()
+                }
+            }
         )
     }
 
@@ -393,30 +484,48 @@ private fun SwirlingPastelBackground(
     // Scroll-triggered saturation
     val scrollSaturation by ScrapbookThemeComponents.scrollVelocity.collectAsState()
     println("DEBUG: scrollSaturation = $scrollSaturation")
-    var scrollSaturationAnimated by remember { mutableFloatStateOf(0f) }
+    val scrollSaturationAnimated = remember { Animatable(0f) }
 
-    // Scroll decay animation (pops then fades over 3 seconds)
-    LaunchedEffect(scrollSaturation) {
+    // 🔹 NEW: event ID – bumps every time triggerScrollPop() is called
+    val scrollPopId by ScrapbookThemeComponents.scrollPopId.collectAsState()
+
+
+    // Scroll decay animation - START at peak, then fade
+    // Scroll pop: big burst → hold → smooth fade
+    LaunchedEffect(scrollPopId) {
         if (scrollSaturation > 0f) {
-            // Pop to peak immediately
-            scrollSaturationAnimated = scrollSaturation
-            // Decay over 3 seconds
-            animate(
-                initialValue = scrollSaturation,
+
+            // 1) Snap to full pop instantly
+            scrollSaturationAnimated.snapTo(1.0f)
+
+            // 2) HOLD the pop so it's visible (250ms flash)
+            delay(1000)
+
+            // 3) Then fade out smoothly
+            scrollSaturationAnimated.animateTo(
                 targetValue = 0f,
-                animationSpec = tween(3000, easing = EaseOutCubic)
-            ) { value, _ ->
-                scrollSaturationAnimated = value
-            }
+                animationSpec = tween(
+                    durationMillis = 3000,
+                    easing = EaseOutCubic
+                )
+            )
         }
     }
 
+
     // Combined saturation (recording OR scroll)
     val recordingSaturation = if (isRecording) 1f else 0f
-    val targetSaturation = maxOf(recordingSaturation, scrollSaturationAnimated)
+    // Pop is MUCH stronger (3×), but still capped at 1.0
+    val boostedScroll = (scrollSaturationAnimated.value * 3f).coerceAtMost(1f)
+    val targetSaturation = maxOf(recordingSaturation, boostedScroll)
+
+
+
+    // Instant animation for scroll pop, smooth for recording changes
+    val isScrollActive = scrollSaturationAnimated.value > 0f
     val saturation by animateFloatAsState(
         targetValue = targetSaturation,
-        animationSpec = tween(500),
+        animationSpec = if (isScrollActive) tween(0) else tween(500), // Instant for scroll!
         label = "saturation"
     )
 
@@ -436,6 +545,7 @@ private fun SwirlingPastelBackground(
         // Layer 1: Blobs (Interpolated Colors)
         Canvas(modifier = Modifier.fillMaxSize()) {
             // Helper to mix colors based on saturation state
+            println("DEBUG: Canvas saturation = $saturation")
             fun mix(c1: Color, c2: Color) = lerp(c1, c2, saturation)
 
             val blobs = listOf(
@@ -448,20 +558,33 @@ private fun SwirlingPastelBackground(
             )
 
             blobs.forEachIndexed { i, (color, offset) ->
-                val driftX = sin(time * 0.02f + offset + i) * (screenWidth * 0.7f)
-                val driftY = cos(time * 0.015f + offset + i) * (screenHeight * 0.7f)
+                val motionFactor = if (isScrollActive && !isRecording) 1.2f else 0.7f
+
+                val driftX = sin(time * 0.02f + offset + i) * (screenWidth * motionFactor)
+                val driftY = cos(time * 0.015f + offset + i) * (screenHeight * motionFactor)
+
                 val x = (screenWidth / 2) + driftX
                 val y = (screenHeight / 2) + driftY
 
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(color.copy(alpha = if (isRecording) 0.8f else 0.4f), Color.Transparent),
+                        colors = listOf(
+                            color.copy(
+                                alpha = when {
+                                    isRecording -> 0.9f          // strong while recording
+                                    isScrollActive -> 0.9f       // equally strong during scroll POP
+                                    else -> 0.35f
+                                }
+                            ),
+                            Color.Transparent
+                        ),
                         center = Offset(x, y),
-                        radius = screenWidth * 1.2f
+                        radius = screenWidth * if (isScrollActive) 1.4f else 1.2f
                     ),
                     center = Offset(x, y),
-                    radius = screenWidth * 1.2f
+                    radius = screenWidth * if (isScrollActive) 1.4f else 1.2f
                 )
+
             }
         }
 

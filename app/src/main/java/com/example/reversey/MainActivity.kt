@@ -100,6 +100,11 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
+import androidx.compose.runtime.snapshotFlow
+import kotlin.math.abs
+import com.example.reversey.ui.theme.ScrapbookThemeComponents
+
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -198,6 +203,30 @@ fun AudioReverserApp(
     val uiState by viewModel.uiState.collectAsState()
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
     val listState = rememberLazyListState()
+    LaunchedEffect(listState) {
+        var lastIndex = listState.firstVisibleItemIndex
+        var lastOffset = listState.firstVisibleItemScrollOffset
+
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collect { (index, offset) ->
+            val indexDelta = index - lastIndex
+            val offsetDelta = offset - lastOffset
+
+            // crude “how much did we scroll?”
+            val totalDelta = indexDelta * 1000 + offsetDelta
+
+            if (abs(totalDelta) > 150) {
+                // Scale velocity a bit for fun, but keep it in [0.4, 1.0]
+                val velocity = (abs(totalDelta) / 2000f).coerceIn(0.4f, 1f)
+                ScrapbookThemeComponents.triggerScrollPop(velocity)
+            }
+
+            lastIndex = index
+            lastOffset = offset
+        }
+    }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 

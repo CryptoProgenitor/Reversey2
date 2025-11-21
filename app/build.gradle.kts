@@ -19,8 +19,8 @@ android {
         applicationId = "com.example.reversey"
         minSdk = 26
         targetSdk = 35
-        versionCode = 91
-        versionName = "19.0.0_refactor_complete"
+        versionCode = 92
+        versionName = "20.0.0c_refactor_theme_engine"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -84,6 +84,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui)
     ksp("com.google.dagger:hilt-android-compiler:2.57.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
