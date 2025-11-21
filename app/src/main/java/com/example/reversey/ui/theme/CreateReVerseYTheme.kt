@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.toArgb
  * CompositionLocal for accessing aesthetic theme data
  */
 val LocalAestheticTheme = compositionLocalOf<AestheticThemeData> {
-    AestheticThemes.Y2KCyber
+    AestheticThemes.getThemeById("y2k_cyber")
 }
 
 /**

@@ -79,20 +79,19 @@ fun ThemedMenuModal(
                     .fillMaxWidth(0.9f)
                     .fillMaxHeight(0.9f)
                     .clickable(enabled = false) { }
-                    .then(getCardModifier(aesthetic, colors))
+                    .then(getCardModifier(aesthetic))
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(
-                            horizontal = if (aesthetic.id == "egg") 16.dp else 24.dp,
-                            vertical = if (aesthetic.id == "egg") 12.dp else 20.dp
+                            horizontal = if (aesthetic.borderWidth > 2f) 16.dp else 24.dp,
+                            vertical = if (aesthetic.borderWidth > 2f) 12.dp else 20.dp
                         )
                 ) {
                     ModalHeader(
                         currentScreen = currentScreen,
                         aesthetic = aesthetic,
-                        colors = colors,
                         onBack = { currentScreen = ModalScreen.Menu },
                         onClose = onDismiss
                     )
@@ -168,26 +167,27 @@ fun ThemedMenuModal(
 private fun ModalHeader(
     currentScreen: ModalScreen,
     aesthetic: AestheticThemeData,
-    colors: ColorScheme,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
     val title = when (currentScreen) {
-        ModalScreen.Menu -> if (aesthetic.id == "egg") "MENU 🥚" else "MENU"
+        ModalScreen.Menu -> if (aesthetic.recordButtonEmoji == "🥚") "MENU 🥚" else "MENU"
         ModalScreen.About -> "ABOUT"
         ModalScreen.Settings -> "SETTINGS"
         ModalScreen.Themes -> "THEMES"
     }
 
     val showBackButton = currentScreen != ModalScreen.Menu
+    val menuColors = aesthetic.menuColors
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(getHeaderModifier(aesthetic, colors))
+            .background(menuColors.menuBackground, RoundedCornerShape(12.dp))
+            .border(aesthetic.borderWidth.dp, menuColors.menuBorder, RoundedCornerShape(12.dp))
             .padding(
                 horizontal = 16.dp,
-                vertical = if (aesthetic.id == "egg") 8.dp else 12.dp
+                vertical = 12.dp
             )
     ) {
         Row(
@@ -199,7 +199,7 @@ private fun ModalHeader(
                 IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back",
-                        tint = getIconTint(aesthetic)
+                        tint = menuColors.menuTitleText
                     )
                 }
             } else {
@@ -212,51 +212,30 @@ private fun ModalHeader(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = if (aesthetic.useWideLetterSpacing) 3.sp else 1.sp
                 ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = menuColors.menuTitleText
             )
 
             IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.Close, contentDescription = "Close",
-                    tint = getIconTint(aesthetic)
+                    tint = menuColors.menuTitleText
                 )
             }
         }
     }
 }
 
-private fun getIconTint(aesthetic: AestheticThemeData): Color {
-    return when (aesthetic.id) {
-        "egg" -> Color(0xFF2E2E2E)
-        "scrapbook" -> Color(0xFFFFF9E6)
-        "cyberpunk" -> Color.Black
-        else -> aesthetic.primaryTextColor
-    }
-}
+private fun getCardModifier(aesthetic: AestheticThemeData): Modifier {
+    val colors = aesthetic.menuColors
+    val shape = RoundedCornerShape(if (aesthetic.useGlassmorphism) 24.dp else 20.dp)
 
-private fun getCardModifier(aesthetic: AestheticThemeData, colors: ColorScheme): Modifier {
-    return when (aesthetic.id) {
-        "egg" -> Modifier.background(Color(0xFFFFF8E1), RoundedCornerShape(20.dp))
-            .border(4.dp, Color(0xFF2E2E2E), RoundedCornerShape(20.dp)).shadow(6.dp, RoundedCornerShape(20.dp))
-        "scrapbook" -> Modifier.rotate(-0.5f).background(Color(0xFFFFF9E6), RoundedCornerShape(20.dp))
-            .border(4.dp, Color(0xFF8B4513), RoundedCornerShape(20.dp)).shadow(8.dp, RoundedCornerShape(20.dp), spotColor = Color(0xFF8B4513))
-        "cyberpunk" -> Modifier.background(Brush.verticalGradient(listOf(Color(0xFF0A0A0A), Color(0xFF1A0033))), RoundedCornerShape(8.dp))
-            .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(8.dp)).shadow(20.dp, RoundedCornerShape(8.dp), spotColor = Color(0xFF00FFFF))
-        "vaporwave" -> Modifier.background(aesthetic.primaryGradient, RoundedCornerShape(24.dp))
-            .border(3.dp, Color(0xFFB967FF), RoundedCornerShape(24.dp)).shadow(20.dp, RoundedCornerShape(24.dp), spotColor = Color(0xFFB967FF))
-        else -> Modifier.background(colors.surface, RoundedCornerShape(16.dp))
-            .border(1.dp, colors.outline.copy(alpha = 0.3f), RoundedCornerShape(16.dp)).shadow(16.dp, RoundedCornerShape(16.dp))
-    }
-}
-
-private fun getHeaderModifier(aesthetic: AestheticThemeData, colors: ColorScheme): Modifier {
-    return when (aesthetic.id) {
-        "egg" -> Modifier.background(Brush.horizontalGradient(listOf(Color(0xFFFFE0B2), Color(0xFFFFD54F))), RoundedCornerShape(12.dp))
-            .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(12.dp))
-        "scrapbook" -> Modifier.rotate(0.5f).background(Brush.linearGradient(listOf(Color(0xFFD2691E), Color(0xFF8B4513))), RoundedCornerShape(12.dp))
-            .shadow(3.dp, RoundedCornerShape(12.dp))
-        "cyberpunk" -> Modifier.background(Brush.horizontalGradient(listOf(Color(0xFF00FFFF), Color(0xFFFF00FF))), RoundedCornerShape(4.dp))
-        "vaporwave" -> Modifier.background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(16.dp))
-        else -> Modifier.background(colors.surfaceVariant, RoundedCornerShape(12.dp))
-    }
+    return Modifier
+        .rotate(aesthetic.cardRotation)
+        .background(colors.menuCardBackground, shape)
+        .border(aesthetic.borderWidth.dp, colors.menuBorder, shape)
+        .shadow(
+            elevation = aesthetic.shadowElevation.dp,
+            shape = shape,
+            spotColor = colors.menuBorder
+        )
 }

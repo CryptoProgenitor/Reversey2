@@ -1,9 +1,5 @@
 package com.example.reversey
 
-
-
-//import com.example.reversey.ui.debug.DebugPanel
-
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -86,8 +82,6 @@ import com.example.reversey.ui.components.AnalysisToast
 import com.example.reversey.ui.components.DifficultyIndicator
 import com.example.reversey.ui.components.ThemedMenuModal
 import com.example.reversey.ui.components.TutorialOverlay
-import com.example.reversey.ui.components.UnifiedAttemptItem
-import com.example.reversey.ui.components.UnifiedRecordingItem
 import com.example.reversey.ui.menu.ModalScreen
 import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.MaterialColors
@@ -106,8 +100,7 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-
-@AndroidEntryPoint  // ← ADD THIS ANNOTATION
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,8 +108,7 @@ class MainActivity : ComponentActivity() {
             val themeViewModel: ThemeViewModel = hiltViewModel()
             val darkModePreference by themeViewModel.darkModePreference.collectAsState()
             val currentThemeId by themeViewModel.currentThemeId.collectAsState()
-            val customAccentColor by themeViewModel.customAccentColor.collectAsState()  // ⚡ ADD THIS
-
+            val customAccentColor by themeViewModel.customAccentColor.collectAsState()
 
             val useDarkTheme = when (darkModePreference) {
                 "Light" -> false
@@ -126,7 +118,7 @@ class MainActivity : ComponentActivity() {
 
             ReVerseYTheme(
                 aestheticThemeId = currentThemeId,
-                customAccentColor = customAccentColor,  // ⚡ ADD THIS LINE
+                customAccentColor = customAccentColor,
                 darkTheme = useDarkTheme
             ) {
                 MainApp(themeViewModel = themeViewModel)
@@ -143,29 +135,21 @@ object AudioConstants {
     const val MAX_WAVEFORM_SAMPLES = 200
 }
 
-// REPLACE YOUR MainApp FUNCTION (lines 177-272) WITH THIS:
-
 @Composable
 fun MainApp(themeViewModel: ThemeViewModel) {
     val navController = rememberNavController()
     var showMenuModal by remember { mutableStateOf(false) }
     var modalInitialScreen by remember { mutableStateOf<ModalScreen>(ModalScreen.Menu) }
 
-    val currentThemeId by themeViewModel.currentThemeId.collectAsState()
-    val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
     val audioViewModel: AudioViewModel = hiltViewModel()
     var showClearAllDialog by remember { mutableStateOf(false) }
-
-    val context = LocalContext.current
 
     var showDebugPanel by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
-                val currentThemeId by themeViewModel.currentThemeId.collectAsState()
-                val customAccentColor by themeViewModel.customAccentColor.collectAsState()
                 AudioReverserApp(
                     viewModel = audioViewModel,
                     openMenu = { showMenuModal = true },
@@ -173,16 +157,15 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     showClearAllDialog = showClearAllDialog,
                     onClearAllDialogDismiss = { showClearAllDialog = false },
                     isGameModeEnabled = isGameModeEnabled,
-
                     navController = navController,
-                    showDebugPanel = showDebugPanel,  // ✅ NEW
-                    onShowDebugPanelChange = { showDebugPanel = it }  // ✅ NEW
+                    showDebugPanel = showDebugPanel,
+                    onShowDebugPanelChange = { showDebugPanel = it }
                 )
             }
         }
-    }  // ← End of Box
+    }
 
-    // Themed menu modal (replaces drawer)
+    // Themed menu modal
     ThemedMenuModal(
         visible = showMenuModal,
         currentRoute = navController.currentDestination?.route,
@@ -193,46 +176,24 @@ fun MainApp(themeViewModel: ThemeViewModel) {
         },
         onClearAll = { showClearAllDialog = true },
         themeViewModel = themeViewModel,
-        //scoringEngine = audioViewModel,
         audioViewModel = audioViewModel,
-        //showDebugPanel = showDebugPanel,
-        //onShowDebugPanelChange = { showDebugPanel = it },
         initialScreen = modalInitialScreen,
         onDismiss = { showMenuModal = false; modalInitialScreen = ModalScreen.Menu },
     )
-
-    // 🐛 DEBUG PANEL - Render AFTER modal so it appears on top
-    if (showDebugPanel) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.BottomStart
-        ) {
-            /*DebugPanel(
-                scoringEngine = audioViewModel,
-                isVisible = showDebugPanel,
-                onDismiss = { showDebugPanel = false }
-            )*/
-        }
-    }
-}  // ← End of MainApp
-
+}
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AudioReverserApp(
     viewModel: AudioViewModel,
-    //openDrawer: () -> Unit,
-    openMenu: () -> Unit,  // ✅ NEW NAME
+    openMenu: () -> Unit,
     showClearAllDialog: Boolean,
     onClearAllDialogDismiss: () -> Unit,
     isGameModeEnabled: Boolean,
-
-    navController: NavController, // 🔧 ADD THIS - so DifficultyIndicator can navigate
-    openMenuToSettings: () -> Unit,  // ← ADD THIS
-    showDebugPanel: Boolean,  // ✅ NEW
-    onShowDebugPanelChange: (Boolean) -> Unit  // ✅ NEW
+    navController: NavController,
+    openMenuToSettings: () -> Unit,
+    showDebugPanel: Boolean,
+    onShowDebugPanelChange: (Boolean) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recordAudioPermissionState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
@@ -271,18 +232,8 @@ fun AudioReverserApp(
     if (showClearAllDialog) {
         AlertDialog(
             onDismissRequest = { onClearAllDialogDismiss() },
-            title = {
-                Text(
-                    "Clear All Recordings?",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-            },
-            text = {
-                Text(
-                    "This will permanently delete all of your recordings. This action cannot be undone.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            },
+            title = { Text("Clear All Recordings?", style = MaterialTheme.typography.headlineSmall) },
+            text = { Text("This will permanently delete all of your recordings. This action cannot be undone.", style = MaterialTheme.typography.bodyMedium) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -290,35 +241,22 @@ fun AudioReverserApp(
                         onClearAllDialogDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(
-                        "Delete All",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
+                ) { Text("Delete All", style = MaterialTheme.typography.labelLarge) }
             },
             dismissButton = {
-                Button(onClick = { onClearAllDialogDismiss() }) {
-                    Text(
-                        "Cancel",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
+                Button(onClick = { onClearAllDialogDismiss() }) { Text("Cancel", style = MaterialTheme.typography.labelLarge) }
             }
         )
     }
 
     val aesthetic = AestheticTheme()
 
-    aesthetic.components.AppBackground(
-        aesthetic = aesthetic
-    ) {
+    aesthetic.components.AppBackground(aesthetic = aesthetic) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = {
-                        val aesthetic = AestheticTheme()
                         Text(
                             "ReVerseY",
                             color = aesthetic.primaryTextColor,
@@ -328,19 +266,12 @@ fun AudioReverserApp(
                             )
                         )
                     },
-
                     navigationIcon = {
-                        val aesthetic = AestheticTheme()
                         IconButton(onClick = openMenu) {
-                            Icon(
-                                Icons.Default.Menu,
-                                contentDescription = "Menu",
-                                tint = aesthetic.primaryTextColor
-                            )
+                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = aesthetic.primaryTextColor)
                         }
                     },
                     actions = {
-                        // NEW: Difficulty indicator in top-right
                         val currentDifficulty by viewModel.currentDifficultyFlow.collectAsState()
                         DifficultyIndicator(
                             difficulty = currentDifficulty,
@@ -348,9 +279,7 @@ fun AudioReverserApp(
                             modifier = Modifier.padding(end = 16.dp)
                         )
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
-                    )
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
             }
         ) { paddingValues ->
@@ -363,7 +292,6 @@ fun AudioReverserApp(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Enhanced Record Button with theme integration
                 EnhancedRecordButton(
                     isRecording = uiState.isRecording.also { recording ->
                         Log.d("RECORD_BUG", "🖥️ UI READS: isRecording=$recording, isRecordingAttempt=${uiState.isRecordingAttempt}")
@@ -373,25 +301,20 @@ fun AudioReverserApp(
                     onStartRecording = { viewModel.startRecording() },
                     onStopRecording = { viewModel.stopRecording() },
                 )
-                ////from here
+
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Only show waveform area when actually recording!
                 if (uiState.isRecording) {
                     EnhancedWaveformVisualizer(
                         amplitudes = uiState.amplitudes,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(100.dp)
+                        modifier = Modifier.fillMaxWidth().height(100.dp)
                     )
                 } else {
-                    // Minimal space for status text
                     AnimatedVisibility(
                         visible = uiState.statusText.isNotEmpty(),
                         enter = fadeIn(animationSpec = tween(600, 100, LinearOutSlowInEasing)),
                         exit = fadeOut(animationSpec = tween(600, easing = LinearOutSlowInEasing))
                     ) {
-                        val aesthetic = AestheticTheme()
                         Text(
                             text = uiState.statusText,
                             style = MaterialTheme.typography.bodyLarge.copy(
@@ -404,7 +327,6 @@ fun AudioReverserApp(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                ////to here
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
@@ -413,15 +335,14 @@ fun AudioReverserApp(
                     LazyColumn(
                         state = listState,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(MaterialTheme.shapes.medium)
-                    ) {//keep me
+                        modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium)
+                    ) {
                         uiState.recordings.forEach { recording ->
                             item(key = "parent_${recording.originalPath}") {
-                                UnifiedRecordingItem(
+                                // 🎯 POLYMORPHIC CALL 1: Recording Item
+                                aesthetic.components.RecordingItem(
                                     recording = recording,
-                                    aesthetic = AestheticTheme(),
+                                    aesthetic = aesthetic,
                                     isPlaying = uiState.currentlyPlayingPath != null &&
                                             (uiState.currentlyPlayingPath == recording.originalPath ||
                                                     uiState.currentlyPlayingPath == recording.reversedPath),
@@ -435,8 +356,7 @@ fun AudioReverserApp(
                                     onShare = { path: String ->
                                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                             type = "audio/wav"
-                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context,
-                                                "${context.packageName}.provider", File(path)))
+                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
                                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         }
                                         context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
@@ -447,18 +367,17 @@ fun AudioReverserApp(
                                         viewModel.startAttemptRecording(rec, type)
                                     }
                                 )
-                            }//keep me
-
+                            }
 
                             items(
                                 count = recording.attempts.size,
                                 key = { index -> "attempt_${recording.originalPath}_${index}" }
                             ) { index ->
                                 val attempt = recording.attempts[index]
-//START HERE
-                                // 🎯 GLUTE: Unified component for all themes
-                                UnifiedAttemptItem(
+                                // 🎯 POLYMORPHIC CALL 2: Attempt Item
+                                aesthetic.components.AttemptItem(
                                     attempt = attempt,
+                                    aesthetic = aesthetic,
                                     currentlyPlayingPath = uiState.currentlyPlayingPath,
                                     isPaused = uiState.isPaused,
                                     progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath ||
@@ -468,188 +387,78 @@ fun AudioReverserApp(
                                     onPause = { viewModel.pause() },
                                     onStop = { viewModel.stopPlayback() },
                                     onRenamePlayer = { oldAttempt, newName ->
-                                        viewModel.renamePlayer(
-                                            recording.originalPath,
-                                            oldAttempt,
-                                            newName
-                                        )
+                                        viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
                                     },
                                     onDeleteAttempt = { attemptToDelete ->
-                                        viewModel.deleteAttempt(
-                                            recording.originalPath,
-                                            attemptToDelete
-                                        )
+                                        viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
                                     },
                                     onShareAttempt = { path ->
                                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                             type = "audio/wav"
-                                            putExtra(
-                                                Intent.EXTRA_STREAM, FileProvider.getUriForFile(
-                                                    context,
-                                                    "${context.packageName}.provider", File(path)
-                                                )
-                                            )
+                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
                                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         }
-                                        context.startActivity(
-                                            Intent.createChooser(
-                                                shareIntent,
-                                                "Share Attempt"
-                                            )
-                                        )
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
                                     },
                                     onJumpToParent = {
                                         scope.launch {
-                                            // Calculate the correct index in the flattened LazyColumn
                                             var flatIndex = 0
                                             for (i in uiState.recordings.indices) {
                                                 val rec = uiState.recordings[i]
                                                 if (rec.originalPath == recording.originalPath) {
-                                                    // Found the parent recording - scroll to its position
-                                                    listState.animateScrollToItem(
-                                                        index = flatIndex,
-                                                        scrollOffset = 0  // Position at top of view
-                                                    )
+                                                    listState.animateScrollToItem(index = flatIndex, scrollOffset = 0)
                                                     break
                                                 }
-                                                // Add 1 for the recording item + its attempts count
                                                 flatIndex += 1 + rec.attempts.size
                                             }
                                         }
                                     }
                                 )
-                            }//KEEP ME! for GLUE drop in
-                        }//KEEP ME!
+                            }
+                        }
                     }
 
-                    // Fade gradients
-                    val topGradient = Brush.verticalGradient(
-                        0.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        1.0f to Color.Transparent
-                    )
-                    val bottomGradient = Brush.verticalGradient(
-                        0.0f to Color.Transparent,
-                        1.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                    )
+                    val topGradient = Brush.verticalGradient(0.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), 1.0f to Color.Transparent)
+                    val bottomGradient = Brush.verticalGradient(0.0f to Color.Transparent, 1.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
 
                     if (showTopFade) {
-                        Box(modifier = Modifier
-                            .fillMaxWidth()
-                            .height(24.dp)
-                            .align(Alignment.TopCenter)
-                            .clip(MaterialTheme.shapes.medium)
-                            .background(topGradient))
+                        Box(modifier = Modifier.fillMaxWidth().height(24.dp).align(Alignment.TopCenter).clip(MaterialTheme.shapes.medium).background(topGradient))
                     }
                     if (showBottomFade) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(24.dp)
-                                .align(Alignment.BottomCenter)
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(bottomGradient)
-                        )
+                        Box(modifier = Modifier.fillMaxWidth().height(24.dp).align(Alignment.BottomCenter).clip(MaterialTheme.shapes.medium).background(bottomGradient))
                     }
                 }
             }
         }
 
-
-        // Dialogs and overlays
         uiState.attemptToRename?.let { (parentPath, attempt) ->
             var newPlayerName by remember { mutableStateOf(attempt.playerName) }
+            val copy = aesthetic.dialogCopy
             AlertDialog(
                 onDismissRequest = { viewModel.clearAttemptToRename() },
-                title = {
-                    Text(
-                        "Name This Player",
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-                },
-                text = {
-                    OutlinedTextField(
-                        value = newPlayerName,
-                        onValueChange = { newPlayerName = it },
-                        label = {
-                            Text(
-                                "Player Name",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    )
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        if (newPlayerName.isNotBlank()) {
-                            viewModel.renamePlayer(parentPath, attempt, newPlayerName)
-                        }
-                        viewModel.clearAttemptToRename()
-                    }) {
-                        Text(
-                            "Save",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                },
-                dismissButton = {
-                    Button(onClick = { viewModel.clearAttemptToRename() }) {
-                        Text(
-                            "Keep Default",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                }
+                title = { Text(copy.renameTitle(com.example.reversey.ui.theme.RenamableItemType.PLAYER)) },
+                text = { OutlinedTextField(value = newPlayerName, onValueChange = { newPlayerName = it }, label = { Text(copy.renameHint) }) },
+                confirmButton = { Button(onClick = { if (newPlayerName.isNotBlank()) viewModel.renamePlayer(parentPath, attempt, newPlayerName); viewModel.clearAttemptToRename() }) { Text("Save") } },
+                dismissButton = { Button(onClick = { viewModel.clearAttemptToRename() }) { Text("Cancel") } }
             )
         }
 
-        // Tutorial Overlay
         if (uiState.showTutorial) {
-            TutorialOverlay(
-                onDismiss = { viewModel.dismissTutorial() },
-                onComplete = { viewModel.completeTutorial() }
-            )
+            TutorialOverlay(onDismiss = { viewModel.dismissTutorial() }, onComplete = { viewModel.completeTutorial() })
         }
 
-        // Quality Warning Dialog
         if (uiState.showQualityWarning) {
             AlertDialog(
                 onDismissRequest = { viewModel.dismissQualityWarning() },
-                title = {
-                    Text(
-                        "Poor Quality Recording",
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-                },
-                text = {
-                    Text(
-                        uiState.qualityWarningMessage,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                },
-                confirmButton = {
-                    Button(onClick = { viewModel.dismissQualityWarning() }) {
-                        Text("Got it")
-                    }
-                },
-                dismissButton = {
-                    Button(onClick = { viewModel.dismissQualityWarning() }) {
-                        Text("Re-record")
-                    }
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Warning",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                title = { Text("Poor Quality Recording") },
+                text = { Text(uiState.qualityWarningMessage) },
+                confirmButton = { Button(onClick = { viewModel.dismissQualityWarning() }) { Text("Got it") } },
+                dismissButton = { Button(onClick = { viewModel.dismissQualityWarning() }) { Text("Re-record") } },
+                icon = { Icon(Icons.Default.Info, contentDescription = "Warning", tint = MaterialTheme.colorScheme.primary) }
             )
         }
 
-        // 🎯 Analysis Toast - General overlay for audio processing
-        AnalysisToast(
-            isVisible = uiState.showAnalysisToast
-        )
+        AnalysisToast(isVisible = uiState.showAnalysisToast)
     }
 }
 
@@ -665,7 +474,6 @@ fun EnhancedRecordButton(
     val colors = MaterialColors()
 
     if (!hasPermission) {
-        // Keep existing permission button code exactly as-is
         Button(
             onClick = onRequestPermission,
             modifier = Modifier.size(120.dp),
@@ -678,7 +486,6 @@ fun EnhancedRecordButton(
             }
         }
     } else {
-        // 🎨 Component composition architecture!
         aesthetic.components.RecordButton(
             isRecording = isRecording,
             isProcessing = false,
@@ -689,9 +496,6 @@ fun EnhancedRecordButton(
     }
 }
 
-/**
- * Enhanced Waveform Visualizer with standardized theming
- */
 @Composable
 fun EnhancedWaveformVisualizer(
     amplitudes: List<Float>,
@@ -699,7 +503,6 @@ fun EnhancedWaveformVisualizer(
     barWidth: Dp = 8.dp,
     barGap: Dp = 4.dp
 ) {
-    val aesthetic = AestheticTheme()
     val materialColors = MaterialColors()
     Canvas(modifier = modifier) {
         val canvasHeight = size.height
@@ -715,7 +518,6 @@ fun EnhancedWaveformVisualizer(
             val x = index * totalBarWidth
             val y = (canvasHeight - barHeight) / 2
 
-            // Enhanced gradient with more vibrant colors using standardized theming
             val gradient = Brush.verticalGradient(
                 colors = listOf(
                     materialColors.primary.copy(alpha = 0.3f),
@@ -726,7 +528,6 @@ fun EnhancedWaveformVisualizer(
                 endY = y + barHeight
             )
 
-            // Rounded bars with gradient and glow effect
             drawRoundRect(
                 brush = gradient,
                 topLeft = Offset(x, y),
@@ -736,10 +537,6 @@ fun EnhancedWaveformVisualizer(
         }
     }
 }
-
-
-
-
 
 class OctagonShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {

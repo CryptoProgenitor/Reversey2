@@ -111,6 +111,9 @@ class AudioViewModel @Inject constructor(
     val isScoringReady: StateFlow<Boolean> = _isScoringReady.asStateFlow()
 
     private val _currentDifficulty = MutableStateFlow(DifficultyLevel.NORMAL)
+
+    val recordingState: StateFlow<Boolean> get() = audioRecorderHelper.isRecording//exposes state to scrapbook for background effect and sparkles
+    val amplitudeState: StateFlow<Float> get() = audioRecorderHelper.amplitude//exposes state to scrapbook for background effect and sparkles
     val currentDifficultyFlow: StateFlow<DifficultyLevel> = _currentDifficulty.asStateFlow()
 
     private fun showUserMessage(message: String) {
@@ -241,6 +244,7 @@ class AudioViewModel @Inject constructor(
     // --- RECORDING ACTIONS ---
 
     fun startRecording() {
+        Log.d("AudioViewModel", "Starting recording - setting isRecording = true")
         if (audioRecorderHelper.isRecording.value) return
 
         if (ActivityCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO)

@@ -31,6 +31,7 @@ import com.example.reversey.testing.ScoringStressTester
 import com.example.reversey.testing.VocalModeDetectorTuner
 import com.example.reversey.ui.components.DifficultyButton
 import com.example.reversey.ui.theme.AestheticThemeData
+import com.example.reversey.ui.theme.SharedDefaultComponents
 import com.example.reversey.ui.viewmodels.AudioViewModel
 import com.example.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +55,9 @@ fun SettingsContent(
     val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
     val customAccentColor by themeViewModel.customAccentColor.collectAsState()
 
+    // 🎨 Theme Colors from the new MenuColors object
+    val menuColors = aesthetic.menuColors
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -64,22 +68,16 @@ fun SettingsContent(
         // ========== GAMEPLAY SECTION ==========
         SectionTitle("GAMEPLAY", aesthetic)
 
-        SettingRow(
-            label = "Enable Game Mode",
-            aesthetic = aesthetic,
-            colors = colors
-        ) {
-            Switch(
+        SharedDefaultComponents.ThemedSettingsCard(aesthetic) {
+            SharedDefaultComponents.ThemedToggle(
+                aesthetic = aesthetic,
+                label = "Enable Game Mode",
                 checked = isGameModeEnabled,
-                onCheckedChange = {
-                    scope.launch {
-                        themeViewModel.setGameMode(it)
-                    }
-                }
+                onCheckedChange = { scope.launch { themeViewModel.setGameMode(it) } }
             )
         }
 
-        HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
+        HorizontalDivider(color = menuColors.menuDivider)
 
         // ========== DIFFICULTY SECTION ==========
         SectionTitle("SCORING DIFFICULTY", aesthetic)
@@ -87,7 +85,7 @@ fun SettingsContent(
         Text(
             text = "Choose your challenge level",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = menuColors.menuItemText,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
 
@@ -105,116 +103,84 @@ fun SettingsContent(
             }
         }
 
-        HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
+        HorizontalDivider(color = menuColors.menuDivider)
 
         // ========== APPEARANCE SECTION ==========
         SectionTitle("APPEARANCE", aesthetic)
 
-        // Dark Mode
-        Text(
-            text = "Dark Mode",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        )
-
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("Light", "Dark", "System").forEach { mode ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            scope.launch {
-                                themeViewModel.setDarkModePreference(mode)
-                            }
-                        }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = darkModePreference == mode,
-                        onClick = {
-                            scope.launch {
-                                themeViewModel.setDarkModePreference(mode)
-                            }
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = mode,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        SharedDefaultComponents.ThemedSettingsCard(aesthetic, title = "Dark Mode") {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf("Light", "Dark", "System").forEach { mode ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { scope.launch { themeViewModel.setDarkModePreference(mode) } }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = darkModePreference == mode,
+                            onClick = { scope.launch { themeViewModel.setDarkModePreference(mode) } },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = menuColors.toggleActive,
+                                unselectedColor = menuColors.toggleInactive
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = mode,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = menuColors.menuItemText
+                        )
+                    }
                 }
             }
         }
 
         // Custom Accent Color
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Custom Accent Color",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (customAccentColor != null) "Custom color active" else "Using theme default",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        if (customAccentColor != null) {
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .border(
-                        width = 1.5.dp,
-                        color = colors.primary.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                    .background(colors.primary.copy(alpha = 0.1f))
-                    .clickable {
-                        scope.launch {
-                            themeViewModel.setCustomAccentColor(null)
-                        }
-                    }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
+        SharedDefaultComponents.ThemedSettingsCard(aesthetic, title = "Custom Accent Color") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Reset to theme's colours",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
+                    text = if (customAccentColor != null) "Custom color active" else "Using theme default",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = menuColors.menuItemText
                 )
+
+                if (customAccentColor != null) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .border(1.5.dp, menuColors.menuBorder, RoundedCornerShape(6.dp))
+                            .background(menuColors.menuBorder.copy(alpha = 0.1f))
+                            .clickable { scope.launch { themeViewModel.setCustomAccentColor(null) } }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Reset",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = menuColors.menuTitleText,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
-        }
 
-        var showColorPicker by remember { mutableStateOf(false) }
+            Spacer(modifier = Modifier.height(12.dp))
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clickable { showColorPicker = true },
-            colors = CardDefaults.cardColors(
-                containerColor = colors.surfaceVariant.copy(alpha = 0.5f)
-            )
-        ) {
+            var showColorPicker by remember { mutableStateOf(false) }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(menuColors.menuItemBackground)
+                    .clickable { showColorPicker = true }
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -222,91 +188,60 @@ fun SettingsContent(
                     Icon(
                         Icons.Default.Palette,
                         contentDescription = "Color Picker",
-                        tint = colors.primary
+                        tint = menuColors.toggleActive
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            "Open Color Picker",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "Choose any ARGB color",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                if (customAccentColor != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(customAccentColor!!)
-                            .border(2.dp, colors.outline, CircleShape)
+                    Text(
+                        "Pick Color",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = menuColors.menuTitleText
                     )
                 }
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(customAccentColor ?: colors.primary)
+                        .border(2.dp, menuColors.menuBorder, CircleShape)
+                )
+            }
+
+            if (showColorPicker) {
+                ARGBColorPickerDialog(
+                    currentColor = customAccentColor ?: colors.primary,
+                    onColorSelected = { color ->
+                        scope.launch { themeViewModel.setCustomAccentColor(color) }
+                        showColorPicker = false
+                    },
+                    onDismiss = { showColorPicker = false }
+                )
             }
         }
 
-        if (showColorPicker) {
-            ARGBColorPickerDialog(
-                currentColor = customAccentColor ?: colors.primary,
-                onColorSelected = { color ->
-                    scope.launch {
-                        themeViewModel.setCustomAccentColor(color)
-                    }
-                    showColorPicker = false
-                },
-                onDismiss = { showColorPicker = false }
-            )
-        }
-
-        HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
+        HorizontalDivider(color = menuColors.menuDivider)
 
         // ========== STORAGE SECTION ==========
         SectionTitle("STORAGE", aesthetic)
 
-        SettingRow(
-            label = "Backup Recordings to Drive",
-            aesthetic = aesthetic,
-            colors = colors
-        ) {
-            Switch(
+        SharedDefaultComponents.ThemedSettingsCard(aesthetic) {
+            SharedDefaultComponents.ThemedToggle(
+                aesthetic = aesthetic,
+                label = "Backup Recordings to Drive",
                 checked = backupRecordingsEnabled,
-                onCheckedChange = {
-                    scope.launch {
-                        themeViewModel.setBackupRecordingsEnabled(it)
-                    }
-                }
+                onCheckedChange = { scope.launch { themeViewModel.setBackupRecordingsEnabled(it) } }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "ℹ️ Settings and scores are always backed up. Audio files are only backed up if enabled.",
+                style = MaterialTheme.typography.bodySmall,
+                color = menuColors.menuItemText.copy(alpha = 0.7f)
             )
         }
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = colors.surfaceVariant.copy(alpha = 0.5f)
-            )
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = "ℹ️ Backup Info",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Settings and scores always backed up. Audio files only backed up if enabled.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        HorizontalDivider(color = aesthetic.cardBorder.copy(alpha = 0.3f))
+        HorizontalDivider(color = menuColors.menuDivider)
 
         SectionTitle("DEVELOPER OPTIONS", aesthetic)
 
@@ -314,20 +249,24 @@ fun SettingsContent(
         var showStressTester by remember { mutableStateOf(false) }
         var progress by remember { mutableStateOf<ScoringStressTester.Progress?>(null) }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-                .clickable { showStressTester = true }
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = menuColors.menuCardBackground),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Text(
-                text = "Scoring Stress Tester",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showStressTester = true }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Scoring Stress Tester",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = menuColors.menuTitleText
+                )
+            }
         }
 
         if (showStressTester) {
@@ -346,112 +285,91 @@ fun SettingsContent(
             var totalTests by remember { mutableStateOf(4000) }
             var progressPercentage by remember { mutableStateOf(0f) }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !tunerRunning) {
-                        if (!tunerRunning) {
-                            tunerRunning = true
-                            scope.launch {
-                                try {
-                                    Log.d("VocalTuner", "=== VOCAL TUNER START ===")
-                                    tunerProgress = "Initializing..."
-                                    val audioProcessor = AudioProcessor()
-                                    val tuner = VocalModeDetectorTuner(audioProcessor)
-
-                                    tunerProgress = "Loading training data..."
-                                    val dataLoaded = tuner.loadTrainingDataFromAssets(context)
-
-                                    if (!dataLoaded) throw Exception("Failed to load training data")
-
-                                    tunerProgress = "Pre-processing data..."
-                                    val preprocessed = tuner.preProcessTrainingData { status -> tunerProgress = status }
-
-                                    if (!preprocessed) throw Exception("Failed to pre-process data")
-
-                                    tunerProgress = "Running optimization..."
-                                    val result = withContext(Dispatchers.Default) {
-                                        tuner.findOptimalParameters { progressString ->
-                                            val regex = """Tested (\d+)/(\d+) \((\d+)%\)""".toRegex()
-                                            val match = regex.find(progressString)
-                                            if (match != null) {
-                                                currentTest = match.groupValues[1].toIntOrNull() ?: 0
-                                                totalTests = match.groupValues[2].toIntOrNull() ?: 4000
-                                                progressPercentage = match.groupValues[3].toFloatOrNull() ?: 0f
-                                                tunerProgress = progressString
-                                            } else {
-                                                tunerProgress = progressString
-                                            }
-                                        }
-                                    }
-
-                                    if (result == null) throw Exception("Optimization failed")
-
-                                    tunerProgress = "Writing results..."
-                                    val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
-                                        android.os.Environment.DIRECTORY_DOWNLOADS
-                                    )
-                                    val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-                                    val outputFile = java.io.File(downloadsDir, "ReVerseY_VocalTuner_${timestamp}.txt")
-                                    outputFile.writeText(tuner.generateOptimizedCode(result))
-
-                                    Toast.makeText(context, "Optimization complete! Saved to Downloads", Toast.LENGTH_LONG).show()
-
-                                } catch (e: Exception) {
-                                    Log.e("VocalTuner", "ERROR: ${e.message}", e)
-                                    Toast.makeText(context, "Tuner Failed: ${e.message}", Toast.LENGTH_LONG).show()
-                                } finally {
-                                    tunerRunning = false
-                                    tunerProgress = "Ready"
-                                }
-                            }
-                        }
-                    },
-                colors = CardDefaults.cardColors(
-                    containerColor = if (tunerRunning) colors.secondaryContainer else colors.surfaceVariant.copy(alpha = 0.5f)
-                )
-            ) {
+            SharedDefaultComponents.ThemedSettingsCard(aesthetic) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .clickable(enabled = !tunerRunning) {
+                            if (!tunerRunning) {
+                                tunerRunning = true
+                                scope.launch {
+                                    try {
+                                        Log.d("VocalTuner", "=== VOCAL TUNER START ===")
+                                        tunerProgress = "Initializing..."
+                                        val audioProcessor = AudioProcessor()
+                                        val tuner = VocalModeDetectorTuner(audioProcessor)
+                                        val dataLoaded = tuner.loadTrainingDataFromAssets(context)
+                                        if (!dataLoaded) throw Exception("Failed to load training data")
+                                        tunerProgress = "Pre-processing..."
+                                        val preprocessed = tuner.preProcessTrainingData { tunerProgress = it }
+                                        if (!preprocessed) throw Exception("Failed to pre-process")
+                                        tunerProgress = "Optimizing..."
+                                        val result = withContext(Dispatchers.Default) {
+                                            tuner.findOptimalParameters { progressString ->
+                                                val regex = """Tested (\d+)/(\d+) \((\d+)%\)""".toRegex()
+                                                val match = regex.find(progressString)
+                                                if (match != null) {
+                                                    currentTest = match.groupValues[1].toIntOrNull() ?: 0
+                                                    totalTests = match.groupValues[2].toIntOrNull() ?: 4000
+                                                    progressPercentage = match.groupValues[3].toFloatOrNull() ?: 0f
+                                                    tunerProgress = progressString
+                                                } else {
+                                                    tunerProgress = progressString
+                                                }
+                                            }
+                                        }
+                                        if (result == null) throw Exception("Optimization failed")
+                                        tunerProgress = "Complete!"
+                                        Toast.makeText(context, "Tuning Complete", Toast.LENGTH_SHORT).show()
+                                    } catch (e: Exception) {
+                                        Log.e("VocalTuner", "ERROR: ${e.message}", e)
+                                        Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                    } finally {
+                                        tunerRunning = false
+                                    }
+                                }
+                            }
+                        }
+                        .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Tune,
-                            contentDescription = "Tune Vocal Detector",
-                            tint = if (tunerRunning) colors.onSecondaryContainer else colors.primary
+                            contentDescription = "Tune",
+                            tint = if (tunerRunning) menuColors.toggleActive else menuColors.menuTitleText
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                if (tunerRunning) "Tuning Vocal Detector..." else "Auto-Tune Vocal Detector",
+                                if (tunerRunning) "Tuning..." else "Auto-Tune Detector",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = menuColors.menuTitleText
                             )
                             Text(
                                 tunerProgress,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = menuColors.menuItemText
                             )
                             if (tunerRunning && currentTest > 0) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 LinearProgressIndicator(
                                     progress = { progressPercentage / 100f },
                                     modifier = Modifier.fillMaxWidth(),
-                                    color = colors.primary,
-                                    trackColor = colors.surfaceVariant,
+                                    color = menuColors.toggleActive,
+                                    trackColor = menuColors.toggleInactive,
                                 )
                             }
                         }
                     }
                     if (tunerRunning) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = menuColors.toggleActive
+                        )
                     }
                 }
             }
@@ -469,32 +387,9 @@ private fun SectionTitle(text: String, aesthetic: AestheticThemeData) {
             fontWeight = FontWeight.Bold,
             letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
         ),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = aesthetic.menuColors.menuTitleText,
         modifier = Modifier.padding(horizontal = 8.dp)
     )
-}
-
-@Composable
-private fun SettingRow(
-    label: String,
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
-    control: @Composable () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        control()
-    }
 }
 
 @Composable
