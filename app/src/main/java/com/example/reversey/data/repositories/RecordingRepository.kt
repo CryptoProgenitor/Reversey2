@@ -9,7 +9,7 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
-import com.example.reversey.AudioConstants
+import com.example.reversey.audio.AudioConstants
 import com.example.reversey.data.models.Recording
 import com.example.reversey.utils.formatFileName
 import com.example.reversey.utils.getRecordingsDir
@@ -29,6 +29,7 @@ import java.nio.ByteOrder
 import kotlin.experimental.and
 import kotlin.math.abs
 import org.json.JSONObject
+import android.media.AudioFormat // 🎯 FIX: Added missing import for AudioFormat
 
 // 🎯 GLUTE: WAV header validation - check file is completely written
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)

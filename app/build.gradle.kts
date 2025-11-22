@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 93
-        versionName = "20.0.0e_refactor_final_steps_CR2"
+        versionName = "20.0.0f_refactor_final_steps_bugfix"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

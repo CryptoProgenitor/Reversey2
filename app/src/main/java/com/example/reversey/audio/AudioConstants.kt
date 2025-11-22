@@ -1,5 +1,7 @@
 package com.example.reversey.audio
 
+import android.media.AudioFormat // 🎯 MANDATORY: Required to define CHANNEL_CONFIG/AUDIO_FORMAT
+
 /**
  * Centralized configuration for Audio parameters.
  * Defines safety limits, formats, and thresholds to prevent OutOfMemory (OOM) errors.
@@ -29,6 +31,10 @@ object AudioConstants {
     const val SAMPLE_RATE = 44100
     const val BYTES_PER_SAMPLE = 2 // 16-bit PCM
     const val CHANNELS = 1 // Mono (Change to 2 if recording Stereo)
+
+    // 🎯 FIX: Added missing audio format constants for RecordingRepository
+    const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
+    const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
 
     // Calculated Durations (Used for Timer checks)
     // Formula: Seconds = Bytes / (Rate * Channels * BytesPerSample)
