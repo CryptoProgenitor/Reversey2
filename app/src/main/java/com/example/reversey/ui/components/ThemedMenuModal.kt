@@ -16,10 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -31,9 +29,6 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import com.example.reversey.R
 import com.example.reversey.ui.menu.*
-import com.example.reversey.ui.theme.AestheticTheme
-import com.example.reversey.ui.theme.AestheticThemeData
-import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.viewmodels.AudioViewModel
 import com.example.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.delay
@@ -49,14 +44,13 @@ fun ThemedMenuModal(
     audioViewModel: AudioViewModel,
     initialScreen: ModalScreen = ModalScreen.Menu
 ) {
-    var currentScreen by remember(visible, initialScreen) { mutableStateOf(if (visible) initialScreen else ModalScreen.Menu) }
+    var currentScreen by remember(visible, initialScreen) {
+        mutableStateOf(if (visible) initialScreen else ModalScreen.Menu)
+    }
 
     LaunchedEffect(visible) {
         if (!visible) currentScreen = ModalScreen.Menu
     }
-
-    val aesthetic = AestheticTheme()
-    val colors = MaterialColors()
 
     AnimatedVisibility(
         visible = visible,
@@ -66,44 +60,47 @@ fun ThemedMenuModal(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.75f))
-                .blur(if (visible) 0.dp else 8.dp)
+                .background(Color.Black.copy(alpha = 0.6f))
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) { onDismiss() },
             contentAlignment = Alignment.Center
         ) {
+            // Modal Card with Gradient Background
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .fillMaxHeight(0.9f)
+                    .fillMaxWidth(0.92f)
+                    .fillMaxHeight(0.88f)
                     .clickable(enabled = false) { }
-                    .then(getCardModifier(aesthetic))
+                    .shadow(
+                        elevation = 24.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color(0xFF667EEA).copy(alpha = 0.3f),
+                        spotColor = Color(0xFF764BA2).copy(alpha = 0.3f)
+                    )
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(StaticMenuColors.backgroundGradient)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(
-                            horizontal = if (aesthetic.borderWidth > 2f) 16.dp else 24.dp,
-                            vertical = if (aesthetic.borderWidth > 2f) 12.dp else 20.dp
-                        )
+                        .padding(20.dp)
                 ) {
-                    ModalHeader(
+                    // Glassmorphism Header
+                    GlassHeader(
                         currentScreen = currentScreen,
-                        aesthetic = aesthetic,
                         onBack = { currentScreen = ModalScreen.Menu },
                         onClose = onDismiss
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
+                    // Content Area
                     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                         when (currentScreen) {
                             ModalScreen.Menu -> MenuContent(
                                 currentRoute = currentRoute,
-                                aesthetic = aesthetic,
-                                colors = colors,
                                 onNavigateHome = { onNavigateHome(); onDismiss() },
                                 onNavigateAbout = { currentScreen = ModalScreen.About },
                                 onNavigateSettings = { currentScreen = ModalScreen.Settings },
@@ -112,21 +109,15 @@ fun ThemedMenuModal(
                             )
 
                             ModalScreen.About -> AboutContent(
-                                aesthetic = aesthetic,
-                                colors = colors,
                                 audioViewModel = audioViewModel
                             )
 
                             ModalScreen.Settings -> SettingsContent(
-                                aesthetic = aesthetic,
-                                colors = colors,
                                 themeViewModel = themeViewModel,
                                 audioViewModel = audioViewModel
                             )
 
                             ModalScreen.Themes -> ThemesContent(
-                                aesthetic = aesthetic,
-                                colors = colors,
                                 themeViewModel = themeViewModel
                             )
                         }
@@ -138,7 +129,8 @@ fun ThemedMenuModal(
                 val context = LocalContext.current
                 val imageLoader = remember {
                     ImageLoader.Builder(context).components {
-                        if (SDK_INT >= 28) add(ImageDecoderDecoder.Factory()) else add(GifDecoder.Factory())
+                        if (SDK_INT >= 28) add(ImageDecoderDecoder.Factory())
+                        else add(GifDecoder.Factory())
                     }.build()
                 }
 
@@ -155,7 +147,9 @@ fun ThemedMenuModal(
                         model = R.drawable.cracking_egg,
                         contentDescription = "Easter Egg",
                         imageLoader = imageLoader,
-                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f))
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.75f))
                     )
                 }
             }
@@ -164,78 +158,75 @@ fun ThemedMenuModal(
 }
 
 @Composable
-private fun ModalHeader(
+private fun GlassHeader(
     currentScreen: ModalScreen,
-    aesthetic: AestheticThemeData,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
     val title = when (currentScreen) {
-        ModalScreen.Menu -> if (aesthetic.recordButtonEmoji == "🥚") "MENU 🥚" else "MENU"
+        ModalScreen.Menu -> "MENU"
         ModalScreen.About -> "ABOUT"
         ModalScreen.Settings -> "SETTINGS"
         ModalScreen.Themes -> "THEMES"
     }
 
     val showBackButton = currentScreen != ModalScreen.Menu
-    val menuColors = aesthetic.menuColors
 
+    // Glassmorphism effect
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(menuColors.menuBackground, RoundedCornerShape(12.dp))
-            .border(aesthetic.borderWidth.dp, menuColors.menuBorder, RoundedCornerShape(12.dp))
-            .padding(
-                horizontal = 16.dp,
-                vertical = 12.dp
+            .clip(RoundedCornerShape(16.dp))
+            .background(StaticMenuColors.headerBackground)
+            .border(
+                width = 1.dp,
+                color = StaticMenuColors.headerBorder,
+                shape = RoundedCornerShape(16.dp)
             )
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Back Button
             if (showBackButton) {
-                IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back",
-                        tint = menuColors.menuTitleText
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = StaticMenuColors.textOnGradient
                     )
                 }
             } else {
                 Spacer(modifier = Modifier.width(32.dp))
             }
 
+            // Title
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineSmall.copy(
+                style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = if (aesthetic.useWideLetterSpacing) 3.sp else 1.sp
+                    letterSpacing = 2.sp
                 ),
-                color = menuColors.menuTitleText
+                color = StaticMenuColors.textOnGradient
             )
 
-            IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) {
+            // Close Button
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.size(32.dp)
+            ) {
                 Icon(
-                    Icons.Default.Close, contentDescription = "Close",
-                    tint = menuColors.menuTitleText
+                    Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = StaticMenuColors.textOnGradient
                 )
             }
         }
     }
-}
-
-private fun getCardModifier(aesthetic: AestheticThemeData): Modifier {
-    val colors = aesthetic.menuColors
-    val shape = RoundedCornerShape(if (aesthetic.useGlassmorphism) 24.dp else 20.dp)
-
-    return Modifier
-        .rotate(aesthetic.cardRotation)
-        .background(colors.menuCardBackground, shape)
-        .border(aesthetic.borderWidth.dp, colors.menuBorder, shape)
-        .shadow(
-            elevation = aesthetic.shadowElevation.dp,
-            shape = shape,
-            spotColor = colors.menuBorder
-        )
 }

@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -30,8 +31,6 @@ import com.example.reversey.scoring.DifficultyConfig
 import com.example.reversey.testing.ScoringStressTester
 import com.example.reversey.testing.VocalModeDetectorTuner
 import com.example.reversey.ui.components.DifficultyButton
-import com.example.reversey.ui.theme.AestheticThemeData
-import com.example.reversey.ui.theme.SharedDefaultComponents
 import com.example.reversey.ui.viewmodels.AudioViewModel
 import com.example.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.Dispatchers
@@ -40,13 +39,12 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsContent(
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
     themeViewModel: ThemeViewModel,
     audioViewModel: AudioViewModel
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val colors = MaterialTheme.colorScheme
 
     // State collection
     val currentDifficulty by audioViewModel.currentDifficultyFlow.collectAsState()
@@ -55,38 +53,33 @@ fun SettingsContent(
     val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
     val customAccentColor by themeViewModel.customAccentColor.collectAsState()
 
-    // 🎨 Theme Colors from the new MenuColors object
-    val menuColors = aesthetic.menuColors
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(vertical = 8.dp),
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ========== GAMEPLAY SECTION ==========
-        SectionTitle("GAMEPLAY", aesthetic)
+        SectionTitle("GAMEPLAY")
 
-        SharedDefaultComponents.ThemedSettingsCard(aesthetic) {
-            SharedDefaultComponents.ThemedToggle(
-                aesthetic = aesthetic,
+        GlassCard {
+            GlassToggle(
                 label = "Enable Game Mode",
                 checked = isGameModeEnabled,
                 onCheckedChange = { scope.launch { themeViewModel.setGameMode(it) } }
             )
         }
 
-        HorizontalDivider(color = menuColors.menuDivider)
+        GlassDivider()
 
         // ========== DIFFICULTY SECTION ==========
-        SectionTitle("SCORING DIFFICULTY", aesthetic)
+        SectionTitle("SCORING DIFFICULTY")
 
         Text(
             text = "Choose your challenge level",
             style = MaterialTheme.typography.bodyMedium,
-            color = menuColors.menuItemText,
-            modifier = Modifier.padding(horizontal = 8.dp)
+            color = StaticMenuColors.textSecondary,
+            modifier = Modifier.padding(horizontal = 4.dp)
         )
 
         Row(
@@ -103,34 +96,35 @@ fun SettingsContent(
             }
         }
 
-        HorizontalDivider(color = menuColors.menuDivider)
+        GlassDivider()
 
         // ========== APPEARANCE SECTION ==========
-        SectionTitle("APPEARANCE", aesthetic)
+        SectionTitle("APPEARANCE")
 
-        SharedDefaultComponents.ThemedSettingsCard(aesthetic, title = "Dark Mode") {
+        GlassCard(title = "Dark Mode") {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("Light", "Dark", "System").forEach { mode ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable { scope.launch { themeViewModel.setDarkModePreference(mode) } }
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
                             selected = darkModePreference == mode,
                             onClick = { scope.launch { themeViewModel.setDarkModePreference(mode) } },
                             colors = RadioButtonDefaults.colors(
-                                selectedColor = menuColors.toggleActive,
-                                unselectedColor = menuColors.toggleInactive
+                                selectedColor = StaticMenuColors.toggleActive,
+                                unselectedColor = StaticMenuColors.textOnCard.copy(alpha = 0.5f)
                             )
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = mode,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = menuColors.menuItemText
+                            color = StaticMenuColors.textOnCard
                         )
                     }
                 }
@@ -138,7 +132,7 @@ fun SettingsContent(
         }
 
         // Custom Accent Color
-        SharedDefaultComponents.ThemedSettingsCard(aesthetic, title = "Custom Accent Color") {
+        GlassCard(title = "Custom Accent Color") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -147,40 +141,39 @@ fun SettingsContent(
                 Text(
                     text = if (customAccentColor != null) "Custom color active" else "Using theme default",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = menuColors.menuItemText
+                    color = StaticMenuColors.textOnCard.copy(alpha = 0.8f)
                 )
 
                 if (customAccentColor != null) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .border(1.5.dp, menuColors.menuBorder, RoundedCornerShape(6.dp))
-                            .background(menuColors.menuBorder.copy(alpha = 0.1f))
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(StaticMenuColors.toggleActive.copy(alpha = 0.15f))
                             .clickable { scope.launch { themeViewModel.setCustomAccentColor(null) } }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "Reset",
                             style = MaterialTheme.typography.bodySmall,
-                            color = menuColors.menuTitleText,
-                            fontWeight = FontWeight.Medium
+                            color = StaticMenuColors.toggleActive,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             var showColorPicker by remember { mutableStateOf(false) }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(menuColors.menuItemBackground)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(StaticMenuColors.settingsInputBackground)
                     .clickable { showColorPicker = true }
-                    .padding(12.dp),
+                    .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -188,22 +181,22 @@ fun SettingsContent(
                     Icon(
                         Icons.Default.Palette,
                         contentDescription = "Color Picker",
-                        tint = menuColors.toggleActive
+                        tint = StaticMenuColors.toggleActive
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         "Pick Color",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = menuColors.menuTitleText
+                        color = StaticMenuColors.textOnCard
                     )
                 }
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(customAccentColor ?: colors.primary)
-                        .border(2.dp, menuColors.menuBorder, CircleShape)
+                        .border(2.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                 )
             }
 
@@ -219,52 +212,47 @@ fun SettingsContent(
             }
         }
 
-        HorizontalDivider(color = menuColors.menuDivider)
+        GlassDivider()
 
         // ========== STORAGE SECTION ==========
-        SectionTitle("STORAGE", aesthetic)
+        SectionTitle("STORAGE")
 
-        SharedDefaultComponents.ThemedSettingsCard(aesthetic) {
-            SharedDefaultComponents.ThemedToggle(
-                aesthetic = aesthetic,
+        GlassCard {
+            GlassToggle(
                 label = "Backup Recordings to Drive",
                 checked = backupRecordingsEnabled,
                 onCheckedChange = { scope.launch { themeViewModel.setBackupRecordingsEnabled(it) } }
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = "ℹ️ Settings and scores are always backed up. Audio files are only backed up if enabled.",
                 style = MaterialTheme.typography.bodySmall,
-                color = menuColors.menuItemText.copy(alpha = 0.7f)
+                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
             )
         }
 
-        HorizontalDivider(color = menuColors.menuDivider)
+        GlassDivider()
 
-        SectionTitle("DEVELOPER OPTIONS", aesthetic)
+        SectionTitle("DEVELOPER OPTIONS")
 
         // ========== STRESS TESTER ==========
         var showStressTester by remember { mutableStateOf(false) }
         var progress by remember { mutableStateOf<ScoringStressTester.Progress?>(null) }
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = menuColors.menuCardBackground),
-            shape = RoundedCornerShape(12.dp)
-        ) {
+        GlassCard {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showStressTester = true }
-                    .padding(16.dp),
+                    .clickable { showStressTester = true },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Scoring Stress Tester",
                     style = MaterialTheme.typography.titleMedium,
-                    color = menuColors.menuTitleText
+                    color = StaticMenuColors.textOnCard,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -285,7 +273,7 @@ fun SettingsContent(
             var totalTests by remember { mutableStateOf(4000) }
             var progressPercentage by remember { mutableStateOf(0f) }
 
-            SharedDefaultComponents.ThemedSettingsCard(aesthetic) {
+            GlassCard {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -329,8 +317,7 @@ fun SettingsContent(
                                     }
                                 }
                             }
-                        }
-                        .padding(vertical = 8.dp),
+                        },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -338,7 +325,7 @@ fun SettingsContent(
                         Icon(
                             Icons.Default.Tune,
                             contentDescription = "Tune",
-                            tint = if (tunerRunning) menuColors.toggleActive else menuColors.menuTitleText
+                            tint = if (tunerRunning) StaticMenuColors.toggleActive else StaticMenuColors.textOnCard
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
@@ -346,20 +333,20 @@ fun SettingsContent(
                                 if (tunerRunning) "Tuning..." else "Auto-Tune Detector",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium,
-                                color = menuColors.menuTitleText
+                                color = StaticMenuColors.textOnCard
                             )
                             Text(
                                 tunerProgress,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = menuColors.menuItemText
+                                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
                             )
                             if (tunerRunning && currentTest > 0) {
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 LinearProgressIndicator(
                                     progress = { progressPercentage / 100f },
                                     modifier = Modifier.fillMaxWidth(),
-                                    color = menuColors.toggleActive,
-                                    trackColor = menuColors.toggleInactive,
+                                    color = StaticMenuColors.toggleActive,
+                                    trackColor = StaticMenuColors.toggleInactive,
                                 )
                             }
                         }
@@ -368,27 +355,104 @@ fun SettingsContent(
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             strokeWidth = 2.dp,
-                            color = menuColors.toggleActive
+                            color = StaticMenuColors.toggleActive
                         )
                     }
                 }
             }
         }
+
+        // Bottom spacing
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
-// --- Private Components ---
+// ========== REUSABLE COMPONENTS ==========
 
 @Composable
-private fun SectionTitle(text: String, aesthetic: AestheticThemeData) {
+private fun SectionTitle(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleLarge.copy(
             fontWeight = FontWeight.Bold,
-            letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
+            letterSpacing = 1.5.dp.value.sp
         ),
-        color = aesthetic.menuColors.menuTitleText,
-        modifier = Modifier.padding(horizontal = 8.dp)
+        color = StaticMenuColors.textOnGradient,
+        modifier = Modifier.padding(horizontal = 4.dp)
+    )
+}
+
+@Composable
+private fun GlassCard(
+    title: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (title != null) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = StaticMenuColors.textOnGradient,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(8.dp, shape)
+                .clip(shape)
+                .background(StaticMenuColors.settingsCardBackground)
+                .border(1.dp, Color.White.copy(alpha = 0.3f), shape)
+                .padding(18.dp)
+        ) {
+            Column {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassToggle(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = StaticMenuColors.textOnCard
+        )
+
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = StaticMenuColors.toggleActive,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = StaticMenuColors.toggleInactive
+            )
+        )
+    }
+}
+
+@Composable
+private fun GlassDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(StaticMenuColors.divider)
     )
 }
 
@@ -410,33 +474,38 @@ fun StressTesterPanel(
         )
     }
 
-    Surface(
-        tonalElevation = 8.dp,
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Column(Modifier.fillMaxWidth().padding(20.dp)) {
-            Text("SCORING STRESS TEST", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+    GlassCard {
+        Column(Modifier.fillMaxWidth()) {
+            Text(
+                "SCORING STRESS TEST",
+                style = MaterialTheme.typography.titleLarge,
+                color = StaticMenuColors.textOnCard,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(Modifier.height(12.dp))
 
             if (localProgress != null) {
                 val p = localProgress!!
                 val frac = p.current.toFloat() / p.total.toFloat()
-                LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                Text("File: ${p.file}")
-                Text("Difficulty: ${p.difficulty.displayName}")
-                Text("Pass: ${p.pass}")
-                Text("${p.current} / ${p.total}")
+                LinearProgressIndicator(
+                    progress = { frac },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = StaticMenuColors.toggleActive
+                )
+                Spacer(Modifier.height(10.dp))
+                Text("File: ${p.file}", color = StaticMenuColors.textOnCard)
+                Text("Difficulty: ${p.difficulty.displayName}", color = StaticMenuColors.textOnCard)
+                Text("Pass: ${p.pass}", color = StaticMenuColors.textOnCard)
+                Text("${p.current} / ${p.total}", color = StaticMenuColors.textOnCard)
             } else {
-                Text("Preparing tests…")
+                Text("Preparing tests…", color = StaticMenuColors.textOnCard)
             }
 
             Spacer(Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onClose) { Text("Close") }
+                TextButton(onClick = onClose) {
+                    Text("Close", color = StaticMenuColors.toggleActive)
+                }
             }
         }
     }
@@ -469,9 +538,9 @@ private fun ARGBColorPickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(80.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(previewColor)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                        .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -501,7 +570,12 @@ private fun ARGBColorPickerDialog(
                 ColorSlider(label = "Blue", value = blue, onValueChange = { blue = it; hexInput = hexFromSliders }, color = Color.Blue)
             }
         },
-        confirmButton = { Button(onClick = { onColorSelected(previewColor) }) { Text("Apply Color") } },
+        confirmButton = {
+            Button(
+                onClick = { onColorSelected(previewColor) },
+                colors = ButtonDefaults.buttonColors(containerColor = StaticMenuColors.toggleActive)
+            ) { Text("Apply Color") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
@@ -517,6 +591,15 @@ private fun ColorSlider(label: String, value: Float, onValueChange: (Float) -> U
             Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(text = "${(value * 255).toInt()}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Slider(value = value, onValueChange = onValueChange, valueRange = 0f..1f, modifier = Modifier.fillMaxWidth())
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = color,
+                activeTrackColor = color
+            )
+        )
     }
 }

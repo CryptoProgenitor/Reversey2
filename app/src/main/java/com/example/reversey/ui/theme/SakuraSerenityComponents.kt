@@ -23,13 +23,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.example.reversey.R
 import com.example.reversey.data.models.ChallengeType
@@ -38,6 +41,7 @@ import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.components.DifficultySquircle
 import com.example.reversey.ui.components.ScoreExplanationDialog
 import com.example.reversey.ui.components.UnifiedRecordButton
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -176,7 +180,7 @@ class SakuraSerenityComponents : ThemeComponents {
                 modifier = Modifier
                     .fillMaxWidth()
                     // 🌸 TRANSPARENCY APPLIED HERE (0.85f)
-                    .background(bgPink.copy(alpha = 0.85f), RoundedCornerShape(24.dp))
+                    .background(bgPink.copy(alpha = 0.75f), RoundedCornerShape(24.dp))
                     .border(3.dp, borderPink, RoundedCornerShape(24.dp))
                     .padding(16.dp)
             ) {
@@ -195,7 +199,7 @@ class SakuraSerenityComponents : ThemeComponents {
                     ) {
                         Text(
                             text = "🌸 ${recording.name}",
-                            fontSize = 18.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = electroHarmonixFont, // 🌸 CUSTOM FONT
                             color = textDarkPink,
@@ -308,7 +312,7 @@ class SakuraSerenityComponents : ThemeComponents {
                 modifier = Modifier
                     .fillMaxWidth()
                     // 🌸 TRANSPARENCY APPLIED HERE (0.85f)
-                    .background(color = cardBg.copy(alpha = 0.85f), shape = RoundedCornerShape(20.dp))
+                    .background(color = cardBg.copy(alpha = 0.75f), shape = RoundedCornerShape(20.dp))
                     .border(width = 2.dp, color = borderPink, shape = RoundedCornerShape(20.dp))
                     .padding(12.dp)
             ) {
@@ -331,7 +335,7 @@ class SakuraSerenityComponents : ThemeComponents {
                                 ) {
                                     Text(
                                         text = attempt.playerName,
-                                        fontSize = 14.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         fontFamily = electroHarmonixFont, // 🌸 CUSTOM FONT
                                         color = textDarkPink,
@@ -416,15 +420,29 @@ class SakuraSerenityComponents : ThemeComponents {
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit
     ) {
-        UnifiedRecordButton(isRecording = isRecording, onClick = { if (isRecording) onStopRecording() else onStartRecording() })
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clickable { if (isRecording) onStopRecording() else onStartRecording() },
+            contentAlignment = Alignment.Center
+        ) {
+            ToriiRecordIcon(
+                isRecording = isRecording,
+                baseColor = Color(0xFFC71585),
+                recordingColor = Color(0xFFFF69B4),
+                iconSize = 64.dp
+            )
+        }
     }
 
     @Composable
     override fun AppBackground(aesthetic: AestheticThemeData, content: @Composable () -> Unit) {
-        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color(0xFF191970), Color(0xFF4B0082), Color(0xFF663399), Color(0xFFFF69B4), Color(0xFFFFB6C1))))) {
-            TwinklingStars()
-            CherryBlossomTrees()
-            FallingSakuraPetals() // 🌸 Added Petals Here
+        Box(modifier = Modifier.fillMaxSize()) {
+            EnhancedSakuraGradient()
+            EnhancedFallingSakuraPetals()
+            SakuraSparkles()
+            EnhancedCalmSakuraTrees()
+            SakuraBloomEffects()
             content()
         }
     }
@@ -453,6 +471,105 @@ class SakuraSerenityComponents : ThemeComponents {
                 color = textColor,
                 textAlign = TextAlign.Center
             )
+        }
+    }
+
+    // --- JAPANESE ICONS (CANVAS) ---
+
+    // 🌸 GEMINI'S TORII RECORD ICON
+    @Composable
+    fun ToriiRecordIcon(
+        isRecording: Boolean,
+        baseColor: Color = Color(0xFFC71585), // Dark Pink (Medium Violet Red) from your theme
+        recordingColor: Color = Color(0xFFFF69B4), // Hot Pink
+        iconSize: Dp = 48.dp
+    ) {
+        val currentTintColor = if (isRecording) recordingColor else baseColor
+
+        val infiniteTransition = rememberInfiniteTransition(label = "waveAnimation")
+        val waveOffset by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "waveOffset"
+        )
+
+        Canvas(modifier = Modifier.size(iconSize)) {
+            val w = size.width
+            val h = size.height
+            val stroke = 3.dp.toPx() * (iconSize / 48.dp)
+
+            // --- Torii Gate Structure ---
+            // Top Bar (Kasagi) - Curved
+            val topPath = Path().apply {
+                moveTo(w * 0.1f, h * 0.2f)
+                quadraticBezierTo(w * 0.5f, h * 0.1f, w * 0.9f, h * 0.2f)
+            }
+            drawPath(topPath, currentTintColor, style = Stroke(stroke, cap = StrokeCap.Round))
+
+            // Second Bar (Nuki)
+            drawLine(currentTintColor, Offset(w * 0.2f, h * 0.35f), Offset(w * 0.8f, h * 0.35f), stroke)
+
+            // Pillars (Hashira)
+            val leftPillarStart = Offset(w * 0.3f, h * 0.25f)
+            val leftPillarEnd = Offset(w * 0.25f, h * 0.9f)
+            val rightPillarStart = Offset(w * 0.7f, h * 0.25f)
+            val rightPillarEnd = Offset(w * 0.75f, h * 0.9f)
+
+            drawLine(currentTintColor, leftPillarStart, leftPillarEnd, stroke)
+            drawLine(currentTintColor, rightPillarStart, rightPillarEnd, stroke)
+
+            // --- Conditional Sound Waves ---
+            if (isRecording) {
+                val waveColor = currentTintColor.copy(alpha = 0.8f)
+                val waveStroke = 1.5.dp.toPx() * (iconSize / 48.dp)
+
+                // Left Pillar Waves
+                val numWaves = 3
+                for (i in 0 until numWaves) {
+                    val baseWaveY = leftPillarStart.y + (leftPillarEnd.y - leftPillarStart.y) * ((i + 0.5f) / numWaves)
+                    val waveAmplitude = 5.dp.toPx() * (iconSize.value / 48f)
+                    val waveLength = 10.dp.toPx() * (iconSize.value / 48f)
+
+                    val animatedWaveOffset = (waveOffset + i * (1f / numWaves)) % 1f
+
+                    val wavePath = Path().apply {
+                        val startX = leftPillarStart.x - waveLength / 2
+                        val endX = leftPillarStart.x + waveLength / 2
+
+                        moveTo(startX, baseWaveY + sin(animatedWaveOffset * 2 * PI).toFloat() * waveAmplitude)
+                        quadraticBezierTo(
+                            leftPillarStart.x, baseWaveY + cos(animatedWaveOffset * 2 * PI + PI/2).toFloat() * waveAmplitude,
+                            endX, baseWaveY + sin(animatedWaveOffset * 2 * PI + PI).toFloat() * waveAmplitude
+                        )
+                    }
+                    drawPath(wavePath, waveColor, style = Stroke(waveStroke, cap = StrokeCap.Round))
+                }
+
+                // Right Pillar Waves
+                for (i in 0 until numWaves) {
+                    val baseWaveY = rightPillarStart.y + (rightPillarEnd.y - rightPillarStart.y) * ((i + 0.5f) / numWaves)
+                    val waveAmplitude = 5.dp.toPx() * (iconSize.value / 48f)
+                    val waveLength = 10.dp.toPx() * (iconSize.value / 48f)
+
+                    val animatedWaveOffset = (waveOffset + i * (1f / numWaves) + 0.5f) % 1f
+
+                    val wavePath = Path().apply {
+                        val startX = rightPillarStart.x - waveLength / 2
+                        val endX = rightPillarStart.x + waveLength / 2
+
+                        moveTo(startX, baseWaveY + sin(animatedWaveOffset * 2 * PI).toFloat() * waveAmplitude)
+                        quadraticBezierTo(
+                            rightPillarStart.x, baseWaveY + cos(animatedWaveOffset * 2 * PI + PI/2).toFloat() * waveAmplitude,
+                            endX, baseWaveY + sin(animatedWaveOffset * 2 * PI + PI).toFloat() * waveAmplitude
+                        )
+                    }
+                    drawPath(wavePath, waveColor, style = Stroke(waveStroke, cap = StrokeCap.Round))
+                }
+            }
         }
     }
 
@@ -641,7 +758,7 @@ class SakuraSerenityComponents : ThemeComponents {
         val copy = aesthetic.dialogCopy
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = Color(0xFFFFF0F5),
+            containerColor = Color(0xFFF0F5),
             title = { Text(copy.renameTitle(itemType), color = Color(0xFFC71585), fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
@@ -759,6 +876,450 @@ class SakuraSerenityComponents : ThemeComponents {
                     }
                 }
             }
+        }
+    }
+}
+// 🌸🌸🌸 ENHANCED VISUAL COMPONENTS 🌸🌸🌸
+
+@Composable
+private fun EnhancedSakuraGradient() {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        // Multi-layer gradient for depth
+        val gradientBrush = Brush.radialGradient(
+            colors = listOf(
+                Color(0xFFFFE4E6), // Soft pink dawn
+                Color(0xFFFFB6C1), // Light pink
+                Color(0xFFFF69B4), // Hot pink
+                Color(0xFFFFA07A), // Light coral sunset
+                Color(0xFFFF7F50), // Coral orange
+                Color(0xFFCD5C5C)  // Indian red dusk
+            ),
+            center = Offset(size.width * 0.3f, size.height * 0.2f),
+            radius = size.width * 1.2f
+        )
+
+        drawRect(gradientBrush)
+
+        // Subtle overlay gradient for atmosphere
+        val atmosphereGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0x22FFB6C1), // Light pink mist
+                Color(0x00FFB6C1), // Transparent
+                Color(0x11FF69B4)  // Subtle pink at bottom
+            )
+        )
+        drawRect(atmosphereGradient)
+    }
+}
+
+@Composable
+private fun EnhancedFallingSakuraPetals() {
+    var petals by remember { mutableStateOf(listOf<EnhancedPetalData>()) }
+    val windPhase by rememberInfiniteTransition("wind").animateFloat(
+        0f, 2 * PI.toFloat(),
+        infiniteRepeatable(tween(8000, easing = LinearEasing)),
+        label = "wind"
+    )
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val width = constraints.maxWidth.toFloat()
+        val height = constraints.maxHeight.toFloat()
+        val colors = listOf(
+            Color(0xFFFFB7C5),
+            Color(0xFFFFC0CB),
+            Color(0xFFFF69B4),
+            Color(0xFFFFE4E6),
+            Color(0xFFFFA07A)
+        )
+
+        LaunchedEffect(width, height) {
+            petals = List(15) { // REDUCED FROM 45 TO 15 AS REQUESTED
+                EnhancedPetalData(
+                    x = Random.nextFloat() * width,
+                    y = Random.nextFloat() * height,
+                    size = Random.nextFloat() * 20f + 15f,
+                    speed = Random.nextFloat() * 1.5f + 0.8f,
+                    angle = Random.nextFloat() * 360f,
+                    spinSpeed = Random.nextFloat() * 3f - 1.5f,
+                    color = colors.random().copy(alpha = Random.nextFloat() * 0.4f + 0.6f),
+                    swayAmplitude = Random.nextFloat() * 30f + 20f,
+                    swaySpeed = Random.nextFloat() * 0.02f + 0.01f
+                )
+            }
+        }
+
+        LaunchedEffect(windPhase) {
+            withFrameMillis {
+                petals = petals.map { petal ->
+                    var newY = petal.y + petal.speed
+                    val windEffect = sin(windPhase + petal.y * 0.01f) * 2f
+                    var newX = petal.x + sin(newY * petal.swaySpeed) * petal.swayAmplitude * 0.1f + windEffect
+                    var newAngle = petal.angle + petal.spinSpeed
+
+                    if (newY > height + petal.size) {
+                        newY = -petal.size
+                        newX = Random.nextFloat() * width
+                    }
+
+                    if (newX > width + petal.size) newX = -petal.size
+                    if (newX < -petal.size) newX = width + petal.size
+
+                    petal.copy(x = newX, y = newY, angle = newAngle)
+                }
+            }
+        }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            petals.forEach { petal ->
+                rotate(degrees = petal.angle, pivot = Offset(petal.x, petal.y)) {
+                    // Draw more realistic petal shape
+                    val path = Path().apply {
+                        moveTo(petal.x, petal.y)
+                        quadraticBezierTo(
+                            petal.x + petal.size * 0.3f, petal.y - petal.size * 0.2f,
+                            petal.x + petal.size * 0.5f, petal.y
+                        )
+                        quadraticBezierTo(
+                            petal.x + petal.size * 0.3f, petal.y + petal.size * 0.4f,
+                            petal.x, petal.y + petal.size * 0.3f
+                        )
+                        quadraticBezierTo(
+                            petal.x - petal.size * 0.3f, petal.y + petal.size * 0.4f,
+                            petal.x - petal.size * 0.5f, petal.y
+                        )
+                        quadraticBezierTo(
+                            petal.x - petal.size * 0.3f, petal.y - petal.size * 0.2f,
+                            petal.x, petal.y
+                        )
+                        close()
+                    }
+                    drawPath(path, petal.color)
+                }
+            }
+        }
+    }
+}
+
+private data class EnhancedPetalData(
+    var x: Float,
+    var y: Float,
+    val size: Float,
+    val speed: Float,
+    var angle: Float,
+    val spinSpeed: Float,
+    val color: Color,
+    val swayAmplitude: Float,
+    val swaySpeed: Float
+)
+
+@Composable
+private fun SakuraSparkles() {
+    var sparkles by remember { mutableStateOf(listOf<SparkleData>()) }
+    val shimmer by rememberInfiniteTransition("sparkle").animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "shimmer"
+    )
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val width = constraints.maxWidth.toFloat()
+        val height = constraints.maxHeight.toFloat()
+
+        LaunchedEffect(width, height) {
+            sparkles = List(15) { // REDUCED FROM 25 TO 15 AS REQUESTED
+                SparkleData(
+                    x = Random.nextFloat() * width,
+                    y = Random.nextFloat() * height,
+                    size = Random.nextFloat() * 4f + 2f,
+                    alpha = Random.nextFloat() * 0.8f + 0.2f,
+                    phase = Random.nextFloat() * 2 * PI.toFloat()
+                )
+            }
+        }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            sparkles.forEach { sparkle ->
+                val sparkleAlpha = sparkle.alpha * (0.5f + 0.5f * sin(shimmer * 2 * PI + sparkle.phase).toFloat())
+
+                // Draw sparkle as a star
+                repeat(8) { i ->
+                    val angle = i * PI / 4
+                    val length = if (i % 2 == 0) sparkle.size else sparkle.size * 0.4f
+
+                    drawLine(
+                        color = Color(0xFFFFFFFF).copy(alpha = sparkleAlpha),
+                        start = Offset(sparkle.x, sparkle.y),
+                        end = Offset(
+                            sparkle.x + cos(angle).toFloat() * length,
+                            sparkle.y + sin(angle).toFloat() * length
+                        ),
+                        strokeWidth = 1.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class SparkleData(
+    val x: Float,
+    val y: Float,
+    val size: Float,
+    val alpha: Float,
+    val phase: Float
+)
+
+@Composable
+private fun SakuraBloomEffects() {
+    val bloomPulse by rememberInfiniteTransition("bloom").animateFloat(
+        0.8f, 1.2f,
+        infiniteRepeatable(tween(3000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "bloom"
+    )
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        // Soft glowing orbs around the scene - ENHANCED VISIBILITY BY 200% (0.1f -> 0.3f)
+        val glowPositions = listOf(
+            Offset(size.width * 0.2f, size.height * 0.3f),
+            Offset(size.width * 0.8f, size.height * 0.6f),
+            Offset(size.width * 0.5f, size.height * 0.8f)
+        )
+
+        glowPositions.forEach { position ->
+            val radius = 80.dp.toPx() * bloomPulse
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFFFB6C1).copy(alpha = 0.3f), // ENHANCED FROM 0.1f TO 0.3f AS REQUESTED
+                        Color(0x00FFB6C1)
+                    ),
+                    radius = radius
+                ),
+                radius = radius,
+                center = position
+            )
+        }
+    }
+}
+
+@Composable
+private fun EnhancedCalmSakuraTrees() {
+    val calmPulse by rememberInfiniteTransition("tree_pulse").animateFloat(
+        0.8f, 1.1f,
+        infiniteRepeatable(tween(4000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "calm_pulse"
+    )
+
+    // FIXED: Generate random blob positions ONCE and store them
+    val staticBlobPositions = remember {
+        listOf(
+            // Left tree blobs
+            Offset(-80f, -30f), Offset(-60f, -50f), Offset(-40f, -35f),
+            // Right tree blobs
+            Offset(70f, -25f), Offset(85f, -45f), Offset(95f, -30f),
+            // Center tree blobs
+            Offset(-10f, -20f), Offset(15f, -40f), Offset(0f, -55f),
+            // Background tree blobs
+            Offset(40f, -15f), Offset(-25f, -60f), Offset(30f, -50f)
+        )
+    }
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val trees = listOf(
+            // Left tree - prominent
+            CalmTreeData(0.15f, 0.75f, 0.85f, true),
+            // Right tree - medium
+            CalmTreeData(0.85f, 0.70f, 0.75f, false),
+            // Background trees
+            CalmTreeData(0.45f, 0.80f, 0.6f, true),
+            CalmTreeData(0.75f, 0.85f, 0.5f, false)
+        )
+
+        trees.forEachIndexed { treeIndex, tree ->
+            drawCalmSakuraTree(tree, calmPulse, staticBlobPositions, treeIndex)
+        }
+    }
+}
+
+private data class CalmTreeData(
+    val xPos: Float,
+    val yPos: Float,
+    val scale: Float,
+    val leanRight: Boolean
+)
+
+private data class CalmBranchData(
+    val angle: Float,
+    val length: Float,
+    val thickness: Float
+)
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCalmSakuraTree(
+    tree: CalmTreeData,
+    pulse: Float,
+    staticBlobPositions: List<Offset>,
+    treeIndex: Int
+) {
+    val baseX = size.width * tree.xPos
+    val baseY = size.height * tree.yPos
+    val scale = tree.scale
+
+    // Tree trunk - using drunk Claude's realistic trunk design
+    val trunkWidth = 25.dp.toPx() * scale
+    val trunkHeight = 180.dp.toPx() * scale
+    val leanOffset = if (tree.leanRight) 15.dp.toPx() * scale else -15.dp.toPx() * scale
+
+    drawRoundRect(
+        color = Color(0xFF8B4513), // Saddle brown
+        topLeft = Offset(baseX - trunkWidth/2, baseY - trunkHeight),
+        size = Size(trunkWidth, trunkHeight),
+        cornerRadius = CornerRadius(trunkWidth * 0.3f, trunkWidth * 0.3f)
+    )
+
+    // Trunk shadow/depth - drunk Claude's technique
+    drawRoundRect(
+        color = Color(0xFF654321), // Darker brown for shadow
+        topLeft = Offset(baseX - trunkWidth/2 + 4.dp.toPx(), baseY - trunkHeight),
+        size = Size(trunkWidth * 0.3f, trunkHeight),
+        cornerRadius = CornerRadius(trunkWidth * 0.3f, trunkWidth * 0.3f)
+    )
+
+    // Main branches - drunk Claude's realistic branching pattern
+    val branches = listOf(
+        CalmBranchData(-45f, 120.dp.toPx() * scale, 15.dp.toPx() * scale),
+        CalmBranchData(45f, 100.dp.toPx() * scale, 12.dp.toPx() * scale),
+        CalmBranchData(-20f, 80.dp.toPx() * scale, 10.dp.toPx() * scale),
+        CalmBranchData(30f, 90.dp.toPx() * scale, 10.dp.toPx() * scale),
+        CalmBranchData(0f, 70.dp.toPx() * scale, 8.dp.toPx() * scale),
+        CalmBranchData(-60f, 60.dp.toPx() * scale, 6.dp.toPx() * scale),
+        CalmBranchData(60f, 55.dp.toPx() * scale, 6.dp.toPx() * scale)
+    )
+
+    branches.forEach { branch ->
+        val startX = baseX + leanOffset * 0.3f
+        val startY = baseY - trunkHeight * 0.7f
+        val endX = startX + cos((branch.angle - 90) * PI / 180).toFloat() * branch.length
+        val endY = startY + sin((branch.angle - 90) * PI / 180).toFloat() * branch.length
+
+        // Draw branch - drunk Claude's technique
+        drawLine(
+            color = Color(0xFF8B4513),
+            start = Offset(startX, startY),
+            end = Offset(endX, endY),
+            strokeWidth = branch.thickness,
+            cap = StrokeCap.Round
+        )
+
+        // CANDY FLOSS BLOBS instead of detailed blossoms
+        val blobCount = (branch.length / 50.dp.toPx()).toInt().coerceIn(2, 4)
+        repeat(blobCount) { i ->
+            val t = (i + 1).toFloat() / blobCount
+            val blobX = startX + (endX - startX) * t
+            val blobY = startY + (endY - startY) * t
+
+            drawCherryBlossomEmoji(
+                center = Offset(blobX, blobY),
+                scale = scale * pulse, // ONLY GENTLE PULSING - no position changes
+                baseSize = 35.dp.toPx(),
+                colorPulse = pulse
+            )
+        }
+    }
+
+    // FIXED: Use static blob positions instead of random every frame
+    val blobsPerTree = 3
+    val startIdx = treeIndex * blobsPerTree
+    repeat(blobsPerTree) { i ->
+        val blobIdx = startIdx + i
+        if (blobIdx < staticBlobPositions.size) {
+            val staticOffset = staticBlobPositions[blobIdx]
+            drawCherryBlossomEmoji(
+                center = Offset(
+                    baseX + staticOffset.x * scale,
+                    baseY - trunkHeight * 0.6f + staticOffset.y * scale
+                ),
+                scale = scale * pulse * 0.8f, // ONLY GENTLE PULSING
+                baseSize = 25.dp.toPx(),
+                colorPulse = pulse
+            )
+        }
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCherryBlossomEmoji(
+    center: Offset,
+    scale: Float,
+    baseSize: Float,
+    colorPulse: Float
+) {
+    val emojiSize = baseSize * scale
+
+    // SUBTLE GLOW EFFECT BEHIND EMOJI
+    val glowRadius = emojiSize * 0.8f
+    val glowAlpha = 0.3f + (colorPulse - 0.8f) * 0.7f // Pulse between 0.3f and 1.0f
+
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0xFFFF69B4).copy(alpha = glowAlpha), // Hot pink center
+                Color(0xFFFFB6C1).copy(alpha = glowAlpha * 0.7f), // Light pink
+                Color(0x00FF69B4) // Transparent edge
+            ),
+            radius = glowRadius
+        ),
+        radius = glowRadius,
+        center = center
+    )
+
+    // CHERRY BLOSSOM EMOJI WITH COLOR PULSE
+    drawIntoCanvas { canvas ->
+        val paint = android.graphics.Paint().apply {
+            textSize = emojiSize
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
+
+            // PULSING COLOR EFFECT
+            val colorIntensity = 0.7f + (colorPulse - 0.8f) * 1.0f // Pulse between 0.7f and 1.7f
+            alpha = (255 * colorIntensity.coerceIn(0.5f, 1.0f)).toInt()
+
+            // Subtle color tint that pulses
+            colorFilter = android.graphics.ColorMatrixColorFilter(
+                floatArrayOf(
+                    colorIntensity, 0f, 0.2f, 0f, 20f, // Red channel with pink tint
+                    0.1f, colorIntensity, 0.3f, 0f, 10f, // Green channel
+                    0.2f, 0.1f, colorIntensity * 0.8f, 0f, 30f, // Blue channel (less blue for warmer tone)
+                    0f, 0f, 0f, 1f, 0f // Alpha channel
+                )
+            )
+        }
+
+        // Draw the emoji
+        canvas.nativeCanvas.drawText(
+            "🌸",
+            center.x,
+            center.y + emojiSize * 0.35f, // Adjust vertical centering
+            paint
+        )
+    }
+
+    // ADDITIONAL SOFT SPARKLE EFFECT
+    val sparkleAlpha = (colorPulse - 0.8f) * 2f // More intense pulsing for sparkles
+    if (sparkleAlpha > 0f) {
+        repeat(3) { i ->
+            val sparkleAngle = i * 120f * (kotlin.math.PI / 180f)
+            val sparkleDistance = emojiSize * 0.6f
+            val sparklePos = Offset(
+                center.x + cos(sparkleAngle).toFloat() * sparkleDistance,
+                center.y + sin(sparkleAngle).toFloat() * sparkleDistance
+            )
+
+            drawCircle(
+                color = Color(0xFFFFFFFF).copy(alpha = sparkleAlpha.coerceIn(0f, 0.8f)),
+                radius = 2.dp.toPx() * scale,
+                center = sparklePos
+            )
         }
     }
 }

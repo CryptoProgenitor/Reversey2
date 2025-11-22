@@ -14,9 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -25,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reversey.BuildConfig
 import com.example.reversey.R
-import com.example.reversey.ui.theme.AestheticThemeData
 import com.example.reversey.ui.theme.AestheticThemes
 import com.example.reversey.ui.viewmodels.AudioViewModel
 import com.example.reversey.ui.viewmodels.ThemeViewModel
@@ -43,8 +41,6 @@ sealed class ModalScreen {
 @Composable
 fun MenuContent(
     currentRoute: String?,
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
     onNavigateHome: () -> Unit,
     onNavigateAbout: () -> Unit,
     onNavigateSettings: () -> Unit,
@@ -54,61 +50,54 @@ fun MenuContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(vertical = 8.dp),
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        MenuItem(
+        FloatingMenuItem(
             icon = Icons.Default.Home,
             label = "Home",
             selected = currentRoute == "home",
-            aesthetic = aesthetic,
-            colors = colors,
             onClick = onNavigateHome
         )
 
-        MenuItem(
+        FloatingMenuItem(
             icon = Icons.Default.Settings,
             label = "Settings",
             selected = false,
-            aesthetic = aesthetic,
-            colors = colors,
             onClick = onNavigateSettings
         )
 
-        MenuItem(
+        FloatingMenuItem(
             icon = Icons.Default.AutoAwesome,
             label = "Themes",
             selected = false,
-            aesthetic = aesthetic,
-            colors = colors,
             onClick = onNavigateThemes
         )
 
-        MenuItem(
+        FloatingMenuItem(
             icon = Icons.Default.Info,
             label = "About",
             selected = false,
-            aesthetic = aesthetic,
-            colors = colors,
             onClick = onNavigateAbout
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            color = aesthetic.cardBorder.copy(alpha = 0.3f)
+        // Divider
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(StaticMenuColors.divider)
         )
 
-        MenuItem(
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Delete Button - Special Danger Style
+        DangerMenuItem(
             icon = Icons.Default.Delete,
             label = "Clear All Recordings",
-            selected = false,
-            aesthetic = aesthetic,
-            colors = colors,
-            onClick = onClearAll,
-            customColor = Color(0xFFE53935)
+            onClick = onClearAll
         )
     }
 }
@@ -116,8 +105,6 @@ fun MenuContent(
 // ========== ABOUT SCREEN ==========
 @Composable
 fun AboutContent(
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
     audioViewModel: AudioViewModel
 ) {
     val context = LocalContext.current
@@ -126,53 +113,68 @@ fun AboutContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "ReVerseY",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // About Card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(8.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(StaticMenuColors.cardSelected)
+                .padding(20.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "ReVerseY",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = StaticMenuColors.textOnCard
+                )
 
-        Text(
-            text = "Version ${BuildConfig.VERSION_NAME}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+                Text(
+                    text = "Version ${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+                )
 
-        Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-        Text(
-            text = "Challenge yourself by recording audio and matching it forwards or backwards!\nBuilt by Ed Dark (c) 2025.\nInspired by CPD!",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.clickable {
-                if (uiState.cpdTaps + 1 == 5) {
-                    val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
-                    mediaPlayer?.start()
-                    mediaPlayer?.setOnCompletionListener { mp -> mp.release() }
-                }
-                audioViewModel.onCpdTapped()
+                Text(
+                    text = "Challenge yourself by recording audio and matching it forwards or backwards!",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = StaticMenuColors.textOnCard.copy(alpha = 0.85f),
+                    modifier = Modifier.clickable {
+                        if (uiState.cpdTaps + 1 == 5) {
+                            val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
+                            mediaPlayer?.start()
+                            mediaPlayer?.setOnCompletionListener { mp -> mp.release() }
+                        }
+                        audioViewModel.onCpdTapped()
+                    }
+                )
+
+                Text(
+                    text = "Built by Ed Dark © 2025\nInspired by CPD!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+                )
+
+                Text(
+                    text = "Created with ❤️ for 🐣🐣🐣🦉🦉🦉",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = StaticMenuColors.textOnCard
+                )
             }
-        )
-
-        Text(
-            text = "Created with ❤️ for 🐣🐣🐣🦉🦉🦉",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        }
     }
 }
 
 // ========== THEMES SCREEN ==========
 @Composable
 fun ThemesContent(
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
     themeViewModel: ThemeViewModel
 ) {
     val currentThemeId by themeViewModel.currentThemeId.collectAsState()
@@ -181,19 +183,16 @@ fun ThemesContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         val themes = AestheticThemes.allThemes
 
         themes.forEach { (id, themeData) ->
-            ThemeButton(
+            FloatingThemeButton(
                 themeName = themeData.name,
-                themeId = id,
+                themeEmoji = themeData.recordButtonEmoji,
                 isSelected = currentThemeId == id,
-                aesthetic = aesthetic,
-                colors = colors,
                 onClick = {
                     scope.launch {
                         themeViewModel.setTheme(id)
@@ -204,162 +203,185 @@ fun ThemesContent(
     }
 }
 
-// --- Private Helpers for Menu Items ---
-
+// ========== FLOATING MENU ITEM ==========
 @Composable
-private fun MenuItem(
+private fun FloatingMenuItem(
     icon: ImageVector,
     label: String,
     selected: Boolean,
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
-    onClick: () -> Unit,
-    customColor: Color? = null
+    onClick: () -> Unit
 ) {
-    val itemRotation = if (aesthetic.id == "scrapbook") {
-        remember { (0..1).random() * if ((0..1).random() == 0) -1f else 1f * 0.5f }
-    } else 0f
+    val shape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp)
-            .rotate(itemRotation)
-            .then(getItemModifier(aesthetic, colors, selected))
+            .then(
+                if (selected) {
+                    Modifier.shadow(
+                        elevation = 12.dp,
+                        shape = shape,
+                        ambientColor = Color.Black.copy(alpha = 0.15f),
+                        spotColor = Color.Black.copy(alpha = 0.2f)
+                    )
+                } else {
+                    Modifier.shadow(
+                        elevation = 4.dp,
+                        shape = shape,
+                        ambientColor = Color.Black.copy(alpha = 0.1f),
+                        spotColor = Color.Black.copy(alpha = 0.1f)
+                    )
+                }
+            )
+            .clip(shape)
+            .background(
+                if (selected) StaticMenuColors.cardSelected
+                else StaticMenuColors.cardUnselected
+            )
+            .then(
+                if (selected) {
+                    Modifier.border(2.dp, Color.White.copy(alpha = 0.8f), shape)
+                } else {
+                    Modifier.border(1.dp, Color.White.copy(alpha = 0.2f), shape)
+                }
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = customColor ?: getItemColor(aesthetic, colors, selected),
+                tint = if (selected) StaticMenuColors.textOnCard else StaticMenuColors.textOnGradient,
                 modifier = Modifier.size(24.dp)
             )
-            Spacer(modifier = Modifier.width(16.dp))
             Text(
-                text = label.uppercase(),
+                text = label,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold
                 ),
-                color = customColor ?: getItemColor(aesthetic, colors, selected)
+                color = if (selected) StaticMenuColors.textOnCard else StaticMenuColors.textOnGradient
             )
         }
     }
 }
 
+// ========== DANGER MENU ITEM ==========
 @Composable
-private fun ThemeButton(
-    themeName: String,
-    themeId: String,
-    isSelected: Boolean,
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
+private fun DangerMenuItem(
+    icon: ImageVector,
+    label: String,
     onClick: () -> Unit
 ) {
-    val itemRotation = if (aesthetic.id == "scrapbook") {
-        remember { (0..1).random() * if ((0..1).random() == 0) -1f else 1f * 0.5f }
-    } else 0f
+    val shape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp)
-            .rotate(itemRotation)
-            .then(getItemModifier(aesthetic, colors, isSelected))
+            .clip(shape)
+            .background(StaticMenuColors.deleteBackground)
+            .border(1.dp, StaticMenuColors.deleteBorder, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = themeName.uppercase(),
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.5.sp
-            ),
-            color = getItemColor(aesthetic, colors, isSelected)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = StaticMenuColors.deleteText,
+                modifier = Modifier.size(24.dp)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = StaticMenuColors.deleteText
+            )
+        }
     }
 }
 
-// Shared Modifiers
-fun getItemModifier(
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
-    selected: Boolean
-): Modifier {
-    return when (aesthetic.id) {
-        "egg" -> Modifier
+// ========== FLOATING THEME BUTTON ==========
+@Composable
+private fun FloatingThemeButton(
+    themeName: String,
+    themeEmoji: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(14.dp)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isSelected) {
+                    Modifier.shadow(
+                        elevation = 12.dp,
+                        shape = shape,
+                        ambientColor = Color.Black.copy(alpha = 0.15f),
+                        spotColor = Color.Black.copy(alpha = 0.2f)
+                    )
+                } else {
+                    Modifier.shadow(
+                        elevation = 2.dp,
+                        shape = shape,
+                        ambientColor = Color.Black.copy(alpha = 0.05f),
+                        spotColor = Color.Black.copy(alpha = 0.05f)
+                    )
+                }
+            )
+            .clip(shape)
             .background(
-                color = if (selected) Color(0xFFFFE0B2) else Color.White,
-                shape = RoundedCornerShape(12.dp)
+                if (isSelected) StaticMenuColors.cardSelected
+                else StaticMenuColors.cardUnselected
             )
-            .border(
-                width = if (selected) 3.dp else 2.dp,
-                color = if (selected) Color(0xFFFF8A65) else Color(0xFF2E2E2E).copy(alpha = 0.3f),
-                shape = RoundedCornerShape(12.dp)
+            .then(
+                if (isSelected) {
+                    Modifier.border(2.dp, Color.White.copy(alpha = 0.8f), shape)
+                } else {
+                    Modifier.border(1.dp, Color.White.copy(alpha = 0.15f), shape)
+                }
             )
-
-        "scrapbook" -> Modifier
-            .background(Color.White, RoundedCornerShape(12.dp))
-            .border(
-                width = if (selected) 4.dp else 3.dp,
-                color = if (selected) Color(0xFF8B4513) else Color(0xFFD2691E),
-                shape = RoundedCornerShape(12.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = themeEmoji,
+                fontSize = 22.sp
             )
-            .then(if (selected) Modifier.shadow(4.dp, RoundedCornerShape(12.dp)) else Modifier)
-
-        "cyberpunk" -> Modifier
-            .background(
-                color = if (selected) Color(0xFFFF00FF).copy(alpha = 0.2f)
-                else Color(0xFF00FFFF).copy(alpha = 0.05f),
-                shape = RoundedCornerShape(4.dp)
+            Text(
+                text = themeName,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                ),
+                color = if (isSelected) StaticMenuColors.textOnCard else StaticMenuColors.textOnGradient,
+                modifier = Modifier.weight(1f)
             )
-            .border(
-                width = 2.dp,
-                color = if (selected) Color(0xFFFF00FF) else Color(0xFF00FFFF).copy(alpha = 0.3f),
-                shape = RoundedCornerShape(4.dp)
-            )
-
-        "vaporwave" -> Modifier
-            .background(
-                color = Color.White.copy(alpha = if (selected) 0.4f else 0.15f),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .border(
-                width = 2.dp,
-                color = Color.White.copy(alpha = if (selected) 0.6f else 0.4f),
-                shape = RoundedCornerShape(16.dp)
-            )
-
-        else -> Modifier
-            .background(
-                color = if (selected) colors.primary.copy(alpha = 0.2f) else Color.Transparent,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .border(
-                width = 1.dp,
-                color = if (selected) colors.primary else colors.outline.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(12.dp)
-            )
-    }
-}
-
-fun getItemColor(
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme,
-    selected: Boolean
-): Color {
-    return when (aesthetic.id) {
-        "egg" -> if (selected) Color(0xFFFF8A65) else Color(0xFF2E2E2E)
-        "scrapbook" -> if (selected) Color(0xFF8B4513) else Color(0xFF5D4037)
-        "cyberpunk" -> if (selected) Color(0xFFFF00FF) else Color(0xFF00FFFF)
-        "vaporwave" -> Color.White
-        else -> if (selected) colors.primary else colors.onSurface
+            if (isSelected) {
+                Text(
+                    text = "✓",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = StaticMenuColors.checkmark
+                )
+            }
+        }
     }
 }
