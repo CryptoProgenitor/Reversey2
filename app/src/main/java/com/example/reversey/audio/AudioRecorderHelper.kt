@@ -6,7 +6,6 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
-import com.example.reversey.audio.AudioConstants
 import com.example.reversey.utils.writeWavHeader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -22,6 +21,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
 
+// 🎯 NEW: Sealed class for type-safe events
+sealed class RecorderEvent {
+    object Warning : RecorderEvent()
+    object Stop : RecorderEvent()
+}
+
 @Singleton
 class AudioRecorderHelper @Inject constructor(
     @ApplicationContext private val context: Context
@@ -33,9 +38,9 @@ class AudioRecorderHelper @Inject constructor(
     private val _amplitude = MutableStateFlow(0f)
     val amplitude = _amplitude.asStateFlow()
 
-    // Events for UI signals (Toast/Stop)
-    private val _events = MutableSharedFlow<String>()
-    val events: SharedFlow<String> = _events.asSharedFlow()
+    // 🎯 FIX: Use Typed RecorderEvent instead of String
+    private val _events = MutableSharedFlow<RecorderEvent>()
+    val events: SharedFlow<RecorderEvent> = _events.asSharedFlow()
 
     private var recorderJob: Job? = null
     private var audioRecord: AudioRecord? = null
@@ -43,6 +48,9 @@ class AudioRecorderHelper @Inject constructor(
 
     // Flag to prevent Toast spam during the warning phase
     private var hasShownSizeWarning = false
+
+    // Timestamp for throttling checks
+    private var lastCheckTime = 0L
 
     // Scope tied to the Singleton (survives rotation, prevents leaks)
     private val helperScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -53,6 +61,7 @@ class AudioRecorderHelper @Inject constructor(
 
         // Reset warning flag for new recording
         hasShownSizeWarning = false
+        lastCheckTime = 0L
 
         // Use standard AudioFormat constants to ensure compatibility
         val channelConfig = AudioFormat.CHANNEL_IN_MONO
@@ -162,18 +171,24 @@ class AudioRecorderHelper @Inject constructor(
     }
 
     private suspend fun checkDuration(startTime: Long) {
-        val currentDurationMs = System.currentTimeMillis() - startTime
+        // Throttle check to once per second
+        val now = System.currentTimeMillis()
+        if (now - lastCheckTime < 1000) return
+        lastCheckTime = now
+
+        val currentDurationMs = now - startTime
 
         // Amber Alert (Approaching Limit)
         if (currentDurationMs > AudioConstants.WARNING_DURATION_MS && !hasShownSizeWarning) {
             hasShownSizeWarning = true
-            _events.emit("WARNING")
+            // 🎯 FIX: Emit typed event
+            _events.emit(RecorderEvent.Warning)
         }
 
         // Red Alert (Hard Stop)
         if (currentDurationMs >= AudioConstants.MAX_RECORDING_DURATION_MS) {
-            // Emit STOP event so ViewModel handles the UI/Logic stop
-            _events.emit("STOP")
+            // 🎯 FIX: Emit typed event
+            _events.emit(RecorderEvent.Stop)
         }
     }
 

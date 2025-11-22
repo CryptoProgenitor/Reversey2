@@ -381,29 +381,88 @@ fun SnowyOwlRecordButton(
 // ❄️ FALLING SNOWFLAKES
 // ============================================
 
-data class SnowflakeData(var x: Float, var y: Float, val size: Float, val speed: Float, val drift: Float, val emoji: String = listOf("❄️", "❅", "❆").random())
+data class SnowflakeData(
+    var x: Float,
+    var y: Float,
+    val size: Float,
+    val speed: Float,
+    val drift: Float,
+    val emoji: String = listOf("❄️", "❅", "❆").random()
+)
 
 @Composable
 fun SnowyOwlSnowflakes() {
     var snowflakes by remember { mutableStateOf(listOf<SnowflakeData>()) }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val width = constraints.maxWidth.toFloat(); val height = constraints.maxHeight.toFloat()
-        LaunchedEffect(width, height) {
-            snowflakes = List(25) { SnowflakeData(Random.nextFloat() * width, Random.nextFloat() * height, Random.nextFloat() * 8f + 2f, Random.nextFloat() * 3f + 1f, Random.nextFloat() * 2f - 1f) }
+        val screenWidth = constraints.maxWidth.toFloat()
+        val screenHeight = constraints.maxHeight.toFloat()
+
+        // Initialize snowflakes
+        LaunchedEffect(screenWidth, screenHeight) {
+            snowflakes = List(25) {
+                SnowflakeData(
+                    x = Random.nextFloat() * screenWidth,
+                    y = Random.nextFloat() * screenHeight,
+                    size = Random.nextFloat() * 8f + 2f,
+                    speed = Random.nextFloat() * 3f + 1f,
+                    drift = Random.nextFloat() * 2f - 1f
+                )
+            }
         }
+
+        // Animate snowflakes
         LaunchedEffect(Unit) {
             while (true) {
                 withFrameMillis {
-                    snowflakes = snowflakes.map { s ->
-                        var ny = s.y + s.speed * 0.3f; var nx = s.x + s.drift
-                        if (ny > height) { ny = -s.size; nx = Random.nextFloat() * width }
-                        s.copy(x = nx, y = ny)
+                    snowflakes = snowflakes.map { snowflake ->
+                        var newY = snowflake.y + snowflake.speed *0.3f
+                        var newX = snowflake.x + snowflake.drift
+
+                        if (newY > screenHeight) {
+                            newY = -snowflake.size
+                            newX = Random.nextFloat() * screenWidth
+                        }
+
+                        snowflake.copy(x = newX, y = newY)
                     }
                 }
             }
         }
-        snowflakes.forEach { s ->
-            Text(text = s.emoji, fontSize = s.size.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.offset(s.x.dp, s.y.dp))
+
+        // Render snowflakes
+        snowflakes.forEach { snowflake ->
+            AnimatedSnowflake(data = snowflake)
+        }
+    }
+}
+
+@Composable
+fun AnimatedSnowflake(data: SnowflakeData) {
+    Canvas(
+        modifier = Modifier
+            .offset(x = data.x.dp, y = data.y.dp)
+            .size(data.size.dp)
+    ) {
+        drawContext.canvas.nativeCanvas.apply {
+            val emoji = data.emoji
+            val textSizePx = data.size * 22f
+            val paint = android.graphics.Paint().apply {
+                textSize = textSizePx
+                isAntiAlias = true
+                isSubpixelText = true
+                isFilterBitmap = true
+                alpha = 255
+            }
+            val drawX = size.width * 0.1f
+            val drawY = size.height * 0.75f
+
+            drawText(
+                emoji,
+                drawX,
+                drawY,
+                paint
+            )
         }
     }
 }

@@ -6,34 +6,45 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.reversey.R
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
+import com.example.reversey.ui.components.DifficultySquircle
 import com.example.reversey.ui.components.ScoreExplanationDialog
 import com.example.reversey.ui.components.UnifiedRecordButton
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 /**
  * 🌸 SAKURA SERENITY THEME
- * Cherry blossoms and sunset gradients.
+ * Cherry blossoms, bamboo, and sunset gradients.
  */
 object SakuraSerenityTheme {
     const val THEME_ID = "sakura_serenity"
@@ -130,6 +141,9 @@ object SakuraSerenityTheme {
 
 class SakuraSerenityComponents : ThemeComponents {
 
+    // 🌸 DEFINE THE CUSTOM FONT FAMILY
+    private val electroHarmonixFont = FontFamily(Font(R.font.electroharmonix))
+
     @Composable
     override fun RecordingItem(
         recording: Recording,
@@ -146,107 +160,111 @@ class SakuraSerenityComponents : ThemeComponents {
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit
     ) {
+        // 🌸 THEME COLORS
+        val bgPink = Color(0xFFFFF0F5) // Lavender Blush
+        val borderPink = Color(0xFFFF69B4) // Hot Pink
+        val textDarkPink = Color(0xFFC71585) // Medium Violet Red
+        val buttonBg = Color(0xFFFFE4E1) // Misty Rose
+
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
         var showShareDialog by remember { mutableStateOf(false) }
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(24.dp),
-                    spotColor = Color(0x40FF69B4)
-                ),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFFFAFC) // Almost white with pink tint
-            ),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Box {
-                Canvas(
-                    modifier = Modifier.size(120.dp).align(Alignment.TopEnd)
+        // LAYOUT: Adapted from Guitar Theme
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // 🌸 TRANSPARENCY APPLIED HERE (0.85f)
+                    .background(bgPink.copy(alpha = 0.85f), RoundedCornerShape(24.dp))
+                    .border(3.dp, borderPink, RoundedCornerShape(24.dp))
+                    .padding(16.dp)
+            ) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(Color(0x30FFB6C1), Color(0x10FF69B4), Color.Transparent)
-                        ),
-                        center = Offset(size.width * 0.8f, size.height * 0.2f),
-                        radius = size.width * 0.6f
-                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                            .clickable { showRenameDialog = true }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "🌸 ${recording.name}",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = electroHarmonixFont, // 🌸 CUSTOM FONT
+                            color = textDarkPink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // 🌸 STYLED DELETE BUTTON (Consistent with control row)
+                    SakuraControlButton(
+                        color = buttonBg,
+                        label = "DEL",
+                        textColor = textDarkPink,
+                        onClick = { showDeleteDialog = true }
+                    ) {
+                        SakuraDeleteIcon(textDarkPink) // Torii Gate
+                    }
                 }
 
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f).clickable { showRenameDialog = true }
-                        ) {
-                            Text(text = "🌸", fontSize = 20.sp, modifier = Modifier.padding(end = 8.dp))
-                            Text(
-                                text = recording.name,
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFFFF69B4)),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                Spacer(modifier = Modifier.height(12.dp))
 
-                        IconButton(
-                            onClick = { showDeleteDialog = true },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFFF69B4), modifier = Modifier.size(20.dp))
+                // Progress Bar (Sakura Style)
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    color = borderPink,
+                    trackColor = Color(0xFFFFC0CB).copy(alpha = 0.3f)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 🌸 JAPANESE BUTTON ROW
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    // Share (Fan)
+                    SakuraControlButton(color = buttonBg, label = "Share", textColor = textDarkPink, onClick = { showShareDialog = true }) {
+                        SakuraShareIcon(borderPink)
+                    }
+
+                    // Play/Pause (Sakura Flower / Bamboo)
+                    SakuraControlButton(
+                        color = Color(0xFFFFB6C1), // Slightly darker pink for main action
+                        label = if (isPlaying && !isPaused) "Pause" else "Play",
+                        textColor = textDarkPink,
+                        onClick = {
+                            if (isPlaying && !isPaused) onPause()
+                            else onPlay(recording.originalPath)
+                        }
+                    ) {
+                        if (isPlaying && !isPaused) {
+                            SakuraPauseIcon(textDarkPink) // Bamboo
+                        } else {
+                            SakuraPlayIcon(textDarkPink) // Spinning Flower
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    // Reverse (Wind)
+                    SakuraControlButton(color = buttonBg, label = "Rev", textColor = textDarkPink, onClick = { recording.reversedPath?.let { onPlay(it) } }) {
+                        SakuraRewindIcon(borderPink)
+                    }
 
-                    SakuraWaveform(isPlaying = isPlaying, progress = progress)
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SakuraButton(
-                            onClick = {
-                                recording.reversedPath?.let { path ->
-                                    if (isPlaying) {
-                                        if (isPaused) onPlay(path) else onPause()
-                                    } else {
-                                        onPlay(path)
-                                    }
-                                }
-                            },
-                            icon = if (isPlaying && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            label = if (isPlaying && !isPaused) "Pause" else "Play",
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        if (isGameModeEnabled) {
-                            SakuraButton(
-                                onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
-                                icon = Icons.Default.Mic,
-                                label = "Try",
-                                modifier = Modifier.weight(1f),
-                                isSecondary = true
-                            )
+                    // Game Mode Controls
+                    if (isGameModeEnabled && recording.reversedPath != null) {
+                        SakuraControlButton(color = buttonBg, label = "Fwd", textColor = textDarkPink, onClick = { onStartAttempt(recording, ChallengeType.FORWARD) }) {
+                            Icon(Icons.Default.ArrowUpward, "Try", tint = textDarkPink, modifier = Modifier.size(20.dp))
                         }
-
-                        SakuraButton(
-                            onClick = { showShareDialog = true },
-                            icon = Icons.Default.Share,
-                            label = "Share",
-                            modifier = Modifier.weight(1f),
-                            isSecondary = true
-                        )
+                        SakuraControlButton(color = buttonBg, label = "Rev", textColor = textDarkPink, onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }) {
+                            Icon(Icons.Default.ArrowUpward, "Try", tint = textDarkPink, modifier = Modifier.size(20.dp).rotate(180f))
+                        }
                     }
                 }
             }
@@ -272,67 +290,114 @@ class SakuraSerenityComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?
     ) {
-        // Using Default Material card for attempts currently, but styled via Theme logic if we wanted specific Sakura attempt cards
-        // For now, delegated to SharedDefaultComponents to keep it simple, or custom logic if needed.
-        // Let's reuse SharedDefaultComponents.MaterialAttemptCard but injecting it here explicitly for clarity
-        // Actually, let's implement a custom Sakura Attempt Card to match the style!
+        // 🌸 THEME COLORS
+        val cardBg = Color(0xFFFFFAFC)
+        val borderPink = Color(0xFFFF69B4)
+        val textDarkPink = Color(0xFFC71585)
+        val buttonBg = Color(0xFFFFE4E1)
 
+        val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
         var showShareDialog by remember { mutableStateOf(false) }
         var showScoreDialog by remember { mutableStateOf(false) }
-        val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
 
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFAFC)),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (onJumpToParent != null) {
-                        IconButton(onClick = onJumpToParent, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Home, "Parent", tint = Color(0xFFFF69B4))
+        // LAYOUT: Adapted from Guitar Theme (Split View with Squircle)
+        Box(modifier = Modifier.fillMaxWidth().padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // 🌸 TRANSPARENCY APPLIED HERE (0.85f)
+                    .background(color = cardBg.copy(alpha = 0.85f), shape = RoundedCornerShape(20.dp))
+                    .border(width = 2.dp, color = borderPink, shape = RoundedCornerShape(20.dp))
+                    .padding(12.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                        // LEFT COLUMN: Info & Controls
+                        Column(modifier = Modifier.weight(1f)) {
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Name Row
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (onJumpToParent != null) {
+                                    Icon(imageVector = Icons.Default.ArrowUpward, contentDescription = "Jump", tint = borderPink, modifier = Modifier.size(20.dp).clickable { onJumpToParent() })
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFFFFC0CB).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        .clickable { showRenameDialog = true }
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = attempt.playerName,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = electroHarmonixFont, // 🌸 CUSTOM FONT
+                                        color = textDarkPink,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Controls Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (onShareAttempt != null) {
+                                    SakuraControlButton(onClick = { showShareDialog = true }, color = buttonBg, label = "Share", textColor = textDarkPink) {
+                                        SakuraShareIcon(borderPink)
+                                    }
+                                }
+                                SakuraControlButton(
+                                    onClick = { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) },
+                                    color = Color(0xFFFFB6C1),
+                                    label = if (isPlayingThis && !isPaused) "Pause" else "Play",
+                                    textColor = textDarkPink
+                                ) {
+                                    if (isPlayingThis && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraPlayIcon(textDarkPink)
+                                }
+                                if (attempt.reversedAttemptFilePath != null) {
+                                    SakuraControlButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, color = buttonBg, label = "Rev", textColor = textDarkPink) {
+                                        SakuraRewindIcon(borderPink)
+                                    }
+                                }
+                                if (onDeleteAttempt != null) {
+                                    SakuraControlButton(onClick = { showDeleteDialog = true }, color = buttonBg, label = "Del", textColor = textDarkPink) {
+                                        SakuraDeleteIcon(borderPink)
+                                    }
+                                }
+                            }
                         }
+
                         Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text(
-                        text = attempt.playerName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF69B4),
-                        modifier = Modifier.weight(1f).clickable { showRenameDialog = true }
-                    )
-                    Surface(color = Color(0xFFFFB6C1).copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp), modifier = Modifier.clickable { showScoreDialog = true }) {
-                        Text("${attempt.score}%", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = Color(0xFFFF1493), fontWeight = FontWeight.Bold)
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                        // RIGHT COLUMN: The Difficulty Squircle
+                        DifficultySquircle(
+                            score = attempt.score.toInt(),
+                            difficulty = attempt.difficulty,
+                            challengeType = attempt.challengeType,
+                            emoji = "🌸", // Theme specific emoji
+                            width = 100.dp,
+                            height = 125.dp,
+                            onClick = { showScoreDialog = true }
+                        )
+                    }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = { showShareDialog = true }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Share, "Share", tint = Color(0xFFFF69B4))
+                    if (isPlayingThis) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                            color = borderPink,
+                            trackColor = Color(0xFFFFC0CB).copy(alpha = 0.3f)
+                        )
                     }
-                    IconButton(onClick = { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }, modifier = Modifier.size(32.dp)) {
-                        Icon(if (isPlayingThis && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow, "Play", tint = Color(0xFFFF69B4))
-                    }
-                    if (attempt.reversedAttemptFilePath != null) {
-                        IconButton(onClick = { onPlay(attempt.reversedAttemptFilePath) }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Replay, "Reverse", tint = Color(0xFFFF69B4))
-                        }
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    if (onDeleteAttempt != null) {
-                        IconButton(onClick = { showDeleteDialog = true }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFFF7F50))
-                        }
-                    }
-                }
-
-                if (isPlayingThis) {
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = Color(0xFFFF69B4), trackColor = Color(0xFFFFB6C1).copy(0.3f))
                 }
             }
         }
@@ -359,11 +424,161 @@ class SakuraSerenityComponents : ThemeComponents {
         Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color(0xFF191970), Color(0xFF4B0082), Color(0xFF663399), Color(0xFFFF69B4), Color(0xFFFFB6C1))))) {
             TwinklingStars()
             CherryBlossomTrees()
+            FallingSakuraPetals() // 🌸 Added Petals Here
             content()
         }
     }
 
-    // --- NEW INTERFACE METHODS ---
+    // --- HELPER COMPONENTS ---
+
+    @Composable
+    fun SakuraControlButton(color: Color, label: String, textColor: Color, onClick: () -> Unit, icon: @Composable () -> Unit) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(color, RoundedCornerShape(12.dp))
+                    .border(2.dp, Color(0xFFFF69B4).copy(0.5f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                icon()
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            // 🌸 Use Real Electroharmonix Font
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = electroHarmonixFont, // 🌸 CUSTOM FONT
+                color = textColor,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+
+    // --- JAPANESE ICONS (CANVAS) ---
+
+    // 🌸 PLAY: A spinning Sakura Flower
+    @Composable
+    fun SakuraPlayIcon(color: Color) {
+        val infiniteTransition = rememberInfiniteTransition(label = "spin")
+        val angle by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(animation = tween(8000, easing = LinearEasing)),
+            label = "rotation"
+        )
+
+        Canvas(modifier = Modifier.size(24.dp).rotate(angle)) {
+            val center = Offset(size.width / 2, size.height / 2)
+            val petalRadius = size.width / 4
+
+            // Draw 5 petals
+            for (i in 0 until 5) {
+                val theta = (i * 72) * (Math.PI / 180)
+                val petalCenter = Offset(
+                    center.x + (petalRadius * 0.6f) * cos(theta).toFloat(),
+                    center.y + (petalRadius * 0.6f) * sin(theta).toFloat()
+                )
+                drawCircle(color = color, radius = petalRadius * 0.7f, center = petalCenter)
+            }
+            // Center dot
+            drawCircle(color = Color.White, radius = petalRadius * 0.3f, center = center)
+        }
+    }
+
+    // 🎋 PAUSE: Bamboo Stalks
+    @Composable
+    fun SakuraPauseIcon(color: Color) {
+        Canvas(modifier = Modifier.size(24.dp)) {
+            val w = size.width
+            val h = size.height
+            val stroke = 3.dp.toPx()
+
+            // Left Stalk
+            drawLine(color, Offset(w * 0.35f, h * 0.2f), Offset(w * 0.35f, h * 0.8f), stroke, StrokeCap.Round)
+            // Right Stalk
+            drawLine(color, Offset(w * 0.65f, h * 0.2f), Offset(w * 0.65f, h * 0.8f), stroke, StrokeCap.Round)
+
+            // Bamboo Nodes (Horizontal lines)
+            drawLine(color, Offset(w * 0.25f, h * 0.5f), Offset(w * 0.45f, h * 0.5f), 1.dp.toPx())
+            drawLine(color, Offset(w * 0.55f, h * 0.5f), Offset(w * 0.75f, h * 0.5f), 1.dp.toPx())
+        }
+    }
+
+    // 🪭 SHARE: Japanese Folding Fan (Sensu)
+    @Composable
+    fun SakuraShareIcon(color: Color) {
+        Canvas(modifier = Modifier.size(24.dp)) {
+            val w = size.width
+            val h = size.height
+
+            val fanPath = Path().apply {
+                moveTo(w * 0.5f, h * 0.8f) // Pivot point
+                lineTo(w * 0.1f, h * 0.3f) // Top Left
+                quadraticBezierTo(w * 0.5f, h * 0.1f, w * 0.9f, h * 0.3f) // Arc top
+                lineTo(w * 0.5f, h * 0.8f) // Back to pivot
+                close()
+            }
+            drawPath(fanPath, color = color, style = Stroke(width = 2.dp.toPx()))
+
+            // Ribs of the fan
+            drawLine(color, Offset(w * 0.5f, h * 0.8f), Offset(w * 0.5f, h * 0.2f), 1.dp.toPx())
+            drawLine(color, Offset(w * 0.5f, h * 0.8f), Offset(w * 0.3f, h * 0.25f), 1.dp.toPx())
+            drawLine(color, Offset(w * 0.5f, h * 0.8f), Offset(w * 0.7f, h * 0.25f), 1.dp.toPx())
+        }
+    }
+
+    // ⛩️ DELETE: Torii Gate
+    @Composable
+    fun SakuraDeleteIcon(color: Color) {
+        Canvas(modifier = Modifier.size(24.dp)) {
+            val w = size.width
+            val h = size.height
+            val stroke = 2.5.dp.toPx()
+
+            // Top Bar (Kasagi) - Curved
+            val topPath = Path().apply {
+                moveTo(w * 0.1f, h * 0.2f)
+                quadraticBezierTo(w * 0.5f, h * 0.1f, w * 0.9f, h * 0.2f)
+            }
+            drawPath(topPath, color, style = Stroke(stroke, cap = StrokeCap.Round))
+
+            // Second Bar (Nuki)
+            drawLine(color, Offset(w * 0.2f, h * 0.35f), Offset(w * 0.8f, h * 0.35f), stroke)
+
+            // Pillars (Hashira)
+            drawLine(color, Offset(w * 0.3f, h * 0.25f), Offset(w * 0.25f, h * 0.9f), stroke)
+            drawLine(color, Offset(w * 0.7f, h * 0.25f), Offset(w * 0.75f, h * 0.9f), stroke)
+        }
+    }
+
+    // 🍃 REWIND: Wind Gust
+    @Composable
+    fun SakuraRewindIcon(color: Color) {
+        Canvas(modifier = Modifier.size(24.dp)) {
+            val w = size.width
+            val h = size.height
+            val stroke = 2.dp.toPx()
+
+            val windPath = Path().apply {
+                moveTo(w * 0.8f, h * 0.3f)
+                quadraticBezierTo(w * 0.4f, h * 0.3f, w * 0.3f, h * 0.5f)
+                quadraticBezierTo(w * 0.2f, h * 0.7f, w * 0.5f, h * 0.7f)
+            }
+            drawPath(windPath, color, style = Stroke(stroke, cap = StrokeCap.Round))
+
+            // Arrow head
+            val arrowPath = Path().apply {
+                moveTo(w * 0.4f, h * 0.4f)
+                lineTo(w * 0.25f, h * 0.5f) // Point
+                lineTo(w * 0.35f, h * 0.65f)
+            }
+            drawPath(arrowPath, color, style = Stroke(stroke, cap = StrokeCap.Round))
+        }
+    }
+
+    // --- DIALOG INTERFACE IMPLEMENTATION ---
 
     @Composable
     override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit) {
@@ -443,83 +658,107 @@ class SakuraSerenityComponents : ThemeComponents {
             dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFFC71585)) } }
         )
     }
-}
 
-// ============================================
-// 🌸 SAKURA COMPONENTS
-// ============================================
+    // 🌸 VISUAL HELPERS (Stars and Trees)
+    @Composable
+    private fun TwinklingStars() {
+        val infiniteTransition = rememberInfiniteTransition(label = "starTwinkle")
+        val twinkle1 by infiniteTransition.animateFloat(0.3f, 1f, infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "twinkle1")
+        val twinkle2 by infiniteTransition.animateFloat(0.5f, 1f, infiniteRepeatable(tween(1500, 200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "twinkle2")
 
-@Composable
-private fun SakuraWaveform(isPlaying: Boolean, progress: Float) {
-    Box(
-        modifier = Modifier.fillMaxWidth().height(70.dp).clip(RoundedCornerShape(16.dp))
-            .background(Brush.horizontalGradient(colors = listOf(Color(0x15FFB6C1), Color(0x20FF69B4), Color(0x15FFB6C1))))
-            .border(2.dp, Color(0x40FFB6C1), RoundedCornerShape(16.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    ) {
-        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            repeat(8) { index ->
-                val targetHeight = when (index) { 0 -> 0.4f; 1 -> 0.7f; 2 -> 0.5f; 3 -> 0.85f; 4 -> 0.45f; 5 -> 0.75f; 6 -> 0.6f; else -> 0.7f }
-                val animatedHeight by animateFloatAsState(
-                    targetValue = if (isPlaying) targetHeight else targetHeight * 0.6f,
-                    animationSpec = infiniteRepeatable(animation = tween(800 + index * 100, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
-                    label = "waveBar$index"
-                )
-                Box(modifier = Modifier.width(4.dp).fillMaxHeight(animatedHeight).clip(RoundedCornerShape(2.dp)).background(Brush.verticalGradient(colors = listOf(Color(0xFFFF69B4), Color(0xFFFFB6C1)))))
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stars = listOf(
+                Triple(Offset(size.width * 0.15f, size.height * 0.08f), 12.dp.toPx(), Color(0xFFFFD700) to twinkle1),
+                Triple(Offset(size.width * 0.85f, size.height * 0.07f), 11.dp.toPx(), Color(0xFFFFFFFF) to twinkle2),
+                Triple(Offset(size.width * 0.50f, size.height * 0.20f), 10.dp.toPx(), Color(0xFFFFFFFF) to twinkle1)
+            )
+            stars.forEach { (pos, baseSize, pair) ->
+                val (color, alpha) = pair
+                val size = baseSize * (0.7f + alpha * 0.3f)
+                drawCircle(color.copy(alpha = alpha), size / 2, pos)
             }
         }
     }
-}
 
-@Composable
-private fun SakuraButton(onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier, isSecondary: Boolean = false) {
-    Column(modifier = modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Box(
-            modifier = Modifier.size(48.dp)
-                .shadow(4.dp, CircleShape, spotColor = if (isSecondary) Color(0x30FFA07A) else Color(0x40FF69B4))
-                .clip(CircleShape)
-                .background(if (isSecondary) Brush.linearGradient(colors = listOf(Color(0xFFFFA07A), Color(0xFFFF7F50))) else Brush.linearGradient(colors = listOf(Color(0xFFFFB6C1), Color(0xFFFF69B4)))),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(24.dp))
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(text = label, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, color = if (isSecondary) Color(0xFFFF7F50) else Color(0xFFFF69B4)), fontSize = 11.sp)
-    }
-}
-
-@Composable
-private fun TwinklingStars() {
-    val infiniteTransition = rememberInfiniteTransition(label = "starTwinkle")
-    val twinkle1 by infiniteTransition.animateFloat(0.3f, 1f, infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "twinkle1")
-    val twinkle2 by infiniteTransition.animateFloat(0.5f, 1f, infiniteRepeatable(tween(1500, 200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "twinkle2")
-
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val stars = listOf(
-            Triple(Offset(size.width * 0.15f, size.height * 0.08f), 12.dp.toPx(), Color(0xFFFFD700) to twinkle1),
-            Triple(Offset(size.width * 0.85f, size.height * 0.07f), 11.dp.toPx(), Color(0xFFFFFFFF) to twinkle2),
-            Triple(Offset(size.width * 0.50f, size.height * 0.20f), 10.dp.toPx(), Color(0xFFFFFFFF) to twinkle1)
-        )
-        stars.forEach { (pos, baseSize, pair) ->
-            val (color, alpha) = pair
-            val size = baseSize * (0.7f + alpha * 0.3f)
-            drawCircle(color.copy(alpha = alpha), size / 2, pos)
+    @Composable
+    private fun CherryBlossomTrees() {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val trees = listOf(
+                Triple(0.12f, 0.25f, 40.dp.toPx()), Triple(0.88f, 0.28f, 38.dp.toPx()), Triple(0.48f, 0.52f, 41.dp.toPx())
+            )
+            trees.forEach { (xPct, yPct, size) ->
+                val x = this.size.width * xPct
+                val y = this.size.height * yPct
+                drawRect(Color(0xFF8B4513), topLeft = Offset(x - 8.dp.toPx(), y), size = Size(16.dp.toPx(), 70.dp.toPx()))
+                drawCircle(Color(0xFFFFB6C1), size, Offset(x, y - size * 0.3f))
+                drawCircle(Color(0xFFFF69B4), size * 0.7f, Offset(x - size * 0.4f, y - size * 0.5f))
+            }
         }
     }
-}
 
-@Composable
-private fun CherryBlossomTrees() {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val trees = listOf(
-            Triple(0.12f, 0.25f, 40.dp.toPx()), Triple(0.88f, 0.28f, 38.dp.toPx()), Triple(0.48f, 0.52f, 41.dp.toPx())
-        )
-        trees.forEach { (xPct, yPct, size) ->
-            val x = this.size.width * xPct
-            val y = this.size.height * yPct
-            drawRect(Color(0xFF8B4513), topLeft = Offset(x - 8.dp.toPx(), y), size = Size(16.dp.toPx(), 70.dp.toPx()))
-            drawCircle(Color(0xFFFFB6C1), size, Offset(x, y - size * 0.3f))
-            drawCircle(Color(0xFFFF69B4), size * 0.7f, Offset(x - size * 0.4f, y - size * 0.5f))
+    // 🌸 FALLING PETALS (Adapted from Owl Theme)
+    private data class PetalData(
+        var x: Float,
+        var y: Float,
+        val size: Float,
+        val speed: Float,
+        var angle: Float,
+        val spinSpeed: Float,
+        val color: Color
+    )
+
+    @Composable
+    private fun FallingSakuraPetals() {
+        var petals by remember { mutableStateOf(listOf<PetalData>()) }
+
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val width = constraints.maxWidth.toFloat()
+            val height = constraints.maxHeight.toFloat()
+            val colors = listOf(Color(0xFFFFB7C5), Color(0xFFFFC0CB), Color(0xFFFF69B4))
+
+            LaunchedEffect(width, height) {
+                petals = List(35) {
+                    PetalData(
+                        x = Random.nextFloat() * width,
+                        y = Random.nextFloat() * height,
+                        size = Random.nextFloat() * 25f + 22f,
+                        speed = Random.nextFloat() * 2f + 1f,
+                        angle = Random.nextFloat() * 360f,
+                        spinSpeed = Random.nextFloat() * 4f - 2f,
+                        color = colors.random().copy(alpha = 0.8f)
+                    )
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                while (true) {
+                    withFrameMillis {
+                        petals = petals.map { petal ->
+                            var newY = petal.y + petal.speed
+                            var newX = petal.x + sin(newY * 0.01f) * 1.5f // Swaying motion
+                            var newAngle = petal.angle + petal.spinSpeed
+
+                            if (newY > height) {
+                                newY = -petal.size
+                                newX = Random.nextFloat() * width
+                            }
+                            petal.copy(x = newX, y = newY, angle = newAngle)
+                        }
+                    }
+                }
+            }
+
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                petals.forEach { petal ->
+                    rotate(degrees = petal.angle, pivot = Offset(petal.x, petal.y)) {
+                        drawOval(
+                            color = petal.color,
+                            topLeft = Offset(petal.x, petal.y),
+                            size = Size(petal.size, petal.size * 0.6f) // Oval shape for petal
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -132,13 +132,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Audio constants
-object AudioConstants {
-    const val SAMPLE_RATE = AudioConstants.SAMPLE_RATE
-    const val CHANNEL_CONFIG = android.media.AudioFormat.CHANNEL_IN_MONO
-    const val AUDIO_FORMAT = android.media.AudioFormat.ENCODING_PCM_16BIT
-    const val MAX_WAVEFORM_SAMPLES = 200
-}
+// 🎯 CRITICAL FIX: Deleted duplicate AudioConstants object to prevent shadowing
 
 @Composable
 fun MainApp(themeViewModel: ThemeViewModel) {

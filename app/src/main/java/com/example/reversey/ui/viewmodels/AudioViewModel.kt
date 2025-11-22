@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.reversey.audio.AudioConstants
 import com.example.reversey.audio.AudioPlayerHelper
 import com.example.reversey.audio.AudioRecorderHelper
+import com.example.reversey.audio.RecorderEvent // 🎯 FIX: Import the sealed class
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.PlayerAttempt
 import com.example.reversey.data.models.Recording
@@ -42,8 +43,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.Mutex // 🎯 CRITICAL: Mutex re-added
-import kotlinx.coroutines.sync.withLock // 🎯 CRITICAL: Mutex re-added
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -151,7 +152,7 @@ class AudioViewModel @Inject constructor(
                 if (_uiState.value.isRecording) {
                     _uiState.update {
                         val newAmplitudes = it.amplitudes + amp
-                        it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES)) // Make sure MAX_WAVEFORM_SAMPLES is in Constants or use literal
+                        it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
                     }
                 }
             }
@@ -160,11 +161,12 @@ class AudioViewModel @Inject constructor(
         // --- NEW: Recorder Event Observation (Size Limits) ---
         viewModelScope.launch {
             audioRecorderHelper.events.collect { event ->
+                // 🎯 FIX: Type-safe event handling with sealed class
                 when (event) {
-                    "WARNING" -> _uiState.update {
+                    RecorderEvent.Warning -> _uiState.update {
                         it.copy(showQualityWarning = true, qualityWarningMessage = "Approaching recording limit")
                     }
-                    "STOP" -> {
+                    RecorderEvent.Stop -> {
                         showUserMessage("Recording limit reached")
                         // Determine if we are stopping a normal recording or an attempt
                         if (_uiState.value.isRecordingAttempt) {
