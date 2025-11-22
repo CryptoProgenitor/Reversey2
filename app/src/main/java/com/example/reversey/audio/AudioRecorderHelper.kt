@@ -6,12 +6,15 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
-import com.example.reversey.AudioConstants
+import com.example.reversey.audio.AudioConstants
 import com.example.reversey.utils.writeWavHeader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.io.FileOutputStream
@@ -30,9 +33,16 @@ class AudioRecorderHelper @Inject constructor(
     private val _amplitude = MutableStateFlow(0f)
     val amplitude = _amplitude.asStateFlow()
 
+    // Events for UI signals (Toast/Stop)
+    private val _events = MutableSharedFlow<String>()
+    val events: SharedFlow<String> = _events.asSharedFlow()
+
     private var recorderJob: Job? = null
     private var audioRecord: AudioRecord? = null
     private var currentFile: File? = null
+
+    // Flag to prevent Toast spam during the warning phase
+    private var hasShownSizeWarning = false
 
     // Scope tied to the Singleton (survives rotation, prevents leaks)
     private val helperScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -41,18 +51,26 @@ class AudioRecorderHelper @Inject constructor(
     fun start(outputFile: File) {
         if (_isRecording.value) return
 
+        // Reset warning flag for new recording
+        hasShownSizeWarning = false
+
+        // Use standard AudioFormat constants to ensure compatibility
+        val channelConfig = AudioFormat.CHANNEL_IN_MONO
+        val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+        val sampleRate = AudioConstants.SAMPLE_RATE
+
         val bufferSize = AudioRecord.getMinBufferSize(
-            AudioConstants.SAMPLE_RATE,
-            AudioConstants.CHANNEL_CONFIG,
-            AudioConstants.AUDIO_FORMAT
+            sampleRate,
+            channelConfig,
+            audioFormat
         )
 
         try {
             audioRecord = AudioRecord(
                 MediaRecorder.AudioSource.MIC,
-                AudioConstants.SAMPLE_RATE,
-                AudioConstants.CHANNEL_CONFIG,
-                AudioConstants.AUDIO_FORMAT,
+                sampleRate,
+                channelConfig,
+                audioFormat,
                 bufferSize
             )
 
@@ -87,20 +105,16 @@ class AudioRecorderHelper @Inject constructor(
 
         try {
             audioRecord?.stop()
-
         } catch (e: Exception) {
             Log.w("AudioRecorder", "Error stopping AudioRecord", e)
         }
 
         recorderJob?.join()
 
-
         return withContext(Dispatchers.IO) {
             val file = currentFile
-            // Add log here to see file size
 
-
-            if (file != null && file.exists() && file.length() > 44) {
+            if (file != null && file.exists() && file.length() > AudioConstants.WAV_HEADER_SIZE) {
                 addWavHeader(file)
                 cleanup()
                 file
@@ -113,6 +127,7 @@ class AudioRecorderHelper @Inject constructor(
 
     private suspend fun writeAudioDataToFile(file: File, bufferSize: Int) = withContext(Dispatchers.IO) {
         val buffer = ShortArray(bufferSize / 2)
+        val startTime = System.currentTimeMillis()
 
         try {
             FileOutputStream(file).use { fos ->
@@ -135,11 +150,30 @@ class AudioRecorderHelper @Inject constructor(
                             if (absVal > maxAmp) maxAmp = absVal
                         }
                         _amplitude.value = maxAmp / Short.MAX_VALUE.toFloat()
+
+                        // Check recording duration/size limits
+                        checkDuration(startTime)
                     }
                 }
             }
         } catch (e: Exception) {
             Log.e("AudioRecorder", "Write loop error", e)
+        }
+    }
+
+    private suspend fun checkDuration(startTime: Long) {
+        val currentDurationMs = System.currentTimeMillis() - startTime
+
+        // Amber Alert (Approaching Limit)
+        if (currentDurationMs > AudioConstants.WARNING_DURATION_MS && !hasShownSizeWarning) {
+            hasShownSizeWarning = true
+            _events.emit("WARNING")
+        }
+
+        // Red Alert (Hard Stop)
+        if (currentDurationMs >= AudioConstants.MAX_RECORDING_DURATION_MS) {
+            // Emit STOP event so ViewModel handles the UI/Logic stop
+            _events.emit("STOP")
         }
     }
 
@@ -150,6 +184,7 @@ class AudioRecorderHelper @Inject constructor(
 
         try {
             FileOutputStream(tempFile).use { fos ->
+                // Ensure 1 channel (Mono) and 16 bits matches configuration above
                 writeWavHeader(fos, rawData, 1, AudioConstants.SAMPLE_RATE, 16)
             }
             file.delete()

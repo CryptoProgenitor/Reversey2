@@ -1,6 +1,7 @@
 package com.example.reversey.scoring
 
 import android.util.Log
+import com.example.reversey.audio.AudioConstants
 import com.example.reversey.audio.processing.AudioProcessor
 import java.io.File
 import java.io.FileInputStream
@@ -33,7 +34,10 @@ data class VocalDetectionParameters(
     val pitchStabilityThreshold: Float = 0.4f,
     val pitchContourThreshold: Float = 0.5f,
     val mfccSpreadThreshold: Float = 0.3f,
-    val voicedRatioThreshold: Float = 0.6f
+    val voicedRatioThreshold: Float = 0.6f,
+    // 🎯 FIX: Extracted Magic Numbers
+    val minAudioLengthSamples: Int = 2048,
+    val mfccNormalizationFactor: Float = 350f
 )
 
 class VocalModeDetector @Inject constructor(
@@ -50,7 +54,8 @@ class VocalModeDetector @Inject constructor(
             val skip = (sampleRate * 0.1).toInt()
             val audioData = if (skip < trimmed.size) trimmed.copyOfRange(skip, trimmed.size) else trimmed
 
-            if (audioData.size < 2048) {
+            // 🎯 FIX: Use parameter instead of magic number 2048
+            if (audioData.size < parameters.minAudioLengthSamples) {
                 Log.w("VocalModeDetector", "Too little audio after trimming")
                 // Default to speech if too short, low confidence
                 return VocalAnalysis(VocalMode.SPEECH, 0.2f, VocalFeatures(0f, 0f, 0f, 0f))
@@ -137,7 +142,8 @@ class VocalModeDetector @Inject constructor(
 
         // MFCC Spread
         val mfccSpread = if (mfccFrames.size >= 2) {
-            (audioProcessor.calculateMFCCVariance(mfccFrames) / 350f).coerceIn(0f, 1f)
+            // 🎯 FIX: Use parameter instead of magic number 350f
+            (audioProcessor.calculateMFCCVariance(mfccFrames) / parameters.mfccNormalizationFactor).coerceIn(0f, 1f)
         } else 0f
 
         // Voiced Ratio
@@ -209,13 +215,22 @@ class VocalModeDetector @Inject constructor(
 
     private fun readWavFile(file: File): Pair<FloatArray, Int> {
         try {
+            // 🎯 FIX: Safety check against memory limit
+            if (file.length() > AudioConstants.MAX_LOADABLE_AUDIO_BYTES) {
+                Log.w("VocalModeDetector", "File too large for detection: ${file.length()}")
+                return Pair(floatArrayOf(), AudioConstants.SAMPLE_RATE)
+            }
+
             val bytes = FileInputStream(file).use { it.readBytes() }
-            if (bytes.size < 44) return Pair(floatArrayOf(), 44100)
+
+
+            if (bytes.size < AudioConstants.WAV_HEADER_SIZE) return Pair(floatArrayOf(), AudioConstants.SAMPLE_RATE)
 
             val sampleRate = ByteBuffer.wrap(bytes, 24, 4)
                 .order(ByteOrder.LITTLE_ENDIAN).int
 
-            val pcmData = bytes.sliceArray(44 until bytes.size)
+            // 🎯 FIX: Use constant instead of 44
+            val pcmData = bytes.sliceArray(AudioConstants.WAV_HEADER_SIZE until bytes.size)
             val audioData = FloatArray(pcmData.size / 2)
             for (i in audioData.indices) {
                 val sample = ((pcmData[i * 2 + 1].toInt() shl 8) or (pcmData[i * 2].toInt() and 0xFF)).toShort()
@@ -223,7 +238,8 @@ class VocalModeDetector @Inject constructor(
             }
             return Pair(audioData, sampleRate)
         } catch (e: Exception) {
-            return Pair(floatArrayOf(), 44100)
+
+            return Pair(floatArrayOf(), AudioConstants.SAMPLE_RATE)
         }
     }
 }

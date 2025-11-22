@@ -7,7 +7,7 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.reversey.AudioConstants
+import com.example.reversey.audio.AudioConstants
 import com.example.reversey.audio.AudioPlayerHelper
 import com.example.reversey.audio.AudioRecorderHelper
 import com.example.reversey.data.models.ChallengeType
@@ -112,8 +112,10 @@ class AudioViewModel @Inject constructor(
 
     private val _currentDifficulty = MutableStateFlow(DifficultyLevel.NORMAL)
 
-    val recordingState: StateFlow<Boolean> get() = audioRecorderHelper.isRecording//exposes state to scrapbook for background effect and sparkles
-    val amplitudeState: StateFlow<Float> get() = audioRecorderHelper.amplitude//exposes state to scrapbook for background effect and sparkles
+    // 🎯 FIX: Encapsulation - Assigned once instead of using custom getter
+    val recordingState: StateFlow<Boolean> = audioRecorderHelper.isRecording
+    val amplitudeState: StateFlow<Float> = audioRecorderHelper.amplitude
+
     val currentDifficultyFlow: StateFlow<DifficultyLevel> = _currentDifficulty.asStateFlow()
 
     private fun showUserMessage(message: String) {
@@ -121,7 +123,7 @@ class AudioViewModel @Inject constructor(
     }
 
     private fun validateRecordedFile(file: File?): Boolean {
-        return file != null && file.exists() && file.length() > 100
+        return file != null && file.exists() && file.length() > AudioConstants.MIN_VALID_RECORDING_SIZE
     }
 
     init {
@@ -149,7 +151,27 @@ class AudioViewModel @Inject constructor(
                 if (_uiState.value.isRecording) {
                     _uiState.update {
                         val newAmplitudes = it.amplitudes + amp
-                        it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
+                        it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES)) // Make sure MAX_WAVEFORM_SAMPLES is in Constants or use literal
+                    }
+                }
+            }
+        }
+
+        // --- NEW: Recorder Event Observation (Size Limits) ---
+        viewModelScope.launch {
+            audioRecorderHelper.events.collect { event ->
+                when (event) {
+                    "WARNING" -> _uiState.update {
+                        it.copy(showQualityWarning = true, qualityWarningMessage = "Approaching recording limit")
+                    }
+                    "STOP" -> {
+                        showUserMessage("Recording limit reached")
+                        // Determine if we are stopping a normal recording or an attempt
+                        if (_uiState.value.isRecordingAttempt) {
+                            stopAttempt()
+                        } else {
+                            stopRecording()
+                        }
                     }
                 }
             }
@@ -277,13 +299,14 @@ class AudioViewModel @Inject constructor(
             recordingProcessingMutex.withLock {
                 val file = audioRecorderHelper.stop()
 
-                if (validateRecordedFile(file)) {
+                // 🎯 CRITICAL FIX: Null Check & Smart Cast (removed !!)
+                if (file != null && validateRecordedFile(file)) {
 
                     if (!_uiState.value.isRecordingAttempt) {
                         // 🎯 CRITICAL FIX: Use OPTIMISTIC_KEY to prevent LazyColumn crash
                         val optimisticRecording = Recording(
                             name = "🎤 New Recording",
-                            originalPath = "${file!!.absolutePath}_OPTIMISTIC",
+                            originalPath = "${file.absolutePath}_OPTIMISTIC", // 🎯 Smart cast used here
                             reversedPath = null,
                             attempts = emptyList(),
                             vocalAnalysis = com.example.reversey.scoring.VocalAnalysis(
@@ -317,7 +340,7 @@ class AudioViewModel @Inject constructor(
                             }
                         }
                     } else {
-                        handleAttemptCompletion(file!!)
+                        handleAttemptCompletion(file) // 🎯 Smart cast used here
                     }
                 } else {
                     // Failure (File too short)
@@ -381,7 +404,8 @@ class AudioViewModel @Inject constructor(
                 val parentPath = uiState.value.parentRecordingPath
                 val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
 
-                if (validateRecordedFile(attemptFile) && parentPath != null) {
+                // 🎯 CRITICAL FIX: Null Check & Smart Cast (removed !!)
+                if (attemptFile != null && validateRecordedFile(attemptFile) && parentPath != null) {
                     _uiState.update { it.copy(
                         isRecordingAttempt = false,
                         statusText = "Scoring attempt...",
@@ -393,7 +417,7 @@ class AudioViewModel @Inject constructor(
                         scoreAttempt(
                             originalRecordingPath = parentRecording.originalPath,
                             reversedRecordingPath = parentRecording.reversedPath ?: "",
-                            attemptFilePath = attemptFile!!.absolutePath,
+                            attemptFilePath = attemptFile.absolutePath, // 🎯 Smart cast used here
                             challengeType = challengeType
                         )
                     } else {
@@ -530,7 +554,7 @@ class AudioViewModel @Inject constructor(
         referenceAudio: FloatArray,
         attemptAudio: FloatArray,
         challengeType: ChallengeType,
-        sampleRate: Int = 44100
+        sampleRate: Int = AudioConstants.SAMPLE_RATE
     ): ScoringResult {
         return vocalScoringOrchestrator.scoreAttempt(
             referenceAudio = referenceAudio,
@@ -554,7 +578,9 @@ class AudioViewModel @Inject constructor(
     }
 
     fun play(path: String) {
-        _uiState.update { it.copy(isPaused = false, playbackProgress = 0f) }
+        // 🎯 FIX: Removed 'playbackProgress = 0f' to stop race condition/flickering
+        _uiState.update { it.copy(isPaused = false) }
+
         audioPlayerHelper.play(path) {
             _uiState.update { it.copy(currentlyPlayingPath = null, isPaused = false, playbackProgress = 0f) }
         }
@@ -692,19 +718,37 @@ class AudioViewModel @Inject constructor(
     }
 
     private fun readAudioFile(path: String): FloatArray {
+        val file = File(path)
+
+        if (!file.exists()) {
+            Log.e("AudioViewModel", "File not found: $path")
+            return floatArrayOf()
+        }
+
+        // NEW: Check against AudioConstants
+        if (file.length() > AudioConstants.MAX_LOADABLE_AUDIO_BYTES) {
+            Log.w("AudioViewModel", "File too large (${file.length()} bytes). Limit: ${AudioConstants.MAX_LOADABLE_AUDIO_BYTES}")
+            return floatArrayOf()
+        }
+
+        if (file.length() <= AudioConstants.WAV_HEADER_SIZE) {
+            return floatArrayOf()
+        }
+
         return try {
-            val file = File(path)
-            if (!file.exists() || file.length() <= 44) return floatArrayOf()
             val bytes = file.readBytes()
-            val audioData = bytes.sliceArray(44 until bytes.size)
+            if (bytes.size <= AudioConstants.WAV_HEADER_SIZE) return floatArrayOf()
+
+            val audioData = bytes.sliceArray(AudioConstants.WAV_HEADER_SIZE until bytes.size)
+
             FloatArray(audioData.size / 2) { i ->
-                val byteIndex = i * 2
-                if (byteIndex + 1 < audioData.size) {
-                    val sample = (audioData[byteIndex].toInt() and 0xFF) or
-                            ((audioData[byteIndex + 1].toInt() and 0xFF) shl 8)
-                    sample.toShort().toFloat() / Short.MAX_VALUE.toFloat()
-                } else 0f
+                val low = audioData[i * 2].toInt() and 0xFF
+                val high = audioData[i * 2 + 1].toInt() shl 8
+                (high or low).toShort() / 32768f
             }
-        } catch (e: Exception) { floatArrayOf() }
+        } catch (e: Exception) {
+            Log.e("AudioViewModel", "Error reading audio file", e)
+            floatArrayOf()
+        }
     }
 }

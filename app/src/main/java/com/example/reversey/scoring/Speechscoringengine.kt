@@ -2,28 +2,28 @@ package com.example.reversey.scoring
 
 import android.content.Context
 import android.util.Log
-import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.audio.AudioConstants
 import com.example.reversey.audio.processing.AudioProcessor
+import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.data.repositories.SettingsDataStore
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.abs
-import kotlin.math.exp
 import kotlin.math.log2
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
-import com.example.reversey.data.repositories.SettingsDataStore
 
 /**
  * 🎤 SPEECH SCORING ENGINE
@@ -133,7 +133,7 @@ class SpeechScoringEngine @Inject constructor(
         playerAttempt: FloatArray,
         challengeType: ChallengeType,
         difficulty: DifficultyLevel,
-        sampleRate: Int = 44100
+        sampleRate: Int = AudioConstants.SAMPLE_RATE
     ): ScoringResult {
 
         if (difficulty != _currentDifficulty.value) {

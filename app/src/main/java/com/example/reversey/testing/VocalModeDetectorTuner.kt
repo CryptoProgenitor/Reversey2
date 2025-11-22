@@ -5,6 +5,7 @@ import com.example.reversey.audio.processing.AudioProcessor
 import com.example.reversey.scoring.*
 import java.io.File
 import kotlin.math.sqrt
+import com.example.reversey.audio.AudioConstants
 
 /**
  * VocalModeDetector Auto-Tuner BIT Module
@@ -223,20 +224,30 @@ class VocalModeDetectorTuner(
         return tempFile
     }
 
+
     /**
      * Read WAV file - copied exactly from VocalModeDetector
      */
     private fun readWavFile(file: File): Pair<FloatArray, Int> {
         try {
+            // 🎯 FIX: Safety check against memory limit (OOM protection)
+            if (file.length() > AudioConstants.MAX_LOADABLE_AUDIO_BYTES) {
+                Log.w(TAG, "File too large for processing: ${file.length()}")
+                return Pair(floatArrayOf(), AudioConstants.SAMPLE_RATE)
+            }
+
             val bytes = file.readBytes()
-            if (bytes.size < 44) {
-                return Pair(floatArrayOf(), 44100)
+
+            // 🎯 FIX: Use constant instead of 44
+            if (bytes.size < AudioConstants.WAV_HEADER_SIZE) {
+                return Pair(floatArrayOf(), AudioConstants.SAMPLE_RATE)
             }
 
             val sampleRate = java.nio.ByteBuffer.wrap(bytes, 24, 4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN).int
 
-            val pcmData = bytes.sliceArray(44 until bytes.size)
+            // 🎯 FIX: Use constant instead of 44
+            val pcmData = bytes.sliceArray(AudioConstants.WAV_HEADER_SIZE until bytes.size)
             val audioData = FloatArray(pcmData.size / 2)
             for (i in audioData.indices) {
                 val sample = ((pcmData[i * 2 + 1].toInt() shl 8) or
@@ -248,7 +259,7 @@ class VocalModeDetectorTuner(
 
         } catch (e: Exception) {
             Log.e(TAG, "Error reading WAV: ${e.message}")
-            return Pair(floatArrayOf(), 44100)
+            return Pair(floatArrayOf(), AudioConstants.SAMPLE_RATE)
         }
     }
 

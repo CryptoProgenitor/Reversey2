@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,6 +77,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.reversey.audio.AudioConstants
 import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.data.models.Recording
 import com.example.reversey.ui.components.AnalysisToast
@@ -86,6 +88,7 @@ import com.example.reversey.ui.menu.ModalScreen
 import com.example.reversey.ui.theme.AestheticTheme
 import com.example.reversey.ui.theme.MaterialColors
 import com.example.reversey.ui.theme.ReVerseYTheme
+import com.example.reversey.ui.theme.ScrapbookThemeComponents
 import com.example.reversey.ui.viewmodels.AudioViewModel
 import com.example.reversey.ui.viewmodels.ThemeViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -96,13 +99,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
-
-import androidx.compose.runtime.snapshotFlow
-import kotlin.math.abs
-import com.example.reversey.ui.theme.ScrapbookThemeComponents
 
 
 @AndroidEntryPoint
@@ -134,7 +134,7 @@ class MainActivity : ComponentActivity() {
 
 // Audio constants
 object AudioConstants {
-    const val SAMPLE_RATE = 44100
+    const val SAMPLE_RATE = AudioConstants.SAMPLE_RATE
     const val CHANNEL_CONFIG = android.media.AudioFormat.CHANNEL_IN_MONO
     const val AUDIO_FORMAT = android.media.AudioFormat.ENCODING_PCM_16BIT
     const val MAX_WAVEFORM_SAMPLES = 200

@@ -483,7 +483,7 @@ private fun SwirlingPastelBackground(
 
     // Scroll-triggered saturation
     val scrollSaturation by ScrapbookThemeComponents.scrollVelocity.collectAsState()
-    println("DEBUG: scrollSaturation = $scrollSaturation")
+
     val scrollSaturationAnimated = remember { Animatable(0f) }
 
     // 🔹 NEW: event ID – bumps every time triggerScrollPop() is called
@@ -545,7 +545,7 @@ private fun SwirlingPastelBackground(
         // Layer 1: Blobs (Interpolated Colors)
         Canvas(modifier = Modifier.fillMaxSize()) {
             // Helper to mix colors based on saturation state
-            println("DEBUG: Canvas saturation = $saturation")
+
             fun mix(c1: Color, c2: Color) = lerp(c1, c2, saturation)
 
             val blobs = listOf(

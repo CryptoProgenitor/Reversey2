@@ -1,21 +1,22 @@
 package com.example.reversey.testing
 
+
 import android.content.Context
 import android.util.Log
-import com.example.reversey.scoring.DifficultyLevel
-// ❌ ScoringPresets removed – legacy
-// import com.example.reversey.scoring.ScoringPresets
-import com.example.reversey.data.models.ChallengeType
 import com.example.reversey.R
+import com.example.reversey.audio.AudioConstants
+import com.example.reversey.data.models.ChallengeType
+import com.example.reversey.scoring.DifficultyLevel
 import com.example.reversey.scoring.VocalScoringOrchestrator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileWriter
-import java.text.SimpleDateFormat
-import java.util.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -170,7 +171,7 @@ class BITRunner @Inject constructor(
             attemptAudio = attemptAudio,
             challengeType = challengeType,
             difficulty = difficulty,
-            sampleRate = 44100
+            sampleRate = AudioConstants.SAMPLE_RATE
         )
 
         val target = testFile.targetForward

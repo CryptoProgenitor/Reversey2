@@ -3,6 +3,7 @@ package com.example.reversey.scoring
 import android.util.Log
 import com.example.reversey.data.models.ChallengeType
 import javax.inject.Inject
+import com.example.reversey.audio.AudioConstants
 
 class VocalScoringOrchestrator @Inject constructor(
     private val vocalModeDetector: VocalModeDetector,
@@ -16,7 +17,7 @@ class VocalScoringOrchestrator @Inject constructor(
         attemptAudio: FloatArray,
         challengeType: ChallengeType,
         difficulty: DifficultyLevel,
-        sampleRate: Int = 44100
+        sampleRate: Int = AudioConstants.SAMPLE_RATE
     ): ScoringResult {
 
         Log.d("VSO", "=== ORCHESTRATOR ENTRY ===")
