@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 93
-        versionName = "20.0.1a-menu-and-sakura-glow-up"
+        versionName = "20.0.2-menu-and-sakura-glow-up, bugfixes"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

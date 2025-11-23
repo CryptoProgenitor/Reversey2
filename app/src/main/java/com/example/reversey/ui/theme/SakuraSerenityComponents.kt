@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -476,7 +477,7 @@ class SakuraSerenityComponents : ThemeComponents {
 
     // --- JAPANESE ICONS (CANVAS) ---
 
-    // 🌸 GEMINI'S TORII RECORD ICON
+    // 🌸 TORII RECORD BUTTON ICON
     @Composable
     fun ToriiRecordIcon(
         isRecording: Boolean,
@@ -500,72 +501,113 @@ class SakuraSerenityComponents : ThemeComponents {
         Canvas(modifier = Modifier.size(iconSize)) {
             val w = size.width
             val h = size.height
-            val stroke = 3.dp.toPx() * (iconSize / 48.dp)
+            val stroke = 3.6.dp.toPx() * (iconSize / 48.dp)  // 20% thicker strokes (3 * 1.2 = 3.6)
 
-            // --- Torii Gate Structure ---
-            // Top Bar (Kasagi) - Curved
+            // Calculate crossbeam dimensions for 14pt text
+            val textSize = 14.sp.toPx() * (iconSize / 48.dp)
+            val crossbeamInternalHeight = 10.sp.toPx() * (iconSize / 48.dp)
+            val crossbeamTotalHeight = crossbeamInternalHeight + (stroke * 2)
+
+            // Position crossbeam
+            val crossbeamCenterY = h * 0.6f
+            val crossbeamTop = crossbeamCenterY - (crossbeamTotalHeight / 2f)
+            val crossbeamBottom = crossbeamCenterY + (crossbeamTotalHeight / 2f)
+            val crossbeamLeft = w * 0.015f
+            val crossbeamRight = w * 0.985f
+
+            // --- SCALED TORII GATE STRUCTURE ---
+            // INVERTED CONCAVE Top Bar (Kasagi) - Curved downward instead of upward
             val topPath = Path().apply {
-                moveTo(w * 0.1f, h * 0.2f)
-                quadraticBezierTo(w * 0.5f, h * 0.1f, w * 0.9f, h * 0.2f)
+                moveTo(w * 0.00f, crossbeamTop - (stroke * 2))
+                quadraticBezierTo(w * 0.5f, crossbeamTop + (stroke * 1), w * 1.0f, crossbeamTop - (stroke * 2))  // Inverted curve
             }
-            drawPath(topPath, currentTintColor, style = Stroke(stroke, cap = StrokeCap.Round))
+            drawPath(topPath, currentTintColor, style = Stroke(stroke * 1.2f, cap = StrokeCap.Round))  // 20% thicker
 
-            // Second Bar (Nuki)
-            drawLine(currentTintColor, Offset(w * 0.2f, h * 0.35f), Offset(w * 0.8f, h * 0.35f), stroke)
+            // Crossbeam (Nuki) with thicker stroke
+            drawRect(
+                color = currentTintColor,
+                topLeft = Offset(crossbeamLeft, crossbeamTop),
+                size = Size(crossbeamRight - crossbeamLeft, crossbeamBottom - crossbeamTop),
+                style = Stroke(width = stroke)  // Already 20% thicker from base calculation
+            )
 
-            // Pillars (Hashira)
-            val leftPillarStart = Offset(w * 0.3f, h * 0.25f)
-            val leftPillarEnd = Offset(w * 0.25f, h * 0.9f)
-            val rightPillarStart = Offset(w * 0.7f, h * 0.25f)
-            val rightPillarEnd = Offset(w * 0.75f, h * 0.9f)
+            // 20% TALLER SLANTED PILLARS (Hashira)
+            val leftPillarTop = Offset(w * 0.12f, crossbeamTop - (stroke * 1f))
+            val leftPillarBottom = Offset(w * 0.02f, h * 1.2f)  // 20% taller (was 0.9f, now 0.96f)
+            val rightPillarTop = Offset(w * 0.88f, crossbeamTop - (stroke * 1f))
+            val rightPillarBottom = Offset(w * 0.98f, h * 1.2f)  // 20% taller (was 0.9f, now 0.96f)
 
-            drawLine(currentTintColor, leftPillarStart, leftPillarEnd, stroke)
-            drawLine(currentTintColor, rightPillarStart, rightPillarEnd, stroke)
+            drawLine(currentTintColor, leftPillarTop, leftPillarBottom, stroke * 1.4f, StrokeCap.Round)  // Thicker pillars
+            drawLine(currentTintColor, rightPillarTop, rightPillarBottom, stroke * 1.4f, StrokeCap.Round)  // Thicker pillars
 
-            // --- Conditional Sound Waves ---
+            // --- REC/STOP TEXT INSIDE CROSSBEAM ---
+            val labelText = if (isRecording) "STOP" else "REC"
+
+            drawIntoCanvas { canvas ->
+                val paint = android.graphics.Paint().apply {
+                    color = currentTintColor.toArgb()
+                    this.textSize = textSize
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+
+                val textY = crossbeamCenterY + (textSize / 3f)
+
+                canvas.nativeCanvas.drawText(
+                    labelText,
+                    w * 0.5f,
+                    textY,
+                    paint
+                )
+            }
+
+            // --- REDUCED VERTICAL SOUND WAVES ---
             if (isRecording) {
-                val waveColor = currentTintColor.copy(alpha = 0.8f)
-                val waveStroke = 1.5.dp.toPx() * (iconSize / 48.dp)
+                val waveColor = currentTintColor.copy(alpha = 0.7f)
+                val waveStroke = 1.44.dp.toPx() * (iconSize / 48.dp)  // 20% thicker waves (1.2 * 1.2 = 1.44)
+                val numWaves = 1
 
-                // Left Pillar Waves
-                val numWaves = 3
+                // Left side vertical wave
                 for (i in 0 until numWaves) {
-                    val baseWaveY = leftPillarStart.y + (leftPillarEnd.y - leftPillarStart.y) * ((i + 0.5f) / numWaves)
-                    val waveAmplitude = 5.dp.toPx() * (iconSize.value / 48f)
-                    val waveLength = 10.dp.toPx() * (iconSize.value / 48f)
+                    val waveX = w * (-0.05f)
+                    val waveStartY = h * 0.25f
+                    val waveEndY = h * 0.85f  // Extended to match taller pillars
+                    val waveAmplitude = 4.dp.toPx() * (iconSize.value / 48f)
 
-                    val animatedWaveOffset = (waveOffset + i * (1f / numWaves)) % 1f
+                    val animatedOffset = (waveOffset + i * 0.3f) % 1f
 
-                    val wavePath = Path().apply {
-                        val startX = leftPillarStart.x - waveLength / 2
-                        val endX = leftPillarStart.x + waveLength / 2
+                    val wavePath = Path()
+                    val steps = 15
+                    for (step in 0..steps) {
+                        val t = step.toFloat() / steps
+                        val y = waveStartY + (waveEndY - waveStartY) * t
+                        val x = waveX + sin((animatedOffset + t * 3) * 2 * PI).toFloat() * waveAmplitude
 
-                        moveTo(startX, baseWaveY + sin(animatedWaveOffset * 2 * PI).toFloat() * waveAmplitude)
-                        quadraticBezierTo(
-                            leftPillarStart.x, baseWaveY + cos(animatedWaveOffset * 2 * PI + PI/2).toFloat() * waveAmplitude,
-                            endX, baseWaveY + sin(animatedWaveOffset * 2 * PI + PI).toFloat() * waveAmplitude
-                        )
+                        if (step == 0) wavePath.moveTo(x, y)
+                        else wavePath.lineTo(x, y)
                     }
                     drawPath(wavePath, waveColor, style = Stroke(waveStroke, cap = StrokeCap.Round))
                 }
 
-                // Right Pillar Waves
+                // Right side vertical wave
                 for (i in 0 until numWaves) {
-                    val baseWaveY = rightPillarStart.y + (rightPillarEnd.y - rightPillarStart.y) * ((i + 0.5f) / numWaves)
-                    val waveAmplitude = 5.dp.toPx() * (iconSize.value / 48f)
-                    val waveLength = 10.dp.toPx() * (iconSize.value / 48f)
+                    val waveX = w * (1.05f)
+                    val waveStartY = h * 0.25f
+                    val waveEndY = h * 0.85f  // Extended to match taller pillars
+                    val waveAmplitude = 4.dp.toPx() * (iconSize.value / 48f)
 
-                    val animatedWaveOffset = (waveOffset + i * (1f / numWaves) + 0.5f) % 1f
+                    val animatedOffset = (waveOffset + i * 0.3f + 0.5f) % 1f
 
-                    val wavePath = Path().apply {
-                        val startX = rightPillarStart.x - waveLength / 2
-                        val endX = rightPillarStart.x + waveLength / 2
+                    val wavePath = Path()
+                    val steps = 15
+                    for (step in 0..steps) {
+                        val t = step.toFloat() / steps
+                        val y = waveStartY + (waveEndY - waveStartY) * t
+                        val x = waveX + sin((animatedOffset + t * 3) * 2 * PI).toFloat() * waveAmplitude
 
-                        moveTo(startX, baseWaveY + sin(animatedWaveOffset * 2 * PI).toFloat() * waveAmplitude)
-                        quadraticBezierTo(
-                            rightPillarStart.x, baseWaveY + cos(animatedWaveOffset * 2 * PI + PI/2).toFloat() * waveAmplitude,
-                            endX, baseWaveY + sin(animatedWaveOffset * 2 * PI + PI).toFloat() * waveAmplitude
-                        )
+                        if (step == 0) wavePath.moveTo(x, y)
+                        else wavePath.lineTo(x, y)
                     }
                     drawPath(wavePath, waveColor, style = Stroke(waveStroke, cap = StrokeCap.Round))
                 }
@@ -736,13 +778,13 @@ class SakuraSerenityComponents : ThemeComponents {
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
                     Button(onClick = { onShare(path); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF69B4))) {
-                        Text("Share Blossom 🌸")
+                        Text("Share Blossom 🌸▶️")
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(onClick = { onShare(revPath); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDB7093))) {
-                            Text("Share Petals 🍃")
+                            Text("Share Petals 🍃◀️")
                         }
                     }
                 }

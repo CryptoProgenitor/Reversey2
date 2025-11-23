@@ -287,7 +287,15 @@ class AudioViewModel @Inject constructor(
 
                 audioRecorderHelper.start(file)
 
-                _uiState.update { it.copy(isRecording = true, statusText = "Recording...", amplitudes = emptyList()) }
+                _uiState.update { it.copy(
+                    isRecording = true,
+                    isRecordingAttempt = false,        // Fix the bug - when rapid Main Record Button Pressing Triggers "Parent Not Found"
+                    parentRecordingPath = null,        // Fix the bug - when rapid Main Record Button Pressing Triggers "Parent Not Found"
+                    pendingChallengeType = null,       // Fix the bug - when rapid Main Record Button Pressing Triggers "Parent Not Found"
+                    statusText = "Recording...",
+                    amplitudes = emptyList()
+                    // Everything else preserved!
+                ) }
             }
         }
     }
