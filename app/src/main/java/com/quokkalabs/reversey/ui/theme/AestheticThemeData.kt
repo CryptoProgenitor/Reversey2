@@ -57,7 +57,9 @@ data class AestheticThemeData(
     val scoreFeedback: ScoreFeedback = ScoreFeedback.default(),
     val menuColors: MenuColors = MenuColors.fromColors(
         primaryTextColor, secondaryTextColor, cardBorder, primaryGradient
-    )
+    ),
+    // 🎖️ Pro Theme Indicator
+    val isPro: Boolean = false
 )
 
 // --- NEW DATA CLASSES ---

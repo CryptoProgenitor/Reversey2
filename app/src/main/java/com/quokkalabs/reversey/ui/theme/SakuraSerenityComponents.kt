@@ -139,7 +139,8 @@ object SakuraSerenityTheme {
                     Color(0xFFFFA07A)
                 )
             )
-        )
+        ),
+        isPro = true
     )
 }
 

@@ -140,7 +140,8 @@ object EggTheme {
                     Color(0xFFFFE0B2)
                 )
             )
-        )
+        ),
+        isPro = true
     )
 }
 

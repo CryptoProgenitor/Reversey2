@@ -124,7 +124,8 @@ object ScrapbookTheme {
             secondaryText = Color(0xFF5D4037),
             border = Color(0xFF8B4513),
             gradient = Brush.verticalGradient(colors = listOf(Color(0xFFFFF3E0), Color(0xFFFFE0B2)))
-        )
+        ),
+        isPro = true
     )
 }
 

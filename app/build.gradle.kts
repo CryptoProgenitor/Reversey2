@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 93
-        versionName = "20.0.3-renamed to com.quokkalabs.reversey"
+        versionName = "20.0.4-pro-badges-in-themepicker"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

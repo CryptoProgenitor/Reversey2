@@ -130,7 +130,8 @@ object SnowyOwlTheme {
                     Color(0xFF1c2541)
                 )
             )
-        )
+        ),
+        isPro = true
     )
 }
 

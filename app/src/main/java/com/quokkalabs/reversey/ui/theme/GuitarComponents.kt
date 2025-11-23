@@ -152,7 +152,8 @@ object GuitarTheme {
                     Color(0xFFFFF3E0)
                 )
             )
-        )
+        ),
+        isPro = true
     )
 }
 
