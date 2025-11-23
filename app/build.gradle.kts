@@ -9,18 +9,18 @@ plugins {
 }
 
 android {
-    namespace = "com.example.reversey"
+    namespace = "com.quokkalabs.reversey"
     compileSdk = 35
     //compileSdk {
     //    WAS version = release(36)// was version = release(36)
     //}
 
     defaultConfig {
-        applicationId = "com.example.reversey"
+        applicationId = "com.quokkalabs.reversey"
         minSdk = 26
         targetSdk = 35
         versionCode = 93
-        versionName = "20.0.2-menu-and-sakura-glow-up, bugfixes"
+        versionName = "20.0.3-renamed to com.quokkalabs.reversey"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
