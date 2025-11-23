@@ -501,47 +501,77 @@ class SakuraSerenityComponents : ThemeComponents {
         Canvas(modifier = Modifier.size(iconSize)) {
             val w = size.width
             val h = size.height
-            val stroke = 3.6.dp.toPx() * (iconSize / 48.dp)  // 20% thicker strokes (3 * 1.2 = 3.6)
+            val stroke = 3.6.dp.toPx() * (iconSize / 48.dp)  // 20% thicker strokes
 
-            // Calculate crossbeam dimensions for 14pt text
-            val textSize = 14.sp.toPx() * (iconSize / 48.dp)
-            val crossbeamInternalHeight = 10.sp.toPx() * (iconSize / 48.dp)
+            // Calculate THINNER crossbeam dimensions (no text inside)
+            val crossbeamInternalHeight = 2.sp.toPx() * (iconSize / 48.dp)  // Reduced from 10sp to 6sp
             val crossbeamTotalHeight = crossbeamInternalHeight + (stroke * 2)
 
             // Position crossbeam
-            val crossbeamCenterY = h * 0.6f
+            val crossbeamCenterY = h * 0.5f
             val crossbeamTop = crossbeamCenterY - (crossbeamTotalHeight / 2f)
             val crossbeamBottom = crossbeamCenterY + (crossbeamTotalHeight / 2f)
             val crossbeamLeft = w * 0.015f
             val crossbeamRight = w * 0.985f
 
-            // --- SCALED TORII GATE STRUCTURE ---
-            // INVERTED CONCAVE Top Bar (Kasagi) - Curved downward instead of upward
+            // --- TORII GATE STRUCTURE ---
+            // INVERTED CONCAVE Top Bar (Kasagi)
             val topPath = Path().apply {
                 moveTo(w * 0.00f, crossbeamTop - (stroke * 2))
-                quadraticBezierTo(w * 0.5f, crossbeamTop + (stroke * 1), w * 1.0f, crossbeamTop - (stroke * 2))  // Inverted curve
+                quadraticBezierTo(w * 0.5f, crossbeamTop + (stroke * 1), w * 1.0f, crossbeamTop - (stroke * 2))
             }
-            drawPath(topPath, currentTintColor, style = Stroke(stroke * 1.2f, cap = StrokeCap.Round))  // 20% thicker
+            drawPath(topPath, currentTintColor, style = Stroke(stroke * 1.2f, cap = StrokeCap.Round))
 
-            // Crossbeam (Nuki) with thicker stroke
+            // THINNER Crossbeam (Nuki)
             drawRect(
                 color = currentTintColor,
                 topLeft = Offset(crossbeamLeft, crossbeamTop),
                 size = Size(crossbeamRight - crossbeamLeft, crossbeamBottom - crossbeamTop),
-                style = Stroke(width = stroke)  // Already 20% thicker from base calculation
+                style = Stroke(width = stroke)
             )
 
-            // 20% TALLER SLANTED PILLARS (Hashira)
+            // TALLER SLANTED PILLARS (Hashira)
             val leftPillarTop = Offset(w * 0.12f, crossbeamTop - (stroke * 1f))
-            val leftPillarBottom = Offset(w * 0.02f, h * 1.2f)  // 20% taller (was 0.9f, now 0.96f)
+            val leftPillarBottom = Offset(w * 0.02f, h * 1.2f)  // Shortened to make room for text below
             val rightPillarTop = Offset(w * 0.88f, crossbeamTop - (stroke * 1f))
-            val rightPillarBottom = Offset(w * 0.98f, h * 1.2f)  // 20% taller (was 0.9f, now 0.96f)
+            val rightPillarBottom = Offset(w * 0.98f, h * 1.2f)  // Shortened to make room for text below
 
-            drawLine(currentTintColor, leftPillarTop, leftPillarBottom, stroke * 1.4f, StrokeCap.Round)  // Thicker pillars
-            drawLine(currentTintColor, rightPillarTop, rightPillarBottom, stroke * 1.4f, StrokeCap.Round)  // Thicker pillars
+            drawLine(currentTintColor, leftPillarTop, leftPillarBottom, stroke * 1.4f, StrokeCap.Round)
+            drawLine(currentTintColor, rightPillarTop, rightPillarBottom, stroke * 1.4f, StrokeCap.Round)
 
-            // --- REC/STOP TEXT INSIDE CROSSBEAM ---
+            // --- HANGING GONG SYMBOL ---
+            val gongCenterX = w * 0.5f
+            val gongCenterY = crossbeamBottom + (h * 0.12f)  // Hanging below crossbeam
+            val gongRadius = w * 0.12f
+
+            // Suspension cord
+            drawLine(
+                color = currentTintColor,
+                start = Offset(gongCenterX, crossbeamBottom),
+                end = Offset(gongCenterX, gongCenterY - gongRadius),
+                strokeWidth = stroke * 0.3f,
+                cap = StrokeCap.Round
+            )
+
+            // Gong circle
+            drawCircle(
+                color = currentTintColor,
+                radius = gongRadius,
+                center = Offset(gongCenterX, gongCenterY),
+                style = Stroke(width = stroke * 0.8f)
+            )
+
+            // Inner gong detail (smaller circle)
+            drawCircle(
+                color = currentTintColor,
+                radius = gongRadius * 0.6f,
+                center = Offset(gongCenterX, gongCenterY),
+                style = Stroke(width = stroke * 0.4f)
+            )
+
+            // --- REC/STOP TEXT BELOW GATE ---
             val labelText = if (isRecording) "STOP" else "REC"
+            val textSize = 14.sp.toPx() * (iconSize / 48.dp)
 
             drawIntoCanvas { canvas ->
                 val paint = android.graphics.Paint().apply {
@@ -552,7 +582,8 @@ class SakuraSerenityComponents : ThemeComponents {
                     isAntiAlias = true
                 }
 
-                val textY = crossbeamCenterY + (textSize / 3f)
+                // Position text below the pillars
+                val textY = h * 1.1f
 
                 canvas.nativeCanvas.drawText(
                     labelText,
@@ -562,54 +593,47 @@ class SakuraSerenityComponents : ThemeComponents {
                 )
             }
 
-            // --- REDUCED VERTICAL SOUND WAVES ---
+            // --- CONCENTRIC ARC SOUND WAVES ( ( ( [GATE] ) ) ) ---
             if (isRecording) {
-                val waveColor = currentTintColor.copy(alpha = 0.7f)
-                val waveStroke = 1.44.dp.toPx() * (iconSize / 48.dp)  // 20% thicker waves (1.2 * 1.2 = 1.44)
-                val numWaves = 1
+                val waveColor = currentTintColor
+                val waveStroke = 3.dp.toPx() * (iconSize / 48.dp)
 
-                // Left side vertical wave
-                for (i in 0 until numWaves) {
-                    val waveX = w * (-0.05f)
-                    val waveStartY = h * 0.25f
-                    val waveEndY = h * 0.85f  // Extended to match taller pillars
-                    val waveAmplitude = 4.dp.toPx() * (iconSize.value / 48f)
+                val centerY = crossbeamCenterY
 
-                    val animatedOffset = (waveOffset + i * 0.3f) % 1f
+                // Left side arcs ( ( ( - positioned LEFT of left pillar
+                for (i in 0 until 3) {
+                    val leftX = w * (-0.6f - i * 0.04f)  // NEW: -15%, -19%, -23%
+                    val radius = 15.dp.toPx() * (1 + i * 0.5f) * (iconSize / 48.dp)
 
-                    val wavePath = Path()
-                    val steps = 15
-                    for (step in 0..steps) {
-                        val t = step.toFloat() / steps
-                        val y = waveStartY + (waveEndY - waveStartY) * t
-                        val x = waveX + sin((animatedOffset + t * 3) * 2 * PI).toFloat() * waveAmplitude
+                    val animatedAlpha = 0.5f + 0.3f * sin((waveOffset + i * 0.5f) * 2 * PI).toFloat()
 
-                        if (step == 0) wavePath.moveTo(x, y)
-                        else wavePath.lineTo(x, y)
-                    }
-                    drawPath(wavePath, waveColor, style = Stroke(waveStroke, cap = StrokeCap.Round))
+                    drawArc(
+                        color = waveColor.copy(alpha = animatedAlpha),
+                        startAngle = -60f,
+                        sweepAngle = 120f,
+                        useCenter = false,
+                        topLeft = Offset(leftX - radius, centerY - radius),
+                        size = Size(radius * 2, radius * 2),
+                        style = Stroke(width = waveStroke, cap = StrokeCap.Round)
+                    )
                 }
 
-                // Right side vertical wave
-                for (i in 0 until numWaves) {
-                    val waveX = w * (1.05f)
-                    val waveStartY = h * 0.25f
-                    val waveEndY = h * 0.85f  // Extended to match taller pillars
-                    val waveAmplitude = 4.dp.toPx() * (iconSize.value / 48f)
+                // Right side arcs ) ) ) - positioned RIGHT of right pillar
+                for (i in 0 until 3) {
+                    val rightX = w * (1.6f + i * 0.04f)  // NEW: 115%, 119%, 123%
+                    val radius = 15.dp.toPx() * (1 + i * 0.5f) * (iconSize / 48.dp)
 
-                    val animatedOffset = (waveOffset + i * 0.3f + 0.5f) % 1f
+                    val animatedAlpha = 0.5f + 0.3f * sin((waveOffset + i * 0.5f + 0.3f) * 2 * PI).toFloat()
 
-                    val wavePath = Path()
-                    val steps = 15
-                    for (step in 0..steps) {
-                        val t = step.toFloat() / steps
-                        val y = waveStartY + (waveEndY - waveStartY) * t
-                        val x = waveX + sin((animatedOffset + t * 3) * 2 * PI).toFloat() * waveAmplitude
-
-                        if (step == 0) wavePath.moveTo(x, y)
-                        else wavePath.lineTo(x, y)
-                    }
-                    drawPath(wavePath, waveColor, style = Stroke(waveStroke, cap = StrokeCap.Round))
+                    drawArc(
+                        color = waveColor.copy(alpha = animatedAlpha),
+                        startAngle = 120f,
+                        sweepAngle = 120f,
+                        useCenter = false,
+                        topLeft = Offset(rightX - radius, centerY - radius),
+                        size = Size(radius * 2, radius * 2),
+                        style = Stroke(width = waveStroke, cap = StrokeCap.Round)
+                    )
                 }
             }
         }
