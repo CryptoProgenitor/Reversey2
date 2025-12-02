@@ -46,11 +46,20 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.random.Random
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.quokkalabs.reversey.R
+
 
 /**
  * 🥚 EGG THEME - PRO
  * Hand-drawn aesthetic with fried eggs, sticky notes, and bouncing eggs!
  */
+
+// Shared recording state for bouncing eggs
+internal var eggRecordingState = mutableStateOf(false)
+
 object EggTheme {
     const val THEME_ID = "egg"
 
@@ -236,16 +245,26 @@ class EggThemeComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         content: @Composable () -> Unit
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(aesthetic.primaryGradient)
-        ) {
-            // Bouncing eggs behind all content
+        Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                painter = painterResource(id = R.drawable.gingham_cloth),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFFFF8E1).copy(alpha = 0.2f))
+            )
+
+            // BouncingEggs reads from eggRecordingState internally
             BouncingEggs(floorHeightOffset = 90.dp)
+
             content()
         }
     }
+
 
     // --- NEW INTERFACE METHODS ---
 
@@ -383,7 +402,7 @@ fun EggRecordingItem(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .shadow(elevation = 0.dp, shape = RoundedCornerShape(16.dp))
             .border(width = 4.dp, color = Color(0xFF2E2E2E), shape = RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBF0)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xBBFFFBF0)),  //recording card transparency
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -414,7 +433,14 @@ fun EggRecordingItem(
                         color = Color(0xFF2E2E2E).copy(alpha = 0.7f)
                     )
                 }
-                FriedEggDecoration(size = 35.dp, rotation = -20f)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    HandDrawnEggButton(
+                        onClick = { showDeleteDialog = true },
+                        backgroundColor = Color(0xFFFF5722),
+                        size = 50.dp
+                    ) { CrackedEggIcon() }
+                    Text("Del", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -494,15 +520,6 @@ fun EggRecordingItem(
                         Text("Rev", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
                     }
                 }
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    HandDrawnEggButton(
-                        onClick = { showDeleteDialog = true },
-                        backgroundColor = Color(0xFFFF5722),
-                        size = 50.dp
-                    ) { CrackedEggIcon() }
-                    Text("Del", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
-                }
             }
         }
     }
@@ -545,7 +562,7 @@ fun EggAttemptItem(
             .padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
             .shadow(elevation = 0.dp, shape = RoundedCornerShape(16.dp))
             .border(width = 4.dp, color = Color(0xFF2E2E2E), shape = RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBF0)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xBBFFFBF0)),//attempt card transparency set to 88
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
@@ -615,7 +632,7 @@ fun EggAttemptItem(
 
                         if (attempt.reversedAttemptFilePath != null) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                HandDrawnEggButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, backgroundColor = Color(0xFFFF8A65), size = 40.dp) { EggReverseIcon(Color(0xFF2E2E2E)) }
+                                HandDrawnEggButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, backgroundColor = Color(0xFFFF8A65), size = 40.dp) { EggRewindIcon(Color(0xFF2E2E2E)) }
                                 Text("Rev", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp), color = Color(0xFF2E2E2E))
                             }
                         }
@@ -932,6 +949,10 @@ data class EggParticle(
 /**
  * Bouncing eggs with accelerometer physics! 🥚🍳🐣🐤
  */
+/**
+ * Bouncing eggs with accelerometer physics! 🥚🍳🐣🐤
+ * When recording, they dance around the plate rim!
+ */
 @Composable
 fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -939,6 +960,11 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
         val screenHeightPx = constraints.maxHeight.toFloat()
         val floorOffsetPx = with(LocalDensity.current) { floorHeightOffset.toPx() }
         val effectiveFloorPx = screenHeightPx - floorOffsetPx
+
+        // Plate center (where record button is)
+        val plateCenterX = screenWidthPx / 2f
+        val plateCenterY = screenHeightPx * 0.22f    // Was 0.35f - move UP
+        val plateRimRadius = with(LocalDensity.current) { 120.dp.toPx() }  // Was 120.dp - smaller
 
         val context = LocalContext.current
         val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
@@ -948,6 +974,8 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
         var lastShakeTime by remember { mutableLongStateOf(0L) }
         var frameCount by remember { mutableIntStateOf(0) }
 
+        val orbitAngles = remember { mutableStateListOf(*Array(8) { index -> index * 45f }) }
+
         val eggs = remember {
             List(8) { index ->
                 EggParticle(
@@ -956,7 +984,7 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
                     velocityX = (Random.nextFloat() - 0.5f) * 100f,
                     velocityY = Random.nextFloat() * 100f,
                     rotation = Random.nextFloat() * 360f,
-                    emoji = listOf("🥚", "🍳", "🐣", "🐤","🧲","🍿")[index % 6],
+                    emoji = listOf("🥚", "🍳", "🐣", "🐤", "🧲", "🍿")[index % 6],
                     size = Random.nextFloat() * 20f + 40f
                 )
             }.toMutableList()
@@ -966,10 +994,14 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
             val listener = object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent?) {
                     event?.let {
-                        gravityX = -it.values[0] * 50f
-                        gravityY = it.values[1] * 50f
+                        // Read state fresh each sensor event
+                        val recording = eggRecordingState.value
+                        if (!recording) {
+                            gravityX = -it.values[0] * 50f
+                            gravityY = it.values[1] * 50f
+                        }
                         val totalAccel = abs(it.values[0]) + abs(it.values[1]) + abs(it.values[2])
-                        if (totalAccel > 25f) {
+                        if (totalAccel > 25f && !recording) {
                             val currentTime = System.currentTimeMillis()
                             if (currentTime - lastShakeTime > 500) {
                                 lastShakeTime = currentTime
@@ -992,58 +1024,83 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
                 delay(16)
                 frameCount++
                 val deltaTime = 0.016f
-                val damping = 0.98f
-                val restitution = 1.1f
 
-                eggs.forEach { egg ->
-                    egg.velocityX += gravityX * deltaTime * 10f
-                    egg.velocityY += gravityY * deltaTime * 10f
-                    egg.velocityX *= damping
-                    egg.velocityY *= damping
-                    egg.x += egg.velocityX * deltaTime
-                    egg.y += egg.velocityY * deltaTime
-                    egg.rotation += egg.velocityX * deltaTime * 2f
+                // Read state fresh each frame
+                val recording = eggRecordingState.value
 
-                    if (egg.x < 0) { egg.x = 0f; egg.velocityX = -egg.velocityX * restitution }
-                    else if (egg.x > screenWidthPx - egg.size) { egg.x = screenWidthPx - egg.size; egg.velocityX = -egg.velocityX * restitution }
+                if (recording) {
+                    // === RECORDING: Dance around the plate rim ===
+                    eggs.forEachIndexed { index, egg ->
+                        val orbitSpeed = 60f + (index * 15f)
+                        orbitAngles[index] = (orbitAngles[index] + orbitSpeed * deltaTime) % 360f
 
-                    if (egg.y < 0) { egg.y = 0f; egg.velocityY = -egg.velocityY * restitution }
-                    else if (egg.y > effectiveFloorPx - egg.size) {
-                        egg.y = effectiveFloorPx - egg.size
-                        egg.velocityY = -egg.velocityY * restitution
-                        if (abs(egg.velocityY) < 20f && abs(egg.velocityX) < 20f && abs(gravityX) < 5f) {
-                            egg.velocityX = 0f; egg.velocityY = 0f
-                            egg.rotation = (egg.rotation / 90f).roundToInt() * 90f
+                        val angle = Math.toRadians(orbitAngles[index].toDouble())
+                        val wobbleAmount = 15f * kotlin.math.sin(frameCount * 0.15f + index)
+                        val currentRadius = plateRimRadius + wobbleAmount
+
+                        // Center the emoji on the orbit path (not top-left)
+                        val targetX = plateCenterX + (currentRadius * kotlin.math.cos(angle)).toFloat() - egg.size / 2f
+                        val targetY = plateCenterY + (currentRadius * 0.8f * kotlin.math.sin(angle)).toFloat() - egg.size / 2f
+
+                        egg.x += (targetX - egg.x) * 0.15f
+                        egg.y += (targetY - egg.y) * 0.15f
+                        egg.rotation += orbitSpeed * deltaTime * 2f
+                    }
+                } else {
+                    // === NOT RECORDING: Normal physics ===
+                    val damping = 0.98f
+                    val restitution = 1.1f
+
+                    eggs.forEach { egg ->
+                        egg.velocityX += gravityX * deltaTime * 10f
+                        egg.velocityY += gravityY * deltaTime * 10f
+                        egg.velocityX *= damping
+                        egg.velocityY *= damping
+                        egg.x += egg.velocityX * deltaTime
+                        egg.y += egg.velocityY * deltaTime
+                        egg.rotation += egg.velocityX * deltaTime * 2f
+
+                        if (egg.x < 0) { egg.x = 0f; egg.velocityX = -egg.velocityX * restitution }
+                        else if (egg.x > screenWidthPx - egg.size) { egg.x = screenWidthPx - egg.size; egg.velocityX = -egg.velocityX * restitution }
+
+                        if (egg.y < 0) { egg.y = 0f; egg.velocityY = -egg.velocityY * restitution }
+                        else if (egg.y > effectiveFloorPx - egg.size) {
+                            egg.y = effectiveFloorPx - egg.size
+                            egg.velocityY = -egg.velocityY * restitution
+                            if (abs(egg.velocityY) < 20f && abs(egg.velocityX) < 20f && abs(gravityX) < 5f) {
+                                egg.velocityX = 0f; egg.velocityY = 0f
+                                egg.rotation = (egg.rotation / 90f).roundToInt() * 90f
+                            }
                         }
                     }
-                }
 
-                for (i in eggs.indices) {
-                    for (j in i + 1 until eggs.size) {
-                        val egg1 = eggs[i]
-                        val egg2 = eggs[j]
-                        val dx = egg2.x - egg1.x
-                        val dy = egg2.y - egg1.y
-                        val distance = sqrt(dx * dx + dy * dy)
-                        val minDistance = (egg1.size + egg2.size) / 2f
+                    for (i in eggs.indices) {
+                        for (j in i + 1 until eggs.size) {
+                            val egg1 = eggs[i]
+                            val egg2 = eggs[j]
+                            val dx = egg2.x - egg1.x
+                            val dy = egg2.y - egg1.y
+                            val distance = sqrt(dx * dx + dy * dy)
+                            val minDistance = (egg1.size + egg2.size) / 2f
 
-                        if (distance < minDistance && distance > 0f) {
-                            val nx = dx / distance
-                            val ny = dy / distance
-                            val overlap = minDistance - distance
-                            egg1.x -= nx * overlap * 0.5f
-                            egg1.y -= ny * overlap * 0.5f
-                            egg2.x += nx * overlap * 0.5f
-                            egg2.y += ny * overlap * 0.5f
-                            val relativeVelX = egg2.velocityX - egg1.velocityX
-                            val relativeVelY = egg2.velocityY - egg1.velocityY
-                            val velAlongNormal = relativeVelX * nx + relativeVelY * ny
-                            if (velAlongNormal < 0) {
-                                val impulse = velAlongNormal * restitution
-                                egg1.velocityX += impulse * nx
-                                egg1.velocityY += impulse * ny
-                                egg2.velocityX -= impulse * nx
-                                egg2.velocityY -= impulse * ny
+                            if (distance < minDistance && distance > 0f) {
+                                val nx = dx / distance
+                                val ny = dy / distance
+                                val overlap = minDistance - distance
+                                egg1.x -= nx * overlap * 0.5f
+                                egg1.y -= ny * overlap * 0.5f
+                                egg2.x += nx * overlap * 0.5f
+                                egg2.y += ny * overlap * 0.5f
+                                val relativeVelX = egg2.velocityX - egg1.velocityX
+                                val relativeVelY = egg2.velocityY - egg1.velocityY
+                                val velAlongNormal = relativeVelX * nx + relativeVelY * ny
+                                if (velAlongNormal < 0) {
+                                    val impulse = velAlongNormal * restitution
+                                    egg1.velocityX += impulse * nx
+                                    egg1.velocityY += impulse * ny
+                                    egg2.velocityX -= impulse * nx
+                                    egg2.velocityY -= impulse * ny
+                                }
                             }
                         }
                     }
@@ -1056,7 +1113,9 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
                 Text(
                     text = egg.emoji,
                     fontSize = (egg.size * 0.8f).sp,
-                    modifier = Modifier.offset { IntOffset(egg.x.toInt(), egg.y.toInt()) }.rotate(egg.rotation)
+                    modifier = Modifier
+                        .offset { IntOffset(egg.x.toInt(), egg.y.toInt()) }
+                        .rotate(egg.rotation)
                 )
             }
         }
@@ -1069,46 +1128,287 @@ fun EggRecordButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+
+    // Sync to shared state so BouncingEggs can see it
+    LaunchedEffect(isRecording) {
+        eggRecordingState.value = isRecording
+    }
+
     val scale by animateFloatAsState(if (isRecording) 1.02f else 1f, tween(200), label = "scale")
-    val pulseAlpha by animateFloatAsState(if (isRecording) 0.8f else 0f, infiniteRepeatable(tween(1500), RepeatMode.Reverse), label = "pulse")
+    val pulseAlpha by animateFloatAsState(
+        if (isRecording) 0.8f else 0f,
+        infiniteRepeatable(tween(1500), RepeatMode.Reverse),
+        label = "pulse"
+    )
 
     Box(
-        modifier = modifier.size(182.dp, 156.dp).scale(scale).clickable { onClick() },
+        modifier = modifier
+            .size(218.dp, 187.dp)  // Plate is 120% of egg
+            .scale(scale)
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
+        // Recording pulse glow
         if (isRecording) {
-            Canvas(modifier = Modifier.size(208.dp, 182.dp)) {
-                drawOval(color = Color(0xFFFF6B6B).copy(alpha = pulseAlpha * 0.6f), style = Stroke(width = 4.dp.toPx()), topLeft = Offset(8.dp.toPx(), 8.dp.toPx()), size = androidx.compose.ui.geometry.Size(size.width - 16.dp.toPx(), size.height - 16.dp.toPx()))
+            Canvas(modifier = Modifier.size(240.dp, 210.dp)) {
+                drawOval(
+                    color = Color(0xFFFF6B6B).copy(alpha = pulseAlpha * 0.6f),
+                    style = Stroke(width = 4.dp.toPx()),
+                    topLeft = Offset(4.dp.toPx(), 4.dp.toPx()),
+                    size = Size(size.width - 8.dp.toPx(), size.height - 8.dp.toPx())
+                )
             }
         }
 
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val canvasWidth = size.width
-            val canvasHeight = size.height
-            val eggWhitePath = Path().apply {
-                moveTo(canvasWidth * 0.18f, canvasHeight * 0.5f)
-                quadraticBezierTo(canvasWidth * 0.14f, canvasHeight * 0.33f, canvasWidth * 0.29f, canvasHeight * 0.29f)
-                quadraticBezierTo(canvasWidth * 0.39f, canvasHeight * 0.25f, canvasWidth * 0.46f, canvasHeight * 0.28f)
-                quadraticBezierTo(canvasWidth * 0.57f, canvasHeight * 0.23f, canvasWidth * 0.68f, canvasHeight * 0.27f)
-                quadraticBezierTo(canvasWidth * 0.79f, canvasHeight * 0.29f, canvasWidth * 0.84f, canvasHeight * 0.4f)
-                quadraticBezierTo(canvasWidth * 0.89f, canvasHeight * 0.5f, canvasWidth * 0.82f, canvasHeight * 0.6f)
-                quadraticBezierTo(canvasWidth * 0.84f, canvasHeight * 0.71f, canvasWidth * 0.75f, canvasHeight * 0.75f)
-                quadraticBezierTo(canvasWidth * 0.64f, canvasHeight * 0.8f, canvasWidth * 0.54f, canvasHeight * 0.77f)
-                quadraticBezierTo(canvasWidth * 0.43f, canvasHeight * 0.8f, canvasWidth * 0.32f, canvasHeight * 0.75f)
-                quadraticBezierTo(canvasWidth * 0.21f, canvasHeight * 0.71f, canvasWidth * 0.18f, canvasHeight * 0.62f)
-                quadraticBezierTo(canvasWidth * 0.13f, canvasHeight * 0.54f, canvasWidth * 0.18f, canvasHeight * 0.5f)
+            val w = size.width
+            val h = size.height
+            val centerX = w * 0.5f
+            val centerY = h * 0.5f
+
+            // === PLATE SHADOW ===
+            drawOval(
+                color = Color(0x30000000),
+                topLeft = Offset(centerX - w * 0.44f, centerY - h * 0.36f + 6.dp.toPx()),
+                size = Size(w * 0.88f, h * 0.72f)
+            )
+
+            // === PLATE OUTER RIM ===
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFE0D8CC),
+                        Color(0xFFC8BFB0),
+                        Color(0xFFB0A595)
+                    ),
+                    center = Offset(centerX, centerY),
+                    radius = w * 0.45f
+                ),
+                topLeft = Offset(centerX - w * 0.44f, centerY - h * 0.38f),
+                size = Size(w * 0.88f, h * 0.76f)
+            )
+            // Rim outline
+            drawOval(
+                color = Color(0xFFA09080),
+                topLeft = Offset(centerX - w * 0.44f, centerY - h * 0.38f),
+                size = Size(w * 0.88f, h * 0.76f),
+                style = Stroke(width = 1.dp.toPx())
+            )
+
+            // === PLATE INNER (eating surface) ===
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFFEFEFE),
+                        Color(0xFFF5F0E8),
+                        Color(0xFFE8E0D5),
+                        Color(0xFFD5CCC0)
+                    ),
+                    center = Offset(centerX, centerY - h * 0.02f),
+                    radius = w * 0.38f
+                ),
+                topLeft = Offset(centerX - w * 0.36f, centerY - h * 0.31f),
+                size = Size(w * 0.72f, h * 0.62f)
+            )
+
+            // === FARMHOUSE BLUE DASH PATTERN ===
+            val dashColor = Color(0xFF7B9CB8).copy(alpha = 0.6f)
+            val dashStroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+
+            // Draw dashes around rim
+            val rimRadiusX = w * 0.40f
+            val rimRadiusY = h * 0.34f
+            val dashAngles = listOf(0f, 40f, 80f, 120f, 160f, 200f, 240f, 280f, 320f)
+
+            dashAngles.forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble())
+                val rad2 = Math.toRadians((angle + 25).toDouble())
+                val x1 = centerX + (rimRadiusX * kotlin.math.cos(rad)).toFloat()
+                val y1 = centerY + (rimRadiusY * kotlin.math.sin(rad)).toFloat()
+                val x2 = centerX + (rimRadiusX * kotlin.math.cos(rad2)).toFloat()
+                val y2 = centerY + (rimRadiusY * kotlin.math.sin(rad2)).toFloat()
+                drawLine(dashColor, Offset(x1, y1), Offset(x2, y2), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+            }
+
+            // === PLATE RIM HIGHLIGHT ===
+            drawOval(
+                color = Color.White.copy(alpha = 0.4f),
+                topLeft = Offset(centerX - w * 0.36f, centerY - h * 0.31f),
+                size = Size(w * 0.72f, h * 0.62f),
+                style = Stroke(width = 1.dp.toPx())
+            )
+
+            // === EGG AREA (scaled to fit inside plate) ===
+            val eggScale = 0.75f
+            val eggOffsetX = centerX
+            val eggOffsetY = centerY
+
+            // === CRISPY BROWN EDGE ===
+            val crispyPath = Path().apply {
+                moveTo(eggOffsetX + (-0.32f * w * eggScale), eggOffsetY + (0f * h * eggScale))
+                quadraticBezierTo(
+                    eggOffsetX + (-0.38f * w * eggScale), eggOffsetY + (-0.20f * h * eggScale),
+                    eggOffsetX + (-0.21f * w * eggScale), eggOffsetY + (-0.24f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (-0.08f * w * eggScale), eggOffsetY + (-0.30f * h * eggScale),
+                    eggOffsetX + (0f * w * eggScale), eggOffsetY + (-0.25f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.12f * w * eggScale), eggOffsetY + (-0.32f * h * eggScale),
+                    eggOffsetX + (0.24f * w * eggScale), eggOffsetY + (-0.26f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.36f * w * eggScale), eggOffsetY + (-0.22f * h * eggScale),
+                    eggOffsetX + (0.40f * w * eggScale), eggOffsetY + (-0.08f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.45f * w * eggScale), eggOffsetY + (0.06f * h * eggScale),
+                    eggOffsetX + (0.38f * w * eggScale), eggOffsetY + (0.16f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.42f * w * eggScale), eggOffsetY + (0.28f * h * eggScale),
+                    eggOffsetX + (0.28f * w * eggScale), eggOffsetY + (0.32f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.12f * w * eggScale), eggOffsetY + (0.38f * h * eggScale),
+                    eggOffsetX + (0f * w * eggScale), eggOffsetY + (0.34f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (-0.14f * w * eggScale), eggOffsetY + (0.38f * h * eggScale),
+                    eggOffsetX + (-0.26f * w * eggScale), eggOffsetY + (0.30f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (-0.38f * w * eggScale), eggOffsetY + (0.22f * h * eggScale),
+                    eggOffsetX + (-0.34f * w * eggScale), eggOffsetY + (0.12f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (-0.42f * w * eggScale), eggOffsetY + (0.04f * h * eggScale),
+                    eggOffsetX + (-0.32f * w * eggScale), eggOffsetY + (0f * h * eggScale)
+                )
                 close()
             }
-            drawPath(path = eggWhitePath, color = Color(0xFFFFF8E1))
-            drawPath(path = eggWhitePath, color = Color(0xFF2E2E2E), style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            val yolkColor = if (isRecording) Color(0xFFFF6B6B) else Color(0xFFFFD700)
-            val yolkCenter = Offset(canvasWidth * 0.5f, canvasHeight * 0.46f)
-            val yolkRadius = canvasWidth * 0.13f
-            drawCircle(color = yolkColor, radius = yolkRadius, center = yolkCenter)
-            drawCircle(color = Color(0xFF2E2E2E), radius = yolkRadius, center = yolkCenter, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+            drawPath(path = crispyPath, color = Color(0xFFD4A574).copy(alpha = 0.6f))
+
+            // === EGG WHITE ===
+            val eggWhitePath = Path().apply {
+                moveTo(eggOffsetX + (-0.30f * w * eggScale), eggOffsetY + (0f * h * eggScale))
+                quadraticBezierTo(
+                    eggOffsetX + (-0.35f * w * eggScale), eggOffsetY + (-0.18f * h * eggScale),
+                    eggOffsetX + (-0.18f * w * eggScale), eggOffsetY + (-0.22f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (-0.06f * w * eggScale), eggOffsetY + (-0.27f * h * eggScale),
+                    eggOffsetX + (0f * w * eggScale), eggOffsetY + (-0.22f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.10f * w * eggScale), eggOffsetY + (-0.28f * h * eggScale),
+                    eggOffsetX + (0.22f * w * eggScale), eggOffsetY + (-0.23f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.32f * w * eggScale), eggOffsetY + (-0.19f * h * eggScale),
+                    eggOffsetX + (0.36f * w * eggScale), eggOffsetY + (-0.06f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.40f * w * eggScale), eggOffsetY + (0.06f * h * eggScale),
+                    eggOffsetX + (0.34f * w * eggScale), eggOffsetY + (0.14f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.37f * w * eggScale), eggOffsetY + (0.24f * h * eggScale),
+                    eggOffsetX + (0.25f * w * eggScale), eggOffsetY + (0.28f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (0.10f * w * eggScale), eggOffsetY + (0.34f * h * eggScale),
+                    eggOffsetX + (0f * w * eggScale), eggOffsetY + (0.30f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (-0.12f * w * eggScale), eggOffsetY + (0.34f * h * eggScale),
+                    eggOffsetX + (-0.24f * w * eggScale), eggOffsetY + (0.26f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (-0.34f * w * eggScale), eggOffsetY + (0.20f * h * eggScale),
+                    eggOffsetX + (-0.32f * w * eggScale), eggOffsetY + (0.10f * h * eggScale)
+                )
+                quadraticBezierTo(
+                    eggOffsetX + (-0.38f * w * eggScale), eggOffsetY + (0.04f * h * eggScale),
+                    eggOffsetX + (-0.30f * w * eggScale), eggOffsetY + (0f * h * eggScale)
+                )
+                close()
+            }
+            drawPath(
+                path = eggWhitePath,
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFFFFFEF8), Color(0xFFFFF8E1), Color(0xFFF5E6C8)),
+                    center = Offset(eggOffsetX, eggOffsetY),
+                    radius = w * 0.3f
+                )
+            )
+            drawPath(
+                path = eggWhitePath,
+                color = Color(0xFF2E2E2E),
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+
+            // === YOLK ===
+            val yolkRadiusX = w * 0.11f * eggScale
+            val yolkRadiusY = h * 0.10f * eggScale
+            val yolkCenterY = eggOffsetY - h * 0.04f * eggScale
+
+            // Yolk shadow
+            drawOval(
+                color = Color(0x25000000),
+                topLeft = Offset(eggOffsetX - yolkRadiusX + 2.dp.toPx(), yolkCenterY - yolkRadiusY + 3.dp.toPx()),
+                size = Size(yolkRadiusX * 2, yolkRadiusY * 2)
+            )
+
+            // Yolk with gradient
+            val yolkColors = if (isRecording) {
+                listOf(Color(0xFFFF8A8A), Color(0xFFFF6B6B), Color(0xFFE65555))
+            } else {
+                listOf(Color(0xFFFFE135), Color(0xFFFFD700), Color(0xFFE6A800))
+            }
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = yolkColors,
+                    center = Offset(eggOffsetX - yolkRadiusX * 0.3f, yolkCenterY - yolkRadiusY * 0.3f),
+                    radius = yolkRadiusX * 1.5f
+                ),
+                topLeft = Offset(eggOffsetX - yolkRadiusX, yolkCenterY - yolkRadiusY),
+                size = Size(yolkRadiusX * 2, yolkRadiusY * 2)
+            )
+            drawOval(
+                color = Color(0xFF2E2E2E),
+                topLeft = Offset(eggOffsetX - yolkRadiusX, yolkCenterY - yolkRadiusY),
+                size = Size(yolkRadiusX * 2, yolkRadiusY * 2),
+                style = Stroke(width = 2.dp.toPx())
+            )
+
+            // Yolk shine
+            drawOval(
+                color = Color.White.copy(alpha = 0.45f),
+                topLeft = Offset(eggOffsetX - yolkRadiusX * 0.7f, yolkCenterY - yolkRadiusY * 0.7f),
+                size = Size(yolkRadiusX * 0.7f, yolkRadiusY * 0.55f)
+            )
+            drawOval(
+                color = Color.White.copy(alpha = 0.75f),
+                topLeft = Offset(eggOffsetX - yolkRadiusX * 0.6f, yolkCenterY - yolkRadiusY * 0.6f),
+                size = Size(yolkRadiusX * 0.35f, yolkRadiusY * 0.28f)
+            )
+
+            // === REC/STOP TEXT ===
             val text = if (isRecording) "STOP" else "REC"
-            val textY = canvasHeight * 0.71f
-            drawContext.canvas.nativeCanvas.drawText(text, canvasWidth * 0.5f, textY, Paint().apply { color = Color(0xFF2E2E2E).toArgb(); textSize = 16.sp.toPx(); typeface = android.graphics.Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER })
+            drawContext.canvas.nativeCanvas.drawText(
+                text,
+                eggOffsetX,
+                eggOffsetY + h * 0.22f * eggScale,
+                Paint().apply {
+                    color = Color(0xFF2E2E2E).toArgb()
+                    textSize = 14.sp.toPx()
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+            )
         }
     }
 }

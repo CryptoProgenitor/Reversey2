@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +47,7 @@ import com.quokkalabs.reversey.ui.components.DifficultySquircle
 import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import kotlinx.coroutines.delay
 import kotlin.random.Random
+import kotlin.math.sin
 
 // Rainbow colors for excited notes
 private val rainbowColors = listOf(
@@ -56,6 +58,20 @@ private val rainbowColors = listOf(
     Color(0xFF0000FF), // Blue
     Color(0xFF4B0082), // Indigo
     Color(0xFF9400D3)  // Violet
+)
+
+// Eras Tour lightshow colors
+private val erasColors = listOf(
+    Color(0xFFFF1493), // Deep pink (Lover)
+    Color(0xFF8B5CF6), // Purple (Speak Now)
+    Color(0xFF3B82F6), // Blue (Midnights)
+    Color(0xFFF59E0B), // Gold (Fearless)
+    Color(0xFFEF4444), // Red (Red)
+    Color(0xFF10B981), // Emerald (folklore)
+    Color(0xFFEC4899), // Hot pink
+    Color(0xFF6366F1), // Indigo
+    Color(0xFFF97316), // Orange (1989)
+    Color(0xFFA855F7)  // Violet
 )
 
 /**
@@ -252,6 +268,17 @@ class GuitarComponents : ThemeComponents {
                 .fillMaxSize()
                 .background(aesthetic.primaryGradient)
         ) {
+            // Dark concert overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF0A0514).copy(alpha = 0.5f))
+            )
+
+            // Animated lightshow
+            ErasTourLightshow()
+
+            // Actual content on top
             content()
         }
     }
@@ -269,6 +296,7 @@ class GuitarComponents : ThemeComponents {
         val name = if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
         val darkBrown = Color(0xFF5d4a36)
         val peachOrange = Color(0xFFE8A87C)
+        val deleteRed =Color (color= 0xFFFF0000)
 
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -277,7 +305,7 @@ class GuitarComponents : ThemeComponents {
             text = { Text(copy.deleteMessage(itemType, name), color = darkBrown) },
             confirmButton = {
                 TextButton(onClick = { onConfirm(); onDismiss() }) {
-                    Text(copy.deleteConfirmButton, color = peachOrange, fontWeight = FontWeight.Bold)
+                    Text(copy.deleteConfirmButton, color = deleteRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -292,7 +320,7 @@ class GuitarComponents : ThemeComponents {
     override fun ShareDialog(recording: Recording?, attempt: PlayerAttempt?, aesthetic: AestheticThemeData, onShare: (String) -> Unit, onDismiss: () -> Unit) {
         val copy = aesthetic.dialogCopy
         val darkBrown = Color(0xFF5d4a36)
-        val tealGreen = Color(0xFF7DB9A8)
+        val tealGreen = Color(0xFF7DDDA8)
         val peachOrange = Color(0xFFE8A87C)
 
         AlertDialog(
@@ -305,12 +333,12 @@ class GuitarComponents : ThemeComponents {
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
                     TextButton(onClick = { onShare(path); onDismiss() }) {
-                        Text("Share Original (Forward)", color = tealGreen, fontWeight = FontWeight.Bold)
+                        Text("Share Original (Forward)", color = darkBrown, fontWeight = FontWeight.Bold)
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         TextButton(onClick = { onShare(revPath); onDismiss() }) {
-                            Text("Share Reversed", color = peachOrange, fontWeight = FontWeight.Bold)
+                            Text("Share Reversed", color = darkBrown, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -337,13 +365,20 @@ class GuitarComponents : ThemeComponents {
                     label = { Text(copy.renameHint) },
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.White.copy(0.5f),
-                        unfocusedContainerColor = Color.White.copy(0.3f)
+                        unfocusedContainerColor = Color.White.copy(0.3f),
+                        focusedTextColor = darkBrown,
+                        unfocusedTextColor = darkBrown,
+                        cursorColor = tealGreen,
+                        focusedLabelColor = darkBrown,
+                        unfocusedLabelColor = darkBrown.copy(alpha = 0.7f),
+                        focusedIndicatorColor = tealGreen,
+                        unfocusedIndicatorColor = darkBrown.copy(alpha = 0.4f)
                     )
                 )
             },
             confirmButton = {
                 TextButton(onClick = { onRename(name); onDismiss() }) {
-                    Text("Save", color = tealGreen, fontWeight = FontWeight.Bold)
+                    Text("Save", color = darkBrown, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = darkBrown) } }
@@ -396,7 +431,7 @@ fun FloatingMusicNote(
     )
 
     val colorIndex = ((position.x + position.y) / 50f).toInt() % rainbowColors.size
-    val noteColor = if (rainbowMode) rainbowColors[colorIndex] else Color(0xFF5d4a36)
+    val noteColor = if (rainbowMode) erasColors[colorIndex] else Color(0xFF5d4a36)
 
     Text(
         text = note,
@@ -532,7 +567,7 @@ fun GuitarRecordButton(
                 ExcitedRainbowNote(
                     note = randomNote,
                     startPosition = Offset(randomX, randomY),
-                    colorIndex = index % rainbowColors.size
+                    colorIndex = index % erasColors.size
                 )
             }
         }
@@ -635,6 +670,12 @@ fun GuitarRecordButton(
                     close()
                 }
 
+                // ⬇️ ADD SHADOW HERE ⬇️
+                drawContext.canvas.save()
+                drawContext.canvas.translate(4.dp.toPx(), 4.dp.toPx())
+                drawPath(guitarBodyPath, color = Color.Black.copy(alpha = 0.3f))
+                drawContext.canvas.restore()
+
                 drawContext.canvas.save()
                 drawContext.canvas.clipPath(guitarBodyPath)
                 val stripeRotation = 45f
@@ -650,6 +691,23 @@ fun GuitarRecordButton(
                     x += stripeWidth
                     colorIndex++
                 }
+                drawContext.canvas.restore()
+
+                // ⬇️ ADD HIGHLIGHT HERE ⬇️
+                drawContext.canvas.save()
+                drawContext.canvas.clipPath(guitarBodyPath)
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.2f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.1f)
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(canvasWidth, canvasHeight)
+                    ),
+                    size = size
+                )
                 drawContext.canvas.restore()
 
                 drawPath(guitarBodyPath, color = darkBrown, style = Stroke(width = 2.dp.toPx()))
@@ -709,7 +767,7 @@ fun ExcitedRainbowNote(note: String, startPosition: Offset, colorIndex: Int) {
         animationSpec = infiniteRepeatable(animation = tween(250), repeatMode = RepeatMode.Reverse), label = "pulse"
     )
 
-    Text(text = note, fontSize = 20.sp, color = rainbowColors[colorIndex], modifier = Modifier.offset(x = offsetX.dp, y = offsetY.dp).rotate(rotation).scale(scale))
+    Text(text = note, fontSize = 20.sp, color = erasColors[colorIndex], modifier = Modifier.offset(x = offsetX.dp, y = offsetY.dp).rotate(rotation).scale(scale))
 }
 
 @Composable
@@ -739,9 +797,9 @@ fun GuitarRecordingItem(
     val peachOrange = Color(0xFFE8A87C)
 
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().background(beigeBg, RoundedCornerShape(15.dp)).border(4.dp, darkBrown, RoundedCornerShape(15.dp)).padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().background(beigeBg.copy(alpha = 0.65f), RoundedCornerShape(15.dp)).border(4.dp, darkBrown, RoundedCornerShape(15.dp)).padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.weight(1f).background(lavenderBox, RoundedCornerShape(10.dp)).border(3.dp, darkBrown, RoundedCornerShape(10.dp)).clickable { showRenameDialog = true }.padding(12.dp)) {
+                Box(modifier = Modifier.weight(1f).background(lavenderBox.copy(alpha = 0.65f), RoundedCornerShape(10.dp)).border(3.dp, darkBrown, RoundedCornerShape(10.dp)).clickable { showRenameDialog = true }.padding(12.dp)) {
                     Text(text = recording.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = darkBrown, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -753,17 +811,7 @@ fun GuitarRecordingItem(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 GuitarControlButton(color = tealGreen, label = "Share", onClick = { showShareDialog = true }) { GuitarShareIcon(darkBrown) }
                 GuitarControlButton(color = peachOrange, label = if (isPlaying && !isPaused) "Pause" else "Play", onClick = { if (isPlaying && !isPaused) onPause() else onPlay(recording.originalPath) }) {
-                    if (isPlaying && !isPaused) {
-                        Canvas(modifier = Modifier.size(20.dp)) {
-                            drawRect(color = darkBrown, topLeft = Offset(size.width * 0.3f, size.height * 0.2f), size = Size(size.width * 0.15f, size.height * 0.6f))
-                            drawRect(color = darkBrown, topLeft = Offset(size.width * 0.55f, size.height * 0.2f), size = Size(size.width * 0.15f, size.height * 0.6f))
-                        }
-                    } else {
-                        Canvas(modifier = Modifier.size(20.dp)) {
-                            val path = Path().apply { moveTo(size.width * 0.3f, size.height * 0.2f); lineTo(size.width * 0.8f, size.height * 0.5f); lineTo(size.width * 0.3f, size.height * 0.8f); close() }
-                            drawPath(path = path, color = darkBrown)
-                        }
-                    }
+                    if (isPlaying && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(color = darkBrown)
                 }
                 GuitarControlButton(color = tealGreen, label = "Rev", onClick = { recording.reversedPath?.let { onPlay(it) } }) { GuitarRewindIcon(darkBrown) }
                 if (isGameModeEnabled) {
@@ -807,7 +855,7 @@ fun GuitarAttemptItem(
     var showScoreDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxWidth().padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)) {
-        Box(modifier = Modifier.fillMaxWidth().background(color = lavenderPurple, shape = RoundedCornerShape(15.dp)).border(width = 4.dp, color = darkBrown, shape = RoundedCornerShape(15.dp)).padding(12.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().background(color = lavenderPurple.copy(alpha = 0.65f), shape = RoundedCornerShape(15.dp)).border(width = 4.dp, color = darkBrown, shape = RoundedCornerShape(15.dp)).padding(12.dp)) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -826,7 +874,7 @@ fun GuitarAttemptItem(
                                 GuitarControlButton(onClick = { showShareDialog = true }, color = tealGreen, label = "Share") { GuitarShareIcon(color = darkBrown) }
                             }
                             GuitarControlButton(onClick = { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }, color = peachOrange, label = if (isPlayingThis && !isPaused) "Pause" else "Play") {
-                                Icon(imageVector = if (isPlayingThis && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = "Play", tint = darkBrown)
+                                if (isPlayingThis && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(color = darkBrown)
                             }
                             if (attempt.reversedAttemptFilePath != null) {
                                 GuitarControlButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, color = tealGreen, label = "Rev") { GuitarRewindIcon(darkBrown) }
@@ -883,12 +931,57 @@ fun GuitarShareIcon(color: Color) {
 fun GuitarRewindIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
         val path = Path().apply {
-            arcTo(androidx.compose.ui.geometry.Rect(size.width * 0.2f, size.height * 0.2f, size.width * 0.8f, size.height * 0.8f), 180f, 270f, true)
-            lineTo(size.width * 0.3f, size.height * 0.3f)
-            moveTo(size.width * 0.2f, size.height * 0.5f)
-            lineTo(size.width * 0.1f, size.height * 0.4f)
+            // Triangle pointing left (mirror of play)
+            moveTo(size.width * 0.75f, size.height * 0.15f)
+            lineTo(size.width * 0.75f, size.height * 0.85f)
+            lineTo(size.width * 0.15f, size.height * 0.5f)
+            close()
         }
-        drawPath(path = path, color = color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(
+            path = path,
+            color = color,
+            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+    }
+}
+
+@Composable
+fun GuitarPlayIcon(color: Color) {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val path = Path().apply {
+            // Triangle pointing right (play)
+            moveTo(size.width * 0.25f, size.height * 0.15f)
+            lineTo(size.width * 0.25f, size.height * 0.85f)
+            lineTo(size.width * 0.85f, size.height * 0.5f)
+            close()
+        }
+        drawPath(
+            path = path,
+            color = color,
+            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+    }
+}
+
+@Composable
+fun GuitarPauseIcon(color: Color) {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        // Left bar
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(size.width * 0.22f, size.height * 0.15f),
+            size = Size(size.width * 0.2f, size.height * 0.7f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+            style = Stroke(width = 2.dp.toPx())
+        )
+        // Right bar
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(size.width * 0.58f, size.height * 0.15f),
+            size = Size(size.width * 0.2f, size.height * 0.7f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+            style = Stroke(width = 2.dp.toPx())
+        )
     }
 }
 
@@ -929,5 +1022,190 @@ fun GuitarDeleteIcon(color: Color) {
             lineTo(size.width * 0.75f, size.height * 0.25f)
         }
         drawPath(path = canPath, color = color, style = Stroke(width = 2.dp.toPx()))
+    }
+}
+
+// ============================================
+// 🎤 ERAS TOUR LIGHTSHOW BACKGROUND
+// ============================================
+
+/**
+ * Animated concert lightshow background inspired by Taylor Swift's Eras Tour.
+ * Features sweeping light beams, sparkles, and color cycling.
+ */
+@Composable
+fun ErasTourLightshow() {
+    // Infinite animation for continuous movement
+    val infiniteTransition = rememberInfiniteTransition(label = "lightshow")
+
+    // Main phase animation (drives beam movement)
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase"
+    )
+
+    // Secondary phase for variety
+    val phase2 by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(12000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase2"
+    )
+
+    // Color cycling animation
+    val colorShift by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = erasColors.size.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(20000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "colorShift"
+    )
+
+    // Sparkle positions (fixed, calculated once)
+    val sparklePositions = remember {
+        List(20) {
+            Offset(
+                Random.nextFloat(),
+                Random.nextFloat() * 0.85f // Keep sparkles in upper 85%
+            )
+        }
+    }
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+
+        // Draw spotlight cones from sides
+        for (i in 0 until 4) {
+            val isLeft = i % 2 == 0
+            val startX = if (isLeft) width * 0.05f else width * 0.95f
+            val baseAngle = if (isLeft) 25f else -25f
+            val angleVariation = sin(phase + i * 1.5f) * 15f
+            val angle = baseAngle + angleVariation
+
+            val colorIndex = ((colorShift.toInt() + i * 2) % erasColors.size)
+            val spotColor = erasColors[colorIndex]
+
+            // Draw cone as series of lines with decreasing alpha
+            val coneSpread = 40
+            for (offset in -coneSpread..coneSpread step 2) {
+                val lineAngle = Math.toRadians((angle + offset * 0.8).toDouble())
+                val endX = startX + (sin(lineAngle) * height * 1.2).toFloat()
+                val endY = (kotlin.math.cos(lineAngle) * height * 1.2).toFloat()
+
+                val distFromCenter = kotlin.math.abs(offset) / coneSpread.toFloat()
+                val alpha = (0.15f * (1f - distFromCenter * 0.7f))
+
+                drawLine(
+                    color = spotColor.copy(alpha = alpha),
+                    start = Offset(startX, -20f),
+                    end = Offset(endX, endY),
+                    strokeWidth = 4f
+                )
+            }
+        }
+
+        // Draw narrow beams from top
+        val beamCount = 12
+        for (i in 0 until beamCount) {
+            val baseX = width * ((i + 0.5f) / beamCount)
+            val swayAmount = width * 0.08f
+            val sway = sin(phase + i * 0.5f) * swayAmount
+            val x = baseX + sway
+
+            // Beam angle
+            val baseAngle = (i - beamCount / 2f) * 6f
+            val angleVar = sin(phase2 + i * 0.7f) * 8f
+            val angle = baseAngle + angleVar
+
+            // Beam opacity pulses
+            val opacity = 0.35f + sin(phase * 1.5f + i * 0.8f) * 0.2f
+
+            // Color cycling per beam
+            val colorIndex = ((colorShift.toInt() + i) % erasColors.size)
+            val beamColor = erasColors[colorIndex]
+
+            // Draw beam
+            val radians = Math.toRadians(angle.toDouble())
+            val endX = x + (sin(radians) * height * 1.3).toFloat()
+            val endY = (kotlin.math.cos(radians) * height * 1.3).toFloat()
+
+            // Glow effect (draw wider, more transparent lines behind)
+            for (w in listOf(12f, 8f, 4f)) {
+                val glowAlpha = opacity * (4f / w) * 0.3f
+                drawLine(
+                    color = beamColor.copy(alpha = glowAlpha),
+                    start = Offset(x, -30f),
+                    end = Offset(endX, endY),
+                    strokeWidth = w,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+
+        // Draw horizontal laser sweeps
+        for (i in 0 until 3) {
+            val baseY = height * (0.2f + i * 0.25f)
+            val yOffset = sin(phase + i * 2f) * height * 0.03f
+            val y = baseY + yOffset
+
+            val laserOpacity = 0.25f + sin(phase * 2f + i) * 0.15f
+            val colorIndex = ((colorShift.toInt() + i * 3) % erasColors.size)
+            val laserColor = erasColors[colorIndex]
+
+            // Draw laser with glow
+            for (w in listOf(6f, 3f, 1f)) {
+                val glowAlpha = laserOpacity * (1f / w) * 0.5f
+                drawLine(
+                    color = laserColor.copy(alpha = glowAlpha),
+                    start = Offset(-20f, y),
+                    end = Offset(width + 20f, y),
+                    strokeWidth = w
+                )
+            }
+        }
+
+        // Draw sparkles
+        val sparklePhase = (phase * 3f) % (2 * Math.PI).toFloat()
+        for ((index, pos) in sparklePositions.withIndex()) {
+            val sparkleVisible = sin(sparklePhase + index * 0.8f) > 0.3f
+            if (sparkleVisible) {
+                val sparkleAlpha = (sin(sparklePhase + index * 0.8f) - 0.3f) / 0.7f
+                val sparkleSize = 3f + sparkleAlpha * 4f
+
+                drawCircle(
+                    color = Color.White.copy(alpha = sparkleAlpha * 0.9f),
+                    radius = sparkleSize,
+                    center = Offset(pos.x * width, pos.y * height)
+                )
+                // Sparkle glow
+                drawCircle(
+                    color = Color.White.copy(alpha = sparkleAlpha * 0.3f),
+                    radius = sparkleSize * 3f,
+                    center = Offset(pos.x * width, pos.y * height)
+                )
+            }
+        }
+
+        // Stage glow at bottom (OPTIMIZED: Replaces the loop that caused the error)
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Transparent, erasColors[1].copy(alpha = 0.3f)),
+                startY = height * 0.7f,
+                endY = height
+            ),
+            topLeft = Offset(0f, height * 0.7f),
+            size = Size(width, height * 0.3f)
+        )
     }
 }
