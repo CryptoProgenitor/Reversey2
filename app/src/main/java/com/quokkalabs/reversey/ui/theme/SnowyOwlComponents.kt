@@ -2,25 +2,67 @@ package com.quokkalabs.reversey.ui.theme
 
 import android.content.Context
 import android.media.SoundPool
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -36,6 +78,7 @@ import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -230,6 +273,8 @@ class SnowyOwlComponents : ThemeComponents {
                 .fillMaxSize()
                 .background(aesthetic.primaryGradient)
         ) {
+            SnowyOwlAurora()
+            SnowyOwlStarfield()
             SnowyOwlSnowflakes()
             content()
             SnowyOwlFlying()
@@ -377,7 +422,7 @@ fun SnowyOwlRecordButton(
 }
 
 // ============================================
-// ❄️ FALLING SNOWFLAKES
+// ❄️ FALLING SNOWFLAKES and STARFIELD
 // ============================================
 
 data class SnowflakeData(
@@ -388,6 +433,265 @@ data class SnowflakeData(
     val drift: Float,
     val emoji: String = listOf("❄️", "❅", "❆").random()
 )
+
+data class StarData(
+    val x: Float,
+    val y: Float,
+    val size: Float,
+    val baseAlpha: Float,
+    val twinkleSpeed: Float,  // How fast it twinkles
+    val twinklePhase: Float   // Starting phase offset
+)
+
+data class ShootingStarData(
+    val id: Int,
+    val startX: Float,
+    val startY: Float,
+    val angle: Float,         // Direction in radians
+    val speed: Float,
+    val length: Float,
+    val createdAt: Long
+)
+
+// ============================================
+// ✨ DYNAMIC STARFIELD WITH SHOOTING STARS
+// ============================================
+
+@Composable
+fun SnowyOwlStarfield() {
+    var stars by remember { mutableStateOf(listOf<StarData>()) }
+    var shootingStars by remember { mutableStateOf(listOf<ShootingStarData>()) }
+    var nextShootingId by remember { mutableStateOf(0) }
+    var time by remember { mutableStateOf(0f) }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenWidth = constraints.maxWidth.toFloat()
+        val screenHeight = constraints.maxHeight.toFloat()
+
+        // Initialize stars once
+        LaunchedEffect(screenWidth, screenHeight) {
+            stars = List(80) {
+                StarData(
+                    x = Random.nextFloat() * screenWidth,
+                    y = Random.nextFloat() * screenHeight * 0.7f, // Stars in upper 70%
+                    size = Random.nextFloat() * 2.5f + 0.8f,
+                    baseAlpha = Random.nextFloat() * 0.4f + 0.3f,
+                    twinkleSpeed = Random.nextFloat() * 2f + 1f,
+                    twinklePhase = Random.nextFloat() * 6.28f
+                )
+            }
+        }
+
+        // Animate time for twinkling
+        LaunchedEffect(Unit) {
+            while (isActive) {
+                withFrameMillis {
+                    time += 0.016f // ~60fps
+                }
+            }
+        }
+
+        // Spawn shooting stars randomly
+        LaunchedEffect(Unit) {
+            while (isActive) {
+                delay(Random.nextLong(4000, 12000)) // Every 4-12 seconds
+                val newStar = ShootingStarData(
+                    id = nextShootingId++,
+                    startX = Random.nextFloat() * screenWidth * 0.8f + screenWidth * 0.1f,
+                    startY = Random.nextFloat() * screenHeight * 0.3f,
+                    angle = Random.nextFloat() * 0.5f + 0.3f, // Roughly diagonal down-right
+                    speed = Random.nextFloat() * 400f + 300f,
+                    length = Random.nextFloat() * 60f + 40f,
+                    createdAt = System.currentTimeMillis()
+                )
+                shootingStars = shootingStars + newStar
+            }
+        }
+
+        // Clean up old shooting stars
+        LaunchedEffect(shootingStars) {
+            if (shootingStars.isNotEmpty()) {
+                delay(100)
+                val now = System.currentTimeMillis()
+                shootingStars = shootingStars.filter { now - it.createdAt < 1500L }
+            }
+        }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            // Draw twinkling stars
+            stars.forEach { star ->
+                val twinkle = sin(time * star.twinkleSpeed + star.twinklePhase)
+                val alpha = (star.baseAlpha + twinkle * 0.25f).coerceIn(0.1f, 1f)
+
+                // Main star
+                drawCircle(
+                    color = Color.White.copy(alpha = alpha),
+                    radius = star.size,
+                    center = Offset(star.x, star.y)
+                )
+
+                // Subtle glow for brighter stars
+                if (star.size > 2f) {
+                    drawCircle(
+                        color = Color(0xFFADD8E6).copy(alpha = alpha * 0.3f),
+                        radius = star.size * 2.5f,
+                        center = Offset(star.x, star.y)
+                    )
+                }
+            }
+
+            // Draw shooting stars
+            val now = System.currentTimeMillis()
+            shootingStars.forEach { shooting ->
+                val elapsed = (now - shooting.createdAt) / 1000f
+                val distance = elapsed * shooting.speed
+                val progress = (elapsed / 1.5f).coerceIn(0f, 1f)
+
+                // Fade in then out
+                val alpha = when {
+                    progress < 0.2f -> progress / 0.2f
+                    progress > 0.7f -> (1f - progress) / 0.3f
+                    else -> 1f
+                }
+
+                val headX = shooting.startX + cos(shooting.angle) * distance
+                val headY = shooting.startY + sin(shooting.angle) * distance
+                val tailX = headX - cos(shooting.angle) * shooting.length
+                val tailY = headY - sin(shooting.angle) * shooting.length
+
+                // Draw the streak with gradient effect
+                drawLine(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = alpha * 0.5f),
+                            Color.White.copy(alpha = alpha)
+                        ),
+                        start = Offset(tailX, tailY),
+                        end = Offset(headX, headY)
+                    ),
+                    start = Offset(tailX, tailY),
+                    end = Offset(headX, headY),
+                    strokeWidth = 2f
+                )
+
+                // Bright head
+                drawCircle(
+                    color = Color.White.copy(alpha = alpha),
+                    radius = 2.5f,
+                    center = Offset(headX, headY)
+                )
+            }
+        }
+    }
+}
+
+// ============================================
+// 🌌 AURORA BOREALIS HINTS
+// ============================================
+
+@Composable
+fun SnowyOwlAurora() {
+    val infiniteTransition = rememberInfiniteTransition(label = "aurora")
+
+    val driftPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2 * PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(40000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "drift"
+    )
+
+    val rayPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2 * PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rays"
+    )
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val width = constraints.maxWidth.toFloat()
+        val height = constraints.maxHeight.toFloat()
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(Color.Black) // Deep space background
+
+            // 1. PALETTE ADJUSTMENT: STRICT GREEN & PURPLE
+            // Removed Cyans/Teals to stop the "Blue" wash
+            val auroraColors = listOf(
+                Color(0xFF2DEB90), // Classic Aurora Green
+                Color(0xFF2DEB90), // Double Green to make it dominant
+                Color(0xFF8A2BE2), // Deep Violet
+                Color(0xFFD040FF)  // Magenta/Purple (for the high altitude nitrogen look)
+            )
+
+            val rayCount = 50
+            val step = width / rayCount
+            val rayWidth = step * 12f
+
+            for (r in 0 until rayCount) {
+                val baseX = step * r
+                val colorIndex = r % auroraColors.size
+                val color = auroraColors[colorIndex]
+
+                val shimmer = sin(rayPhase + r * 0.6f)
+                val rayHeight = (height * 0.45f) * (0.8f + 0.2f * shimmer)
+
+                // 2. DIMMING THE LIGHTS
+                // Previous was 0.2f -> Dropped to 0.1f range.
+                // This prevents the additive blend from turning white/cyan too fast.
+                val rayAlpha = 0.08f + 0.04f * shimmer
+
+                val path = Path().apply {
+                    moveTo(baseX, 0f)
+
+                    // Left edge
+                    for (y in 0..rayHeight.toInt() step 15) {
+                        val yNorm = y / rayHeight
+                        val wave = sin(yNorm * 3 + driftPhase + r * 0.2f) * 25f
+                        lineTo(baseX + wave, y.toFloat())
+                    }
+
+                    // Bottom
+                    val bottomY = rayHeight
+                    quadraticBezierTo(
+                        baseX + rayWidth / 2, bottomY + 50f,
+                        baseX + rayWidth, bottomY
+                    )
+
+                    // Right edge
+                    for (y in rayHeight.toInt() downTo 0 step 15) {
+                        val yNorm = y / rayHeight
+                        val wave = sin(yNorm * 3 + driftPhase + r * 0.2f + 0.5f) * 25f
+                        lineTo(baseX + rayWidth + wave, y.toFloat())
+                    }
+                    close()
+                }
+
+                drawPath(
+                    path = path,
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            color.copy(alpha = rayAlpha),        // Core
+                            color.copy(alpha = rayAlpha * 0.5f), // Soft Mids
+                            Color.Transparent                    // Fade
+                        ),
+                        center = Offset(baseX + rayWidth / 2, 0f),
+                        // 3. TIGHTER FOCUS
+                        // Reducing radius slightly to keep colours separated
+                        radius = rayHeight * 0.9f
+                    ),
+                    blendMode = BlendMode.Plus
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun SnowyOwlSnowflakes() {
