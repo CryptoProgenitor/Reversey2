@@ -212,7 +212,8 @@ fun AboutContent(
 // ========== THEMES SCREEN ==========
 @Composable
 fun ThemesContent(
-    themeViewModel: ThemeViewModel
+    themeViewModel: ThemeViewModel,
+    onDismiss: () -> Unit = {}
 ) {
     val currentThemeId by themeViewModel.currentThemeId.collectAsState()
     val scope = rememberCoroutineScope()
@@ -235,6 +236,7 @@ fun ThemesContent(
                     scope.launch {
                         themeViewModel.setTheme(id)
                     }
+                    onDismiss()
                 }
             )
         }

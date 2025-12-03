@@ -118,7 +118,8 @@ fun ThemedMenuModal(
                             )
 
                             ModalScreen.Themes -> ThemesContent(
-                                themeViewModel = themeViewModel
+                                themeViewModel = themeViewModel,
+                                onDismiss = onDismiss
                             )
                         }
                     }
