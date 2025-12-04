@@ -262,6 +262,11 @@ class BackupManager @Inject constructor(
             var importedAttempts = 0
             var restoredNames = 0
 
+            // Track mapping from backup filename -> actual installed filename (handles renames)
+            val filenameMapping = mutableMapOf<String, String>()
+            // Track renamed reversed files (backup reversed name -> actual reversed name)
+            val reversedRenameMapping = mutableMapOf<String, String>()
+
             ZipInputStream(FileInputStream(backupZipFile)).use { zipIn ->
                 var entry = zipIn.nextEntry
                 while (entry != null) {
@@ -284,58 +289,124 @@ class BackupManager @Inject constructor(
                                 val filename = entryName.removePrefix(RECORDINGS_PATH)
                                 val targetFile = File(recordingsDir, filename)
 
-                                val shouldImport = if (targetFile.exists()) {
+                                if (targetFile.exists()) {
                                     val localHash = calculateFileHash(targetFile)
                                     val manifestHash = manifest.recordings.find { it.filename == filename }?.hash
-                                    if (localHash == manifestHash) {
-                                        skippedRecs++
-                                        false // Exact duplicate
-                                    } else {
-                                        // Conflict: Filename same, content different
-                                        conflictStrategy == ConflictStrategy.KEEP_BOTH // TODO: Handle rename
-                                    }
-                                } else true
 
-                                if (shouldImport) {
+                                    if (localHash == manifestHash) {
+                                        // Exact duplicate - skip
+                                        skippedRecs++
+                                        filenameMapping[filename] = filename
+                                        Log.d(TAG, "Skipped duplicate recording: $filename")
+                                    } else {
+                                        // Conflict: Same filename, different content
+                                        when (conflictStrategy) {
+                                            ConflictStrategy.KEEP_BOTH -> {
+                                                // Generate unique name and import
+                                                val uniqueName = generateUniqueName(filename, recordingsDir)
+                                                val uniqueFile = File(recordingsDir, uniqueName)
+                                                FileOutputStream(uniqueFile).use { zipIn.copyTo(it) }
+                                                filenameMapping[filename] = uniqueName
+                                                importedRecs++
+                                                Log.d(TAG, "Renamed recording: $filename -> $uniqueName")
+                                            }
+                                            else -> {
+                                                // SKIP_DUPLICATES or MERGE_ATTEMPTS_ONLY
+                                                skippedRecs++
+                                                filenameMapping[filename] = filename
+                                                Log.d(TAG, "Skipped conflicting recording: $filename")
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // New file - import normally
                                     FileOutputStream(targetFile).use { zipIn.copyTo(it) }
+                                    filenameMapping[filename] = filename
                                     importedRecs++
+                                    Log.d(TAG, "Imported new recording: $filename")
                                 }
                             }
                         }
 
                         entryName.startsWith(ATTEMPTS_PATH) -> {
                             val filename = entryName.removePrefix(ATTEMPTS_PATH)
-                            val targetFile = File(attemptsDir, filename)
 
-                            if (!targetFile.exists()) {
-                                FileOutputStream(targetFile).use { zipIn.copyTo(it) }
-                                Log.d(TAG, "Extracted attempt file: $filename")
-                            } else {
-                                Log.d(TAG, "Attempt file already exists: $filename")
-                            }
-
-                            // Only create PlayerAttempt for forward files, not reversed files
+                            // Only process forward attempt files (not reversed files)
                             val attemptEntry = manifest.attempts.values.flatten().find { it.attemptFilename == filename }
 
                             if (attemptEntry != null) {
-                                val parentLocalPath = File(recordingsDir, attemptEntry.parentRecordingFilename).absolutePath
-                                val attemptLocalPath = targetFile.absolutePath
+                                // Get the actual parent recording filename (may be renamed)
+                                val parentBackupName = attemptEntry.parentRecordingFilename
+                                val parentActualName = filenameMapping[parentBackupName] ?: parentBackupName
+                                val parentLocalPath = File(recordingsDir, parentActualName).absolutePath
 
-                                // Check if this attempt already exists
+                                // Determine target filename for attempt
+                                val targetFile = File(attemptsDir, filename)
+                                val finalAttemptFile: File
+                                val finalAttemptFilename: String
+
+                                if (targetFile.exists()) {
+                                    val localHash = calculateFileHash(targetFile)
+
+                                    if (localHash == attemptEntry.hash) {
+                                        // Exact duplicate - skip extraction but may need to add to JSON
+                                        finalAttemptFile = targetFile
+                                        finalAttemptFilename = filename
+                                        Log.d(TAG, "Attempt file already exists (same content): $filename")
+                                    } else {
+                                        // Different content - conflict
+                                        if (conflictStrategy == ConflictStrategy.KEEP_BOTH) {
+                                            // Rename the attempt
+                                            val uniqueName = generateUniqueName(filename, attemptsDir)
+                                            finalAttemptFile = File(attemptsDir, uniqueName)
+                                            FileOutputStream(finalAttemptFile).use { zipIn.copyTo(it) }
+                                            finalAttemptFilename = uniqueName
+                                            Log.d(TAG, "Renamed attempt: $filename -> $uniqueName")
+
+                                            // Handle reversed attempt with matching rename
+                                            attemptEntry.reversedAttemptFilename?.let { revName ->
+                                                val uniqueRevName = uniqueName.replace(".wav", "_reversed.wav")
+                                                // STORE MAPPING: Tell the reversed file entry to use the new name
+                                                reversedRenameMapping[revName] = uniqueRevName
+                                                Log.d(TAG, "Mapped reversed file: $revName -> $uniqueRevName")
+                                            }
+                                        } else {
+                                            // SKIP or MERGE - skip this conflicting attempt
+                                            finalAttemptFile = targetFile
+                                            finalAttemptFilename = filename
+                                            Log.d(TAG, "Skipped conflicting attempt: $filename")
+                                            zipIn.closeEntry()
+                                            entry = zipIn.nextEntry
+                                            continue
+                                        }
+                                    }
+                                } else {
+                                    // New file - extract normally
+                                    FileOutputStream(targetFile).use { zipIn.copyTo(it) }
+                                    finalAttemptFile = targetFile
+                                    finalAttemptFilename = filename
+                                    Log.d(TAG, "Extracted new attempt: $filename")
+                                }
+
+                                // Check if this attempt already exists in JSON
                                 val existingAttempts = existingAttemptsMap[parentLocalPath] ?: emptyList()
-                                val alreadyExists = existingAttempts.any { it.attemptFilePath == attemptLocalPath }
+                                val alreadyExists = existingAttempts.any { it.attemptFilePath == finalAttemptFile.absolutePath }
 
-                                Log.d(TAG, "Attempt $filename: alreadyExists=$alreadyExists, parentPath=$parentLocalPath")
-
-                                if (!alreadyExists || conflictStrategy == ConflictStrategy.KEEP_BOTH) {
+                                if (!alreadyExists) {
                                     // Reconstruct reversed path if it exists
-                                    val reversedLocalPath = attemptEntry.reversedAttemptFilename?.let {
-                                        File(attemptsDir, it).absolutePath
+                                    val reversedLocalPath = attemptEntry.reversedAttemptFilename?.let { revName ->
+                                        // Use the same rename pattern as the forward file
+                                        val actualRevName = if (finalAttemptFilename != filename) {
+                                            finalAttemptFilename.replace(".wav", "_reversed.wav")
+                                        } else {
+                                            revName
+                                        }
+                                        File(attemptsDir, actualRevName).absolutePath
                                     }
 
                                     val playerAttempt = metadataToPlayerAttempt(
                                         attemptEntry.metadata,
-                                        attemptLocalPath,
+                                        finalAttemptFile.absolutePath,
                                         reversedLocalPath
                                     )
 
@@ -343,9 +414,21 @@ class BackupManager @Inject constructor(
                                         (list ?: emptyList()) + playerAttempt
                                     }
                                     importedAttempts++
-                                    Log.d(TAG, "Added attempt to JSON: $filename")
+                                    Log.d(TAG, "Added attempt to JSON: $finalAttemptFilename -> parent: $parentActualName")
                                 } else {
-                                    Log.d(TAG, "Skipped duplicate attempt: $filename")
+                                    Log.d(TAG, "Attempt already in JSON, skipped: $finalAttemptFilename")
+                                }
+                            } else {
+                                // This is likely a reversed file - check if it needs renaming
+                                // CHECK MAPPING: Did the forward file trigger a rename?
+                                val targetFilename = reversedRenameMapping[filename] ?: filename
+                                val targetFile = File(attemptsDir, targetFilename)
+
+                                if (!targetFile.exists()) {
+                                    FileOutputStream(targetFile).use { zipIn.copyTo(it) }
+                                    Log.d(TAG, "Extracted reversed attempt file: $targetFilename")
+                                } else {
+                                    Log.d(TAG, "Reversed file already exists: $targetFilename")
                                 }
                             }
                         }
@@ -355,11 +438,15 @@ class BackupManager @Inject constructor(
                 }
             }
 
-            // Restore Names
-            manifest.customNames.forEach { (filename, name) ->
-                val localPath = File(recordingsDir, filename).absolutePath
+            // Restore Names (using filename mapping for renamed recordings)
+            manifest.customNames.forEach { (backupFilename, name) ->
+                val actualFilename = filenameMapping[backupFilename] ?: backupFilename
+                val localPath = File(recordingsDir, actualFilename).absolutePath
                 existingCustomNames[localPath] = name
                 restoredNames++
+                if (actualFilename != backupFilename) {
+                    Log.d(TAG, "Restored custom name for renamed recording: $backupFilename -> $actualFilename")
+                }
             }
 
             threadSafeJsonRepo.saveAttemptsJson(existingAttemptsMap)
@@ -385,6 +472,31 @@ class BackupManager @Inject constructor(
             }
         }
         return null
+    }
+
+    /**
+     * Generate a unique filename with (N) suffix pattern.
+     * Example: "recording.wav" -> "recording (1).wav" -> "recording (2).wav"
+     */
+    private fun generateUniqueName(originalName: String, dir: File): String {
+        val extension = ".wav"
+        val baseName = originalName.removeSuffix(extension).removeSuffix("_reversed")
+
+        // Check if original name is available
+        if (!File(dir, originalName).exists()) {
+            return originalName
+        }
+
+        // Try (1), (2), (3), etc.
+        var counter = 1
+        var newName = "$baseName ($counter)$extension"
+
+        while (File(dir, newName).exists()) {
+            counter++
+            newName = "$baseName ($counter)$extension"
+        }
+
+        return newName
     }
 
     private fun calculateFileHash(file: File): String {
