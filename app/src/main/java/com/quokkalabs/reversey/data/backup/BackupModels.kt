@@ -1,0 +1,328 @@
+package com.quokkalabs.reversey.data.backup
+
+import com.quokkalabs.reversey.data.models.ChallengeType
+import com.quokkalabs.reversey.scoring.AudioQualityMetrics
+import com.quokkalabs.reversey.scoring.DebuggingData
+import com.quokkalabs.reversey.scoring.DifficultyLevel
+import com.quokkalabs.reversey.scoring.PerformanceInsights
+import com.quokkalabs.reversey.scoring.ScoringEngineType
+import com.quokkalabs.reversey.scoring.VocalAnalysis
+import com.quokkalabs.reversey.scoring.VocalFeatures
+import com.quokkalabs.reversey.scoring.VocalMode
+import java.io.File
+
+/**
+ * BACKUP MANIFEST v2.1 - Path-Agnostic, Cross-Device Compatible Format
+ *
+ * CRITICAL DESIGN PRINCIPLE:
+ * - Keys are FILENAMES, not absolute paths
+ * - Paths are reconstructed on import using device's local directories
+ * - This survives cross-device restore (different user IDs, storage paths)
+ *
+ * CHANGES FROM v2.0:
+ * - Added creationTimestampMs to RecordingBackupEntry (no more brittle filename parsing)
+ * - Added fileHash to all entries (for collision detection)
+ * - Added customNames map (backup display names)
+ * - Added exportTimestampMs for backup versioning
+ */
+
+/**
+ * Root manifest containing all backup data.
+ *
+ * STORED AS: manifest.json inside the backup zip
+ *
+ * PATH-AGNOSTIC DESIGN:
+ * - recordings: List of metadata (no paths, just filenames)
+ * - attempts: Map keyed by FILENAME (e.g., "song.wav" → list of attempts)
+ * - customNames: Map of FILENAME → display name
+ */
+data class BackupManifestV2(
+    val version: String = "2.1",
+
+    /** When this backup was created (epoch milliseconds) */
+    val exportTimestampMs: Long,
+
+    /** App version that created this backup */
+    val appVersionName: String,
+    val appVersionCode: Int,
+
+    /** Date range filter used during export (null = all time) */
+    val dateRange: DateRange? = null,
+
+    /** Quick stats for preview */
+    val summary: BackupSummary,
+
+    /** List of recordings in this backup */
+    val recordings: List<RecordingBackupEntry>,
+
+    /**
+     * Attempts map - KEY IS FILENAME, NOT PATH
+     * Example: "song.wav" → [attempt1, attempt2, attempt3]
+     *
+     * CRITICAL: This allows path remapping on import.
+     */
+    val attempts: Map<String, List<AttemptBackupEntry>>,
+
+    /**
+     * Custom display names map - KEY IS FILENAME, NOT PATH
+     * Example: "song.wav" → "Birthday Song"
+     *
+     * NEW IN v2.1: Prevents loss of custom names on restore.
+     */
+    val customNames: Map<String, String> = emptyMap()
+)
+
+/**
+ * Date range for selective backup.
+ */
+data class DateRange(
+    val fromMs: Long,      // Start of range (epoch milliseconds)
+    val toMs: Long,        // End of range (epoch milliseconds)
+    val fromIso: String,   // ISO 8601: "2025-11-01T00:00:00Z"
+    val toIso: String      // ISO 8601: "2025-11-30T23:59:59Z"
+)
+
+/**
+ * Quick summary for import preview.
+ */
+data class BackupSummary(
+    val recordingCount: Int,
+    val attemptCount: Int,
+    val totalAudioFileSizeBytes: Long,
+    val oldestRecordingTimestampMs: Long?,
+    val newestRecordingTimestampMs: Long?,
+    val hasCustomNames: Boolean = false
+)
+
+/**
+ * Recording entry in backup - PATH-AGNOSTIC.
+ *
+ * CRITICAL FIELDS:
+ * - filename: JUST the filename (e.g., "song.wav"), NOT full path
+ * - hash: xxHash64 for deduplication and collision detection
+ * - creationTimestampMs: NEW IN v2.1 - explicit timestamp (no parsing needed)
+ */
+data class RecordingBackupEntry(
+    /** JUST the filename - no paths! */
+    val filename: String,              // e.g., "2025-11-23_13-00-00.wav"
+
+    /** Reversed audio filename (if exists) */
+    val reversedFilename: String?,     // e.g., "2025-11-23_13-00-00_reversed.wav"
+
+    /**
+     * xxHash64 of original file (for deduplication).
+     * NEW IN v2.1: Pre-computed during export.
+     */
+    val hash: String,
+
+    /**
+     * When this recording was created (epoch milliseconds).
+     * NEW IN v2.1: Explicit timestamp, no more parsing filenames!
+     */
+    val creationTimestampMs: Long,
+
+    /** Last modified time of the file */
+    val lastModified: Long,
+
+    /** File size in bytes */
+    val fileSizeBytes: Long,
+
+    /** Vocal mode classification */
+    val vocalMode: String?,            // "SPEECH", "SINGING", or "UNKNOWN"
+    val vocalConfidence: Float?,
+    val vocalFeatures: VocalFeaturesBackup?
+)
+
+/**
+ * Attempt entry in backup - PATH-AGNOSTIC.
+ *
+ * CRITICAL:
+ * - parentRecordingFilename: Links to parent via FILENAME (not path)
+ * - attemptFilename: JUST the filename (not path)
+ * - hash: For deduplication
+ */
+data class AttemptBackupEntry(
+    /** Parent recording FILENAME (e.g., "song.wav") */
+    val parentRecordingFilename: String,
+
+    /** Attempt audio FILENAME */
+    val attemptFilename: String,
+
+    /** Reversed attempt FILENAME (if exists) */
+    val reversedAttemptFilename: String?,
+
+    /**
+     * xxHash64 of attempt file (for deduplication).
+     * NEW IN v2.1: Pre-computed during export.
+     */
+    val hash: String,
+
+    /** All the attempt metadata */
+    val metadata: AttemptMetadataBackup
+)
+
+/**
+ * Vocal features backup - matches VocalFeatures from VocalModeDetector.kt
+ */
+data class VocalFeaturesBackup(
+    val pitchStability: Float,
+    val pitchContour: Float,
+    val mfccSpread: Float,
+    val voicedRatio: Float
+)
+
+/**
+ * Vocal analysis backup - matches VocalAnalysis from VocalModeDetector.kt
+ */
+data class VocalAnalysisBackup(
+    val mode: String,              // "SPEECH", "SINGING", or "UNKNOWN"
+    val confidence: Float,
+    val features: VocalFeaturesBackup
+)
+
+/**
+ * Audio quality metrics backup - matches AudioQualityMetrics from Scoreacquisitiondataconcentrator.kt
+ */
+data class AudioQualityMetricsBackup(
+    val rms: Float,
+    val snr: Float
+)
+
+/**
+ * Performance insights backup - matches PerformanceInsights from Scoreacquisitiondataconcentrator.kt
+ */
+data class PerformanceInsightsBackup(
+    val feedback: List<String>
+)
+
+/**
+ * Debugging data backup - matches DebuggingData from Scoreacquisitiondataconcentrator.kt
+ */
+data class DebuggingDataBackup(
+    val debugInfo: String
+)
+
+/**
+ * Attempt metadata for backup - matches ALL fields from PlayerAttempt.kt
+ */
+data class AttemptMetadataBackup(
+    val playerName: String,
+    val score: Int,
+    val pitchSimilarity: Float,
+    val mfccSimilarity: Float,
+    val rawScore: Float,
+    val challengeType: String,          // "REVERSE" or "FORWARD"
+    val difficulty: String,             // "EASY", "NORMAL", or "HARD"
+    val scoringEngine: String?,         // "SPEECH_ENGINE" or "SINGING_ENGINE"
+
+    // Rich metadata
+    val feedback: List<String>,
+    val isGarbage: Boolean,
+    val vocalAnalysis: VocalAnalysisBackup?,
+    val audioQualityMetrics: AudioQualityMetricsBackup?,
+    val performanceInsights: PerformanceInsightsBackup?,
+    val debuggingData: DebuggingDataBackup?
+)
+
+/**
+ * Result of a backup export operation.
+ */
+data class BackupResult(
+    val success: Boolean,
+    val zipFile: File?,
+    val recordingsExported: Int,
+    val attemptsExported: Int,
+    val totalSizeBytes: Long,
+    val error: String? = null
+)
+
+/**
+ * Result of a backup restore operation.
+ */
+data class RestoreResult(
+    val success: Boolean,
+    val recordingsImported: Int,
+    val recordingsSkipped: Int,
+    val attemptsImported: Int,
+    val customNamesRestored: Int,
+    val error: String? = null
+)
+
+/**
+ * Conflict resolution strategy when importing duplicates.
+ */
+enum class ConflictStrategy {
+    /**
+     * Skip importing duplicate recordings, but MERGE their attempts.
+     */
+    SKIP_DUPLICATES,
+
+    /**
+     * Import duplicate with renamed filename.
+     */
+    KEEP_BOTH,
+
+    /**
+     * Only merge attempts, never import recordings.
+     */
+    MERGE_ATTEMPTS_ONLY
+}
+
+// ============================================================
+//  CONVERSION EXTENSIONS
+// ============================================================
+
+/**
+ * Convert ChallengeType enum to string for backup.
+ */
+fun ChallengeType.toBackupString(): String = this.name
+
+/**
+ * Convert DifficultyLevel enum to string for backup.
+ */
+fun DifficultyLevel.toBackupString(): String = this.name
+
+/**
+ * Convert ScoringEngineType enum to string for backup.
+ */
+fun ScoringEngineType.toBackupString(): String = this.name
+
+/**
+ * Convert VocalAnalysis to backup format.
+ */
+fun VocalAnalysis.toBackup(): VocalAnalysisBackup =
+    VocalAnalysisBackup(
+        mode = this.mode.name,
+        confidence = this.confidence,
+        features = VocalFeaturesBackup(
+            pitchStability = this.features.pitchStability,
+            pitchContour = this.features.pitchContour,
+            mfccSpread = this.features.mfccSpread,
+            voicedRatio = this.features.voicedRatio
+        )
+    )
+
+/**
+ * Convert AudioQualityMetrics to backup format.
+ */
+fun AudioQualityMetrics.toBackup(): AudioQualityMetricsBackup =
+    AudioQualityMetricsBackup(
+        rms = this.rms,
+        snr = this.snr
+    )
+
+/**
+ * Convert PerformanceInsights to backup format.
+ */
+fun PerformanceInsights.toBackup(): PerformanceInsightsBackup =
+    PerformanceInsightsBackup(
+        feedback = this.feedback
+    )
+
+/**
+ * Convert DebuggingData to backup format.
+ */
+fun DebuggingData.toBackup(): DebuggingDataBackup =
+    DebuggingDataBackup(
+        debugInfo = this.debugInfo
+    )

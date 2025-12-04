@@ -82,6 +82,7 @@ fun MenuContent(
     onNavigateAbout: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateThemes: () -> Unit,
+    onNavigateToBackupTests: () -> Unit,  // ← ADD THIS LINE
     onClearAll: () -> Unit
 ) {
     Column(
@@ -116,6 +117,14 @@ fun MenuContent(
             label = "About",
             selected = false,
             onClick = onNavigateAbout
+        )
+
+        // 🧪 Backup Tests Button
+        FloatingMenuItem(
+            icon = Icons.Default.Settings,  // Or use a better icon if you have one
+            label = "🧪 Backup Tests",
+            selected = false,
+            onClick = onNavigateToBackupTests
         )
 
         Spacer(modifier = Modifier.weight(1f))

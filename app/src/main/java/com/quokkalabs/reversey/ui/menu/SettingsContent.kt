@@ -2,10 +2,23 @@ package com.quokkalabs.reversey.ui.menu
 
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,8 +26,31 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.BuildConfig
 import com.quokkalabs.reversey.audio.processing.AudioProcessor
+import com.quokkalabs.reversey.data.backup.BackupManager
+import com.quokkalabs.reversey.data.backup.ConflictStrategy
 import com.quokkalabs.reversey.scoring.DifficultyConfig
 import com.quokkalabs.reversey.testing.ScoringStressTester
 import com.quokkalabs.reversey.testing.VocalModeDetectorTuner
@@ -36,11 +74,17 @@ import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SettingsContent(
     themeViewModel: ThemeViewModel,
-    audioViewModel: AudioViewModel
+    audioViewModel: AudioViewModel,
+    backupManager: BackupManager,
+    onBackupComplete: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -236,6 +280,254 @@ fun SettingsContent(
         GlassDivider()
 
         SectionTitle("DEVELOPER OPTIONS")
+
+        // ========== BACKUP EXPORT/IMPORT ==========
+        var isExporting by remember { mutableStateOf(false) }
+        var isImporting by remember { mutableStateOf(false) }
+        var exportStatus by remember { mutableStateOf<String?>(null) }
+        var importStatus by remember { mutableStateOf<String?>(null) }
+        var pendingExportFile by remember { mutableStateOf<File?>(null) }
+
+        // Export Launcher - CreateDocument for Android 11+ scoped storage
+        val exportLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/zip")
+        ) { uri ->
+            if (uri != null && pendingExportFile != null) {
+                scope.launch {
+                    try {
+                        context.contentResolver.openOutputStream(uri)?.use { output ->
+                            java.io.FileInputStream(pendingExportFile!!).use { input ->
+                                input.copyTo(output)
+                            }
+                        }
+
+                        // Clean up temp file
+                        pendingExportFile!!.delete()
+                        pendingExportFile!!.parentFile?.deleteRecursively()
+
+                        exportStatus = "✅ Backup saved successfully"
+                        Toast.makeText(context, "Backup saved successfully", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        exportStatus = "❌ Save failed: ${e.message}"
+                    } finally {
+                        pendingExportFile = null
+                        isExporting = false
+                    }
+                }
+            } else {
+                // User cancelled
+                pendingExportFile?.delete()
+                pendingExportFile?.parentFile?.deleteRecursively()
+                pendingExportFile = null
+                isExporting = false
+            }
+        }
+
+        // Export Backup
+        GlassCard {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isExporting && !isImporting) {
+                        isExporting = true
+                        exportStatus = null
+                        scope.launch {
+                            try {
+                                val tempDir = File(context.cacheDir, "backup_temp").apply { mkdirs() }
+                                val result = backupManager.exportFullBackup(tempDir)
+
+                                if (result.success && result.zipFile != null) {
+                                    pendingExportFile = result.zipFile
+
+                                    // Generate filename with timestamp
+                                    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                                    val filename = "reversey_backup_$timestamp.zip"
+
+                                    // Launch system save dialog
+                                    exportLauncher.launch(filename)
+
+                                    exportStatus = "✅ Exported: ${result.recordingsExported} recordings, ${result.attemptsExported} attempts"
+                                } else {
+                                    exportStatus = "❌ Export failed"
+                                    isExporting = false
+                                }
+                            } catch (e: Exception) {
+                                exportStatus = "❌ Error: ${e.message}"
+                                isExporting = false
+                            }
+                        }
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = if (isExporting) "Exporting Backup..." else "Export Backup",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = StaticMenuColors.textOnCard
+                )
+                if (isExporting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = StaticMenuColors.toggleActive
+                    )
+                }
+            }
+
+            if (exportStatus != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = exportStatus!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (exportStatus!!.startsWith("✅"))
+                        Color(0xFF4CAF50)
+                    else
+                        Color(0xFFF44336)
+                )
+            }
+        }
+
+        // Import Backup
+        var showImportDialog by remember { mutableStateOf(false) }
+        var selectedBackupFile by remember { mutableStateOf<android.net.Uri?>(null) }
+
+        val importLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri: android.net.Uri? ->
+            if (uri != null) {
+                selectedBackupFile = uri
+                showImportDialog = true
+            }
+        }
+
+        GlassCard {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isExporting && !isImporting) {
+                        importLauncher.launch("application/zip")
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = if (isImporting) "Importing Backup..." else "Import Backup",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = StaticMenuColors.textOnCard
+                )
+                if (isImporting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = StaticMenuColors.toggleActive
+                    )
+                }
+            }
+
+            if (importStatus != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = importStatus!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (importStatus!!.startsWith("✅"))
+                        Color(0xFF4CAF50)
+                    else
+                        Color(0xFFF44336)
+                )
+            }
+        }
+
+        // Import Dialog
+        if (showImportDialog && selectedBackupFile != null) {
+            AlertDialog(
+                onDismissRequest = { showImportDialog = false },
+                title = { Text("Import Strategy") },
+                text = {
+                    Column {
+                        Text("Skip Duplicates: Keep existing files")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Merge Attempts: Add new attempts only")
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showImportDialog = false
+                        isImporting = true
+                        importStatus = null
+                        scope.launch {
+                            try {
+                                val tempFile = File(context.cacheDir, "import_temp.zip")
+                                context.contentResolver.openInputStream(selectedBackupFile!!)?.use { input ->
+                                    java.io.FileOutputStream(tempFile).use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+
+                                val result = backupManager.importBackup(tempFile, ConflictStrategy.SKIP_DUPLICATES)
+                                tempFile.delete()
+
+                                if (result.success) {
+                                    importStatus = "✅ Imported: ${result.recordingsImported} recordings, ${result.attemptsImported} attempts"
+                                    Toast.makeText(context, "Backup imported successfully", Toast.LENGTH_SHORT).show()
+                                    onBackupComplete()
+                                } else {
+                                    importStatus = "❌ Import failed"
+                                }
+                            } catch (e: Exception) {
+                                importStatus = "❌ Error: ${e.message}"
+                            } finally {
+                                isImporting = false
+                                selectedBackupFile = null
+                            }
+                        }
+                    }) {
+                        Text("Skip Duplicates")
+                    }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = {
+                            showImportDialog = false
+                            isImporting = true
+                            importStatus = null
+                            scope.launch {
+                                try {
+                                    val tempFile = File(context.cacheDir, "import_temp.zip")
+                                    context.contentResolver.openInputStream(selectedBackupFile!!)?.use { input ->
+                                        java.io.FileOutputStream(tempFile).use { output ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+
+                                    val result = backupManager.importBackup(tempFile, ConflictStrategy.MERGE_ATTEMPTS_ONLY)
+                                    tempFile.delete()
+
+                                    if (result.success) {
+                                        importStatus = "✅ Merged: ${result.attemptsImported} attempts"
+                                        Toast.makeText(context, "Attempts merged successfully", Toast.LENGTH_SHORT).show()
+                                        onBackupComplete()
+                                    } else {
+                                        importStatus = "❌ Merge failed"
+                                    }
+                                } catch (e: Exception) {
+                                    importStatus = "❌ Error: ${e.message}"
+                                } finally {
+                                    isImporting = false
+                                    selectedBackupFile = null
+                                }
+                            }
+                        }) {
+                            Text("Merge Attempts")
+                        }
+                        TextButton(onClick = { showImportDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                }
+            )
+        }
 
         // ========== STRESS TESTER ==========
         var showStressTester by remember { mutableStateOf(false) }
