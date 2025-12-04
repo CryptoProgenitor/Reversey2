@@ -16,6 +16,9 @@ import com.quokkalabs.reversey.scoring.ScoringEngineType
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
@@ -36,6 +39,14 @@ class BackupManager @Inject constructor(
 
     private val securityUtils = SecurityUtils
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
+
+    // Progress tracking for export operations
+    private val _exportProgress = MutableStateFlow<BackupProgress>(BackupProgress.Idle)
+    val exportProgress: StateFlow<BackupProgress> = _exportProgress.asStateFlow()
+
+    // Progress tracking for import operations
+    private val _importProgress = MutableStateFlow<BackupProgress>(BackupProgress.Idle)
+    val importProgress: StateFlow<BackupProgress> = _importProgress.asStateFlow()
 
     companion object {
         private const val TAG = "BackupManager"
@@ -117,125 +128,175 @@ class BackupManager @Inject constructor(
         outputDir: File,
         dateRange: DateRange?
     ): BackupResult = withContext(Dispatchers.IO) {
-        val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val zipFile = File(outputDir, "reversey_backup_$timestamp.zip")
-        var totalSizeBytes = 0L
-
-        val recordingEntries = mutableListOf<RecordingBackupEntry>()
-        val attemptEntriesMap = mutableMapOf<String, MutableList<AttemptBackupEntry>>()
-        val customNamesMap = mutableMapOf<String, String>()
-        val addedFiles = mutableSetOf<String>()
-
-        ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
-            // --- EXPORT RECORDINGS ---
-            recordings.forEach { recording ->
-                val originalFile = File(recording.originalPath)
-                if (originalFile.exists()) {
-                    val filename = originalFile.name
-                    if (filename !in addedFiles) {
-                        // Store in zip under recordings/
-                        zipOut.putNextEntry(ZipEntry("$RECORDINGS_PATH$filename"))
-                        FileInputStream(originalFile).use { it.copyTo(zipOut) }
-                        zipOut.closeEntry()
-                        addedFiles.add(filename)
-                        totalSizeBytes += originalFile.length()
-                    }
-
-                    // Create Manifest Entry
-                    recordingEntries.add(
-                        RecordingBackupEntry(
-                            filename = filename,
-                            reversedFilename = null,
-                            hash = calculateFileHash(originalFile),
-                            creationTimestampMs = originalFile.lastModified(),
-                            lastModified = originalFile.lastModified(),
-                            fileSizeBytes = originalFile.length(),
-                            vocalMode = recording.vocalAnalysis?.mode?.name,
-                            vocalConfidence = recording.vocalAnalysis?.confidence,
-                            vocalFeatures = recording.vocalAnalysis?.toBackup()?.features
-                        )
-                    )
-
-                    // Handle custom names
-                    customNames[recording.originalPath]?.let { name ->
-                        customNamesMap[filename] = name
-                    }
-                }
-            }
-
-            // --- EXPORT ATTEMPTS ---
-            attemptsMap.forEach { (parentPath, attempts) ->
-                val parentFilename = File(parentPath).name
-                val attemptsList = mutableListOf<AttemptBackupEntry>()
-
-                attempts.forEach { attempt ->
-                    val attemptFile = File(attempt.attemptFilePath)
-                    var reversedFilename: String? = null
-
-                    // Export attempt file
-                    if (attemptFile.exists()) {
-                        val attemptFilename = attemptFile.name
-                        if (attemptFilename !in addedFiles) {
-                            zipOut.putNextEntry(ZipEntry("$ATTEMPTS_PATH$attemptFilename"))
-                            FileInputStream(attemptFile).use { it.copyTo(zipOut) }
-                            zipOut.closeEntry()
-                            addedFiles.add(attemptFilename)
-                            totalSizeBytes += attemptFile.length()
-                        }
-
-                        // Export reversed attempt file if exists
-                        attempt.reversedAttemptFilePath?.let { reversedPath ->
-                            val reversedFile = File(reversedPath)
-                            if (reversedFile.exists()) {
-                                reversedFilename = reversedFile.name
-                                if (reversedFilename !in addedFiles) {
-                                    zipOut.putNextEntry(ZipEntry("$ATTEMPTS_PATH$reversedFilename"))
-                                    FileInputStream(reversedFile).use { it.copyTo(zipOut) }
-                                    zipOut.closeEntry()
-                                    addedFiles.add(reversedFilename)
-                                    totalSizeBytes += reversedFile.length()
-                                }
-                            }
-                        }
-
-                        attemptsList.add(
-                            AttemptBackupEntry(
-                                parentRecordingFilename = parentFilename,
-                                attemptFilename = attemptFile.name,
-                                reversedAttemptFilename = reversedFilename,  // ✅ FIXED
-                                hash = calculateFileHash(attemptFile),
-                                metadata = attemptToBackupMetadata(attempt)
-                            )
-                        )
-                    }
-                }
-                if (attemptsList.isNotEmpty()) {
-                    attemptEntriesMap[parentFilename] = attemptsList
-                }
-            }
-
-            // --- MANIFEST ---
-            val packageInfo: PackageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            val summary = BackupSummary(recordingEntries.size, attemptEntriesMap.values.sumOf { it.size }, totalSizeBytes, null, null, customNamesMap.isNotEmpty())
-
-            val manifest = BackupManifestV2(
-                version = "2.1",
-                exportTimestampMs = System.currentTimeMillis(),
-                appVersionName = packageInfo.versionName ?: "1.0",
-                appVersionCode = packageInfo.versionCode,
-                dateRange = dateRange,
-                summary = summary,
-                recordings = recordingEntries,
-                attempts = attemptEntriesMap,
-                customNames = customNamesMap
+        try {
+            _exportProgress.value = BackupProgress.InProgress(
+                phase = BackupPhase.ANALYZING,
+                currentItem = 0,
+                totalItems = recordings.size,
+                currentFileName = "",
+                message = "Analyzing ${recordings.size} recordings..."
             )
 
-            zipOut.putNextEntry(ZipEntry(MANIFEST_FILENAME))
-            zipOut.write(gson.toJson(manifest).toByteArray())
-            zipOut.closeEntry()
-        }
+            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val zipFile = File(outputDir, "reversey_backup_$timestamp.zip")
+            var totalSizeBytes = 0L
 
-        BackupResult(true, zipFile, recordingEntries.size, attemptEntriesMap.values.sumOf { it.size }, totalSizeBytes)
+            val recordingEntries = mutableListOf<RecordingBackupEntry>()
+            val attemptEntriesMap = mutableMapOf<String, MutableList<AttemptBackupEntry>>()
+            val customNamesMap = mutableMapOf<String, String>()
+            val addedFiles = mutableSetOf<String>()
+
+            ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
+                // --- EXPORT RECORDINGS ---
+                recordings.forEachIndexed { index, recording ->
+                    val originalFile = File(recording.originalPath)
+                    if (originalFile.exists()) {
+                        val filename = originalFile.name
+
+                        // Emit progress
+                        _exportProgress.value = BackupProgress.InProgress(
+                            phase = BackupPhase.EXPORTING_RECORDINGS,
+                            currentItem = index + 1,
+                            totalItems = recordings.size,
+                            currentFileName = filename,
+                            message = "Exporting recording ${index + 1}/${recordings.size}"
+                        )
+
+                        if (filename !in addedFiles) {
+                            // Store in zip under recordings/
+                            zipOut.putNextEntry(ZipEntry("$RECORDINGS_PATH$filename"))
+                            FileInputStream(originalFile).use { it.copyTo(zipOut) }
+                            zipOut.closeEntry()
+                            addedFiles.add(filename)
+                            totalSizeBytes += originalFile.length()
+                        }
+
+                        // Create Manifest Entry
+                        recordingEntries.add(
+                            RecordingBackupEntry(
+                                filename = filename,
+                                reversedFilename = null,
+                                hash = calculateFileHash(originalFile),
+                                creationTimestampMs = originalFile.lastModified(),
+                                lastModified = originalFile.lastModified(),
+                                fileSizeBytes = originalFile.length(),
+                                vocalMode = recording.vocalAnalysis?.mode?.name,
+                                vocalConfidence = recording.vocalAnalysis?.confidence,
+                                vocalFeatures = recording.vocalAnalysis?.toBackup()?.features
+                            )
+                        )
+
+                        // Handle custom names
+                        customNames[recording.originalPath]?.let { name ->
+                            customNamesMap[filename] = name
+                        }
+                    }
+                }
+
+                // --- EXPORT ATTEMPTS ---
+                val totalAttempts = attemptsMap.values.sumOf { it.size }
+                var attemptCounter = 0
+
+                attemptsMap.forEach { (parentPath, attempts) ->
+                    val parentFilename = File(parentPath).name
+                    val attemptsList = mutableListOf<AttemptBackupEntry>()
+
+                    attempts.forEach { attempt ->
+                        attemptCounter++
+                        val attemptFile = File(attempt.attemptFilePath)
+                        var reversedFilename: String? = null
+
+                        // Emit progress
+                        _exportProgress.value = BackupProgress.InProgress(
+                            phase = BackupPhase.EXPORTING_ATTEMPTS,
+                            currentItem = attemptCounter,
+                            totalItems = totalAttempts,
+                            currentFileName = attemptFile.name,
+                            message = "Exporting attempt $attemptCounter/$totalAttempts"
+                        )
+
+                        // Export attempt file
+                        if (attemptFile.exists()) {
+                            val attemptFilename = attemptFile.name
+                            if (attemptFilename !in addedFiles) {
+                                zipOut.putNextEntry(ZipEntry("$ATTEMPTS_PATH$attemptFilename"))
+                                FileInputStream(attemptFile).use { it.copyTo(zipOut) }
+                                zipOut.closeEntry()
+                                addedFiles.add(attemptFilename)
+                                totalSizeBytes += attemptFile.length()
+                            }
+
+                            // Export reversed attempt file if exists
+                            attempt.reversedAttemptFilePath?.let { reversedPath ->
+                                val reversedFile = File(reversedPath)
+                                if (reversedFile.exists()) {
+                                    reversedFilename = reversedFile.name
+                                    if (reversedFilename !in addedFiles) {
+                                        zipOut.putNextEntry(ZipEntry("$ATTEMPTS_PATH$reversedFilename"))
+                                        FileInputStream(reversedFile).use { it.copyTo(zipOut) }
+                                        zipOut.closeEntry()
+                                        addedFiles.add(reversedFilename)
+                                        totalSizeBytes += reversedFile.length()
+                                    }
+                                }
+                            }
+
+                            attemptsList.add(
+                                AttemptBackupEntry(
+                                    parentRecordingFilename = parentFilename,
+                                    attemptFilename = attemptFile.name,
+                                    reversedAttemptFilename = reversedFilename,  // ✅ FIXED
+                                    hash = calculateFileHash(attemptFile),
+                                    metadata = attemptToBackupMetadata(attempt)
+                                )
+                            )
+                        }
+                    }
+                    if (attemptsList.isNotEmpty()) {
+                        attemptEntriesMap[parentFilename] = attemptsList
+                    }
+                }
+
+                // --- MANIFEST ---
+                _exportProgress.value = BackupProgress.InProgress(
+                    phase = BackupPhase.CREATING_MANIFEST,
+                    currentItem = 1,
+                    totalItems = 1,
+                    currentFileName = MANIFEST_FILENAME,
+                    message = "Creating backup manifest..."
+                )
+
+                val packageInfo: PackageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                val summary = BackupSummary(recordingEntries.size, attemptEntriesMap.values.sumOf { it.size }, totalSizeBytes, null, null, customNamesMap.isNotEmpty())
+
+                val manifest = BackupManifestV2(
+                    version = "2.1",
+                    exportTimestampMs = System.currentTimeMillis(),
+                    appVersionName = packageInfo.versionName ?: "1.0",
+                    appVersionCode = packageInfo.versionCode,
+                    dateRange = dateRange,
+                    summary = summary,
+                    recordings = recordingEntries,
+                    attempts = attemptEntriesMap,
+                    customNames = customNamesMap
+                )
+
+                zipOut.putNextEntry(ZipEntry(MANIFEST_FILENAME))
+                zipOut.write(gson.toJson(manifest).toByteArray())
+                zipOut.closeEntry()
+            }
+
+            _exportProgress.value = BackupProgress.Complete(
+                message = "Export complete!",
+                recordingsProcessed = recordingEntries.size,
+                attemptsProcessed = attemptEntriesMap.values.sumOf { it.size }
+            )
+
+            BackupResult(true, zipFile, recordingEntries.size, attemptEntriesMap.values.sumOf { it.size }, totalSizeBytes)
+        } catch (e: Exception) {
+            _exportProgress.value = BackupProgress.Error("Export failed: ${e.message}")
+            throw e
+        }
     }
 
     // ============================================================
@@ -247,9 +308,33 @@ class BackupManager @Inject constructor(
         conflictStrategy: ConflictStrategy = ConflictStrategy.SKIP_DUPLICATES
     ): RestoreResult = withContext(Dispatchers.IO) {
         try {
-            if (!securityUtils.isValidZipFile(backupZipFile)) return@withContext RestoreResult(false, 0, 0, 0, 0, "Invalid Zip")
+            _importProgress.value = BackupProgress.InProgress(
+                phase = BackupPhase.ANALYZING,
+                currentItem = 0,
+                totalItems = 1,
+                currentFileName = backupZipFile.name,
+                message = "Validating backup file..."
+            )
 
-            val manifest = extractManifest(backupZipFile) ?: return@withContext RestoreResult(false, 0, 0, 0, 0, "Invalid Manifest")
+            if (!securityUtils.isValidZipFile(backupZipFile)) {
+                _importProgress.value = BackupProgress.Error("Invalid zip file")
+                return@withContext RestoreResult(false, 0, 0, 0, 0, "Invalid Zip")
+            }
+
+            val manifest = extractManifest(backupZipFile)
+            if (manifest == null) {
+                _importProgress.value = BackupProgress.Error("Invalid manifest")
+                return@withContext RestoreResult(false, 0, 0, 0, 0, "Invalid Manifest")
+            }
+
+            val totalFiles = manifest.recordings.size + manifest.attempts.values.sumOf { it.size }
+            _importProgress.value = BackupProgress.InProgress(
+                phase = BackupPhase.EXTRACTING,
+                currentItem = 0,
+                totalItems = totalFiles,
+                currentFileName = "",
+                message = "Preparing to import $totalFiles files..."
+            )
 
             val recordingsDir = getRecordingsDir()
             val attemptsDir = getAttemptsDir()
@@ -287,6 +372,16 @@ class BackupManager @Inject constructor(
                             // Logic: Extract Recording
                             if (conflictStrategy != ConflictStrategy.MERGE_ATTEMPTS_ONLY) {
                                 val filename = entryName.removePrefix(RECORDINGS_PATH)
+
+                                // Emit progress
+                                _importProgress.value = BackupProgress.InProgress(
+                                    phase = BackupPhase.IMPORTING_RECORDINGS,
+                                    currentItem = importedRecs + skippedRecs + 1,
+                                    totalItems = manifest.recordings.size,
+                                    currentFileName = filename,
+                                    message = "Importing recordings..."
+                                )
+
                                 val targetFile = File(recordingsDir, filename)
 
                                 if (targetFile.exists()) {
@@ -335,6 +430,15 @@ class BackupManager @Inject constructor(
                             val attemptEntry = manifest.attempts.values.flatten().find { it.attemptFilename == filename }
 
                             if (attemptEntry != null) {
+                                // Emit progress
+                                _importProgress.value = BackupProgress.InProgress(
+                                    phase = BackupPhase.IMPORTING_ATTEMPTS,
+                                    currentItem = importedAttempts + 1,
+                                    totalItems = manifest.attempts.values.sumOf { it.size },
+                                    currentFileName = filename,
+                                    message = "Importing attempts..."
+                                )
+
                                 // Get the actual parent recording filename (may be renamed)
                                 val parentBackupName = attemptEntry.parentRecordingFilename
                                 val parentActualName = filenameMapping[parentBackupName] ?: parentBackupName
@@ -449,13 +553,29 @@ class BackupManager @Inject constructor(
                 }
             }
 
+            // Save metadata
+            _importProgress.value = BackupProgress.InProgress(
+                phase = BackupPhase.MERGING_METADATA,
+                currentItem = 1,
+                totalItems = 1,
+                currentFileName = "attempts.json",
+                message = "Saving metadata..."
+            )
+
             threadSafeJsonRepo.saveAttemptsJson(existingAttemptsMap)
             threadSafeJsonRepo.saveRecordingNamesJson(existingCustomNames)
+
+            _importProgress.value = BackupProgress.Complete(
+                message = "Import complete!",
+                recordingsProcessed = importedRecs,
+                attemptsProcessed = importedAttempts
+            )
 
             RestoreResult(true, importedRecs, skippedRecs, importedAttempts, restoredNames)
 
         } catch (e: Exception) {
             Log.e(TAG, "Import failed", e)
+            _importProgress.value = BackupProgress.Error("Import failed: ${e.message}")
             RestoreResult(false, 0, 0, 0, 0, e.message)
         }
     }

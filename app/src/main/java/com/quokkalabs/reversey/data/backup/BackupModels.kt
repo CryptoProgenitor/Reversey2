@@ -269,6 +269,58 @@ enum class ConflictStrategy {
 }
 
 // ============================================================
+//  PROGRESS TRACKING
+// ============================================================
+
+/**
+ * Progress tracking for backup/restore operations.
+ * Used with StateFlow for real-time UI updates.
+ */
+sealed class BackupProgress {
+    /** No operation in progress */
+    object Idle : BackupProgress()
+
+    /** Operation in progress */
+    data class InProgress(
+        val phase: BackupPhase,
+        val currentItem: Int,
+        val totalItems: Int,
+        val currentFileName: String,
+        val message: String
+    ) : BackupProgress() {
+        val percentage: Int
+            get() = if (totalItems > 0) ((currentItem * 100) / totalItems) else 0
+    }
+
+    /** Operation completed successfully */
+    data class Complete(
+        val message: String,
+        val recordingsProcessed: Int,
+        val attemptsProcessed: Int
+    ) : BackupProgress()
+
+    /** Operation failed */
+    data class Error(val message: String) : BackupProgress()
+}
+
+/**
+ * Phases of backup/restore operations.
+ */
+enum class BackupPhase {
+    ANALYZING,              // Analyzing files to backup/restore
+    HASHING,                // Computing file hashes
+    EXPORTING_RECORDINGS,   // Writing recordings to zip
+    EXPORTING_ATTEMPTS,     // Writing attempts to zip
+    CREATING_MANIFEST,      // Creating manifest.json
+    EXTRACTING,             // Extracting zip contents
+    IMPORTING_RECORDINGS,   // Copying recordings to device
+    IMPORTING_ATTEMPTS,     // Copying attempts to device
+    MERGING_METADATA,       // Updating attempts.json
+    COMPLETE,               // Operation finished
+    FAILED                  // Operation failed
+}
+
+// ============================================================
 //  CONVERSION EXTENSIONS
 // ============================================================
 
