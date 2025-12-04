@@ -378,3 +378,44 @@ fun DebuggingData.toBackup(): DebuggingDataBackup =
     DebuggingDataBackup(
         debugInfo = this.debugInfo
     )
+
+// ============================================================
+//  WIZARD FRAMEWORK
+// ============================================================
+
+/**
+ * Import analysis - categorizes what will happen on import.
+ */
+data class ImportAnalysis(
+    val manifest: BackupManifestV2,
+    val newRecordings: List<RecordingBackupEntry>,
+    val duplicateRecordings: List<RecordingBackupEntry>,
+    val conflictingRecordings: List<RecordingBackupEntry>,
+    val newAttempts: List<AttemptBackupEntry>,
+    val duplicateAttempts: List<AttemptBackupEntry>,
+    val conflictingAttempts: List<AttemptBackupEntry>,
+    val orphanedAttempts: List<AttemptBackupEntry>,
+    val totalSizeBytes: Long,
+    val dateRange: Pair<Long, Long>?
+)
+
+/**
+ * Date range presets for filtering.
+ */
+enum class DatePreset(val displayName: String, val daysBack: Int) {
+    LAST_7_DAYS("Last 7 Days", 7),
+    LAST_30_DAYS("Last Month", 30),
+    LAST_90_DAYS("Last 3 Months", 90),
+    THIS_YEAR("This Year", 365),
+    ALL_TIME("All Time", Int.MAX_VALUE)
+}
+
+/**
+ * Item selection state for wizard checkboxes.
+ */
+data class SelectableItem<T>(
+    val item: T,
+    val isSelected: Boolean = true,
+    val isConflict: Boolean = false,
+    val statusMessage: String? = null
+)

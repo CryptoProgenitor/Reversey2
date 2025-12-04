@@ -65,6 +65,9 @@ import com.quokkalabs.reversey.BuildConfig
 import com.quokkalabs.reversey.audio.processing.AudioProcessor
 import com.quokkalabs.reversey.data.backup.BackupManager
 import com.quokkalabs.reversey.data.backup.ConflictStrategy
+import com.quokkalabs.reversey.data.backup.BackupProgress
+import com.quokkalabs.reversey.data.backup.ImportAnalysis
+import com.quokkalabs.reversey.data.backup.DatePreset
 import com.quokkalabs.reversey.scoring.DifficultyConfig
 import com.quokkalabs.reversey.testing.ScoringStressTester
 import com.quokkalabs.reversey.testing.VocalModeDetectorTuner
@@ -75,6 +78,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -656,6 +660,11 @@ fun SettingsContent(
 
         // Bottom spacing
         Spacer(modifier = Modifier.height(8.dp))
+
+        // WIZARD TEST
+        ImportAnalysisTest(backupManager = backupManager)
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -892,6 +901,158 @@ private fun ColorSlider(label: String, value: Float, onValueChange: (Float) -> U
                 thumbColor = color,
                 activeTrackColor = color
             )
+        )
+    }
+}
+@Composable
+fun ImportAnalysisTest(backupManager: BackupManager) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var selectedFile by remember { mutableStateOf<android.net.Uri?>(null) }
+    var analyzing by remember { mutableStateOf(false) }
+    var analysisResult by remember { mutableStateOf<ImportAnalysis?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            selectedFile = uri
+            analyzing = true
+            errorMessage = null
+
+            scope.launch {
+                try {
+                    val tempFile = File(context.cacheDir, "analyze_test.zip")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(tempFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    val result = backupManager.analyzeBackup(tempFile)
+                    analysisResult = result
+
+                    if (result == null) {
+                        errorMessage = "Analysis failed"
+                    }
+
+                    tempFile.delete()
+                } catch (e: Exception) {
+                    errorMessage = "Error: ${e.message}"
+                    Log.e("AnalysisTest", "Failed", e)
+                } finally {
+                    analyzing = false
+                }
+            }
+        }
+    }
+
+    GlassCard(title = "Import Analysis Test") {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                onClick = { filePicker.launch("application/zip") },
+                enabled = !analyzing,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = StaticMenuColors.toggleActive
+                )
+            ) {
+                if (analyzing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (analyzing) "Analyzing..." else "Analyze Backup")
+            }
+
+            if (errorMessage != null) {
+                Text(
+                    text = "❌ $errorMessage",
+                    color = Color(0xFFF44336),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            if (analysisResult != null) {
+                val a = analysisResult!!
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "ANALYSIS RESULTS",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = StaticMenuColors.textOnCard
+                )
+
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(StaticMenuColors.divider))
+
+                ResultRow("✅", "New Recordings", a.newRecordings.size, Color(0xFF4CAF50))
+                ResultRow("⚠️", "Duplicate Recordings", a.duplicateRecordings.size, Color(0xFFFF9800))
+                ResultRow("❌", "Conflicting Recordings", a.conflictingRecordings.size, Color(0xFFF44336))
+
+                Spacer(Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(StaticMenuColors.divider))
+                Spacer(Modifier.height(8.dp))
+
+                ResultRow("🎯", "New Attempts", a.newAttempts.size, Color(0xFF4CAF50))
+                ResultRow("⚠️", "Duplicate Attempts", a.duplicateAttempts.size, Color(0xFFFF9800))
+                ResultRow("❌", "Conflicting Attempts", a.conflictingAttempts.size, Color(0xFFF44336))
+                ResultRow("👻", "Orphaned Attempts", a.orphanedAttempts.size, Color(0xFF9C27B0))
+
+                Spacer(Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(StaticMenuColors.divider))
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    "📊 Total Size: ${a.totalSizeBytes / 1024 / 1024} MB",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = StaticMenuColors.textOnCard
+                )
+
+                if (a.dateRange != null) {
+                    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
+                    val fromDate = dateFormat.format(Date(a.dateRange.first))
+                    val toDate = dateFormat.format(Date(a.dateRange.second))
+                    Text(
+                        "📅 Date Range: $fromDate → $toDate",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = StaticMenuColors.textOnCard
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultRow(icon: String, label: String, count: Int, color: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = icon, style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = StaticMenuColors.textOnCard
+            )
+        }
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = color
         )
     }
 }

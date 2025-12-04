@@ -580,6 +580,149 @@ class BackupManager @Inject constructor(
         }
     }
 
+    // ============================================================
+    //  WIZARD SUPPORT - ANALYSIS
+    // ============================================================
+
+    /**
+     * Analyze backup before importing - categorize what will happen.
+     * Includes Gemini's fix: checks local files for parent recordings.
+     */
+    suspend fun analyzeBackup(backupZipFile: File): ImportAnalysis? = withContext(Dispatchers.IO) {
+        try {
+            if (!securityUtils.isValidZipFile(backupZipFile)) {
+                Log.e(TAG, "Invalid zip file")
+                return@withContext null
+            }
+
+            val manifest = extractManifest(backupZipFile)
+            if (manifest == null) {
+                Log.e(TAG, "Invalid manifest")
+                return@withContext null
+            }
+
+            val recordingsDir = getRecordingsDir()
+            val attemptsDir = getAttemptsDir()
+
+            // Categorize recordings
+            val newRecordings = mutableListOf<RecordingBackupEntry>()
+            val duplicateRecordings = mutableListOf<RecordingBackupEntry>()
+            val conflictingRecordings = mutableListOf<RecordingBackupEntry>()
+
+            manifest.recordings.forEach { backupRec ->
+                val localFile = File(recordingsDir, backupRec.filename)
+
+                if (!localFile.exists()) {
+                    newRecordings.add(backupRec)
+                } else {
+                    val localHash = calculateFileHash(localFile)
+                    if (localHash == backupRec.hash) {
+                        duplicateRecordings.add(backupRec)
+                    } else {
+                        conflictingRecordings.add(backupRec)
+                    }
+                }
+            }
+
+            // Categorize attempts
+            val newAttempts = mutableListOf<AttemptBackupEntry>()
+            val duplicateAttempts = mutableListOf<AttemptBackupEntry>()
+            val conflictingAttempts = mutableListOf<AttemptBackupEntry>()
+            val orphanedAttempts = mutableListOf<AttemptBackupEntry>()
+
+            manifest.attempts.values.flatten().forEach { backupAttempt ->
+                val attemptFile = File(attemptsDir, backupAttempt.attemptFilename)
+
+                // GEMINI'S FIX: Check backup AND local for parent
+                val parentInBackup = manifest.recordings.any {
+                    it.filename == backupAttempt.parentRecordingFilename
+                }
+                val parentLocalFile = File(recordingsDir, backupAttempt.parentRecordingFilename)
+                val parentExistsLocally = parentLocalFile.exists()
+
+                if (!parentInBackup && !parentExistsLocally) {
+                    orphanedAttempts.add(backupAttempt)
+                    Log.d(TAG, "Orphaned: ${backupAttempt.attemptFilename}")
+                    return@forEach
+                }
+
+                if (!attemptFile.exists()) {
+                    newAttempts.add(backupAttempt)
+                } else {
+                    val localHash = calculateFileHash(attemptFile)
+                    if (localHash == backupAttempt.hash) {
+                        duplicateAttempts.add(backupAttempt)
+                    } else {
+                        conflictingAttempts.add(backupAttempt)
+                    }
+                }
+            }
+
+            val timestamps = manifest.recordings.map { it.creationTimestampMs }
+            val dateRange = if (timestamps.isNotEmpty()) {
+                Pair(timestamps.minOrNull() ?: 0L, timestamps.maxOrNull() ?: 0L)
+            } else null
+
+            ImportAnalysis(
+                manifest = manifest,
+                newRecordings = newRecordings,
+                duplicateRecordings = duplicateRecordings,
+                conflictingRecordings = conflictingRecordings,
+                newAttempts = newAttempts,
+                duplicateAttempts = duplicateAttempts,
+                conflictingAttempts = conflictingAttempts,
+                orphanedAttempts = orphanedAttempts,
+                totalSizeBytes = manifest.summary.totalAudioFileSizeBytes,
+                dateRange = dateRange
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Analysis failed", e)
+            null
+        }
+    }
+
+    /**
+     * Filter analysis by date range.
+     * Note: Filters by recording date (not attempt date).
+     */
+    fun filterAnalysisByDate(
+        analysis: ImportAnalysis,
+        fromMs: Long,
+        toMs: Long
+    ): ImportAnalysis {
+        val filteredRecordings = analysis.manifest.recordings.filter {
+            it.creationTimestampMs in fromMs..toMs
+        }
+        val filteredFilenames = filteredRecordings.map { it.filename }.toSet()
+
+        val filteredAttempts = analysis.manifest.attempts
+            .filterKeys { it in filteredFilenames }
+            .values.flatten()
+
+        val newRecs = analysis.newRecordings.filter { it in filteredRecordings }
+        val dupRecs = analysis.duplicateRecordings.filter { it in filteredRecordings }
+        val conflictRecs = analysis.conflictingRecordings.filter { it in filteredRecordings }
+
+        val newAtts = analysis.newAttempts.filter { it in filteredAttempts }
+        val dupAtts = analysis.duplicateAttempts.filter { it in filteredAttempts }
+        val conflictAtts = analysis.conflictingAttempts.filter { it in filteredAttempts }
+        val orphanAtts = analysis.orphanedAttempts.filter { it in filteredAttempts }
+
+        val filteredSizeBytes = filteredRecordings.sumOf { it.fileSizeBytes }
+
+        return analysis.copy(
+            newRecordings = newRecs,
+            duplicateRecordings = dupRecs,
+            conflictingRecordings = conflictRecs,
+            newAttempts = newAtts,
+            duplicateAttempts = dupAtts,
+            conflictingAttempts = conflictAtts,
+            orphanedAttempts = orphanAtts,
+            totalSizeBytes = filteredSizeBytes,
+            dateRange = Pair(fromMs, toMs)
+        )
+    }
+
     private fun extractManifest(file: File): BackupManifestV2? {
         ZipInputStream(FileInputStream(file)).use { zip ->
             var entry = zip.nextEntry
