@@ -7,10 +7,6 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
 
 
     <application
@@ -27,6 +23,7 @@
         android:theme="@style/Theme.ReVerseY">
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTop"
             android:resizeableActivity="false"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden"
@@ -37,6 +34,16 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- WAV file import - appears in "Open with" and "Share to" dialogs -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="audio/wav" />
+                <data android:mimeType="audio/x-wav" />
+                <data android:mimeType="audio/vnd.wave" />
             </intent-filter>
         </activity>
         <provider

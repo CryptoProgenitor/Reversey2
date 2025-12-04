@@ -29,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
@@ -82,7 +83,7 @@ fun MenuContent(
     onNavigateAbout: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateThemes: () -> Unit,
-    onNavigateToBackupTests: () -> Unit,  // ← ADD THIS LINE
+    onNavigateToFiles: () -> Unit,
     onClearAll: () -> Unit
 ) {
     Column(
@@ -96,6 +97,13 @@ fun MenuContent(
             label = "Home",
             selected = currentRoute == "home",
             onClick = onNavigateHome
+        )
+
+        FloatingMenuItem(
+            icon = Icons.Default.FolderOpen,
+            label = "Files",
+            selected = currentRoute == "files",
+            onClick = onNavigateToFiles
         )
 
         FloatingMenuItem(
@@ -117,14 +125,6 @@ fun MenuContent(
             label = "About",
             selected = false,
             onClick = onNavigateAbout
-        )
-
-        // 🧪 Backup Tests Button
-        FloatingMenuItem(
-            icon = Icons.Default.Settings,  // Or use a better icon if you have one
-            label = "🧪 Backup Tests",
-            selected = false,
-            onClick = onNavigateToBackupTests
         )
 
         Spacer(modifier = Modifier.weight(1f))

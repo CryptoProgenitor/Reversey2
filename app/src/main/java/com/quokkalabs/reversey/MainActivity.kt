@@ -1,6 +1,7 @@
 package com.quokkalabs.reversey
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -87,7 +88,7 @@ import com.quokkalabs.reversey.ui.components.DifficultyIndicator
 import com.quokkalabs.reversey.ui.components.ThemedMenuModal
 import com.quokkalabs.reversey.ui.components.TutorialOverlay
 import com.quokkalabs.reversey.ui.menu.ModalScreen
-import com.quokkalabs.reversey.ui.testing.BackupTestScreen
+import com.quokkalabs.reversey.ui.menu.FilesContent
 import com.quokkalabs.reversey.ui.theme.AestheticTheme
 import com.quokkalabs.reversey.ui.theme.MaterialColors
 import com.quokkalabs.reversey.ui.theme.ReVerseYTheme
@@ -96,6 +97,7 @@ import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.math.PI
@@ -113,13 +115,23 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var backupManager: BackupManager
 
+    // StateFlow for incoming WAV URIs - survives hot restart
+    private val _incomingWavUri = MutableStateFlow<Uri?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Check for incoming WAV file intent on cold start
+        _incomingWavUri.value = handleIncomingIntent(intent)
+
         setContent {
             val themeViewModel: ThemeViewModel = hiltViewModel()
             val darkModePreference by themeViewModel.darkModePreference.collectAsState()
             val currentThemeId by themeViewModel.currentThemeId.collectAsState()
             val customAccentColor by themeViewModel.customAccentColor.collectAsState()
+
+            // Observe incoming WAV URI as state
+            val incomingWavUri by _incomingWavUri.collectAsState()
 
             val useDarkTheme = when (darkModePreference) {
                 "Light" -> false
@@ -134,9 +146,33 @@ class MainActivity : ComponentActivity() {
             ) {
                 MainApp(
                     themeViewModel = themeViewModel,
-                    backupManager = backupManager  // ← ADD THIS
+                    backupManager = backupManager,
+                    incomingWavUri = incomingWavUri,
+                    onWavUriConsumed = { _incomingWavUri.value = null }
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Update the intent property so subsequent checks use the new one
+        setIntent(intent)
+        // Push new URI to StateFlow - composables will recompose automatically
+        _incomingWavUri.value = handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: Intent?): Uri? {
+        if (intent == null) return null
+
+        return when (intent.action) {
+            Intent.ACTION_VIEW -> intent.data
+            Intent.ACTION_SEND -> {
+                if (intent.type?.startsWith("audio/") == true) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                } else null
+            }
+            else -> null
         }
     }
 }
@@ -147,7 +183,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp(
     themeViewModel: ThemeViewModel,
-    backupManager: BackupManager  // ← ADD THIS
+    backupManager: BackupManager,
+    incomingWavUri: Uri? = null,
+    onWavUriConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     var showMenuModal by remember { mutableStateOf(false) }
@@ -158,6 +196,14 @@ fun MainApp(
     var showClearAllDialog by remember { mutableStateOf(false) }
 
     var showDebugPanel by remember { mutableStateOf(false) }
+
+    // Handle incoming WAV file - navigate to files screen
+    LaunchedEffect(incomingWavUri) {
+        if (incomingWavUri != null) {
+            navController.navigate("files?wavUri=${Uri.encode(incomingWavUri.toString())}")
+            onWavUriConsumed() // Clear the URI so it doesn't re-trigger on recomposition
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = navController, startDestination = "home") {
@@ -175,10 +221,36 @@ fun MainApp(
                 )
             }
 
-            // 🧪 Backup Integration Tests Screen
-            composable("backup_tests") {
-                BackupTestScreen(
-                    onNavigateBack = { navController.popBackStack() }
+            // Files Screen (Backup/Restore/Import)
+            composable("files?wavUri={wavUri}") { backStackEntry ->
+                val wavUriString = backStackEntry.arguments?.getString("wavUri")
+                val wavUri = wavUriString?.let { Uri.parse(Uri.decode(it)) }
+
+                FilesContent(
+                    backupManager = backupManager,
+                    audioViewModel = audioViewModel,
+                    incomingWavUri = wavUri,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateHome = {
+                        navController.navigate("home") {
+                            popUpTo("home") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // Simple route without params
+            composable("files") {
+                FilesContent(
+                    backupManager = backupManager,
+                    audioViewModel = audioViewModel,
+                    incomingWavUri = null,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateHome = {
+                        navController.navigate("home") {
+                            popUpTo("home") { inclusive = true }
+                        }
+                    }
                 )
             }
         }
@@ -194,8 +266,8 @@ fun MainApp(
             }
         },
         onClearAll = { showClearAllDialog = true },
-        onNavigateToBackupTests = {
-            navController.navigate("backup_tests")
+        onNavigateToFiles = {
+            navController.navigate("files")
             showMenuModal = false
         },
         themeViewModel = themeViewModel,
@@ -232,7 +304,7 @@ fun AudioReverserApp(
             val indexDelta = index - lastIndex
             val offsetDelta = offset - lastOffset
 
-            // crude “how much did we scroll?”
+            // crude "how much did we scroll?"
             val totalDelta = indexDelta * 1000 + offsetDelta
 
             if (abs(totalDelta) > 150) {

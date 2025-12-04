@@ -2,8 +2,6 @@ package com.quokkalabs.reversey.ui.menu
 
 import android.util.Log
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,10 +62,6 @@ import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.BuildConfig
 import com.quokkalabs.reversey.audio.processing.AudioProcessor
 import com.quokkalabs.reversey.data.backup.BackupManager
-import com.quokkalabs.reversey.data.backup.ConflictStrategy
-import com.quokkalabs.reversey.data.backup.BackupProgress
-import com.quokkalabs.reversey.data.backup.ImportAnalysis
-import com.quokkalabs.reversey.data.backup.DatePreset
 import com.quokkalabs.reversey.scoring.DifficultyConfig
 import com.quokkalabs.reversey.testing.ScoringStressTester
 import com.quokkalabs.reversey.testing.VocalModeDetectorTuner
@@ -77,11 +71,6 @@ import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun SettingsContent(
@@ -98,7 +87,6 @@ fun SettingsContent(
     val currentDifficulty by audioViewModel.currentDifficultyFlow.collectAsState()
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
-    val backupRecordingsEnabled by themeViewModel.backupRecordingsEnabled.collectAsState()
     val customAccentColor by themeViewModel.customAccentColor.collectAsState()
 
     Column(
@@ -262,276 +250,8 @@ fun SettingsContent(
 
         GlassDivider()
 
-        // ========== STORAGE SECTION ==========
-        SectionTitle("STORAGE")
-
-        GlassCard {
-            GlassToggle(
-                label = "Backup Recordings to Drive",
-                checked = backupRecordingsEnabled,
-                onCheckedChange = { scope.launch { themeViewModel.setBackupRecordingsEnabled(it) } }
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = "ℹ️ Settings and scores are always backed up. Audio files are only backed up if enabled.",
-                style = MaterialTheme.typography.bodySmall,
-                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
-            )
-        }
-
-        GlassDivider()
-
+        // ========== DEVELOPER OPTIONS SECTION ==========
         SectionTitle("DEVELOPER OPTIONS")
-
-        // ========== BACKUP EXPORT/IMPORT ==========
-        var isExporting by remember { mutableStateOf(false) }
-        var isImporting by remember { mutableStateOf(false) }
-        var exportStatus by remember { mutableStateOf<String?>(null) }
-        var importStatus by remember { mutableStateOf<String?>(null) }
-        var pendingExportFile by remember { mutableStateOf<File?>(null) }
-
-        // Export Launcher - CreateDocument for Android 11+ scoped storage
-        val exportLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.CreateDocument("application/zip")
-        ) { uri ->
-            if (uri != null && pendingExportFile != null) {
-                scope.launch {
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { output ->
-                            java.io.FileInputStream(pendingExportFile!!).use { input ->
-                                input.copyTo(output)
-                            }
-                        }
-
-                        // Clean up temp file
-                        pendingExportFile!!.delete()
-                        pendingExportFile!!.parentFile?.deleteRecursively()
-
-                        exportStatus = "✅ Backup saved successfully"
-                        Toast.makeText(context, "Backup saved successfully", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        exportStatus = "❌ Save failed: ${e.message}"
-                    } finally {
-                        pendingExportFile = null
-                        isExporting = false
-                    }
-                }
-            } else {
-                // User cancelled
-                pendingExportFile?.delete()
-                pendingExportFile?.parentFile?.deleteRecursively()
-                pendingExportFile = null
-                isExporting = false
-            }
-        }
-
-        // Export Backup
-        GlassCard {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !isExporting && !isImporting) {
-                        isExporting = true
-                        exportStatus = null
-                        scope.launch {
-                            try {
-                                val tempDir = File(context.cacheDir, "backup_temp").apply { mkdirs() }
-                                val result = backupManager.exportFullBackup(tempDir)
-
-                                if (result.success && result.zipFile != null) {
-                                    pendingExportFile = result.zipFile
-
-                                    // Generate filename with timestamp
-                                    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-                                    val filename = "reversey_backup_$timestamp.zip"
-
-                                    // Launch system save dialog
-                                    exportLauncher.launch(filename)
-
-                                    exportStatus = "✅ Exported: ${result.recordingsExported} recordings, ${result.attemptsExported} attempts"
-                                } else {
-                                    exportStatus = "❌ Export failed"
-                                    isExporting = false
-                                }
-                            } catch (e: Exception) {
-                                exportStatus = "❌ Error: ${e.message}"
-                                isExporting = false
-                            }
-                        }
-                    },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = if (isExporting) "Exporting Backup..." else "Export Backup",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = StaticMenuColors.textOnCard
-                )
-                if (isExporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = StaticMenuColors.toggleActive
-                    )
-                }
-            }
-
-            if (exportStatus != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = exportStatus!!,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (exportStatus!!.startsWith("✅"))
-                        Color(0xFF4CAF50)
-                    else
-                        Color(0xFFF44336)
-                )
-            }
-        }
-
-        // Import Backup
-        var showImportDialog by remember { mutableStateOf(false) }
-        var selectedBackupFile by remember { mutableStateOf<android.net.Uri?>(null) }
-
-        val importLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent()
-        ) { uri: android.net.Uri? ->
-            if (uri != null) {
-                selectedBackupFile = uri
-                showImportDialog = true
-            }
-        }
-
-        GlassCard {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !isExporting && !isImporting) {
-                        importLauncher.launch("application/zip")
-                    },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = if (isImporting) "Importing Backup..." else "Import Backup",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = StaticMenuColors.textOnCard
-                )
-                if (isImporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = StaticMenuColors.toggleActive
-                    )
-                }
-            }
-
-            if (importStatus != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = importStatus!!,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (importStatus!!.startsWith("✅"))
-                        Color(0xFF4CAF50)
-                    else
-                        Color(0xFFF44336)
-                )
-            }
-        }
-
-        // Import Dialog
-        if (showImportDialog && selectedBackupFile != null) {
-            AlertDialog(
-                onDismissRequest = { showImportDialog = false },
-                title = { Text("Import Strategy") },
-                text = {
-                    Column {
-                        Text("Skip Duplicates: Keep existing files")
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Merge Attempts: Add new attempts only")
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showImportDialog = false
-                        isImporting = true
-                        importStatus = null
-                        scope.launch {
-                            try {
-                                val tempFile = File(context.cacheDir, "import_temp.zip")
-                                context.contentResolver.openInputStream(selectedBackupFile!!)?.use { input ->
-                                    java.io.FileOutputStream(tempFile).use { output ->
-                                        input.copyTo(output)
-                                    }
-                                }
-
-                                val result = backupManager.importBackup(tempFile, ConflictStrategy.SKIP_DUPLICATES)
-                                tempFile.delete()
-
-                                if (result.success) {
-                                    importStatus = "✅ Imported: ${result.recordingsImported} recordings, ${result.attemptsImported} attempts"
-                                    Toast.makeText(context, "Backup imported successfully", Toast.LENGTH_SHORT).show()
-                                    onBackupComplete()
-                                } else {
-                                    importStatus = "❌ Import failed"
-                                }
-                            } catch (e: Exception) {
-                                importStatus = "❌ Error: ${e.message}"
-                            } finally {
-                                isImporting = false
-                                selectedBackupFile = null
-                            }
-                        }
-                    }) {
-                        Text("Skip Duplicates")
-                    }
-                },
-                dismissButton = {
-                    Row {
-                        TextButton(onClick = {
-                            showImportDialog = false
-                            isImporting = true
-                            importStatus = null
-                            scope.launch {
-                                try {
-                                    val tempFile = File(context.cacheDir, "import_temp.zip")
-                                    context.contentResolver.openInputStream(selectedBackupFile!!)?.use { input ->
-                                        java.io.FileOutputStream(tempFile).use { output ->
-                                            input.copyTo(output)
-                                        }
-                                    }
-
-                                    val result = backupManager.importBackup(tempFile, ConflictStrategy.MERGE_ATTEMPTS_ONLY)
-                                    tempFile.delete()
-
-                                    if (result.success) {
-                                        importStatus = "✅ Merged: ${result.attemptsImported} attempts"
-                                        Toast.makeText(context, "Attempts merged successfully", Toast.LENGTH_SHORT).show()
-                                        onBackupComplete()
-                                    } else {
-                                        importStatus = "❌ Merge failed"
-                                    }
-                                } catch (e: Exception) {
-                                    importStatus = "❌ Error: ${e.message}"
-                                } finally {
-                                    isImporting = false
-                                    selectedBackupFile = null
-                                }
-                            }
-                        }) {
-                            Text("Merge Attempts")
-                        }
-                        TextButton(onClick = { showImportDialog = false }) {
-                            Text("Cancel")
-                        }
-                    }
-                }
-            )
-        }
 
         // ========== STRESS TESTER ==========
         var showStressTester by remember { mutableStateOf(false) }
@@ -659,11 +379,6 @@ fun SettingsContent(
         }
 
         // Bottom spacing
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // WIZARD TEST
-        ImportAnalysisTest(backupManager = backupManager)
-
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
@@ -901,158 +616,6 @@ private fun ColorSlider(label: String, value: Float, onValueChange: (Float) -> U
                 thumbColor = color,
                 activeTrackColor = color
             )
-        )
-    }
-}
-@Composable
-fun ImportAnalysisTest(backupManager: BackupManager) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    var selectedFile by remember { mutableStateOf<android.net.Uri?>(null) }
-    var analyzing by remember { mutableStateOf(false) }
-    var analysisResult by remember { mutableStateOf<ImportAnalysis?>(null) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            selectedFile = uri
-            analyzing = true
-            errorMessage = null
-
-            scope.launch {
-                try {
-                    val tempFile = File(context.cacheDir, "analyze_test.zip")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(tempFile).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-
-                    val result = backupManager.analyzeBackup(tempFile)
-                    analysisResult = result
-
-                    if (result == null) {
-                        errorMessage = "Analysis failed"
-                    }
-
-                    tempFile.delete()
-                } catch (e: Exception) {
-                    errorMessage = "Error: ${e.message}"
-                    Log.e("AnalysisTest", "Failed", e)
-                } finally {
-                    analyzing = false
-                }
-            }
-        }
-    }
-
-    GlassCard(title = "Import Analysis Test") {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Button(
-                onClick = { filePicker.launch("application/zip") },
-                enabled = !analyzing,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = StaticMenuColors.toggleActive
-                )
-            ) {
-                if (analyzing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(if (analyzing) "Analyzing..." else "Analyze Backup")
-            }
-
-            if (errorMessage != null) {
-                Text(
-                    text = "❌ $errorMessage",
-                    color = Color(0xFFF44336),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            if (analysisResult != null) {
-                val a = analysisResult!!
-
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "ANALYSIS RESULTS",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = StaticMenuColors.textOnCard
-                )
-
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(StaticMenuColors.divider))
-
-                ResultRow("✅", "New Recordings", a.newRecordings.size, Color(0xFF4CAF50))
-                ResultRow("⚠️", "Duplicate Recordings", a.duplicateRecordings.size, Color(0xFFFF9800))
-                ResultRow("❌", "Conflicting Recordings", a.conflictingRecordings.size, Color(0xFFF44336))
-
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(StaticMenuColors.divider))
-                Spacer(Modifier.height(8.dp))
-
-                ResultRow("🎯", "New Attempts", a.newAttempts.size, Color(0xFF4CAF50))
-                ResultRow("⚠️", "Duplicate Attempts", a.duplicateAttempts.size, Color(0xFFFF9800))
-                ResultRow("❌", "Conflicting Attempts", a.conflictingAttempts.size, Color(0xFFF44336))
-                ResultRow("👻", "Orphaned Attempts", a.orphanedAttempts.size, Color(0xFF9C27B0))
-
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(StaticMenuColors.divider))
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    "📊 Total Size: ${a.totalSizeBytes / 1024 / 1024} MB",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard
-                )
-
-                if (a.dateRange != null) {
-                    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
-                    val fromDate = dateFormat.format(Date(a.dateRange.first))
-                    val toDate = dateFormat.format(Date(a.dateRange.second))
-                    Text(
-                        "📅 Date Range: $fromDate → $toDate",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = StaticMenuColors.textOnCard
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResultRow(icon: String, label: String, count: Int, color: Color) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = icon, style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = StaticMenuColors.textOnCard
-            )
-        }
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = color
         )
     }
 }

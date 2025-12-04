@@ -96,7 +96,7 @@ class RecordingRepository(
                     Recording(
                         name = vocalAnalysis.let { analysis ->
                             when(analysis.mode) {
-                                VocalMode.SPEECH -> "💬🗣️ "
+                                VocalMode.SPEECH -> "🗣️💬"
                                 VocalMode.SINGING -> "🎵🎼 "
                                 VocalMode.UNKNOWN -> "❓ "
                             } + formatFileName(file.name)
