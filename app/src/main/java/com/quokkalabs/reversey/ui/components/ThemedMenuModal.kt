@@ -32,6 +32,7 @@ import com.quokkalabs.reversey.ui.menu.*
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.delay
+import com.quokkalabs.reversey.data.backup.BackupManager
 
 @Composable
 fun ThemedMenuModal(
@@ -40,8 +41,10 @@ fun ThemedMenuModal(
     onDismiss: () -> Unit,
     onNavigateHome: () -> Unit,
     onClearAll: () -> Unit,
+    onNavigateToBackupTests: () -> Unit,  // ← ADD THIS LINE
     themeViewModel: ThemeViewModel,
     audioViewModel: AudioViewModel,
+    backupManager: BackupManager,
     initialScreen: ModalScreen = ModalScreen.Menu
 ) {
     var currentScreen by remember(visible, initialScreen) {
@@ -105,6 +108,7 @@ fun ThemedMenuModal(
                                 onNavigateAbout = { currentScreen = ModalScreen.About },
                                 onNavigateSettings = { currentScreen = ModalScreen.Settings },
                                 onNavigateThemes = { currentScreen = ModalScreen.Themes },
+                                onNavigateToBackupTests = { onNavigateToBackupTests(); onDismiss() },  // ← ADD THIS LINE
                                 onClearAll = { onClearAll(); onDismiss() }
                             )
 
@@ -114,7 +118,11 @@ fun ThemedMenuModal(
 
                             ModalScreen.Settings -> SettingsContent(
                                 themeViewModel = themeViewModel,
-                                audioViewModel = audioViewModel
+                                audioViewModel = audioViewModel,
+                                backupManager = backupManager,
+                                onBackupComplete = {
+                                    audioViewModel.loadRecordings()
+                                }
                             )
 
                             ModalScreen.Themes -> ThemesContent(

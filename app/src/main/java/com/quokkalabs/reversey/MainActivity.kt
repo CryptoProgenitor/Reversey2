@@ -77,6 +77,9 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.Recording
 import com.quokkalabs.reversey.ui.components.AnalysisToast
@@ -84,15 +87,13 @@ import com.quokkalabs.reversey.ui.components.DifficultyIndicator
 import com.quokkalabs.reversey.ui.components.ThemedMenuModal
 import com.quokkalabs.reversey.ui.components.TutorialOverlay
 import com.quokkalabs.reversey.ui.menu.ModalScreen
+import com.quokkalabs.reversey.ui.testing.BackupTestScreen
 import com.quokkalabs.reversey.ui.theme.AestheticTheme
 import com.quokkalabs.reversey.ui.theme.MaterialColors
 import com.quokkalabs.reversey.ui.theme.ReVerseYTheme
 import com.quokkalabs.reversey.ui.theme.ScrapbookThemeComponents
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -102,10 +103,16 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import com.quokkalabs.reversey.data.backup.BackupManager
+import javax.inject.Inject
 
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var backupManager: BackupManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -125,7 +132,10 @@ class MainActivity : ComponentActivity() {
                 customAccentColor = customAccentColor,
                 darkTheme = useDarkTheme
             ) {
-                MainApp(themeViewModel = themeViewModel)
+                MainApp(
+                    themeViewModel = themeViewModel,
+                    backupManager = backupManager  // ← ADD THIS
+                )
             }
         }
     }
@@ -133,8 +143,12 @@ class MainActivity : ComponentActivity() {
 
 // 🎯 CRITICAL FIX: Deleted duplicate AudioConstants object to prevent shadowing
 
+
 @Composable
-fun MainApp(themeViewModel: ThemeViewModel) {
+fun MainApp(
+    themeViewModel: ThemeViewModel,
+    backupManager: BackupManager  // ← ADD THIS
+) {
     val navController = rememberNavController()
     var showMenuModal by remember { mutableStateOf(false) }
     var modalInitialScreen by remember { mutableStateOf<ModalScreen>(ModalScreen.Menu) }
@@ -160,6 +174,13 @@ fun MainApp(themeViewModel: ThemeViewModel) {
                     onShowDebugPanelChange = { showDebugPanel = it }
                 )
             }
+
+            // 🧪 Backup Integration Tests Screen
+            composable("backup_tests") {
+                BackupTestScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 
@@ -173,8 +194,13 @@ fun MainApp(themeViewModel: ThemeViewModel) {
             }
         },
         onClearAll = { showClearAllDialog = true },
+        onNavigateToBackupTests = {
+            navController.navigate("backup_tests")
+            showMenuModal = false
+        },
         themeViewModel = themeViewModel,
         audioViewModel = audioViewModel,
+        backupManager = backupManager,
         initialScreen = modalInitialScreen,
         onDismiss = { showMenuModal = false; modalInitialScreen = ModalScreen.Menu },
     )
