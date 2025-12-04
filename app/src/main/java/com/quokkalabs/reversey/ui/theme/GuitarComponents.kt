@@ -455,6 +455,17 @@ fun GuitarRecordButton(
     val infiniteTransition = rememberInfiniteTransition(label = "strum")
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
+    // 1. ✨ NEW: Holographic Shimmer Animation State
+    val shimmerOffset by infiniteTransition.animateFloat(
+        initialValue = -500f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer"
+    )
+
     LaunchedEffect(isStrumming) {
         if (isStrumming) {
             delay(10000)
@@ -693,18 +704,36 @@ fun GuitarRecordButton(
                 }
                 drawContext.canvas.restore()
 
-                // ⬇️ ADD HIGHLIGHT HERE ⬇️
+                // 2. ✨ REPLACED HIGHLIGHT HERE with Holographic Shimmer ✨
                 drawContext.canvas.save()
                 drawContext.canvas.clipPath(guitarBodyPath)
+
+                // Animated holographic sheen
                 drawRect(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.2f),
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.1f)
+                            Color.White.copy(alpha = 0.1f),
+                            Color.White.copy(alpha = 0.4f), // The "shine" line
+                            Color.White.copy(alpha = 0.1f),
+                            Color.Transparent
                         ),
-                        start = Offset(0f, 0f),
-                        end = Offset(canvasWidth, canvasHeight)
+                        // Diagonal sweep calculations
+                        start = Offset(shimmerOffset, 0f),
+                        end = Offset(shimmerOffset + 200f, canvasHeight)
+                    ),
+                    size = size
+                )
+
+                // Static gloss (keeps it looking shiny even when shimmer isn't passing)
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.15f),
+                            Color.Transparent
+                        ),
+                        center = Offset(canvasWidth * 0.3f, canvasHeight * 0.3f),
+                        radius = canvasWidth * 0.6f
                     ),
                     size = size
                 )
@@ -735,8 +764,10 @@ fun GuitarRecordButton(
 
             Text(
                 text = if (isRecording) "STOP" else "REC",
-                fontSize = 16.sp,
-                color = Color(0xFF5d4a36),
+                //fontSize = 16.sp,
+                fontSize = if (isRecording) 14.sp else 16.sp,
+                // 🔴 If recording, turn Red. Otherwise, keep the dark brown.
+                color = if (isRecording) Color(0xFFEF4444) else Color(0xFF5d4a36),
                 fontWeight = FontWeight.Bold
             )
         }
@@ -1033,179 +1064,168 @@ fun GuitarDeleteIcon(color: Color) {
  * Animated concert lightshow background inspired by Taylor Swift's Eras Tour.
  * Features sweeping light beams, sparkles, and color cycling.
  */
+// In GuitarComponents.kt
+
 @Composable
 fun ErasTourLightshow() {
-    // Infinite animation for continuous movement
     val infiniteTransition = rememberInfiniteTransition(label = "lightshow")
 
-    // Main phase animation (drives beam movement)
+    // Slowed down animation speeds slightly for a more relaxed vibe
     val phase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = (2 * Math.PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(8000, easing = LinearEasing),
+            animation = tween(12000, easing = LinearEasing), // Slowed from 8000
             repeatMode = RepeatMode.Restart
         ),
         label = "phase"
     )
 
-    // Secondary phase for variety
-    val phase2 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "phase2"
-    )
-
-    // Color cycling animation
     val colorShift by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = erasColors.size.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(20000, easing = LinearEasing),
+            animation = tween(25000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "colorShift"
     )
 
-    // Sparkle positions (fixed, calculated once)
-    val sparklePositions = remember {
-        List(20) {
-            Offset(
-                Random.nextFloat(),
-                Random.nextFloat() * 0.85f // Keep sparkles in upper 85%
-            )
-        }
-    }
-
     Canvas(modifier = Modifier.fillMaxSize()) {
         val width = size.width
         val height = size.height
 
-        // Draw spotlight cones from sides
+        // --- 1. SIDE SPOTLIGHTS (The noise fix) ---
+        // Instead of 100 overlapping lines, we draw 5 distinct, soft, wide beams.
+        // This removes the "mesh" interference pattern completely.
         for (i in 0 until 4) {
             val isLeft = i % 2 == 0
             val startX = if (isLeft) width * 0.05f else width * 0.95f
             val baseAngle = if (isLeft) 25f else -25f
-            val angleVariation = sin(phase + i * 1.5f) * 15f
+
+            // Reduced movement range to keep it calm
+            val angleVariation = sin(phase + i * 1.5f) * 10f
             val angle = baseAngle + angleVariation
 
             val colorIndex = ((colorShift.toInt() + i * 2) % erasColors.size)
             val spotColor = erasColors[colorIndex]
+            val intensity = 0.5f + sin(phase * 2f + i) * 0.2f
 
-            // Draw cone as series of lines with decreasing alpha
-            val coneSpread = 40
-            for (offset in -coneSpread..coneSpread step 2) {
-                val lineAngle = Math.toRadians((angle + offset * 0.8).toDouble())
-                val endX = startX + (sin(lineAngle) * height * 1.2).toFloat()
-                val endY = (kotlin.math.cos(lineAngle) * height * 1.2).toFloat()
+            // Draw only 5 soft beams per spotlight instead of 100
+            val beamsPerLight = 5
+            for (j in 0 until beamsPerLight) {
+                // Spread them out explicitly
+                val spreadFactor = (j - beamsPerLight / 2) * 5f
+                val lineAngle = Math.toRadians((angle + spreadFactor).toDouble())
 
-                val distFromCenter = kotlin.math.abs(offset) / coneSpread.toFloat()
-                val alpha = (0.15f * (1f - distFromCenter * 0.7f))
+                val endX = startX + (sin(lineAngle) * height * 1.3).toFloat()
+                val endY = (kotlin.math.cos(lineAngle) * height * 1.3).toFloat()
 
+                // Soft fade edges
+                val beamAlpha = (intensity * 0.15f).coerceIn(0f, 1f)
+
+                // VERY THICK lines (80f) creates a soft wash without the grid effect
                 drawLine(
-                    color = spotColor.copy(alpha = alpha),
-                    start = Offset(startX, -20f),
+                    color = spotColor.copy(alpha = beamAlpha),
+                    start = Offset(startX, -50f),
                     end = Offset(endX, endY),
-                    strokeWidth = 4f
+                    strokeWidth = 80f,
+                    cap = StrokeCap.Round
                 )
+
+                // Add a slightly brighter core to the middle beam only
+                if (j == beamsPerLight/2) {
+                    drawLine(
+                        color = spotColor.copy(alpha = beamAlpha * 1.5f),
+                        start = Offset(startX, -50f),
+                        end = Offset(endX, endY),
+                        strokeWidth = 30f,
+                        cap = StrokeCap.Round
+                    )
+                }
             }
         }
 
-        // Draw narrow beams from top
-        val beamCount = 12
+        // --- 2. VERTICAL BEAMS ---
+        // Reduced count from 12 to 7 to reduce screen clutter
+        val beamCount = 7
         for (i in 0 until beamCount) {
             val baseX = width * ((i + 0.5f) / beamCount)
-            val swayAmount = width * 0.08f
-            val sway = sin(phase + i * 0.5f) * swayAmount
+            val sway = sin(phase + i * 0.5f) * (width * 0.05f)
             val x = baseX + sway
 
-            // Beam angle
-            val baseAngle = (i - beamCount / 2f) * 6f
-            val angleVar = sin(phase2 + i * 0.7f) * 8f
-            val angle = baseAngle + angleVar
+            val baseAngle = (i - beamCount / 2f) * 8f
+            val angle = baseAngle + sin(phase + i) * 5f
 
-            // Beam opacity pulses
-            val opacity = 0.35f + sin(phase * 1.5f + i * 0.8f) * 0.2f
+            // Pulsing opacity
+            val opacity = 0.5f + sin(phase * 1.5f + i) * 0.3f
 
-            // Color cycling per beam
             val colorIndex = ((colorShift.toInt() + i) % erasColors.size)
             val beamColor = erasColors[colorIndex]
 
-            // Draw beam
             val radians = Math.toRadians(angle.toDouble())
-            val endX = x + (sin(radians) * height * 1.3).toFloat()
-            val endY = (kotlin.math.cos(radians) * height * 1.3).toFloat()
+            val endX = x + (sin(radians) * height * 1.2).toFloat()
+            val endY = (kotlin.math.cos(radians) * height * 1.2).toFloat()
 
-            // Glow effect (draw wider, more transparent lines behind)
-            for (w in listOf(12f, 8f, 4f)) {
-                val glowAlpha = opacity * (4f / w) * 0.3f
-                drawLine(
-                    color = beamColor.copy(alpha = glowAlpha),
-                    start = Offset(x, -30f),
-                    end = Offset(endX, endY),
-                    strokeWidth = w,
-                    cap = StrokeCap.Round
-                )
-            }
+            // Simplified beam drawing: Just Main Glow + Core
+            // Removed the "3 layer" loop which was adding to the noise
+
+            // Outer Glow
+            drawLine(
+                color = beamColor.copy(alpha = (opacity * 0.2f).coerceIn(0f, 1f)),
+                start = Offset(x, -50f),
+                end = Offset(endX, endY),
+                strokeWidth = 60f, // Much softer/wider
+                cap = StrokeCap.Butt
+            )
+
+            // Bright Core (The Laser bit)
+            drawLine(
+                color = Color.White.copy(alpha = (opacity * 0.8f).coerceIn(0f, 1f)),
+                start = Offset(x, -50f),
+                end = Offset(endX, endY),
+                strokeWidth = 3f, // Sharp thin core
+                cap = StrokeCap.Round
+            )
         }
 
-        // Draw horizontal laser sweeps
+        // --- 3. HORIZONTAL LASERS ---
+        // Kept mostly the same as they were distinct enough
         for (i in 0 until 3) {
-            val baseY = height * (0.2f + i * 0.25f)
-            val yOffset = sin(phase + i * 2f) * height * 0.03f
+            val baseY = height * (0.25f + i * 0.25f)
+            val yOffset = sin(phase + i * 2f) * height * 0.02f
             val y = baseY + yOffset
 
-            val laserOpacity = 0.25f + sin(phase * 2f + i) * 0.15f
+            val laserOpacity = 0.6f + sin(phase * 2f + i) * 0.3f
             val colorIndex = ((colorShift.toInt() + i * 3) % erasColors.size)
             val laserColor = erasColors[colorIndex]
 
-            // Draw laser with glow
-            for (w in listOf(6f, 3f, 1f)) {
-                val glowAlpha = laserOpacity * (1f / w) * 0.5f
-                drawLine(
-                    color = laserColor.copy(alpha = glowAlpha),
-                    start = Offset(-20f, y),
-                    end = Offset(width + 20f, y),
-                    strokeWidth = w
-                )
-            }
+            // Glow
+            drawLine(
+                color = laserColor.copy(alpha = laserOpacity * 0.3f),
+                start = Offset(-20f, y),
+                end = Offset(width + 20f, y),
+                strokeWidth = 15f,
+                cap = StrokeCap.Round
+            )
+            // Core
+            drawLine(
+                color = Color.White.copy(alpha = laserOpacity),
+                start = Offset(-20f, y),
+                end = Offset(width + 20f, y),
+                strokeWidth = 2f,
+                cap = StrokeCap.Round
+            )
         }
 
-        // Draw sparkles
-        val sparklePhase = (phase * 3f) % (2 * Math.PI).toFloat()
-        for ((index, pos) in sparklePositions.withIndex()) {
-            val sparkleVisible = sin(sparklePhase + index * 0.8f) > 0.3f
-            if (sparkleVisible) {
-                val sparkleAlpha = (sin(sparklePhase + index * 0.8f) - 0.3f) / 0.7f
-                val sparkleSize = 3f + sparkleAlpha * 4f
-
-                drawCircle(
-                    color = Color.White.copy(alpha = sparkleAlpha * 0.9f),
-                    radius = sparkleSize,
-                    center = Offset(pos.x * width, pos.y * height)
-                )
-                // Sparkle glow
-                drawCircle(
-                    color = Color.White.copy(alpha = sparkleAlpha * 0.3f),
-                    radius = sparkleSize * 3f,
-                    center = Offset(pos.x * width, pos.y * height)
-                )
-            }
-        }
-
-        // Stage glow at bottom (OPTIMIZED: Replaces the loop that caused the error)
+        // --- 4. STAGE GLOW (Bottom) ---
         drawRect(
             brush = Brush.verticalGradient(
-                colors = listOf(Color.Transparent, erasColors[1].copy(alpha = 0.3f)),
+                colors = listOf(Color.Transparent, Color(0xFF0A0514).copy(alpha = 0.6f)),
                 startY = height * 0.7f,
                 endY = height
             ),
-            topLeft = Offset(0f, height * 0.7f),
-            size = Size(width, height * 0.3f)
+            size = size
         )
     }
 }
