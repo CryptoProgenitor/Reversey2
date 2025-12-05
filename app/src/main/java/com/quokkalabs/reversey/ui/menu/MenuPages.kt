@@ -129,22 +129,22 @@ fun MenuContent(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Divider
+        /*// Divider
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
                 .background(StaticMenuColors.divider)
-        )
+        )*/
 
-        Spacer(modifier = Modifier.height(4.dp))
+        //Spacer(modifier = Modifier.height(4.dp))
 
         // Delete Button - Special Danger Style
-        DangerMenuItem(
+        /*DangerMenuItem(
             icon = Icons.Default.Delete,
             label = "Clear All Recordings",
             onClick = onClearAll
-        )
+        )*/
     }
 }
 

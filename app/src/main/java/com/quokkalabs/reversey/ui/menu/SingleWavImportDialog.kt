@@ -104,8 +104,14 @@ fun SingleWavImportDialog(
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = StaticMenuColors.toggleActive,
+                    unfocusedBorderColor = StaticMenuColors.textOnCard.copy(alpha = 0.3f),
                     focusedLabelColor = StaticMenuColors.toggleActive,
-                    cursorColor = StaticMenuColors.toggleActive
+                    unfocusedLabelColor = StaticMenuColors.textOnCard.copy(alpha = 0.6f),
+                    cursorColor = StaticMenuColors.toggleActive,
+                    focusedTextColor = StaticMenuColors.textOnCard,
+                    unfocusedTextColor = StaticMenuColors.textOnCard,
+                    focusedPlaceholderColor = StaticMenuColors.textOnCard.copy(alpha = 0.4f),
+                    unfocusedPlaceholderColor = StaticMenuColors.textOnCard.copy(alpha = 0.4f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             )
