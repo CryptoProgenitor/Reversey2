@@ -412,24 +412,22 @@ class SingingScoringEngine @Inject constructor(
             if (origPitch > 0f && attemptPitch > 0f) {
                 val pitchDifference = abs(origPitch - attemptPitch)
 
-                // Musical: Strict note matching
+                // Musical: Use tight tolerance and steep decay for accuracy
                 val similarity = when {
-                    pitchDifference <= parameters.pitchTolerance * 0.3f -> 1f  // Perfect pitch
-                    pitchDifference <= parameters.pitchTolerance * 0.6f -> 0.8f  // Good pitch
-                    pitchDifference <= parameters.pitchTolerance -> 0.5f  // Acceptable
-                    pitchDifference <= parameters.pitchTolerance * 1.5f -> 0.2f  // Poor
-                    else -> 0f  // Wrong note
+                    pitchDifference <= parameters.pitchTolerance * 0.3f -> 1f  // Perfect musical range (tighter)
+                    pitchDifference <= parameters.pitchTolerance -> {
+                        // Steep decay for musical precision
+                        val decayFactor = exp(-pitchDifference / (parameters.pitchTolerance * 0.2f))
+                        decayFactor.coerceIn(0.1f, 1f)  // Steeper falloff for musical accuracy
+                    }
+                    else -> 0.05f  // Very low credit for off-pitch singing
                 }
 
                 totalSimilarity += similarity
                 validComparisons++
-            } else if (origPitch <= 0f && attemptPitch <= 0f) {
-                // Both silent - neutral for musical content
-                totalSimilarity += 0.3f
-                validComparisons++
             } else {
-                // One silent, one not - penalty for musical timing
-                totalSimilarity += 0.1f
+                // Musical: Silence-to-silence less generous than speech
+                totalSimilarity += melodicParams.silenceToSilenceScore
                 validComparisons++
             }
         }
