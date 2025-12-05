@@ -64,6 +64,6 @@ class VocalScoringOrchestrator @Inject constructor(
         }
 
         Log.d("VSO", "=== ORCHESTRATOR EXIT → score=${result.score} ===")
-        return result
+        return result.copy(vocalAnalysis = analysis)
     }
 }

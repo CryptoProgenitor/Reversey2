@@ -1,7 +1,6 @@
 package com.quokkalabs.reversey.data.backup
 
 import com.quokkalabs.reversey.data.models.ChallengeType
-import com.quokkalabs.reversey.scoring.AudioQualityMetrics
 import com.quokkalabs.reversey.scoring.DebuggingData
 import com.quokkalabs.reversey.scoring.DifficultyLevel
 import com.quokkalabs.reversey.scoring.PerformanceInsights
@@ -180,13 +179,6 @@ data class VocalAnalysisBackup(
     val features: VocalFeaturesBackup
 )
 
-/**
- * Audio quality metrics backup - matches AudioQualityMetrics from Scoreacquisitiondataconcentrator.kt
- */
-data class AudioQualityMetricsBackup(
-    val rms: Float,
-    val snr: Float
-)
 
 /**
  * Performance insights backup - matches PerformanceInsights from Scoreacquisitiondataconcentrator.kt
@@ -219,7 +211,6 @@ data class AttemptMetadataBackup(
     val feedback: List<String>,
     val isGarbage: Boolean,
     val vocalAnalysis: VocalAnalysisBackup?,
-    val audioQualityMetrics: AudioQualityMetricsBackup?,
     val performanceInsights: PerformanceInsightsBackup?,
     val debuggingData: DebuggingDataBackup?
 )
@@ -352,15 +343,6 @@ fun VocalAnalysis.toBackup(): VocalAnalysisBackup =
             mfccSpread = this.features.mfccSpread,
             voicedRatio = this.features.voicedRatio
         )
-    )
-
-/**
- * Convert AudioQualityMetrics to backup format.
- */
-fun AudioQualityMetrics.toBackup(): AudioQualityMetricsBackup =
-    AudioQualityMetricsBackup(
-        rms = this.rms,
-        snr = this.snr
     )
 
 /**

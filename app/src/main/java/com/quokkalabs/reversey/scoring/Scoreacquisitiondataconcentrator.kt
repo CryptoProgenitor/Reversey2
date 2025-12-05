@@ -43,11 +43,6 @@ class ScoreAcquisitionDataConcentrator {
             isGarbage = scoringResult.isGarbage,
             vocalAnalysis = actualVocalAnalysis,
             selectedEngine = engineType,
-
-            audioQualityMetrics = AudioQualityMetrics(
-                rms = 0.5f,  // Placeholder – can be wired to real metrics later
-                snr = 20f
-            ),
             performanceInsights = PerformanceInsights(
                 feedback = scoringResult.feedback
             ),
@@ -75,7 +70,6 @@ data class EnhancedPlayerAttempt(
     val isGarbage: Boolean,
     val vocalAnalysis: VocalAnalysis,
     val selectedEngine: ScoringEngineType,
-    val audioQualityMetrics: AudioQualityMetrics,
     val performanceInsights: PerformanceInsights,
     val debuggingData: DebuggingData? = null
 ) {
@@ -94,7 +88,6 @@ data class EnhancedPlayerAttempt(
             feedback = feedback,
             isGarbage = isGarbage,
             vocalAnalysis = vocalAnalysis,
-            audioQualityMetrics = audioQualityMetrics,
             performanceInsights = performanceInsights,
             debuggingData = debuggingData
         )
@@ -102,6 +95,5 @@ data class EnhancedPlayerAttempt(
 }
 
 /** Simple value objects for metadata **/
-data class AudioQualityMetrics(val rms: Float, val snr: Float)
 data class PerformanceInsights(val feedback: List<String>)
 data class DebuggingData(val debugInfo: String)

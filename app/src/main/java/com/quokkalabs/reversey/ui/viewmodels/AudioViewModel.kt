@@ -515,9 +515,10 @@ class AudioViewModel @Inject constructor(
                     rawScore = scoringResult.rawScore,
                     challengeType = challengeType,
                     difficulty = _currentDifficulty.value,
-                    scoringEngine = null,
+                    scoringEngine = scoringResult.calculationBreakdown?.scoringEngineType,
                     feedback = scoringResult.feedback,
                     isGarbage = scoringResult.isGarbage,
+                    vocalAnalysis = scoringResult.vocalAnalysis,
                     // NEW: Pass the calculation breakdown through (v21.6.0)
                     calculationBreakdown = scoringResult.calculationBreakdown
                 )

@@ -1,13 +1,12 @@
 package com.quokkalabs.reversey.data.models
 
 import androidx.compose.runtime.Immutable
+import com.quokkalabs.reversey.scoring.DebuggingData
 import com.quokkalabs.reversey.scoring.DifficultyLevel
+import com.quokkalabs.reversey.scoring.PerformanceInsights
+import com.quokkalabs.reversey.scoring.ScoreCalculationBreakdown
 import com.quokkalabs.reversey.scoring.ScoringEngineType
 import com.quokkalabs.reversey.scoring.VocalAnalysis
-import com.quokkalabs.reversey.scoring.AudioQualityMetrics
-import com.quokkalabs.reversey.scoring.PerformanceInsights
-import com.quokkalabs.reversey.scoring.DebuggingData
-import com.quokkalabs.reversey.scoring.ScoreCalculationBreakdown
 
 /**
  * Represents a single player's attempt to match a recording (forward or reverse).
@@ -30,7 +29,6 @@ data class PlayerAttempt(
     val feedback: List<String> = emptyList(),
     val isGarbage: Boolean = false,
     val vocalAnalysis: VocalAnalysis? = null,
-    val audioQualityMetrics: AudioQualityMetrics? = null,
     val performanceInsights: PerformanceInsights? = null,
     val debuggingData: DebuggingData? = null,
 

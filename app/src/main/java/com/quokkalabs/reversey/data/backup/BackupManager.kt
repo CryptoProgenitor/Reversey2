@@ -783,7 +783,6 @@ class BackupManager @Inject constructor(
             feedback = attempt.feedback,
             isGarbage = attempt.isGarbage,
             vocalAnalysis = attempt.vocalAnalysis?.toBackup(),
-            audioQualityMetrics = attempt.audioQualityMetrics?.toBackup(),
             performanceInsights = attempt.performanceInsights?.toBackup(),
             debuggingData = attempt.debuggingData?.toBackup()
         )
@@ -807,7 +806,6 @@ class BackupManager @Inject constructor(
             feedback = metadata.feedback,
             isGarbage = metadata.isGarbage,
             vocalAnalysis = null, // TODO: Restore if needed
-            audioQualityMetrics = null,
             performanceInsights = null,
             debuggingData = null
         )

@@ -260,7 +260,10 @@ data class ScoringResult(
     val debugPerfectThreshold: Float = 0f,
     val debugNormalizedScore: Float = 0f,
     // NEW: Full calculation breakdown for UI tooltip
-    val calculationBreakdown: ScoreCalculationBreakdown? = null
+    val calculationBreakdown: ScoreCalculationBreakdown? = null,
+    // NEW: Vocal analysis for UI display (v21.7.1)
+    val vocalAnalysis: VocalAnalysis? = null
+
 )
 
 data class SimilarityMetrics(
@@ -368,6 +371,8 @@ data class ScoreCalculationBreakdown(
 
     val consistencyBonus: Float,              // (1 - |pitch - mfcc|) * 0.05
     val confidenceBonus: Float,               // min(1, RMS * multiplier) * 0.05
+    val maxConsistencyBonus: Float,           // from parameters.consistencyBonus (typically 0.05)
+    val maxConfidenceBonus: Float,            // from parameters.confidenceBonus (typically 0.05)
     val totalPerformanceMultiplier: Float,    // (1 + consistency + confidence)
 
     val hummingDetected: Boolean,

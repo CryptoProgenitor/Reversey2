@@ -306,6 +306,8 @@ class SpeechScoringEngine @Inject constructor(
 
             consistencyBonus = consistency,
             confidenceBonus = confidence,
+            maxConsistencyBonus = parameters.consistencyBonus,
+            maxConfidenceBonus = parameters.confidenceBonus,
             totalPerformanceMultiplier = totalPerformanceMultiplier,
 
             hummingDetected = hummingDetected,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,7 +34,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,40 +47,97 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
+import com.quokkalabs.reversey.scoring.CalculationStep
 import com.quokkalabs.reversey.scoring.DifficultyLevel
-import com.quokkalabs.reversey.scoring.VocalMode
 import com.quokkalabs.reversey.scoring.ScoreCalculationBreakdown
-import com.quokkalabs.reversey.scoring.MusicalBonusBreakdown
 import com.quokkalabs.reversey.scoring.ScoringEngineType
+import com.quokkalabs.reversey.scoring.VocalMode
+import com.quokkalabs.reversey.scoring.getKeyModifiers
 import com.quokkalabs.reversey.scoring.toDisplaySteps
 import com.quokkalabs.reversey.scoring.toQuickSummary
-import com.quokkalabs.reversey.scoring.getKeyModifiers
-import com.quokkalabs.reversey.scoring.CalculationStep
 import com.quokkalabs.reversey.ui.theme.AestheticTheme
 import com.quokkalabs.reversey.ui.theme.AestheticThemeData
 import com.quokkalabs.reversey.ui.theme.MaterialColors
 
 /**
- * 🎨 UNIFIED Score Explanation Dialog v3
+ * 🎨 UNIFIED Score Explanation Dialog v8 - SINGLE SOURCE OF TRUTH
  *
- * Features:
- * - Compact header: Emoji + Score + Difficulty badge (single row)
- * - Tags row: Challenge type + Vocal mode (tappable with tooltip)
- * - Rich metrics grid: 6 metrics with tooltips
- * - Theme-aware styling
- * - Metrics adapt based on Speech/Singing mode
+ * NO THEME ID SNIFFING.
+ * NO HARDCODED WEIGHTS.
+ * All weights pulled from ScoreCalculationBreakdown.
  */
+
+private data class TierStyle(
+    val bgColor: Color,
+    val bordColor: Color,
+    val primColor: Color,
+    val txtSize: TextUnit,
+    val bordWidth: Dp,
+    val hasGlow: Boolean
+)
+
+private enum class MetricCategory { WEIGHTED, BONUS, MULTIPLIER }
+
+private fun deriveTierStyle(
+    category: MetricCategory,
+    isHighWeight: Boolean,
+    themeAccent: Color,
+    themeSurface: Color
+): TierStyle {
+    return when (category) {
+        MetricCategory.WEIGHTED -> if (isHighWeight) {
+            TierStyle(
+                bgColor = themeAccent.copy(alpha = 0.25f),
+                bordColor = themeAccent,
+                primColor = themeAccent,
+                txtSize = 19.sp,
+                bordWidth = 3.dp,
+                hasGlow = true
+            )
+        } else {
+            TierStyle(
+                bgColor = themeAccent.copy(alpha = 0.12f),
+                bordColor = themeAccent.copy(alpha = 0.5f),
+                primColor = themeAccent.copy(alpha = 0.7f),
+                txtSize = 15.sp,
+                bordWidth = 2.dp,
+                hasGlow = false
+            )
+        }
+        MetricCategory.BONUS -> TierStyle(
+            bgColor = themeAccent.copy(alpha = 0.15f),
+            bordColor = themeAccent.copy(alpha = 0.6f),
+            primColor = themeAccent.copy(alpha = 0.8f),
+            txtSize = 16.sp,
+            bordWidth = 2.dp,
+            hasGlow = false
+        )
+        MetricCategory.MULTIPLIER -> TierStyle(
+            bgColor = themeSurface.copy(alpha = 0.1f),
+            bordColor = themeAccent.copy(alpha = 0.25f),
+            primColor = themeAccent.copy(alpha = 0.45f),
+            txtSize = 13.sp,
+            bordWidth = 1.dp,
+            hasGlow = false
+        )
+    }
+}
+
 @Composable
 fun ScoreExplanationDialog(
     attempt: PlayerAttempt,
@@ -89,66 +146,43 @@ fun ScoreExplanationDialog(
     val aesthetic = AestheticTheme()
     val colors = MaterialColors()
 
-    // Tooltip state
     var tooltipType by remember { mutableStateOf<TooltipType?>(null) }
 
-    // Theme-aware animations
     val infiniteTransition = rememberInfiniteTransition(label = "glow")
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
         targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000),
-            repeatMode = RepeatMode.Reverse
-        ),
+        animationSpec = infiniteRepeatable(animation = tween(2000), repeatMode = RepeatMode.Reverse),
         label = "glow_alpha"
     )
 
     val rotation by infiniteTransition.animateFloat(
         initialValue = -1f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000),
-            repeatMode = RepeatMode.Reverse
-        ),
+        animationSpec = infiniteRepeatable(animation = tween(3000), repeatMode = RepeatMode.Reverse),
         label = "rotation"
     )
 
     val gearRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
+        animationSpec = infiniteRepeatable(animation = tween(10000, easing = LinearEasing), repeatMode = RepeatMode.Restart),
         label = "gear_rotation"
     )
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-            usePlatformDefaultWidth = false
-        )
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true, usePlatformDefaultWidth = false)
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f))
-                .clickable { onDismiss() },
+            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onDismiss() },
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
-                    .clickable(
-                        onClick = {},
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() }
-                    )
+                    .clickable(onClick = {}, indication = null, interactionSource = remember { MutableInteractionSource() })
             ) {
-                // Theme-aware background glow
                 if (aesthetic.useGlassmorphism && aesthetic.glowIntensity > 0) {
                     Box(
                         modifier = Modifier
@@ -156,17 +190,13 @@ fun ScoreExplanationDialog(
                             .blur((aesthetic.glowIntensity * 25).dp)
                             .background(
                                 brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        colors.primary.copy(alpha = glowAlpha * aesthetic.glowIntensity),
-                                        Color.Transparent
-                                    )
+                                    colors = listOf(colors.primary.copy(alpha = glowAlpha * aesthetic.glowIntensity), Color.Transparent)
                                 )
                             )
                     )
                 }
 
-                // Main score card
-                UnifiedScoreCardV3(
+                UnifiedScoreCard(
                     attempt = attempt,
                     aesthetic = aesthetic,
                     colors = colors,
@@ -180,38 +210,19 @@ fun ScoreExplanationDialog(
         }
     }
 
-    // Tooltip dialog
     tooltipType?.let { type ->
         if (type == TooltipType.SCORE_BREAKDOWN) {
-            // Show breakdown tooltip if breakdown data exists
             attempt.calculationBreakdown?.let { breakdown ->
-                BreakdownTooltipDialog(
-                    breakdown = breakdown,
-                    onDismiss = { tooltipType = null }
-                )
-            } ?: run {
-                // Fallback if no breakdown data
-                MetricTooltipDialog(
-                    tooltipType = type,
-                    vocalMode = attempt.vocalAnalysis?.mode,
-                    onDismiss = { tooltipType = null }
-                )
-            }
+                BreakdownTooltipDialog(breakdown = breakdown, onDismiss = { tooltipType = null })
+            } ?: MetricTooltipDialog(tooltipType = type, breakdown = attempt.calculationBreakdown, onDismiss = { tooltipType = null })
         } else {
-            MetricTooltipDialog(
-                tooltipType = type,
-                vocalMode = attempt.vocalAnalysis?.mode,
-                onDismiss = { tooltipType = null }
-            )
+            MetricTooltipDialog(tooltipType = type, breakdown = attempt.calculationBreakdown, onDismiss = { tooltipType = null })
         }
     }
 }
 
-/**
- * Main score card with v3 layout
- */
 @Composable
-private fun UnifiedScoreCardV3(
+private fun UnifiedScoreCard(
     attempt: PlayerAttempt,
     aesthetic: AestheticThemeData,
     colors: ColorScheme,
@@ -221,83 +232,43 @@ private fun UnifiedScoreCardV3(
     onDismiss: () -> Unit,
     onTooltipRequest: (TooltipType) -> Unit
 ) {
-    // Card styling adapts to aesthetic theme
-    val cardModifier = when (aesthetic.id) {
-        "scrapbook" -> Modifier
-            .rotate(rotation * 2f)
-            .background(
-                color = colors.surface,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .border(
-                width = 2.dp,
-                color = aesthetic.cardBorder,
-                shape = RoundedCornerShape(16.dp)
-            )
-
-        "steampunk" -> Modifier
-            .background(
-                brush = aesthetic.primaryGradient,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .border(
-                width = 3.dp,
-                color = aesthetic.cardBorder,
-                shape = RoundedCornerShape(16.dp)
-            )
-
-        "cyberpunk" -> Modifier
-            .background(
-                color = colors.surface.copy(alpha = aesthetic.cardAlpha),
-                shape = RoundedCornerShape(8.dp)
-            )
-            .border(
-                width = 1.dp,
-                color = colors.primary.copy(alpha = glowAlpha),
-                shape = RoundedCornerShape(8.dp)
-            )
-
-        else -> Modifier
-            .background(
-                color = colors.surface.copy(alpha = aesthetic.cardAlpha),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .border(
-                width = 1.dp,
-                color = colors.primary.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(16.dp)
-            )
-    }
+    val cardModifier = Modifier
+        .then(
+            if (aesthetic.maxCardRotation > 0f) Modifier.rotate(rotation * aesthetic.maxCardRotation)
+            else Modifier
+        )
+        .background(
+            brush = aesthetic.primaryGradient,
+            shape = RoundedCornerShape(16.dp)
+        )
+        .border(
+            width = aesthetic.borderWidth.dp,
+            color = if (aesthetic.glowIntensity > 0f)
+                aesthetic.cardBorder.copy(alpha = glowAlpha)
+            else
+                aesthetic.cardBorder,
+            shape = RoundedCornerShape(16.dp)
+        )
 
     Card(
-        modifier = cardModifier
-            .fillMaxWidth()
-            .padding(8.dp),
+        modifier = cardModifier.fillMaxWidth().padding(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box {
             Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Theme-specific decoration
-                when (aesthetic.id) {
-                    "steampunk" -> {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(28.dp)
-                                .rotate(gearRotation),
-                            tint = aesthetic.cardBorder
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                if (aesthetic.shadowElevation > 5f) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp).rotate(gearRotation),
+                        tint = aesthetic.cardBorder
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // === ROW 1: Emoji + Score + Difficulty ===
                 ScoreHeaderRow(
                     attempt = attempt,
                     aesthetic = aesthetic,
@@ -307,63 +278,48 @@ private fun UnifiedScoreCardV3(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // === ROW 2: Challenge Type + Vocal Mode ===
                 TagsRow(
                     attempt = attempt,
                     colors = colors,
                     onVocalModeClick = {
                         val mode = attempt.vocalAnalysis?.mode
-                        onTooltipRequest(
-                            if (mode == VocalMode.SINGING) TooltipType.SINGING_MODE
-                            else TooltipType.SPEECH_MODE
-                        )
+                        onTooltipRequest(if (mode == VocalMode.SINGING) TooltipType.SINGING_MODE else TooltipType.SPEECH_MODE)
                     }
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Feedback text
-                if (attempt.feedback.isNotEmpty()) {
-                    Text(
-                        text = attempt.feedback.firstOrNull() ?: "",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = colors.onSurface.copy(alpha = 0.9f),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
+                Text(
+                    text = aesthetic.scoreFeedback.getMessage(attempt.score),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = aesthetic.primaryTextColor,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
 
-                // === METRICS GRID ===
+                Spacer(modifier = Modifier.height(12.dp))
+
                 RichMetricsGrid(
                     attempt = attempt,
+                    aesthetic = aesthetic,
                     colors = colors,
                     onMetricClick = onTooltipRequest
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // === TIPS SECTION ===
-                TipsSection(
-                    attempt = attempt,
-                    aesthetic = aesthetic,
-                    colors = colors
-                )
+                TipsSection(attempt = attempt, aesthetic = aesthetic)
             }
 
-            // Close button (floating overlay - MUST be after Column to draw on top)
             IconButton(
                 onClick = onDismiss,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .size(32.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(32.dp)
             ) {
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = colors.onSurface.copy(alpha = 0.7f),
+                    tint = aesthetic.secondaryTextColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -371,10 +327,6 @@ private fun UnifiedScoreCardV3(
     }
 }
 
-/**
- * ROW 1: Emoji + Score + Difficulty badge (all inline)
- * Score is clickable to show calculation breakdown
- */
 @Composable
 private fun ScoreHeaderRow(
     attempt: PlayerAttempt,
@@ -382,17 +334,11 @@ private fun ScoreHeaderRow(
     colors: ColorScheme,
     onScoreClick: () -> Unit = {}
 ) {
-    val emoji = aesthetic.scoreEmojis[
-        when {
-            attempt.score >= 90 -> 90
-            attempt.score >= 80 -> 80
-            attempt.score >= 70 -> 70
-            attempt.score >= 60 -> 60
-            else -> 0
-        }
-    ] ?: "🎤"
+    val emoji = aesthetic.scoreEmojis.entries
+        .sortedByDescending { it.key }
+        .firstOrNull { attempt.score >= it.key }
+        ?.value ?: "🎤"
 
-    // Show tap hint if breakdown is available
     val hasBreakdown = attempt.calculationBreakdown != null
 
     Row(
@@ -400,100 +346,60 @@ private fun ScoreHeaderRow(
         horizontalArrangement = Arrangement.Center,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Emoji
-        Text(
-            text = emoji,
-            fontSize = 40.sp,
-            modifier = Modifier.padding(end = 12.dp)
-        )
+        Text(text = emoji, fontSize = 40.sp, modifier = Modifier.padding(end = 12.dp))
 
-        // Score (clickable if breakdown available)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = if (hasBreakdown) {
                 Modifier
                     .clickable { onScoreClick() }
-                    .background(
-                        colors.primaryContainer.copy(alpha = 0.1f),
-                        RoundedCornerShape(8.dp)
-                    )
+                    .background(aesthetic.cardBorder.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp)
-            } else {
-                Modifier
-            }
+            } else Modifier
         ) {
             Text(
                 text = "${attempt.score}%",
                 fontSize = 48.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = colors.primary,
+                color = aesthetic.primaryTextColor,
                 letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.sp
             )
             if (hasBreakdown) {
-                Text(
-                    text = "tap for details",
-                    fontSize = 9.sp,
-                    color = colors.primary.copy(alpha = 0.6f)
-                )
+                Text(text = "tap for details", fontSize = 9.sp, color = aesthetic.secondaryTextColor)
             }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // Difficulty badge
-        DifficultyBadge(
-            difficulty = attempt.difficulty,
-            colors = colors
-        )
+        DifficultyBadge(difficulty = attempt.difficulty)
     }
 }
 
-/**
- * Difficulty badge with icon and label
- */
 @Composable
-private fun DifficultyBadge(
-    difficulty: DifficultyLevel,
-    colors: ColorScheme
-) {
+private fun DifficultyBadge(difficulty: DifficultyLevel) {
     val (icon, label, bgColor) = when (difficulty) {
         DifficultyLevel.EASY -> Triple("🌱", "Easy", Color(0xFF4ADE80))
         DifficultyLevel.NORMAL -> Triple("⚡", "Medium", Color(0xFFFBBF24))
         DifficultyLevel.HARD -> Triple("💀", "Hard", Color(0xFFF87171))
     }
-
-    val textColor = if (difficulty == DifficultyLevel.HARD) Color.White else Color.Black
+    val textColor = if (bgColor.luminance() > 0.5f) Color.Black else Color.White
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .background(bgColor, RoundedCornerShape(10.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+        modifier = Modifier.background(bgColor, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
-        Text(
-            text = icon,
-            fontSize = 18.sp
-        )
-        Text(
-            text = label,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            letterSpacing = 0.5.sp
-        )
+        Text(text = icon, fontSize = 18.sp)
+        Text(text = label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = textColor, letterSpacing = 0.5.sp)
     }
 }
 
-/**
- * ROW 2: Challenge type chip + Vocal mode chip
- */
 @Composable
-private fun TagsRow(
-    attempt: PlayerAttempt,
-    colors: ColorScheme,
-    onVocalModeClick: () -> Unit
-) {
-    val vocalMode = attempt.vocalAnalysis?.mode
+private fun TagsRow(attempt: PlayerAttempt, colors: ColorScheme, onVocalModeClick: () -> Unit) {
+    val vocalMode = attempt.vocalAnalysis?.mode ?: when (attempt.calculationBreakdown?.scoringEngineType) {
+        ScoringEngineType.SINGING_ENGINE -> VocalMode.SINGING
+        ScoringEngineType.SPEECH_ENGINE -> VocalMode.SPEECH
+        else -> null
+    }
     val confidence = attempt.vocalAnalysis?.confidence
 
     Row(
@@ -501,7 +407,6 @@ private fun TagsRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Challenge type chip
         val (challengeIcon, challengeLabel) = when (attempt.challengeType) {
             ChallengeType.FORWARD -> "▶️" to "Forward"
             ChallengeType.REVERSE -> "🔄" to "Reverse"
@@ -516,7 +421,6 @@ private fun TagsRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Vocal mode chip (tappable)
         val (modeIcon, modeLabel, modeColor) = when (vocalMode) {
             VocalMode.SINGING -> Triple("🎵", "Singing", Color(0xFFEC4899))
             VocalMode.SPEECH -> Triple("🗣️", "Speech", Color(0xFF9333EA))
@@ -535,9 +439,6 @@ private fun TagsRow(
     }
 }
 
-/**
- * Reusable tag chip component
- */
 @Composable
 private fun TagChip(
     icon: String,
@@ -551,651 +452,352 @@ private fun TagChip(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .then(
-                if (borderColor != null) Modifier.border(1.dp, borderColor, RoundedCornerShape(16.dp))
-                else Modifier
-            )
+            .then(if (borderColor != null) Modifier.border(1.dp, borderColor, RoundedCornerShape(16.dp)) else Modifier)
             .background(backgroundColor, RoundedCornerShape(16.dp))
-            .then(
-                if (onClick != null) Modifier.clickable { onClick() }
-                else Modifier
-            )
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(text = icon, fontSize = 14.sp)
         Spacer(modifier = Modifier.width(5.dp))
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = contentColor
-        )
+        Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = contentColor)
         if (confidence != null) {
-            Text(
-                text = " ${(confidence * 100).toInt()}%",
-                fontSize = 10.sp,
-                color = contentColor.copy(alpha = 0.7f)
-            )
+            Text(text = " ${(confidence * 100).toInt()}%", fontSize = 10.sp, color = contentColor.copy(alpha = 0.7f))
         }
         if (onClick != null) {
             Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-                Icons.Default.Info,
-                contentDescription = "Info",
-                modifier = Modifier.size(12.dp),
-                tint = contentColor.copy(alpha = 0.5f)
-            )
+            Icon(Icons.Default.Info, contentDescription = "Info", modifier = Modifier.size(12.dp), tint = contentColor.copy(alpha = 0.5f))
         }
     }
 }
 
-/**
- * Rich metrics grid - 6 metrics in 2x3 layout
- * Primary metrics highlighted based on vocal mode
- */
 @Composable
 private fun RichMetricsGrid(
     attempt: PlayerAttempt,
+    aesthetic: AestheticThemeData,
     colors: ColorScheme,
     onMetricClick: (TooltipType) -> Unit
 ) {
     val vocalMode = attempt.vocalAnalysis?.mode ?: VocalMode.SPEECH
-    val vocalFeatures = attempt.vocalAnalysis?.features
+    val breakdown = attempt.calculationBreakdown
 
-    // Determine which metrics are primary based on mode
-    val singingPrimary = setOf(TooltipType.PITCH_MATCH, TooltipType.MELODY_FLOW, TooltipType.STEADINESS)
-    val speechPrimary = setOf(TooltipType.VOICE_MATCH, TooltipType.CLARITY, TooltipType.PITCH_MATCH)
-    val primaryMetrics = if (vocalMode == VocalMode.SINGING) singingPrimary else speechPrimary
+    val consistencyRaw = breakdown?.let {
+        if (it.maxConsistencyBonus > 0f) (it.consistencyBonus / it.maxConsistencyBonus).coerceIn(0f, 1f) else 0f
+    } ?: 0f
+    val confidenceRaw = breakdown?.let {
+        if (it.maxConfidenceBonus > 0f) (it.confidenceBonus / it.maxConfidenceBonus).coerceIn(0f, 1f) else 0f
+    } ?: 0f
 
-    // Build metrics list with values
-    val metrics = listOf(
-        MetricData(
-            type = TooltipType.PITCH_MATCH,
-            label = "Pitch Match",
-            icon = "🎯",
-            value = attempt.pitchSimilarity,
-            isPrimary = TooltipType.PITCH_MATCH in primaryMetrics
-        ),
-        MetricData(
-            type = TooltipType.VOICE_MATCH,
-            label = "Voice Match",
-            icon = "🗣️",
-            value = attempt.mfccSimilarity,
-            isPrimary = TooltipType.VOICE_MATCH in primaryMetrics
-        ),
-        MetricData(
-            type = TooltipType.STEADINESS,
-            label = "Steadiness",
-            icon = "📊",
-            value = vocalFeatures?.pitchStability ?: 0f,
-            isPrimary = TooltipType.STEADINESS in primaryMetrics
-        ),
-        MetricData(
-            type = TooltipType.MELODY_FLOW,
-            label = "Melody Flow",
-            icon = "🎼",
-            value = vocalFeatures?.pitchContour ?: 0f,
-            isPrimary = TooltipType.MELODY_FLOW in primaryMetrics
-        ),
-        MetricData(
-            type = TooltipType.CLARITY,
-            label = "Clarity",
-            icon = "🎤",
-            value = vocalFeatures?.voicedRatio ?: 0f,
-            isPrimary = TooltipType.CLARITY in primaryMetrics
-        ),
-        MetricData(
-            type = TooltipType.AUDIO_QUALITY,
-            label = "Audio Quality",
-            icon = "📡",
-            value = attempt.audioQualityMetrics?.snr?.coerceIn(0f, 1f) ?: 0.5f,
-            isPrimary = false
+    val metrics = if (vocalMode == VocalMode.SINGING) {
+        listOf(
+            MetricData(TooltipType.PITCH_MATCH, "Pitch Match", "🎯", attempt.pitchSimilarity, MetricCategory.WEIGHTED, true),
+            MetricData(TooltipType.VOICE_MATCH, "Voice Match", "🗣️", attempt.mfccSimilarity, MetricCategory.WEIGHTED, false),
+            MetricData(TooltipType.LEAPS, "Leaps", "🦘", breakdown?.musicalBonuses?.intervalAccuracy ?: 0f, MetricCategory.BONUS, false),
+            MetricData(TooltipType.RICHNESS, "Richness", "✨", breakdown?.musicalBonuses?.harmonicRichness ?: 0f, MetricCategory.BONUS, false),
+            MetricData(TooltipType.CONTROL, "Control", "🎛️", consistencyRaw, MetricCategory.MULTIPLIER, false),
+            MetricData(TooltipType.PRESENCE, "Presence", "🌟", confidenceRaw, MetricCategory.MULTIPLIER, false)
         )
-    )
+    } else {
+        listOf(
+            MetricData(TooltipType.INTONATION, "Intonation", "🎯", attempt.pitchSimilarity, MetricCategory.WEIGHTED, true),
+            MetricData(TooltipType.PRONUNCIATION, "Diction", "🗣️", attempt.mfccSimilarity, MetricCategory.WEIGHTED, false),
+            MetricData(TooltipType.FLOW, "Flow", "🌊", consistencyRaw, MetricCategory.MULTIPLIER, false),
+            MetricData(TooltipType.CLARITY, "Clarity", "💎", confidenceRaw, MetricCategory.MULTIPLIER, false)
+        )
+    }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        // Row 1
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            MetricCell(
-                metric = metrics[0],
-                colors = colors,
-                onClick = { onMetricClick(metrics[0].type) },
-                modifier = Modifier.weight(1f)
-            )
-            MetricCell(
-                metric = metrics[1],
-                colors = colors,
-                onClick = { onMetricClick(metrics[1].type) },
-                modifier = Modifier.weight(1f)
-            )
+    val themeAccent = aesthetic.cardBorder
+    val themeSurface = colors.surface
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MetricCell(metric = metrics[0], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[0].type) }, modifier = Modifier.weight(1f))
+            MetricCell(metric = metrics[1], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[1].type) }, modifier = Modifier.weight(1f))
         }
-        // Row 2
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            MetricCell(
-                metric = metrics[2],
-                colors = colors,
-                onClick = { onMetricClick(metrics[2].type) },
-                modifier = Modifier.weight(1f)
-            )
-            MetricCell(
-                metric = metrics[3],
-                colors = colors,
-                onClick = { onMetricClick(metrics[3].type) },
-                modifier = Modifier.weight(1f)
-            )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MetricCell(metric = metrics[2], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[2].type) }, modifier = Modifier.weight(1f))
+            MetricCell(metric = metrics[3], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[3].type) }, modifier = Modifier.weight(1f))
         }
-        // Row 3
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            MetricCell(
-                metric = metrics[4],
-                colors = colors,
-                onClick = { onMetricClick(metrics[4].type) },
-                modifier = Modifier.weight(1f)
-            )
-            MetricCell(
-                metric = metrics[5],
-                colors = colors,
-                onClick = { onMetricClick(metrics[5].type) },
-                modifier = Modifier.weight(1f)
-            )
+        if (metrics.size > 4) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MetricCell(metric = metrics[4], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[4].type) }, modifier = Modifier.weight(1f))
+                MetricCell(metric = metrics[5], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[5].type) }, modifier = Modifier.weight(1f))
+            }
         }
     }
 }
 
 /**
- * Single metric cell
+ * Derives weight description from ScoreCalculationBreakdown - SINGLE SOURCE OF TRUTH
  */
+private fun getWeightDescription(metric: MetricData, breakdown: ScoreCalculationBreakdown?): String {
+    return when (metric.type) {
+        TooltipType.PITCH_MATCH, TooltipType.INTONATION ->
+            breakdown?.pitchWeight?.let { "${(it * 100).toInt()}% weighting" } ?: "primary metric"
+        TooltipType.VOICE_MATCH, TooltipType.PRONUNCIATION ->
+            breakdown?.mfccWeight?.let { "${(it * 100).toInt()}% weighting" } ?: "secondary metric"
+        TooltipType.LEAPS ->
+            breakdown?.musicalBonuses?.intervalWeight?.let { "up to +${(it * 100).toInt()}% bonus" } ?: "bonus"
+        TooltipType.RICHNESS ->
+            breakdown?.musicalBonuses?.harmonicWeight?.let { "up to +${(it * 100).toInt()}% bonus" } ?: "bonus"
+        TooltipType.CONTROL, TooltipType.FLOW ->
+            breakdown?.maxConsistencyBonus?.let { "up to +${(it * 100).toInt()}% bonus" } ?: "bonus"
+        TooltipType.PRESENCE, TooltipType.CLARITY ->
+            breakdown?.maxConfidenceBonus?.let { "up to +${(it * 100).toInt()}% bonus" } ?: "bonus"
+        else -> ""
+    }
+}
+
 @Composable
 private fun MetricCell(
     metric: MetricData,
-    colors: ColorScheme,
+    breakdown: ScoreCalculationBreakdown?,
+    aesthetic: AestheticThemeData,
+    themeAccent: Color,
+    themeSurface: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (metric.isPrimary)
-        colors.primaryContainer.copy(alpha = 0.3f)
-    else
-        colors.surfaceVariant.copy(alpha = 0.2f)
+    val style = deriveTierStyle(metric.category, metric.isHighWeight, themeAccent, themeSurface)
+    val weightDescription = getWeightDescription(metric, breakdown)
 
-    val borderModifier = if (metric.isPrimary)
-        Modifier.border(1.dp, colors.primary.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-    else
-        Modifier
+    val glowModifier = if (style.hasGlow) {
+        Modifier.shadow(elevation = 8.dp, shape = RoundedCornerShape(12.dp), ambientColor = style.primColor.copy(alpha = 0.4f), spotColor = style.primColor.copy(alpha = 0.4f))
+    } else Modifier
 
     Column(
         modifier = modifier
-            .then(borderModifier)
-            .background(backgroundColor, RoundedCornerShape(10.dp))
-            .clip(RoundedCornerShape(10.dp))
+            .then(glowModifier)
+            .border(style.bordWidth, style.bordColor, RoundedCornerShape(12.dp))
+            .background(style.bgColor, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(10.dp)
+            .padding(12.dp)
     ) {
-        // Header: Icon + Label + Info icon
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = metric.icon, fontSize = 12.sp)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = metric.label,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.onSurface.copy(alpha = 0.8f),
-                    letterSpacing = 0.3.sp
-                )
-            }
+        // Row 1: Icon + Label
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = metric.icon, fontSize = 14.sp)
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "ⓘ",
-                fontSize = 10.sp,
-                color = colors.onSurface.copy(alpha = 0.4f)
+                text = metric.label,
+                fontSize = 12.sp,
+                fontWeight = if (style.hasGlow) FontWeight.Bold else FontWeight.Medium,
+                color = aesthetic.primaryTextColor,
+                letterSpacing = 0.3.sp
             )
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Progress bar
-        LinearProgressIndicator(
-            progress = { metric.value.coerceIn(0f, 1f) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp)),
-            color = colors.primary,
-            trackColor = colors.onSurface.copy(alpha = 0.1f)
+        // Row 2: Weight description (from breakdown - single source of truth)
+        Text(
+            text = weightDescription,
+            fontSize = 10.sp,
+            color = aesthetic.secondaryTextColor
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Value
+        // Progress bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (style.hasGlow) 6.dp else 4.dp)
+                .background(style.primColor.copy(alpha = 0.15f), RoundedCornerShape(3.dp))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(metric.value.coerceIn(0f, 1f))
+                    .fillMaxHeight()
+                    .background(
+                        brush = Brush.horizontalGradient(listOf(style.primColor, style.primColor.copy(alpha = 0.7f))),
+                        shape = RoundedCornerShape(3.dp)
+                    )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Percentage value
         Text(
             text = "${(metric.value * 100).toInt()}%",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (metric.isPrimary) colors.primary else colors.onSurface
+            fontSize = style.txtSize,
+            fontWeight = if (style.hasGlow) FontWeight.ExtraBold else FontWeight.Bold,
+            color = aesthetic.primaryTextColor
         )
     }
 }
 
-/**
- * Tips section
- */
 @Composable
-private fun TipsSection(
-    attempt: PlayerAttempt,
-    aesthetic: AestheticThemeData,
-    colors: ColorScheme
-) {
-    val tips = generateThemeAwareTips(
-        score = attempt.score,
-        challengeType = attempt.challengeType,
-        themeId = aesthetic.id
-    ).take(2)
-
-    if (tips.isEmpty()) return
+private fun TipsSection(attempt: PlayerAttempt, aesthetic: AestheticThemeData) {
+    val title = aesthetic.scoreFeedback.getTitle(attempt.score)
+    val emoji = aesthetic.scoreFeedback.getEmoji(attempt.score)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                colors.surfaceVariant.copy(alpha = 0.15f),
-                RoundedCornerShape(10.dp)
-            )
+            .background(aesthetic.cardBorder.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
             .padding(10.dp)
     ) {
-        Text(
-            text = getTipsHeader(aesthetic.id),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
-            color = colors.onSurface.copy(alpha = 0.5f),
-            letterSpacing = 0.5.sp
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        tips.forEach { tip ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = emoji, fontSize = 16.sp)
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = tip,
-                fontSize = 11.sp,
-                color = colors.onSurface.copy(alpha = 0.8f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        colors.surfaceVariant.copy(alpha = 0.1f),
-                        RoundedCornerShape(6.dp)
-                    )
-                    .padding(8.dp),
-                lineHeight = 14.sp
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = aesthetic.primaryTextColor
             )
-            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }
 
 // ============================================================
-// TOOLTIP DIALOG
+// TOOLTIP TYPES AND DATA
 // ============================================================
 
-/**
- * Tooltip types for metrics and vocal modes
- */
 enum class TooltipType {
-    PITCH_MATCH,
-    VOICE_MATCH,
-    STEADINESS,
-    MELODY_FLOW,
-    CLARITY,
-    AUDIO_QUALITY,
-    SINGING_MODE,
-    SPEECH_MODE,
-    SCORE_BREAKDOWN  // NEW: Full calculation breakdown tooltip
+    PITCH_MATCH, VOICE_MATCH, RANGE, LEAPS, RICHNESS, CONTROL, PRESENCE,
+    INTONATION, PRONUNCIATION, FLOW, CLARITY,
+    SINGING_MODE, SPEECH_MODE, SCORE_BREAKDOWN
 }
 
-/**
- * Data class for metric display
- */
 private data class MetricData(
     val type: TooltipType,
     val label: String,
     val icon: String,
     val value: Float,
-    val isPrimary: Boolean
+    val category: MetricCategory,
+    val isHighWeight: Boolean
 )
 
-/**
- * Tooltip dialog with explanation
- */
 @Composable
-fun MetricTooltipDialog(
-    tooltipType: TooltipType,
-    vocalMode: VocalMode?,
-    onDismiss: () -> Unit
-) {
-    val tooltipData = getTooltipData(tooltipType)
+fun MetricTooltipDialog(tooltipType: TooltipType, breakdown: ScoreCalculationBreakdown?, onDismiss: () -> Unit) {
+    val tooltipData = getTooltipData(tooltipType, breakdown)
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        )
-    ) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(0.85f).padding(16.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Icon
-                Text(
-                    text = tooltipData.icon,
-                    fontSize = 40.sp
-                )
-
+            Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = tooltipData.icon, fontSize = 40.sp)
                 Spacer(modifier = Modifier.height(12.dp))
-
-                // Title
-                Text(
-                    text = tooltipData.title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
+                Text(text = tooltipData.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(12.dp))
-
-                // Description
-                Text(
-                    text = tooltipData.description,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 20.sp
-                )
-
+                Text(text = tooltipData.description, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center, lineHeight = 20.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Technical detail
-                Text(
-                    text = tooltipData.technicalDetail,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    textAlign = TextAlign.Center,
-                    fontStyle = FontStyle.Italic
-                )
-
+                Text(text = tooltipData.technicalDetail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), textAlign = TextAlign.Center, fontStyle = FontStyle.Italic)
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // Close button
                 TextButton(
                     onClick = onDismiss,
-                    modifier = Modifier
-                        .background(
-                            MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(20.dp)
-                        )
-                        .padding(horizontal = 16.dp)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp)).padding(horizontal = 16.dp)
                 ) {
-                    Text(
-                        text = "Got it!",
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text(text = "Got it!", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
     }
 }
 
-/**
- * Tooltip content data
- */
-private data class TooltipContent(
-    val icon: String,
-    val title: String,
-    val description: String,
-    val technicalDetail: String
-)
+private data class TooltipContent(val icon: String, val title: String, val description: String, val technicalDetail: String)
 
-/**
- * Get tooltip content for each type
- */
-private fun getTooltipData(type: TooltipType): TooltipContent {
+private fun getTooltipData(type: TooltipType, breakdown: ScoreCalculationBreakdown?): TooltipContent {
+    val pitchPct = breakdown?.let { ((it.pitchWeight) * 100).toInt() }
+    val mfccPct = breakdown?.let { ((it.mfccWeight) * 100).toInt() }
+
     return when (type) {
-        TooltipType.PITCH_MATCH -> TooltipContent(
-            icon = "🎯",
-            title = "Pitch Match",
-            description = "How accurately your notes match the original recording. High scores mean you're hitting the right notes!",
-            technicalDetail = "Technical: pitchSimilarity via DTW alignment"
-        )
-        TooltipType.VOICE_MATCH -> TooltipContent(
-            icon = "🗣️",
-            title = "Voice Match",
-            description = "How similar your voice tone and character sound to the original. This measures the 'color' and texture of your voice.",
-            technicalDetail = "Technical: mfccSimilarity (Mel-frequency cepstral coefficients)"
-        )
-        TooltipType.STEADINESS -> TooltipContent(
-            icon = "📊",
-            title = "Steadiness",
-            description = "How consistently you hold notes without wavering. Singing typically shows high stability (0.7-0.9), speech shows lower (0.2-0.4).",
-            technicalDetail = "Technical: pitchStability from vocal analysis"
-        )
-        TooltipType.MELODY_FLOW -> TooltipContent(
-            icon = "🎼",
-            title = "Melody Flow",
-            description = "How well your pitch rises and falls match the original melody shape. Singing shows high contour (0.6-0.8), speech is flatter.",
-            technicalDetail = "Technical: pitchContour matching"
-        )
-        TooltipType.CLARITY -> TooltipContent(
-            icon = "🎤",
-            title = "Clarity",
-            description = "Percentage of voiced (audible) frames vs silence/consonants. Singing typically has high voiced ratio, speech has more pauses.",
-            technicalDetail = "Technical: voicedRatio (voiced frames / total frames)"
-        )
-        TooltipType.AUDIO_QUALITY -> TooltipContent(
-            icon = "📡",
-            title = "Audio Quality",
-            description = "How clean your recording is. Background noise, mic issues, echo, or distortion will lower this score.",
-            technicalDetail = "Technical: SNR (Signal-to-Noise Ratio)"
-        )
-        TooltipType.SINGING_MODE -> TooltipContent(
-            icon = "🎵",
-            title = "Singing Mode Detected",
-            description = "Musical content detected! Scoring emphasizes pitch accuracy and melody. Primary metrics: Pitch Match, Melody Flow, Steadiness.",
-            technicalDetail = "Pitch weight: 90% • Voice weight: 10% • Tolerance: ±20 semitones"
-        )
-        TooltipType.SPEECH_MODE -> TooltipContent(
-            icon = "🗣️",
-            title = "Speech Mode Detected",
-            description = "Spoken content detected! Scoring is more forgiving on pitch and focuses on voice matching. Primary metrics: Voice Match, Clarity, Pitch.",
-            technicalDetail = "Pitch weight: 85% • Voice weight: 15% • Tolerance: ±40 semitones"
-        )
-        TooltipType.SCORE_BREAKDOWN -> TooltipContent(
-            icon = "🧮",
-            title = "Score Calculation",
-            description = "Tap the score to see the full calculation breakdown.",
-            technicalDetail = "Shows all scoring steps and modifiers applied"
-        )
+        TooltipType.PITCH_MATCH -> TooltipContent("🎯", "Pitch Match", "How well you hit the notes.", "Technical: pitchSimilarity (DTW-aligned pitch comparison)")
+        TooltipType.VOICE_MATCH -> TooltipContent("🗣️", "Voice Match", "How well your voice matched the original.", "Technical: mfccSimilarity (MFCC cosine distance)")
+        TooltipType.RANGE -> TooltipContent("🎼", "Range", "The vocal range complexity of the phrase.", "Technical: complexity (pitch range analysis) - not displayed")
+        TooltipType.LEAPS -> TooltipContent("🦘", "Leaps", "Accuracy of melodic jumps between notes.", "Technical: intervals (interval matching accuracy)")
+        TooltipType.RICHNESS -> TooltipContent("✨", "Richness", "Tonal quality and resonance of your voice.", "Technical: harmonics (harmonic content analysis)")
+        TooltipType.CONTROL -> TooltipContent("🎛️", "Control", "How balanced your pitch and voice were.", "Technical: consistency (1 - |pitch - mfcc|)")
+        TooltipType.PRESENCE -> TooltipContent("🌟", "Presence", "Vocal projection and strength.", "Technical: confidence (RMS-based vocal strength)")
+        TooltipType.INTONATION -> TooltipContent("🎯", "Intonation", "How well you matched the rise and fall of speech.", "Technical: pitchSimilarity (DTW-aligned pitch comparison)")
+        TooltipType.PRONUNCIATION -> TooltipContent("🗣️", "Pronunciation", "How accurately you pronounced the words.", "Technical: mfccSimilarity (MFCC cosine distance)")
+        TooltipType.FLOW -> TooltipContent("🌊", "Flow", "Smoothness and natural rhythm.", "Technical: consistency (pitch/voice balance)")
+        TooltipType.CLARITY -> TooltipContent("💎", "Clarity", "How clear and projected your voice was.", "Technical: confidence (RMS-based vocal strength)")
+        TooltipType.SINGING_MODE -> {
+            val description = if (pitchPct != null && mfccPct != null)
+                "Detected melodic content with sustained pitches. Scoring emphasizes pitch accuracy ($pitchPct%) over voice timbre ($mfccPct%)."
+            else
+                "Detected melodic content with sustained pitches. Scoring emphasizes pitch accuracy over voice timbre."
+            TooltipContent("🎵", "Singing Mode", description, "Technical: VocalModeDetector classified this as singing based on pitch stability and melodic patterns.")
+        }
+        TooltipType.SPEECH_MODE -> {
+            val description = if (pitchPct != null && mfccPct != null)
+                "Detected spoken content with natural intonation. Scoring balances pitch ($pitchPct%) and pronunciation ($mfccPct%)."
+            else
+                "Detected spoken content with natural intonation. Scoring balances pitch and pronunciation."
+            TooltipContent("🗣️", "Speech Mode", description, "Technical: VocalModeDetector classified this as speech based on pitch variation and rhythmic patterns.")
+        }
+        TooltipType.SCORE_BREAKDOWN -> TooltipContent("🧮", "Score Breakdown", "Detailed calculation steps showing how your score was computed.", "Technical: Full scoring pipeline breakdown")
     }
 }
 
 // ============================================================
-// BREAKDOWN TOOLTIP DIALOG (NEW v21.6.0)
+// BREAKDOWN TOOLTIP DIALOG
 // ============================================================
 
-/**
- * Full calculation breakdown tooltip dialog
- */
 @Composable
-fun BreakdownTooltipDialog(
-    breakdown: ScoreCalculationBreakdown,
-    onDismiss: () -> Unit
-) {
+fun BreakdownTooltipDialog(breakdown: ScoreCalculationBreakdown, onDismiss: () -> Unit) {
     val steps = breakdown.toDisplaySteps()
     val summary = breakdown.toQuickSummary()
     val modifiers = breakdown.getKeyModifiers()
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        )
-    ) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .padding(8.dp),
+            modifier = Modifier.fillMaxWidth(0.95f).padding(8.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "🧮 Score Breakdown",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close",
-                            modifier = Modifier.size(16.dp)
-                        )
+            Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "🧮 Score Breakdown", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(16.dp))
                     }
                 }
-
-                // Summary badge
                 Text(
                     text = summary,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                    modifier = Modifier
-                        .background(
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            RoundedCornerShape(8.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp)
                 )
-
                 Spacer(modifier = Modifier.height(12.dp))
-
-                // Key modifiers (if any)
                 if (modifiers.isNotEmpty()) {
-                    Text(
-                        text = "KEY FACTORS",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        letterSpacing = 1.sp
-                    )
+                    Text(text = "KEY FACTORS", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), letterSpacing = 1.sp)
                     Spacer(modifier = Modifier.height(4.dp))
-                    modifiers.forEach { modifier ->
-                        Text(
-                            text = modifier,
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                        )
-                    }
+                    modifiers.forEach { mod -> Text(text = mod, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)) }
                     Spacer(modifier = Modifier.height(12.dp))
                 }
-
-                // Calculation steps
-                Text(
-                    text = "CALCULATION STEPS",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    letterSpacing = 1.sp
-                )
-
+                Text(text = "CALCULATION STEPS", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), letterSpacing = 1.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-
                 steps.forEach { step ->
-                    CalculationStepRow(
-                        step = step,
-                        colors = MaterialTheme.colorScheme
-                    )
+                    CalculationStepRow(step = step, colors = MaterialTheme.colorScheme)
                     Spacer(modifier = Modifier.height(6.dp))
                 }
-
                 Spacer(modifier = Modifier.height(12.dp))
-
-                // Close button
                 TextButton(
                     onClick = onDismiss,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .background(
-                            MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(20.dp)
-                        )
-                        .padding(horizontal = 16.dp)
+                    modifier = Modifier.align(Alignment.CenterHorizontally).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp)).padding(horizontal = 16.dp)
                 ) {
-                    Text(
-                        text = "Got it!",
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text(text = "Got it!", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
     }
 }
 
-/**
- * Single calculation step row
- */
 @Composable
-private fun CalculationStepRow(
-    step: CalculationStep,
-    colors: ColorScheme
-) {
+private fun CalculationStepRow(step: CalculationStep, colors: ColorScheme) {
     val backgroundColor = when {
         step.isFinal -> colors.primaryContainer.copy(alpha = 0.3f)
         step.isBonus -> Color(0xFF4ADE80).copy(alpha = 0.15f)
         step.isPenalty -> Color(0xFFF87171).copy(alpha = 0.15f)
         else -> colors.surfaceVariant.copy(alpha = 0.2f)
     }
-
     val borderColor = when {
         step.isFinal -> colors.primary.copy(alpha = 0.5f)
         step.isBonus -> Color(0xFF4ADE80).copy(alpha = 0.3f)
@@ -1206,107 +808,20 @@ private fun CalculationStepRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (borderColor != Color.Transparent)
-                    Modifier.border(1.dp, borderColor, RoundedCornerShape(8.dp))
-                else Modifier
-            )
+            .then(if (borderColor != Color.Transparent) Modifier.border(1.dp, borderColor, RoundedCornerShape(8.dp)) else Modifier)
             .background(backgroundColor, RoundedCornerShape(8.dp))
             .padding(10.dp)
     ) {
-        // Step header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "${step.stepNumber}. ${step.title}",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.onSurface
-            )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(text = "${step.stepNumber}. ${step.title}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurface)
             Text(
                 text = step.result,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = when {
-                    step.isFinal -> colors.primary
-                    step.isBonus -> Color(0xFF22C55E)
-                    step.isPenalty -> Color(0xFFEF4444)
-                    else -> colors.onSurface
-                }
+                color = when { step.isFinal -> colors.primary; step.isBonus -> Color(0xFF22C55E); step.isPenalty -> Color(0xFFEF4444); else -> colors.onSurface }
             )
         }
-
-        // Formula (small, muted)
-        Text(
-            text = step.formula,
-            fontSize = 9.sp,
-            color = colors.onSurface.copy(alpha = 0.5f),
-            fontStyle = FontStyle.Italic
-        )
-
-        // Calculation
-        Text(
-            text = step.calculation,
-            fontSize = 10.sp,
-            color = colors.onSurface.copy(alpha = 0.7f)
-        )
-    }
-}
-
-// ============================================================
-// TIPS GENERATION
-// ============================================================
-
-private fun getTipsHeader(themeId: String): String {
-    return when (themeId) {
-        "steampunk" -> "⚙️ CALIBRATION NOTES"
-        "cyberpunk" -> "// SYSTEM_ANALYSIS"
-        "cottage", "sakura_serenity" -> "🌸 SUGGESTIONS"
-        else -> "💡 TIPS"
-    }
-}
-
-private fun generateThemeAwareTips(
-    score: Int,
-    challengeType: ChallengeType,
-    themeId: String
-): List<String> {
-    return when (themeId) {
-        "steampunk" -> generateSteampunkTips(score, challengeType)
-        "cyberpunk" -> generateCyberpunkTips(score, challengeType)
-        else -> generateEncouragingTips(score, challengeType)
-    }
-}
-
-private fun generateEncouragingTips(score: Int, challengeType: ChallengeType): List<String> {
-    val challengeText = if (challengeType == ChallengeType.REVERSE) "reverse" else "forward"
-    return when {
-        score >= 90 -> listOf("Amazing $challengeText performance!", "You've mastered this!")
-        score >= 80 -> listOf("Great job matching the melody!", "Almost perfect!")
-        score >= 70 -> listOf("Good progress on $challengeText!", "Keep practicing!")
-        score >= 60 -> listOf("Nice effort!", "Try matching the rhythm more closely")
-        else -> listOf("Keep trying!", "Listen to the original again")
-    }
-}
-
-private fun generateSteampunkTips(score: Int, challengeType: ChallengeType): List<String> {
-    return when {
-        score >= 90 -> listOf("Phonographic apparatus calibrated perfectly!", "Steam pressure optimal")
-        score >= 80 -> listOf("Most admirable vocal machinery!", "Minor gear adjustments needed")
-        score >= 70 -> listOf("Respectable craftsmanship!", "Oil the timing gears")
-        score >= 60 -> listOf("Adequate endeavour!", "Check valve pressure")
-        else -> listOf("Recalibration required!", "Consult the engineering manual")
-    }
-}
-
-private fun generateCyberpunkTips(score: Int, challengeType: ChallengeType): List<String> {
-    return when {
-        score >= 90 -> listOf("NEURAL_LINK: PERFECTED", "Signal strength: MAXIMUM")
-        score >= 80 -> listOf("ACCESS_GRANTED: Elite performance", "Minor latency detected")
-        score >= 70 -> listOf("FIREWALL_BYPASSED", "Upgrade audio codec")
-        score >= 60 -> listOf("CONNECTION_ESTABLISHED", "Debug rhythm subroutine")
-        else -> listOf("SYSTEM_ERROR: Retry", "Boost signal clarity")
+        Text(text = step.formula, fontSize = 9.sp, color = colors.onSurface.copy(alpha = 0.5f), fontStyle = FontStyle.Italic)
+        Text(text = step.calculation, fontSize = 10.sp, color = colors.onSurface.copy(alpha = 0.7f))
     }
 }
