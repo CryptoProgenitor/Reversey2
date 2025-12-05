@@ -7,6 +7,7 @@ import com.quokkalabs.reversey.scoring.VocalAnalysis
 import com.quokkalabs.reversey.scoring.AudioQualityMetrics
 import com.quokkalabs.reversey.scoring.PerformanceInsights
 import com.quokkalabs.reversey.scoring.DebuggingData
+import com.quokkalabs.reversey.scoring.ScoreCalculationBreakdown
 
 /**
  * Represents a single player's attempt to match a recording (forward or reverse).
@@ -31,5 +32,8 @@ data class PlayerAttempt(
     val vocalAnalysis: VocalAnalysis? = null,
     val audioQualityMetrics: AudioQualityMetrics? = null,
     val performanceInsights: PerformanceInsights? = null,
-    val debuggingData: DebuggingData? = null
+    val debuggingData: DebuggingData? = null,
+
+    // --- NEW: Full Calculation Breakdown for Scorecard Tooltip (v21.6.0) ----
+    val calculationBreakdown: ScoreCalculationBreakdown? = null
 )

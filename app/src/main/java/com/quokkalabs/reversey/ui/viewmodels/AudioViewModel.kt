@@ -517,7 +517,9 @@ class AudioViewModel @Inject constructor(
                     difficulty = _currentDifficulty.value,
                     scoringEngine = null,
                     feedback = scoringResult.feedback,
-                    isGarbage = scoringResult.isGarbage
+                    isGarbage = scoringResult.isGarbage,
+                    // NEW: Pass the calculation breakdown through (v21.6.0)
+                    calculationBreakdown = scoringResult.calculationBreakdown
                 )
 
                 val updatedRecordings = uiState.value.recordings.map { recording ->

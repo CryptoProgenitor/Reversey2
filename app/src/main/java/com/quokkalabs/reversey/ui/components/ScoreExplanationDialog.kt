@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -61,6 +60,13 @@ import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.scoring.DifficultyLevel
 import com.quokkalabs.reversey.scoring.VocalMode
+import com.quokkalabs.reversey.scoring.ScoreCalculationBreakdown
+import com.quokkalabs.reversey.scoring.MusicalBonusBreakdown
+import com.quokkalabs.reversey.scoring.ScoringEngineType
+import com.quokkalabs.reversey.scoring.toDisplaySteps
+import com.quokkalabs.reversey.scoring.toQuickSummary
+import com.quokkalabs.reversey.scoring.getKeyModifiers
+import com.quokkalabs.reversey.scoring.CalculationStep
 import com.quokkalabs.reversey.ui.theme.AestheticTheme
 import com.quokkalabs.reversey.ui.theme.AestheticThemeData
 import com.quokkalabs.reversey.ui.theme.MaterialColors
@@ -74,7 +80,6 @@ import com.quokkalabs.reversey.ui.theme.MaterialColors
  * - Rich metrics grid: 6 metrics with tooltips
  * - Theme-aware styling
  * - Metrics adapt based on Speech/Singing mode
- * - NEW: Clickable score shows calculation breakdown
  */
 @Composable
 fun ScoreExplanationDialog(
@@ -137,6 +142,11 @@ fun ScoreExplanationDialog(
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
+                    .clickable(
+                        onClick = {},
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    )
             ) {
                 // Theme-aware background glow
                 if (aesthetic.useGlassmorphism && aesthetic.glowIntensity > 0) {
@@ -172,11 +182,28 @@ fun ScoreExplanationDialog(
 
     // Tooltip dialog
     tooltipType?.let { type ->
-        MetricTooltipDialog(
-            tooltipType = type,
-            vocalMode = attempt.vocalAnalysis?.mode,
-            onDismiss = { tooltipType = null }
-        )
+        if (type == TooltipType.SCORE_BREAKDOWN) {
+            // Show breakdown tooltip if breakdown data exists
+            attempt.calculationBreakdown?.let { breakdown ->
+                BreakdownTooltipDialog(
+                    breakdown = breakdown,
+                    onDismiss = { tooltipType = null }
+                )
+            } ?: run {
+                // Fallback if no breakdown data
+                MetricTooltipDialog(
+                    tooltipType = type,
+                    vocalMode = attempt.vocalAnalysis?.mode,
+                    onDismiss = { tooltipType = null }
+                )
+            }
+        } else {
+            MetricTooltipDialog(
+                tooltipType = type,
+                vocalMode = attempt.vocalAnalysis?.mode,
+                onDismiss = { tooltipType = null }
+            )
+        }
     }
 }
 
@@ -242,25 +269,13 @@ private fun UnifiedScoreCardV3(
             )
     }
 
-    // Interaction source for the "click sink"
-    val interactionSource = remember { MutableInteractionSource() }
-
     Card(
         modifier = cardModifier
             .fillMaxWidth()
-            .padding(8.dp)
-            // CRITICAL FIX: "Click Sink"
-            // We use a clickable that IS enabled but has NO indication (ripple).
-            // This actively consumes the click event so it does not bubble up to the background.
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {}
-            ),
+            .padding(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box {
-            // Content Column
             Column(
                 modifier = Modifier
                     .padding(16.dp)
@@ -337,7 +352,7 @@ private fun UnifiedScoreCardV3(
                 )
             }
 
-            // Close button (floating overlay)
+            // Close button (floating overlay - MUST be after Column to draw on top)
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier
@@ -358,13 +373,14 @@ private fun UnifiedScoreCardV3(
 
 /**
  * ROW 1: Emoji + Score + Difficulty badge (all inline)
+ * Score is clickable to show calculation breakdown
  */
 @Composable
 private fun ScoreHeaderRow(
     attempt: PlayerAttempt,
     aesthetic: AestheticThemeData,
     colors: ColorScheme,
-    onScoreClick: () -> Unit
+    onScoreClick: () -> Unit = {}
 ) {
     val emoji = aesthetic.scoreEmojis[
         when {
@@ -375,6 +391,9 @@ private fun ScoreHeaderRow(
             else -> 0
         }
     ] ?: "🎤"
+
+    // Show tap hint if breakdown is available
+    val hasBreakdown = attempt.calculationBreakdown != null
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -388,13 +407,20 @@ private fun ScoreHeaderRow(
             modifier = Modifier.padding(end = 12.dp)
         )
 
-        // Score (Clickable)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onScoreClick() }
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+        // Score (clickable if breakdown available)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = if (hasBreakdown) {
+                Modifier
+                    .clickable { onScoreClick() }
+                    .background(
+                        colors.primaryContainer.copy(alpha = 0.1f),
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            } else {
+                Modifier
+            }
         ) {
             Text(
                 text = "${attempt.score}%",
@@ -403,17 +429,16 @@ private fun ScoreHeaderRow(
                 color = colors.primary,
                 letterSpacing = if (aesthetic.useWideLetterSpacing) 2.sp else 0.sp
             )
-            // Small hint icon to show it's clickable
-            Text(
-                text = " ⓘ",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = colors.primary.copy(alpha = 0.6f),
-                modifier = Modifier.padding(bottom = 16.dp) // Align to top-ish
-            )
+            if (hasBreakdown) {
+                Text(
+                    text = "tap for details",
+                    fontSize = 9.sp,
+                    color = colors.primary.copy(alpha = 0.6f)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         // Difficulty badge
         DifficultyBadge(
@@ -775,14 +800,11 @@ private fun TipsSection(
     aesthetic: AestheticThemeData,
     colors: ColorScheme
 ) {
-    // Ensuring the tooltip data is remembered to prevent unnecessary recalculations
-    val tips = remember(attempt.score, attempt.challengeType, aesthetic.id) {
-        generateThemeAwareTips(
-            score = attempt.score,
-            challengeType = attempt.challengeType,
-            themeId = aesthetic.id
-        ).take(2)
-    }
+    val tips = generateThemeAwareTips(
+        score = attempt.score,
+        challengeType = attempt.challengeType,
+        themeId = aesthetic.id
+    ).take(2)
 
     if (tips.isEmpty()) return
 
@@ -840,7 +862,7 @@ enum class TooltipType {
     AUDIO_QUALITY,
     SINGING_MODE,
     SPEECH_MODE,
-    SCORE_BREAKDOWN
+    SCORE_BREAKDOWN  // NEW: Full calculation breakdown tooltip
 }
 
 /**
@@ -863,10 +885,7 @@ fun MetricTooltipDialog(
     vocalMode: VocalMode?,
     onDismiss: () -> Unit
 ) {
-    // Using remember to ensure tooltipData is only calculated when tooltipType or vocalMode changes
-    val tooltipData = remember(tooltipType, vocalMode) {
-        getTooltipData(tooltipType, vocalMode)
-    }
+    val tooltipData = getTooltipData(tooltipType)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -963,23 +982,8 @@ private data class TooltipContent(
 /**
  * Get tooltip content for each type
  */
-private fun getTooltipData(type: TooltipType, vocalMode: VocalMode? = null): TooltipContent {
+private fun getTooltipData(type: TooltipType): TooltipContent {
     return when (type) {
-        TooltipType.SCORE_BREAKDOWN -> {
-            val isSinging = vocalMode == VocalMode.SINGING
-            TooltipContent(
-                icon = "🧮",
-                title = "Score Calculation",
-                description = if (isSinging)
-                    "Singing detected! Your score is primarily based on how well you matched the pitch (90%) and the tone of the voice (10%)."
-                else
-                    "Speech detected! Your score is weighted between matching the pitch contour (85%) and the voice texture (15%).",
-                technicalDetail = if (isSinging)
-                    "Weights: Pitch 0.9 + Voice 0.1 | Penalty applied for timing errors."
-                else
-                    "Weights: Pitch 0.85 + Voice 0.15 | Penalty applied for silence/pauses."
-            )
-        }
         TooltipType.PITCH_MATCH -> TooltipContent(
             icon = "🎯",
             title = "Pitch Match",
@@ -1027,6 +1031,226 @@ private fun getTooltipData(type: TooltipType, vocalMode: VocalMode? = null): Too
             title = "Speech Mode Detected",
             description = "Spoken content detected! Scoring is more forgiving on pitch and focuses on voice matching. Primary metrics: Voice Match, Clarity, Pitch.",
             technicalDetail = "Pitch weight: 85% • Voice weight: 15% • Tolerance: ±40 semitones"
+        )
+        TooltipType.SCORE_BREAKDOWN -> TooltipContent(
+            icon = "🧮",
+            title = "Score Calculation",
+            description = "Tap the score to see the full calculation breakdown.",
+            technicalDetail = "Shows all scoring steps and modifiers applied"
+        )
+    }
+}
+
+// ============================================================
+// BREAKDOWN TOOLTIP DIALOG (NEW v21.6.0)
+// ============================================================
+
+/**
+ * Full calculation breakdown tooltip dialog
+ */
+@Composable
+fun BreakdownTooltipDialog(
+    breakdown: ScoreCalculationBreakdown,
+    onDismiss: () -> Unit
+) {
+    val steps = breakdown.toDisplaySteps()
+    val summary = breakdown.toQuickSummary()
+    val modifiers = breakdown.getKeyModifiers()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .padding(8.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🧮 Score Breakdown",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Close",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                // Summary badge
+                Text(
+                    text = summary,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Key modifiers (if any)
+                if (modifiers.isNotEmpty()) {
+                    Text(
+                        text = "KEY FACTORS",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    modifiers.forEach { modifier ->
+                        Text(
+                            text = modifier,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Calculation steps
+                Text(
+                    text = "CALCULATION STEPS",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    letterSpacing = 1.sp
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                steps.forEach { step ->
+                    CalculationStepRow(
+                        step = step,
+                        colors = MaterialTheme.colorScheme
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Close button
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .background(
+                            MaterialTheme.colorScheme.primary,
+                            RoundedCornerShape(20.dp)
+                        )
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = "Got it!",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Single calculation step row
+ */
+@Composable
+private fun CalculationStepRow(
+    step: CalculationStep,
+    colors: ColorScheme
+) {
+    val backgroundColor = when {
+        step.isFinal -> colors.primaryContainer.copy(alpha = 0.3f)
+        step.isBonus -> Color(0xFF4ADE80).copy(alpha = 0.15f)
+        step.isPenalty -> Color(0xFFF87171).copy(alpha = 0.15f)
+        else -> colors.surfaceVariant.copy(alpha = 0.2f)
+    }
+
+    val borderColor = when {
+        step.isFinal -> colors.primary.copy(alpha = 0.5f)
+        step.isBonus -> Color(0xFF4ADE80).copy(alpha = 0.3f)
+        step.isPenalty -> Color(0xFFF87171).copy(alpha = 0.3f)
+        else -> Color.Transparent
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (borderColor != Color.Transparent)
+                    Modifier.border(1.dp, borderColor, RoundedCornerShape(8.dp))
+                else Modifier
+            )
+            .background(backgroundColor, RoundedCornerShape(8.dp))
+            .padding(10.dp)
+    ) {
+        // Step header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "${step.stepNumber}. ${step.title}",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.onSurface
+            )
+            Text(
+                text = step.result,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = when {
+                    step.isFinal -> colors.primary
+                    step.isBonus -> Color(0xFF22C55E)
+                    step.isPenalty -> Color(0xFFEF4444)
+                    else -> colors.onSurface
+                }
+            )
+        }
+
+        // Formula (small, muted)
+        Text(
+            text = step.formula,
+            fontSize = 9.sp,
+            color = colors.onSurface.copy(alpha = 0.5f),
+            fontStyle = FontStyle.Italic
+        )
+
+        // Calculation
+        Text(
+            text = step.calculation,
+            fontSize = 10.sp,
+            color = colors.onSurface.copy(alpha = 0.7f)
         )
     }
 }

@@ -1,5 +1,7 @@
 package com.quokkalabs.reversey.scoring
 
+import com.quokkalabs.reversey.data.models.ChallengeType
+
 /**
  * ✅ CANONICAL SCORING CORE (DUAL PIPELINE)
  *
@@ -15,6 +17,7 @@ package com.quokkalabs.reversey.scoring
  * - ScoringResult / SimilarityMetrics
  * - MelodySignature / ContentMetrics
  * - Presets + ScoringPresets
+ * - ScoreCalculationBreakdown (NEW - v21.6.0)
  *
  * Used by:
  * - SpeechScoringEngine
@@ -23,6 +26,7 @@ package com.quokkalabs.reversey.scoring
  * - AudioProcessor
  * - DifficultyConfig
  * - ScoreAcquisitionDataConcentrator
+ * - ScoreExplanationDialog (NEW)
  */
 
 // ============================================================
@@ -76,7 +80,7 @@ data class ScoringParameters(
     var intensityWeight: Float = 0.45f,
     var rangeWeight: Float = 0.20f,
 
-    // --- Penalties for “wrong but loud” etc ---
+    // --- Penalties for "wrong but loud" etc ---
     var intensityPenaltyThreshold: Float = 0.15f,
     var intensityPenaltyMultiplier: Float = 0.2f
 )
@@ -255,6 +259,8 @@ data class ScoringResult(
     val debugMinThreshold: Float = 0f,
     val debugPerfectThreshold: Float = 0f,
     val debugNormalizedScore: Float = 0f,
+    // NEW: Full calculation breakdown for UI tooltip
+    val calculationBreakdown: ScoreCalculationBreakdown? = null
 )
 
 data class SimilarityMetrics(
@@ -263,7 +269,7 @@ data class SimilarityMetrics(
 )
 
 /**
- * Represents melodic “DNA” for advanced analysis.
+ * Represents melodic "DNA" for advanced analysis.
  * Used by some experimental / musical logic.
  */
 data class MelodySignature(
@@ -293,6 +299,130 @@ data class ContentMetrics(
     val phraseSimilarity: Float,
     val rhythmSimilarity: Float,
     val overallContentScore: Float
+)
+
+// ============================================================
+//  SCORE CALCULATION BREAKDOWN (NEW - v21.6.0)
+// ============================================================
+
+/**
+ * 🧮 SCORE CALCULATION BREAKDOWN
+ *
+ * Captures the complete calculation journey for the scorecard tooltip.
+ * Supports all 4 scoring paths:
+ *   - Speech Forward
+ *   - Speech Reverse
+ *   - Singing Forward
+ *   - Singing Reverse
+ *
+ * Usage: Built in scoring engines, passed through ScoringResult → PlayerAttempt → UI
+ */
+data class ScoreCalculationBreakdown(
+
+    // ═══════════════════════════════════════════════════════════════════
+    // METADATA - Which path was taken?
+    // ═══════════════════════════════════════════════════════════════════
+
+    val scoringEngineType: ScoringEngineType,   // SPEECH_ENGINE or SINGING_ENGINE
+    val challengeType: ChallengeType,            // FORWARD or REVERSE
+    val difficultyLevel: DifficultyLevel,        // EASY, NORMAL, HARD
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 1: INPUT SIMILARITIES (from feature extraction)
+    // ═══════════════════════════════════════════════════════════════════
+
+    val pitchSimilarity: Float,     // 0-1, from DTW alignment
+    val mfccSimilarity: Float,      // 0-1, from cosine distance
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 2: WEIGHTED COMBINATION
+    // ═══════════════════════════════════════════════════════════════════
+
+    val pitchWeight: Float,         // 0.85 (speech) or 0.90 (singing)
+    val mfccWeight: Float,          // 0.15 (speech) or 0.10 (singing)
+    val baseWeightedScore: Float,   // pitch * pitchWeight + mfcc * mfccWeight
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 3: MUSICAL BONUSES (Singing only - null for Speech)
+    // ═══════════════════════════════════════════════════════════════════
+
+    val musicalBonuses: MusicalBonusBreakdown? = null,
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 4: CONTENT DETECTION PENALTY
+    // ═══════════════════════════════════════════════════════════════════
+
+    val contentThresholdBase: Float,      // Original threshold from preset
+    val reverseHandicap: Float,           // 0.0 for forward, 0.15 for normal reverse, etc.
+    val contentThresholdEffective: Float, // contentThresholdBase - reverseHandicap
+    val contentPenaltyTriggered: Boolean, // Did mfcc < threshold?
+    val contentPenaltyMultiplier: Float,  // e.g., 0.20 ("The Crusher")
+    val scoreAfterContentPenalty: Float,
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 5: VARIANCE & PERFORMANCE ADJUSTMENTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    val variancePenaltyTriggered: Boolean,
+    val variancePenaltyMultiplier: Float,     // 1.0 if no penalty, 0.4-0.7 if triggered
+
+    val consistencyBonus: Float,              // (1 - |pitch - mfcc|) * 0.05
+    val confidenceBonus: Float,               // min(1, RMS * multiplier) * 0.05
+    val totalPerformanceMultiplier: Float,    // (1 + consistency + confidence)
+
+    val hummingDetected: Boolean,
+    val hummingPenaltyMultiplier: Float,      // 1.0 (none), 0.8 (singing), 0.7 (speech)
+
+    val rawScoreFinal: Float,                 // Score going into normalization
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 6: THRESHOLD NORMALIZATION
+    // ═══════════════════════════════════════════════════════════════════
+
+    val minThresholdBase: Float,              // From preset
+    val perfectThresholdBase: Float,          // From preset
+    val reverseMinMultiplier: Float,          // 1.0 for forward, 0.8 for reverse
+    val reversePerfectMultiplier: Float,      // 1.0 for forward, 0.9 for reverse
+    val minThresholdEffective: Float,         // base * multiplier
+    val perfectThresholdEffective: Float,     // base * multiplier
+    val normalizedScore: Float,               // (raw - min) / (perfect - min)
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 7: CURVE APPLICATION
+    // ═══════════════════════════════════════════════════════════════════
+
+    val scoreCurve: Float,                    // 3.2 (speech) or 1.0 (singing linear)
+    val curvedScore: Float,                   // normalized ^ (1/scoreCurve)
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 8: FINAL SCORE
+    // ═══════════════════════════════════════════════════════════════════
+
+    val finalScore: Int                       // (curvedScore * 100).roundToInt().coerceIn(0, 100)
+)
+
+/**
+ * 🎵 MUSICAL BONUS BREAKDOWN (Singing Engine only)
+ *
+ * Captures the three musical analysis bonuses:
+ * - Complexity: Pitch range and transitions
+ * - Interval Accuracy: Note-to-note jump matching
+ * - Harmonic Richness: Spectral spread from MFCC
+ */
+data class MusicalBonusBreakdown(
+    val complexityBonus: Float,          // 0-1 raw value
+    val complexityWeight: Float,         // 0.10
+    val complexityContribution: Float,   // bonus * weight
+
+    val intervalAccuracy: Float,         // 0-1 raw value
+    val intervalWeight: Float,           // 0.15
+    val intervalContribution: Float,     // accuracy * weight
+
+    val harmonicRichness: Float,         // 0-1 raw value
+    val harmonicWeight: Float,           // 0.05
+    val harmonicContribution: Float,     // richness * weight
+
+    val totalMusicalBonus: Float         // Sum of all contributions (max 0.30)
 )
 
 // ============================================================

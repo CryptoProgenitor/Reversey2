@@ -225,20 +225,28 @@ class SingingScoringEngine @Inject constructor(
         val metrics = SimilarityMetrics(pitchSimilarity, mfccSimilarity)
 
         // Music-focused weighted score (heavily emphasizes melody)
-        var rawScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
+        val baseWeightedScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
+        var rawScore = baseWeightedScore
         Log.d("SINGING_ENGINE", "🎯 Base weighted score: $rawScore")
 
         // Apply musical bonuses
-        rawScore += musicalComplexityBonus * 0.1f  // Up to 10% bonus for complexity
-        rawScore += intervalAccuracy * 0.15f        // Up to 15% bonus for accurate intervals
-        rawScore += harmonicRichness * 0.05f        // Up to 5% bonus for rich harmonics
+        val complexityContribution = musicalComplexityBonus * 0.1f
+        val intervalContribution = intervalAccuracy * 0.15f
+        val harmonicContribution = harmonicRichness * 0.05f
+        val totalMusicalBonus = complexityContribution + intervalContribution + harmonicContribution
 
+        rawScore += complexityContribution  // Up to 10% bonus for complexity
+        rawScore += intervalContribution    // Up to 15% bonus for accurate intervals
+        rawScore += harmonicContribution    // Up to 5% bonus for rich harmonics
+
+        val scoreAfterBonuses = rawScore
         Log.d("SINGING_ENGINE", "🎯 Raw score with musical bonuses: $rawScore")
 
         // --- 🔗 CONTENT DETECTION (With REVERSE HANDICAP) ---
         // Placed AFTER bonuses to ensure we crush 'style points' if words are wrong.
 
         // 🚨 REVERSE HANDICAP LOGIC (Dynamic) 🚨
+        val reverseHandicapValue = if (challengeType == ChallengeType.REVERSE) contentParams.reverseHandicap else 0f
         val effectiveThreshold = if (challengeType == ChallengeType.REVERSE) {
             // Use the parameter from the preset
             val handicap = contentParams.reverseHandicap
@@ -250,31 +258,39 @@ class SingingScoringEngine @Inject constructor(
             contentParams.contentDetectionBestThreshold
         }
 
-        if (mfccSimilarity < effectiveThreshold) {
+        val contentPenaltyTriggered = mfccSimilarity < effectiveThreshold
+        val scoreAfterContentPenalty: Float
+        if (contentPenaltyTriggered) {
             // Trap Door OPEN -> Apply Crusher
             Log.d("SINGING_ENGINE", "📉 Content Mismatch! MFCC ($mfccSimilarity) < Threshold ($effectiveThreshold)")
             Log.d("SINGING_ENGINE", "   Applying wrongContentStandardPenalty: ${contentParams.wrongContentStandardPenalty}x")
 
             rawScore *= contentParams.wrongContentStandardPenalty
+            scoreAfterContentPenalty = rawScore
             Log.d("SINGING_ENGINE", "   ⬇️ New Score: $rawScore")
         } else {
+            scoreAfterContentPenalty = rawScore
             Log.d("SINGING_ENGINE", "✅ Content Match! MFCC ($mfccSimilarity) >= Threshold ($effectiveThreshold)")
         }
 
         // Musical variance penalty (strict for singing)
-        val variancePenalty = calculateMusicalVariancePenalty(originalPitchSequence, attemptPitchSequence)
-        rawScore *= variancePenalty
-        Log.d("SINGING_ENGINE", "📉 After musical variance penalty (${variancePenalty}x): $rawScore")
+        val variancePenaltyResult = calculateMusicalVariancePenaltyWithFlag(originalPitchSequence, attemptPitchSequence)
+        val variancePenaltyTriggered = variancePenaltyResult.first
+        val variancePenaltyMultiplier = variancePenaltyResult.second
+        rawScore *= variancePenaltyMultiplier
+        Log.d("SINGING_ENGINE", "📉 After musical variance penalty (${variancePenaltyMultiplier}x): $rawScore")
 
         // Musical performance bonuses
         val consistency = (1 - abs(pitchSimilarity - mfccSimilarity)) * parameters.consistencyBonus
         val confidence = min(1f, attemptRMS * scalingParams.rmsConfidenceMultiplier) * parameters.confidenceBonus
-        val scoreWithBonuses = rawScore * (1 + consistency + confidence)
+        val totalPerformanceMultiplier = 1 + consistency + confidence
+        val scoreWithBonuses = rawScore * totalPerformanceMultiplier
 
         Log.d("SINGING_ENGINE", "🎁 After performance bonuses: $scoreWithBonuses")
 
         // Humming detection (more nuanced for singing)
         val hummingDetected = garbageAnalysis.filterResults["humming_detected"] == 1f
+        val hummingPenaltyMultiplier = if (hummingDetected && !garbageAnalysis.isGarbage) 0.8f else 1.0f
         val adjustedScore = if (hummingDetected && !garbageAnalysis.isGarbage) {
             // For singing, humming might be intentional - lighter penalty than speech
             Log.d("SINGING_ENGINE", "🎵 Musical humming detected - applying moderate penalty")
@@ -283,11 +299,80 @@ class SingingScoringEngine @Inject constructor(
             scoreWithBonuses
         }
 
-        // Final musical scaling
-        val finalScore = scaleMusicalScore(adjustedScore, challengeType)
+        // Store raw score going into normalization
+        val rawScoreFinal = adjustedScore
+
+        // Final musical scaling (with breakdown capture)
+        val scalingResult = scaleMusicalScoreWithBreakdown(adjustedScore, challengeType)
+        val finalScore = scalingResult.finalScore
 
         Log.d("SINGING_ENGINE", "🏁 FINAL MUSICAL SCORE: $finalScore")
         Log.d("SINGING_ENGINE", "==========================")
+
+        // Build the musical bonuses breakdown
+        val musicalBonusBreakdown = MusicalBonusBreakdown(
+            complexityBonus = musicalComplexityBonus,
+            complexityWeight = 0.10f,
+            complexityContribution = complexityContribution,
+
+            intervalAccuracy = intervalAccuracy,
+            intervalWeight = 0.15f,
+            intervalContribution = intervalContribution,
+
+            harmonicRichness = harmonicRichness,
+            harmonicWeight = 0.05f,
+            harmonicContribution = harmonicContribution,
+
+            totalMusicalBonus = totalMusicalBonus
+        )
+
+        // Build the calculation breakdown
+        val breakdown = ScoreCalculationBreakdown(
+            scoringEngineType = ScoringEngineType.SINGING_ENGINE,
+            challengeType = challengeType,
+            difficultyLevel = difficulty,
+
+            pitchSimilarity = pitchSimilarity,
+            mfccSimilarity = mfccSimilarity,
+
+            pitchWeight = parameters.pitchWeight,
+            mfccWeight = parameters.mfccWeight,
+            baseWeightedScore = baseWeightedScore,
+
+            musicalBonuses = musicalBonusBreakdown,
+
+            contentThresholdBase = contentParams.contentDetectionBestThreshold,
+            reverseHandicap = reverseHandicapValue,
+            contentThresholdEffective = effectiveThreshold,
+            contentPenaltyTriggered = contentPenaltyTriggered,
+            contentPenaltyMultiplier = contentParams.wrongContentStandardPenalty,
+            scoreAfterContentPenalty = scoreAfterContentPenalty,
+
+            variancePenaltyTriggered = variancePenaltyTriggered,
+            variancePenaltyMultiplier = variancePenaltyMultiplier,
+
+            consistencyBonus = consistency,
+            confidenceBonus = confidence,
+            totalPerformanceMultiplier = totalPerformanceMultiplier,
+
+            hummingDetected = hummingDetected,
+            hummingPenaltyMultiplier = hummingPenaltyMultiplier,
+
+            rawScoreFinal = rawScoreFinal,
+
+            minThresholdBase = parameters.minScoreThreshold,
+            perfectThresholdBase = parameters.perfectScoreThreshold,
+            reverseMinMultiplier = if (challengeType == ChallengeType.REVERSE) 0.8f else 1.0f,
+            reversePerfectMultiplier = if (challengeType == ChallengeType.REVERSE) 0.9f else 1.0f,
+            minThresholdEffective = scalingResult.minThreshold,
+            perfectThresholdEffective = scalingResult.perfectThreshold,
+            normalizedScore = scalingResult.normalizedScore,
+
+            scoreCurve = parameters.scoreCurve,
+            curvedScore = scalingResult.curvedScore,
+
+            finalScore = finalScore
+        )
 
         return ScoringResult(
             score = finalScore,
@@ -296,7 +381,11 @@ class SingingScoringEngine @Inject constructor(
             feedback = generateMusicalFeedback(finalScore, metrics, challengeType,
                 musicalComplexityBonus, intervalAccuracy, harmonicRichness),
             isGarbage = false,
-            debugPresets = currentPreset // <--- ADDED FOR LOGGING
+            debugPresets = currentPreset, // <--- ADDED FOR LOGGING
+            debugMinThreshold = scalingResult.minThreshold,
+            debugPerfectThreshold = scalingResult.perfectThreshold,
+            debugNormalizedScore = scalingResult.normalizedScore,
+            calculationBreakdown = breakdown
         )
     }
 
@@ -323,22 +412,24 @@ class SingingScoringEngine @Inject constructor(
             if (origPitch > 0f && attemptPitch > 0f) {
                 val pitchDifference = abs(origPitch - attemptPitch)
 
-                // Musical: Use tight tolerance and steep decay for accuracy
+                // Musical: Strict note matching
                 val similarity = when {
-                    pitchDifference <= parameters.pitchTolerance * 0.3f -> 1f  // Perfect musical range (tighter)
-                    pitchDifference <= parameters.pitchTolerance -> {
-                        // Steep decay for musical precision
-                        val decayFactor = exp(-pitchDifference / (parameters.pitchTolerance * 0.2f))
-                        decayFactor.coerceIn(0.1f, 1f)  // Steeper falloff for musical accuracy
-                    }
-                    else -> 0.05f  // Very low credit for off-pitch singing
+                    pitchDifference <= parameters.pitchTolerance * 0.3f -> 1f  // Perfect pitch
+                    pitchDifference <= parameters.pitchTolerance * 0.6f -> 0.8f  // Good pitch
+                    pitchDifference <= parameters.pitchTolerance -> 0.5f  // Acceptable
+                    pitchDifference <= parameters.pitchTolerance * 1.5f -> 0.2f  // Poor
+                    else -> 0f  // Wrong note
                 }
 
                 totalSimilarity += similarity
                 validComparisons++
+            } else if (origPitch <= 0f && attemptPitch <= 0f) {
+                // Both silent - neutral for musical content
+                totalSimilarity += 0.3f
+                validComparisons++
             } else {
-                // Musical: Silence-to-silence less generous than speech
-                totalSimilarity += melodicParams.silenceToSilenceScore
+                // One silent, one not - penalty for musical timing
+                totalSimilarity += 0.1f
                 validComparisons++
             }
         }
@@ -368,6 +459,30 @@ class SingingScoringEngine @Inject constructor(
             penalty
         } else {
             1.0f  // No penalty for proper musical variation
+        }
+    }
+
+    /**
+     * Musical variance penalty with triggered flag
+     * Returns Pair<Boolean, Float> - (wasTriggered, multiplier)
+     */
+    private fun calculateMusicalVariancePenaltyWithFlag(
+        originalPitches: List<Float>,
+        attemptPitches: List<Float>
+    ): Pair<Boolean, Float> {
+        val originalVariance = calculatePitchVariance(originalPitches)
+        val attemptVariance = calculatePitchVariance(attemptPitches)
+
+        Log.d("SINGING_ENGINE", "🎼 Musical variance analysis - Original: $originalVariance, Attempt: $attemptVariance")
+
+        // Musical: Strict about maintaining melodic variation
+        return if (originalVariance > melodicParams.monotoneDetectionThreshold &&
+            attemptVariance < melodicParams.flatSpeechThreshold) {
+            val penalty = melodicParams.monotonePenalty
+            Log.d("SINGING_ENGINE", "📉 Applying musical monotone penalty: $penalty")
+            Pair(true, penalty)
+        } else {
+            Pair(false, 1.0f)  // No penalty for proper musical variation
         }
     }
 
@@ -520,6 +635,54 @@ class SingingScoringEngine @Inject constructor(
         Log.d("SINGING_DEBUG", "🎵 rawScore=$rawScore, normalizedScore=$normalizedScore, finalScore=$finalScore")
 
         return finalScore
+    }
+
+    /**
+     * Musical score scaling with breakdown data
+     */
+    private data class ScalingBreakdown(
+        val minThreshold: Float,
+        val perfectThreshold: Float,
+        val normalizedScore: Float,
+        val curvedScore: Float,
+        val finalScore: Int
+    )
+
+    private fun scaleMusicalScoreWithBreakdown(rawScore: Float, challengeType: ChallengeType): ScalingBreakdown {
+        // Use challenge-appropriate thresholds
+        val minThreshold = if (challengeType == ChallengeType.REVERSE) {
+            parameters.reverseMinScoreThreshold
+        } else {
+            parameters.minScoreThreshold
+        }
+
+        val perfectThreshold = if (challengeType == ChallengeType.REVERSE) {
+            parameters.reversePerfectScoreThreshold
+        } else {
+            parameters.perfectScoreThreshold
+        }
+
+        Log.d("SINGING_ENGINE", "🎯 Using thresholds: min=$minThreshold, perfect=$perfectThreshold for $challengeType")
+
+        // Musical scaling curve
+        val normalizedScore = ((rawScore - minThreshold) / (perfectThreshold - minThreshold)).coerceIn(0f, 1f)
+
+        val curvedScore = if (normalizedScore > 0) {
+            normalizedScore.pow(1f / parameters.scoreCurve)
+        } else {
+            0f
+        }
+
+        val finalScore = (curvedScore * 100f).roundToInt().coerceIn(0, 100)
+        Log.d("SINGING_ENGINE", "🎼 Musical scaling: raw=$rawScore, normalized=$normalizedScore, curved=$curvedScore, final=$finalScore")
+
+        return ScalingBreakdown(
+            minThreshold = minThreshold,
+            perfectThreshold = perfectThreshold,
+            normalizedScore = normalizedScore,
+            curvedScore = curvedScore,
+            finalScore = finalScore
+        )
     }
 
     /**

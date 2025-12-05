@@ -208,13 +208,15 @@ class SpeechScoringEngine @Inject constructor(
         val metrics = SimilarityMetrics(pitchSimilarity, mfccSimilarity)
 
         // Speech-focused weighted score (emphasises content over pure melody)
-        var rawScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
+        val baseWeightedScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
+        var rawScore = baseWeightedScore
         Log.d("SPEECH_ENGINE", "🎯 Raw weighted score: $rawScore")
 
         // --- 1. CONTENT PENALTY LOGIC (With Reverse Handicap) ---
 
         // 🚨 REVERSE HANDICAP LOGIC 🚨
         // Calculates dynamic threshold based on challenge direction
+        val reverseHandicapValue = if (challengeType == ChallengeType.REVERSE) contentParams.reverseHandicap else 0f
         val effectiveThreshold = if (challengeType == ChallengeType.REVERSE) {
             val handicap = contentParams.reverseHandicap
             val adjusted = max(0.40f, contentParams.contentDetectionBestThreshold - handicap)
@@ -225,33 +227,41 @@ class SpeechScoringEngine @Inject constructor(
         }
 
         // Verify if the MFCC match meets the minimum threshold
-        if (mfccSimilarity < effectiveThreshold) {
+        val contentPenaltyTriggered = mfccSimilarity < effectiveThreshold
+        val scoreAfterContentPenalty: Float
+        if (contentPenaltyTriggered) {
             // The user likely said the wrong words (or the match is very poor)
             Log.d("SPEECH_ENGINE", "📉 Content Mismatch! MFCC ($mfccSimilarity) < Threshold ($effectiveThreshold)")
             Log.d("SPEECH_ENGINE", "   Applying wrongContentStandardPenalty: ${contentParams.wrongContentStandardPenalty}x")
 
             rawScore *= contentParams.wrongContentStandardPenalty
+            scoreAfterContentPenalty = rawScore
             Log.d("SPEECH_ENGINE", "   ⬇️ New Score: $rawScore")
         } else {
+            scoreAfterContentPenalty = rawScore
             Log.d("SPEECH_ENGINE", "✅ Content Match! MFCC ($mfccSimilarity) >= Threshold ($effectiveThreshold)")
         }
 
         // --- 2. VARIANCE PENALTY ---
         // Speech-appropriate variance penalty (more forgiving)
-        val variancePenalty = calculateSpeechVariancePenalty(originalPitchSequence, attemptPitchSequence)
-        rawScore *= variancePenalty
-        Log.d("SPEECH_ENGINE", "📉 After speech variance penalty (${variancePenalty}x): $rawScore")
+        val variancePenaltyResult = calculateSpeechVariancePenaltyWithFlag(originalPitchSequence, attemptPitchSequence)
+        val variancePenaltyTriggered = variancePenaltyResult.first
+        val variancePenaltyMultiplier = variancePenaltyResult.second
+        rawScore *= variancePenaltyMultiplier
+        Log.d("SPEECH_ENGINE", "📉 After speech variance penalty (${variancePenaltyMultiplier}x): $rawScore")
 
         // Speech bonuses (consistency and confidence)
         val consistency = (1 - abs(pitchSimilarity - mfccSimilarity)) * parameters.consistencyBonus
         val confidence = min(1f, attemptRMS * scalingParams.rmsConfidenceMultiplier) * parameters.confidenceBonus
-        val scoreWithBonuses = rawScore * (1 + consistency + confidence)
+        val totalPerformanceMultiplier = 1 + consistency + confidence
+        val scoreWithBonuses = rawScore * totalPerformanceMultiplier
 
         Log.d("SPEECH_ENGINE", "🎁 After bonuses - Consistency: $consistency, Confidence: $confidence")
         Log.d("SPEECH_ENGINE", "📈 Score with bonuses: $scoreWithBonuses")
 
         // Apply humming detection (less harsh for speech)
         val hummingDetected = garbageAnalysis.filterResults["humming_detected"] == 1f
+        val hummingPenaltyMultiplier = if (hummingDetected && !garbageAnalysis.isGarbage) 0.7f else 1.0f
         val adjustedScore = if (hummingDetected && !garbageAnalysis.isGarbage) {
             Log.d("SPEECH_ENGINE", "🎤 Humming detected in speech - applying light penalty")
             scoreWithBonuses * 0.7f  // Less harsh than singing (0.5f)
@@ -259,11 +269,63 @@ class SpeechScoringEngine @Inject constructor(
             scoreWithBonuses
         }
 
-        // Final speech-optimised scaling
-        val finalScore = scaleSpeechScore(adjustedScore, challengeType)
+        // Store raw score going into normalization
+        val rawScoreFinal = adjustedScore
+
+        // Final speech-optimised scaling (with breakdown capture)
+        val scalingResult = scaleSpeechScoreWithBreakdown(adjustedScore, challengeType)
+        val finalScore = scalingResult.finalScore
 
         Log.d("SPEECH_ENGINE", "🏁 FINAL SPEECH SCORE: $finalScore")
         Log.d("SPEECH_ENGINE", "========================")
+
+        // Build the calculation breakdown
+        val breakdown = ScoreCalculationBreakdown(
+            scoringEngineType = ScoringEngineType.SPEECH_ENGINE,
+            challengeType = challengeType,
+            difficultyLevel = difficulty,
+
+            pitchSimilarity = pitchSimilarity,
+            mfccSimilarity = mfccSimilarity,
+
+            pitchWeight = parameters.pitchWeight,
+            mfccWeight = parameters.mfccWeight,
+            baseWeightedScore = baseWeightedScore,
+
+            musicalBonuses = null, // Speech engine has no musical bonuses
+
+            contentThresholdBase = contentParams.contentDetectionBestThreshold,
+            reverseHandicap = reverseHandicapValue,
+            contentThresholdEffective = effectiveThreshold,
+            contentPenaltyTriggered = contentPenaltyTriggered,
+            contentPenaltyMultiplier = contentParams.wrongContentStandardPenalty,
+            scoreAfterContentPenalty = scoreAfterContentPenalty,
+
+            variancePenaltyTriggered = variancePenaltyTriggered,
+            variancePenaltyMultiplier = variancePenaltyMultiplier,
+
+            consistencyBonus = consistency,
+            confidenceBonus = confidence,
+            totalPerformanceMultiplier = totalPerformanceMultiplier,
+
+            hummingDetected = hummingDetected,
+            hummingPenaltyMultiplier = hummingPenaltyMultiplier,
+
+            rawScoreFinal = rawScoreFinal,
+
+            minThresholdBase = parameters.minScoreThreshold,
+            perfectThresholdBase = parameters.perfectScoreThreshold,
+            reverseMinMultiplier = if (challengeType == ChallengeType.REVERSE) 0.8f else 1.0f,
+            reversePerfectMultiplier = if (challengeType == ChallengeType.REVERSE) 0.9f else 1.0f,
+            minThresholdEffective = scalingResult.minThreshold,
+            perfectThresholdEffective = scalingResult.perfectThreshold,
+            normalizedScore = scalingResult.normalizedScore,
+
+            scoreCurve = parameters.scoreCurve,
+            curvedScore = scalingResult.curvedScore,
+
+            finalScore = finalScore
+        )
 
         return ScoringResult(
             score = finalScore,
@@ -271,7 +333,11 @@ class SpeechScoringEngine @Inject constructor(
             metrics = metrics,
             feedback = generateSpeechFeedback(finalScore, metrics, challengeType),
             isGarbage = false,
-            debugPresets = currentPreset // <--- ADDED FOR LOGGING
+            debugPresets = currentPreset, // <--- ADDED FOR LOGGING
+            debugMinThreshold = scalingResult.minThreshold,
+            debugPerfectThreshold = scalingResult.perfectThreshold,
+            debugNormalizedScore = scalingResult.normalizedScore,
+            calculationBreakdown = breakdown
         )
     }
 
@@ -345,6 +411,30 @@ class SpeechScoringEngine @Inject constructor(
             penalty
         } else {
             1.0f  // No penalty for speech patterns
+        }
+    }
+
+    /**
+     * Speech-appropriate variance penalty with triggered flag
+     * Returns Pair<Boolean, Float> - (wasTriggered, multiplier)
+     */
+    private fun calculateSpeechVariancePenaltyWithFlag(
+        originalPitches: List<Float>,
+        attemptPitches: List<Float>
+    ): Pair<Boolean, Float> {
+        val originalVariance = calculatePitchVariance(originalPitches)
+        val attemptVariance = calculatePitchVariance(attemptPitches)
+
+        Log.d("SPEECH_ENGINE", "📊 Variance analysis - Original: $originalVariance, Attempt: $attemptVariance")
+
+        // Speech: Much more tolerant of monotone delivery
+        return if (originalVariance > melodicParams.monotoneDetectionThreshold &&
+            attemptVariance < melodicParams.flatSpeechThreshold) {
+            val penalty = melodicParams.monotonePenalty
+            Log.d("SPEECH_ENGINE", "📉 Applying speech monotone penalty: $penalty")
+            Pair(true, penalty)
+        } else {
+            Pair(false, 1.0f)  // No penalty for speech patterns
         }
     }
 
@@ -423,6 +513,54 @@ class SpeechScoringEngine @Inject constructor(
         Log.d("SPEECH_ENGINE", "📊 Speech scaling: raw=$rawScore, normalized=$normalizedScore, curved=$curveAdjustedScore, final=$finalScore")
 
         return finalScore
+    }
+
+    /**
+     * Speech-optimised score scaling with breakdown data
+     */
+    private data class ScalingBreakdown(
+        val minThreshold: Float,
+        val perfectThreshold: Float,
+        val normalizedScore: Float,
+        val curvedScore: Float,
+        val finalScore: Int
+    )
+
+    private fun scaleSpeechScoreWithBreakdown(rawScore: Float, challengeType: ChallengeType): ScalingBreakdown {
+        // Use challenge-appropriate thresholds
+        val minThreshold = if (challengeType == ChallengeType.REVERSE) {
+            parameters.reverseMinScoreThreshold
+        } else {
+            parameters.minScoreThreshold
+        }
+
+        val perfectThreshold = if (challengeType == ChallengeType.REVERSE) {
+            parameters.reversePerfectScoreThreshold
+        } else {
+            parameters.perfectScoreThreshold
+        }
+
+        Log.d("SPEECH_ENGINE", "🎯 Using thresholds: min=$minThreshold, perfect=$perfectThreshold for $challengeType")
+
+        // Speech-optimised scaling curve
+        val normalizedScore = ((rawScore - minThreshold) / (perfectThreshold - minThreshold)).coerceIn(0f, 1f)
+
+        val curvedScore = if (normalizedScore > 0) {
+            normalizedScore.pow(1f / parameters.scoreCurve)
+        } else {
+            0f
+        }
+
+        val finalScore = (curvedScore * 100f).roundToInt().coerceIn(0, 100)
+        Log.d("SPEECH_ENGINE", "📊 Speech scaling: raw=$rawScore, normalized=$normalizedScore, curved=$curvedScore, final=$finalScore")
+
+        return ScalingBreakdown(
+            minThreshold = minThreshold,
+            perfectThreshold = perfectThreshold,
+            normalizedScore = normalizedScore,
+            curvedScore = curvedScore,
+            finalScore = finalScore
+        )
     }
 
     /**
