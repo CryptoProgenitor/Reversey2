@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.foundation.layout.statusBarsPadding
 
 /**
  * FILES SCREEN - Backup, Restore, Import
@@ -107,6 +108,7 @@ fun FilesContent(
         modifier = Modifier
             .fillMaxSize()
             .background(StaticMenuColors.backgroundGradient)
+            .statusBarsPadding()
             .padding(20.dp)
     ) {
         when (val screen = currentScreen) {

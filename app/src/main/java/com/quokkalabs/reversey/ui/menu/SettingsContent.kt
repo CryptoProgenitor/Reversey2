@@ -77,7 +77,7 @@ fun SettingsContent(
     themeViewModel: ThemeViewModel,
     audioViewModel: AudioViewModel,
     backupManager: BackupManager,
-    onBackupComplete: () -> Unit = {}
+    onBackupComplete: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -251,38 +251,39 @@ fun SettingsContent(
         GlassDivider()
 
         // ========== DEVELOPER OPTIONS SECTION ==========
-        SectionTitle("DEVELOPER OPTIONS")
+        if (BuildConfig.DEBUG) {
+            SectionTitle("DEVELOPER OPTIONS")
 
-        // ========== STRESS TESTER ==========
-        var showStressTester by remember { mutableStateOf(false) }
-        var progress by remember { mutableStateOf<ScoringStressTester.Progress?>(null) }
+            // ========== STRESS TESTER ==========
+            var showStressTester by remember { mutableStateOf(false) }
+            var progress by remember { mutableStateOf<ScoringStressTester.Progress?>(null) }
 
-        GlassCard {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showStressTester = true },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Scoring Stress Tester",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = StaticMenuColors.textOnCard,
-                    fontWeight = FontWeight.Medium
+            GlassCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showStressTester = true },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Scoring Stress Tester",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = StaticMenuColors.textOnCard,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            if (showStressTester) {
+                StressTesterPanel(
+                    progress = progress,
+                    onClose = { showStressTester = false },
+                    audioViewModel = audioViewModel
                 )
             }
-        }
 
-        if (showStressTester) {
-            StressTesterPanel(
-                progress = progress,
-                onClose = { showStressTester = false },
-                audioViewModel = audioViewModel
-            )
-        }
+            // ========== VOCAL TUNER (Debug Only) ==========
 
-        // ========== VOCAL TUNER (Debug Only) ==========
-        if (BuildConfig.DEBUG) {
             var tunerRunning by remember { mutableStateOf(false) }
             var tunerProgress by remember { mutableStateOf("Ready") }
             var currentTest by remember { mutableStateOf(0) }
@@ -302,20 +303,28 @@ fun SettingsContent(
                                         tunerProgress = "Initializing..."
                                         val audioProcessor = AudioProcessor()
                                         val tuner = VocalModeDetectorTuner(audioProcessor)
-                                        val dataLoaded = tuner.loadTrainingDataFromAssets(context)
+                                        val dataLoaded =
+                                            tuner.loadTrainingDataFromAssets(context)
                                         if (!dataLoaded) throw Exception("Failed to load training data")
                                         tunerProgress = "Pre-processing..."
-                                        val preprocessed = tuner.preProcessTrainingData { tunerProgress = it }
+                                        val preprocessed =
+                                            tuner.preProcessTrainingData { tunerProgress = it }
                                         if (!preprocessed) throw Exception("Failed to pre-process")
                                         tunerProgress = "Optimizing..."
                                         val result = withContext(Dispatchers.Default) {
                                             tuner.findOptimalParameters { progressString ->
-                                                val regex = """Tested (\d+)/(\d+) \((\d+)%\)""".toRegex()
+                                                val regex =
+                                                    """Tested (\d+)/(\d+) \((\d+)%\)""".toRegex()
                                                 val match = regex.find(progressString)
                                                 if (match != null) {
-                                                    currentTest = match.groupValues[1].toIntOrNull() ?: 0
-                                                    totalTests = match.groupValues[2].toIntOrNull() ?: 4000
-                                                    progressPercentage = match.groupValues[3].toFloatOrNull() ?: 0f
+                                                    currentTest =
+                                                        match.groupValues[1].toIntOrNull() ?: 0
+                                                    totalTests =
+                                                        match.groupValues[2].toIntOrNull()
+                                                            ?: 4000
+                                                    progressPercentage =
+                                                        match.groupValues[3].toFloatOrNull()
+                                                            ?: 0f
                                                     tunerProgress = progressString
                                                 } else {
                                                     tunerProgress = progressString
@@ -324,10 +333,18 @@ fun SettingsContent(
                                         }
                                         if (result == null) throw Exception("Optimization failed")
                                         tunerProgress = "Complete!"
-                                        Toast.makeText(context, "Tuning Complete", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            "Tuning Complete",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     } catch (e: Exception) {
                                         Log.e("VocalTuner", "ERROR: ${e.message}", e)
-                                        Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(
+                                            context,
+                                            "Failed: ${e.message}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     } finally {
                                         tunerRunning = false
                                     }
@@ -377,12 +394,10 @@ fun SettingsContent(
                 }
             }
         }
-
         // Bottom spacing
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
-
 // ========== REUSABLE COMPONENTS ==========
 
 @Composable
@@ -401,7 +416,7 @@ private fun SectionTitle(text: String) {
 @Composable
 private fun GlassCard(
     title: String? = null,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
 
@@ -436,7 +451,7 @@ private fun GlassCard(
 private fun GlassToggle(
     label: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -476,7 +491,7 @@ private fun GlassDivider() {
 fun StressTesterPanel(
     progress: ScoringStressTester.Progress?,
     onClose: () -> Unit,
-    audioViewModel: AudioViewModel
+    audioViewModel: AudioViewModel,
 ) {
     val ctx = LocalContext.current
     val orchestrator = audioViewModel.getOrchestrator()
@@ -531,7 +546,7 @@ fun StressTesterPanel(
 private fun ARGBColorPickerDialog(
     currentColor: Color,
     onColorSelected: (Color) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     var alpha by remember { mutableFloatStateOf(currentColor.alpha) }
     var red by remember { mutableFloatStateOf(currentColor.red) }
@@ -547,7 +562,12 @@ private fun ARGBColorPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose Custom Accent Color", style = MaterialTheme.typography.headlineSmall) },
+        title = {
+            Text(
+                "Choose Custom Accent Color",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Box(
@@ -567,9 +587,11 @@ private fun ARGBColorPickerDialog(
                             if (input.length == 8) {
                                 val colorValue = input.toULong(16).toLong()
                                 val color = Color(colorValue)
-                                alpha = color.alpha; red = color.red; green = color.green; blue = color.blue
+                                alpha = color.alpha; red = color.red; green = color.green; blue =
+                                    color.blue
                             }
-                        } catch (e: Exception) { }
+                        } catch (e: Exception) {
+                        }
                     },
                     label = { Text("ARGB Hex (8 digits)") },
                     placeholder = { Text("FFFFFFFF") },
@@ -577,13 +599,33 @@ private fun ARGBColorPickerDialog(
                     leadingIcon = { Text("#") }
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                ColorSlider(label = "Alpha", value = alpha, onValueChange = { alpha = it; hexInput = hexFromSliders }, color = Color.Gray)
+                ColorSlider(
+                    label = "Alpha",
+                    value = alpha,
+                    onValueChange = { alpha = it; hexInput = hexFromSliders },
+                    color = Color.Gray
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                ColorSlider(label = "Red", value = red, onValueChange = { red = it; hexInput = hexFromSliders }, color = Color.Red)
+                ColorSlider(
+                    label = "Red",
+                    value = red,
+                    onValueChange = { red = it; hexInput = hexFromSliders },
+                    color = Color.Red
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                ColorSlider(label = "Green", value = green, onValueChange = { green = it; hexInput = hexFromSliders }, color = Color.Green)
+                ColorSlider(
+                    label = "Green",
+                    value = green,
+                    onValueChange = { green = it; hexInput = hexFromSliders },
+                    color = Color.Green
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                ColorSlider(label = "Blue", value = blue, onValueChange = { blue = it; hexInput = hexFromSliders }, color = Color.Blue)
+                ColorSlider(
+                    label = "Blue",
+                    value = blue,
+                    onValueChange = { blue = it; hexInput = hexFromSliders },
+                    color = Color.Blue
+                )
             }
         },
         confirmButton = {
@@ -604,8 +646,16 @@ private fun ColorSlider(label: String, value: Float, onValueChange: (Float) -> U
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(text = "${(value * 255).toInt()}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${(value * 255).toInt()}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         Slider(
             value = value,
