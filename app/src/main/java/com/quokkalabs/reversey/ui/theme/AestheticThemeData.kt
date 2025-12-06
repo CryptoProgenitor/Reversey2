@@ -184,7 +184,9 @@ object AestheticThemes {
         EggTheme.THEME_ID to EggTheme.data,
         SakuraSerenityTheme.THEME_ID to SakuraSerenityTheme.data,
         GuitarTheme.THEME_ID to GuitarTheme.data,
-        SnowyOwlTheme.THEME_ID to SnowyOwlTheme.data
+        SnowyOwlTheme.THEME_ID to SnowyOwlTheme.data,
+        StrangePlanetTheme.THEME_ID to StrangePlanetTheme.data
+
     )
 
     fun getThemeById(id: String): AestheticThemeData {
