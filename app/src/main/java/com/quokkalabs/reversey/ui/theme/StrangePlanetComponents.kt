@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -72,6 +73,7 @@ import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
 import com.quokkalabs.reversey.ui.components.DifficultySquircle
 import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
+import com.quokkalabs.reversey.ui.constants.UiConstants
 import kotlinx.coroutines.isActive
 import kotlin.math.cos
 import kotlin.math.sin
@@ -285,6 +287,13 @@ class StrangePlanetComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         content: @Composable () -> Unit
     ) {
+        val context = LocalContext.current
+        val soundManager = remember { CreatureSoundManager(context) }
+
+        DisposableEffect(Unit) {
+            onDispose { soundManager.release() }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -293,6 +302,38 @@ class StrangePlanetComponents : ThemeComponents {
             StrangePlanetStars()
             StrangePlanetFloatingCreatures()
             content()
+
+            // Invisible tap zones for creature sounds (left and right of planet)
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.45f)
+            ) {
+                val sideWidth = (maxWidth - UiConstants.RECORD_BUTTON_SIZE) / 2
+
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Left hitbox
+                    Box(
+                        modifier = Modifier
+                            .width(sideWidth)
+                            .fillMaxHeight()
+                            .pointerInput(Unit) {
+                                detectTapGestures { soundManager.playRandomSound() }
+                            }
+                    )
+                    // Center gap (planet/button area)
+                    Spacer(modifier = Modifier.width(UiConstants.RECORD_BUTTON_SIZE))
+                    // Right hitbox
+                    Box(
+                        modifier = Modifier
+                            .width(sideWidth)
+                            .fillMaxHeight()
+                            .pointerInput(Unit) {
+                                detectTapGestures { soundManager.playRandomSound() }
+                            }
+                    )
+                }
+            }
         }
     }
 
@@ -818,6 +859,14 @@ class CreatureSoundManager(private val context: Context) {
         }
         if (soundId != 0) {
             soundPool.play(soundId, 0.7f, 0.7f, 1, 0, 1f)
+        }
+    }
+
+    fun playRandomSound() {
+        if (!isSoundLoaded) return
+        val sounds = listOf(beepBoopId, meowId, woofId, neighId).filter { it != 0 }
+        if (sounds.isNotEmpty()) {
+            soundPool.play(sounds.random(), 0.7f, 0.7f, 1, 0, 1f)
         }
     }
 
