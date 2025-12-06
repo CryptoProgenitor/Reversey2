@@ -418,10 +418,11 @@ fun AudioReverserApp(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(0.dp))
 
                 EnhancedRecordButton(
                     isRecording = uiState.isRecording.also { recording ->
@@ -433,7 +434,7 @@ fun AudioReverserApp(
                     onStopRecording = { viewModel.stopRecording() },
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(0.dp))
 
                 if (uiState.isRecording) {
                     EnhancedWaveformVisualizer(
@@ -452,12 +453,12 @@ fun AudioReverserApp(
                                 letterSpacing = if (aesthetic.useWideLetterSpacing) 1.sp else 0.sp
                             ),
                             color = aesthetic.primaryTextColor,
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            modifier = Modifier.padding(vertical = 1.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(1.dp))
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
@@ -465,7 +466,7 @@ fun AudioReverserApp(
 
                     LazyColumn(
                         state = listState,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium)
                     ) {
                         uiState.recordings.forEach { recording ->
@@ -617,13 +618,18 @@ fun EnhancedRecordButton(
             }
         }
     } else {
-        aesthetic.components.RecordButton(
-            isRecording = isRecording,
-            isProcessing = false,
-            aesthetic = aesthetic,
-            onStartRecording = onStartRecording,
-            onStopRecording = onStopRecording
-        )
+        Box(
+            modifier = Modifier.size(150.dp),  // Adjust this value
+            contentAlignment = Alignment.Center
+        ) {
+            aesthetic.components.RecordButton(
+                isRecording = isRecording,
+                isProcessing = false,
+                aesthetic = aesthetic,
+                onStartRecording = onStartRecording,
+                onStopRecording = onStopRecording
+            )
+        }
     }
 }
 
