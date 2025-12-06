@@ -87,6 +87,7 @@ import com.quokkalabs.reversey.ui.components.AnalysisToast
 import com.quokkalabs.reversey.ui.components.DifficultyIndicator
 import com.quokkalabs.reversey.ui.components.ThemedMenuModal
 import com.quokkalabs.reversey.ui.components.TutorialOverlay
+import com.quokkalabs.reversey.ui.constants.UiConstants
 import com.quokkalabs.reversey.ui.menu.ModalScreen
 import com.quokkalabs.reversey.ui.menu.FilesContent
 import com.quokkalabs.reversey.ui.theme.AestheticTheme
@@ -407,7 +408,7 @@ fun AudioReverserApp(
                         DifficultyIndicator(
                             difficulty = currentDifficulty,
                             onClick = openMenuToSettings,
-                            modifier = Modifier.padding(end = 16.dp)
+                            modifier = Modifier.padding(end = UiConstants.DIFFICULTY_INDICATOR_END_PADDING)
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -418,11 +419,11 @@ fun AudioReverserApp(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(2.dp),
+                    .padding(UiConstants.CONTENT_PADDING),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
-                Spacer(modifier = Modifier.height(0.dp))
+                Spacer(modifier = Modifier.height(UiConstants.SPACER_ABOVE_RECORD_BUTTON))
 
                 EnhancedRecordButton(
                     isRecording = uiState.isRecording.also { recording ->
@@ -434,12 +435,12 @@ fun AudioReverserApp(
                     onStopRecording = { viewModel.stopRecording() },
                 )
 
-                Spacer(modifier = Modifier.height(0.dp))
+                Spacer(modifier = Modifier.height(UiConstants.SPACER_BELOW_RECORD_BUTTON))
 
                 if (uiState.isRecording) {
                     EnhancedWaveformVisualizer(
                         amplitudes = uiState.amplitudes,
-                        modifier = Modifier.fillMaxWidth().height(100.dp)
+                        modifier = Modifier.fillMaxWidth().height(UiConstants.WAVEFORM_HEIGHT)
                     )
                 } else {
                     AnimatedVisibility(
@@ -453,12 +454,12 @@ fun AudioReverserApp(
                                 letterSpacing = if (aesthetic.useWideLetterSpacing) 1.sp else 0.sp
                             ),
                             color = aesthetic.primaryTextColor,
-                            modifier = Modifier.padding(vertical = 1.dp)
+                            modifier = Modifier.padding(vertical = UiConstants.STATUS_TEXT_VERTICAL_PADDING)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(1.dp))
+                Spacer(modifier = Modifier.height(UiConstants.SPACER_ABOVE_LIST))
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
@@ -466,7 +467,7 @@ fun AudioReverserApp(
 
                     LazyColumn(
                         state = listState,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(UiConstants.RECORDING_LIST_ITEM_SPACING),
                         modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium)
                     ) {
                         uiState.recordings.forEach { recording ->
@@ -554,10 +555,10 @@ fun AudioReverserApp(
                     val bottomGradient = Brush.verticalGradient(0.0f to Color.Transparent, 1.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
 
                     if (showTopFade) {
-                        Box(modifier = Modifier.fillMaxWidth().height(24.dp).align(Alignment.TopCenter).clip(MaterialTheme.shapes.medium).background(topGradient))
+                        Box(modifier = Modifier.fillMaxWidth().height(UiConstants.GRADIENT_OVERLAY_HEIGHT).align(Alignment.TopCenter).clip(MaterialTheme.shapes.medium).background(topGradient))
                     }
                     if (showBottomFade) {
-                        Box(modifier = Modifier.fillMaxWidth().height(24.dp).align(Alignment.BottomCenter).clip(MaterialTheme.shapes.medium).background(bottomGradient))
+                        Box(modifier = Modifier.fillMaxWidth().height(UiConstants.GRADIENT_OVERLAY_HEIGHT).align(Alignment.BottomCenter).clip(MaterialTheme.shapes.medium).background(bottomGradient))
                     }
                 }
             }
@@ -608,18 +609,18 @@ fun EnhancedRecordButton(
     if (!hasPermission) {
         Button(
             onClick = onRequestPermission,
-            modifier = Modifier.size(120.dp),
+            modifier = Modifier.size(UiConstants.PERMISSION_BUTTON_SIZE),
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Mic, "Request Permission", tint = Color.White, modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Mic, "Request Permission", tint = Color.White, modifier = Modifier.size(UiConstants.MIC_ICON_SIZE))
                 Text("Grant\nPermission", color = Color.White, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }
     } else {
         Box(
-            modifier = Modifier.size(150.dp),  // Adjust this value
+            modifier = Modifier.size(UiConstants.RECORD_BUTTON_SIZE),
             contentAlignment = Alignment.Center
         ) {
             aesthetic.components.RecordButton(
@@ -637,8 +638,8 @@ fun EnhancedRecordButton(
 fun EnhancedWaveformVisualizer(
     amplitudes: List<Float>,
     modifier: Modifier = Modifier,
-    barWidth: Dp = 8.dp,
-    barGap: Dp = 4.dp
+    barWidth: Dp = UiConstants.WAVEFORM_BAR_WIDTH,
+    barGap: Dp = UiConstants.WAVEFORM_BAR_GAP
 ) {
     val materialColors = MaterialColors()
     Canvas(modifier = modifier) {

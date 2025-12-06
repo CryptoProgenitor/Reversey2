@@ -1012,6 +1012,7 @@ fun StrangePlanetFloatingCreatures() {
                     .size(creature.size.dp)
                     .rotate(creature.rotation)  // Use accumulated rotation
                     .pointerInput(creature.type) {
+                        android.util.Log.d("SP_TAP", "Tapped ${creature.type}")
                         detectTapGestures {
                             soundManager.playSound(creature.type)
                         }
