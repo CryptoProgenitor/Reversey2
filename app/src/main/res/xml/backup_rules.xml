@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
-    <!-- Backup settings and app data -->
-    <include domain="sharedpref" path="."/>
-    <include domain="file" path="datastore/"/>
+<!--
+    BACKUP RULES (Android 11 and below)
 
-    <!-- Backup attempts data but not audio files -->
-    <include domain="file" path="recordings/attempts.json"/>
+    All settings preserved on reinstall.
+    Tutorial accessible via Menu → Tutorial button.
+-->
+<full-backup-content>
+    <!-- Only exclude large audio files -->
+    <exclude domain="file" path="recordings/*.wav"/>
 </full-backup-content>

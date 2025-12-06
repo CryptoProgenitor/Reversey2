@@ -196,6 +196,7 @@ fun MainApp(
     var showClearAllDialog by remember { mutableStateOf(false) }
 
     var showDebugPanel by remember { mutableStateOf(false) }
+    var showTutorial by remember { mutableStateOf(false) }
 
     // Handle incoming WAV file - navigate to files screen
     LaunchedEffect(incomingWavUri) {
@@ -270,12 +271,22 @@ fun MainApp(
             navController.navigate("files")
             showMenuModal = false
         },
+        onShowTutorial = { showTutorial = true },
         themeViewModel = themeViewModel,
         audioViewModel = audioViewModel,
         backupManager = backupManager,
         initialScreen = modalInitialScreen,
+
         onDismiss = { showMenuModal = false; modalInitialScreen = ModalScreen.Menu },
     )
+
+    // Tutorial overlay
+    if (showTutorial) {
+        TutorialOverlay(
+            onDismiss = { showTutorial = false },
+            onComplete = { showTutorial = false }
+        )
+    }
 }
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

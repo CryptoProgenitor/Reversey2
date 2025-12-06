@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    BACKUP RULES (Android 12+)
+
+    All settings preserved (theme, difficulty, accents, tutorial flag).
+    Tutorial accessible via Menu → Tutorial button.
+-->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Backup settings and game data -->
-        <include domain="sharedpref" path="."/>
-        <include domain="file" path="datastore/"/>
-
-        <!-- Backup attempts data but not audio files -->
-        <include domain="file" path="recordings/attempts.json"/>
+        <exclude domain="file" path="recordings/*.wav"/>
     </cloud-backup>
     <device-transfer>
-        <!-- Same rules for device-to-device transfer -->
-        <include domain="sharedpref" path="."/>
-        <include domain="file" path="datastore/"/>
-        <include domain="file" path="recordings/attempts.json"/>
+        <exclude domain="file" path="recordings/*.wav"/>
     </device-transfer>
 </data-extraction-rules>

@@ -42,6 +42,7 @@ fun ThemedMenuModal(
     onNavigateHome: () -> Unit,
     onClearAll: () -> Unit,
     onNavigateToFiles: () -> Unit,
+    onShowTutorial: () -> Unit,
     themeViewModel: ThemeViewModel,
     audioViewModel: AudioViewModel,
     backupManager: BackupManager,
@@ -109,6 +110,7 @@ fun ThemedMenuModal(
                                 onNavigateSettings = { currentScreen = ModalScreen.Settings },
                                 onNavigateThemes = { currentScreen = ModalScreen.Themes },
                                 onNavigateToFiles = { onNavigateToFiles(); onDismiss() },
+                                onShowTutorial = { onShowTutorial(); onDismiss() },
                                 onClearAll = { onClearAll(); onDismiss() }
                             )
 

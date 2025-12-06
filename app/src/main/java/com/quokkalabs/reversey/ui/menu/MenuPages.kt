@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -84,6 +85,7 @@ fun MenuContent(
     onNavigateSettings: () -> Unit,
     onNavigateThemes: () -> Unit,
     onNavigateToFiles: () -> Unit,
+    onShowTutorial: () -> Unit,
     onClearAll: () -> Unit
 ) {
     Column(
@@ -127,24 +129,12 @@ fun MenuContent(
             onClick = onNavigateAbout
         )
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        /*// Divider
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(StaticMenuColors.divider)
-        )*/
-
-        //Spacer(modifier = Modifier.height(4.dp))
-
-        // Delete Button - Special Danger Style
-        /*DangerMenuItem(
-            icon = Icons.Default.Delete,
-            label = "Clear All Recordings",
-            onClick = onClearAll
-        )*/
+        FloatingMenuItem(
+            icon = Icons.Default.Lightbulb,
+            label = "Tutorial",
+            selected = false,
+            onClick = onShowTutorial
+        )
     }
 }
 

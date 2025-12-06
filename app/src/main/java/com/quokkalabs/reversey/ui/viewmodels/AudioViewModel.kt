@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -194,8 +195,13 @@ class AudioViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // Get initial value immediately (fixes race condition)
+            val initialCompleted = settingsDataStore.tutorialCompleted.first()
+            _uiState.update { it.copy(showTutorial = !initialCompleted) }
+
+            // Continue listening for changes (e.g., user completes tutorial)
             settingsDataStore.tutorialCompleted.collect { completed ->
-                if (!completed) _uiState.update { it.copy(showTutorial = true) }
+                _uiState.update { it.copy(showTutorial = !completed) }
             }
         }
 

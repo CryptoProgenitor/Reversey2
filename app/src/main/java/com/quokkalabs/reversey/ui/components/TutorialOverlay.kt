@@ -82,6 +82,7 @@ fun TutorialOverlay(
 
     val slides = remember {
         listOf(
+            // SLIDE 0: Welcome
             TutorialSlide(
                 id = 0,
                 title = "Welcome to\nReVerseY!",
@@ -95,18 +96,72 @@ fun TutorialOverlay(
                     textAlign = TextAlign.Companion.Center
                 )
             },
+
+            // SLIDE 1: Recording Basics
             TutorialSlide(
                 id = 1,
-                title = "Gaming Mode",
-                subtitle = "Challenge Your Friends!",
-                icon = "🎮"
+                title = "Recordings",
+                subtitle = "The Heart of the Game",
+                icon = "🎙️"
             ) {
-                GameModeContent()
+                RecordingsContent()
             },
+
+            // SLIDE 2: Speech vs Singing
             TutorialSlide(
                 id = 2,
-                title = "Here's an Example",
-                subtitle = "",
+                title = "Speech vs Singing",
+                subtitle = "Smart Detection",
+                icon = "🎤"
+            ) {
+                VocalModeContent()
+            },
+
+            // SLIDE 3: Making Attempts
+            TutorialSlide(
+                id = 3,
+                title = "Attempts",
+                subtitle = "Challenge Yourself!",
+                icon = "🎯"
+            ) {
+                AttemptsContent()
+            },
+
+            // SLIDE 4: Scorecards
+            TutorialSlide(
+                id = 4,
+                title = "Scorecards",
+                subtitle = "Track Your Performance",
+                icon = "📊"
+            ) {
+                ScorecardContent()
+            },
+
+            // SLIDE 5: File Management
+            TutorialSlide(
+                id = 5,
+                title = "Backup & Restore",
+                subtitle = "Protect Your Progress",
+                icon = "💾"
+            ) {
+                FileManagementContent()
+            },
+
+            // SLIDE 6: Themes
+            TutorialSlide(
+                id = 6,
+                title = "Themes",
+                subtitle = "Make It Your Own",
+                icon = "🎨"
+            ) {
+                ThemesContent()
+            },
+
+            // SLIDE 7: Tips & Example
+            TutorialSlide(
+                id = 7,
+                title = "Quick Example",
+                subtitle = "Here's How It Works",
                 icon = ""
             ) {
                 ExampleContent()
@@ -303,135 +358,6 @@ fun SlideContent(slide: TutorialSlide) {
 }
 
 @Composable
-fun GameModeContent() {
-    Column(
-        modifier = Modifier.Companion
-            .fillMaxWidth()
-            .border(
-                width = 2.dp,
-                brush = TutorialDefaults.magentaBrush,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
-            )
-            .background(
-                color = TutorialDefaults.magenta.copy(alpha = 0.1f),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
-            )
-            .padding(25.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        GameStep("1️⃣", "Record anything you want")
-        GameStep("2️⃣", "It gets automatically reversed")
-        GameStep("3️⃣", "Say it backwards so it sounds right!")
-        GameStep("🏆", "Get scored on your accuracy")
-    }
-}
-
-@Composable
-fun GameStep(icon: String, text: String) {
-    Row(
-        verticalAlignment = Alignment.Companion.CenterVertically,
-        modifier = Modifier.Companion.fillMaxWidth()
-    ) {
-        Text(
-            text = icon,
-            fontSize = 24.sp,
-            modifier = Modifier.Companion
-                .width(40.dp)
-                .padding(end = 12.dp)
-        )
-        Text(
-            text = text,
-            fontSize = 15.sp,
-            color = TutorialDefaults.white,
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
-}
-
-@Composable
-fun ExampleContent() {
-    Column(
-        modifier = Modifier.Companion.fillMaxWidth(),
-        horizontalAlignment = Alignment.Companion.CenterHorizontally
-    ) {
-        // Example Box
-        Column(
-            modifier = Modifier.Companion
-                .fillMaxWidth()
-                .border(
-                    width = 2.dp,
-                    color = TutorialDefaults.cyan,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
-                )
-                .background(
-                    color = TutorialDefaults.cyan.copy(alpha = 0.1f),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
-                )
-                .padding(15.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ExampleText("🎤 Record:", "\"Hello world!\"")
-            ExampleText("🔄 Reversed:", "\"!dlrow olleH\"")
-            ExampleText("🎯 Challenge:", "Say it backwards\nto match the original")
-
-            // Score Badge
-            Box(
-                modifier = Modifier.Companion
-                    .align(Alignment.Companion.CenterHorizontally)
-                    .padding(top = 10.dp)
-                    .background(
-                        brush = TutorialDefaults.primaryGradient,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
-                    )
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = "Your Score: 87% 🌟",
-                    color = TutorialDefaults.black,
-                    fontWeight = FontWeight.Companion.Bold,
-                    fontSize = 16.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.Companion.height(25.dp))
-
-        Text(
-            text = "The better your backwards attempt,\nthe higher your score!",
-            fontSize = 14.sp,
-            color = TutorialDefaults.white.copy(alpha = 0.9f),
-            textAlign = TextAlign.Companion.Center,
-            lineHeight = 20.sp
-        )
-    }
-}
-
-@Composable
-fun ExampleText(label: String, value: String) {
-    Row(
-        modifier = Modifier.Companion
-            .fillMaxWidth()
-            .background(
-                color = TutorialDefaults.black.copy(alpha = 0.3f),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-            )
-            .padding(8.dp)
-    ) {
-        Text(
-            text = "$label ",
-            color = TutorialDefaults.cyan,
-            fontWeight = FontWeight.Companion.Bold,
-            fontSize = 14.sp
-        )
-        Text(
-            text = value,
-            color = TutorialDefaults.white,
-            fontSize = 14.sp
-        )
-    }
-}
-
-@Composable
 fun NavigationDot(
     isActive: Boolean,
     onClick: () -> Unit
@@ -465,4 +391,526 @@ fun NavigationDot(
                 } else Modifier.Companion
             )
     )
+}
+
+// ============================================================
+//  TUTORIAL CONTENT SECTIONS
+// ============================================================
+
+/**
+ * SLIDE: Recordings - Explains how to create and manage recordings
+ */
+@Composable
+fun RecordingsContent() {
+    Column(
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                brush = TutorialDefaults.cyanBrush,
+                shape = RoundedCornerShape(20.dp)
+            )
+            .background(
+                color = TutorialDefaults.cyan.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        TutorialBullet("🎙️", "Tap the record button to capture audio")
+        TutorialBullet("⏱️", "Recording auto-stops, or tap to end early")
+        TutorialBullet("🔄", "Audio is instantly reversed for you")
+        TutorialBullet("📝", "Long-press any recording to rename it")
+        TutorialBullet("🗑️", "Swipe left on a recording to delete")
+    }
+}
+
+/**
+ * SLIDE: Speech vs Singing - Explains the dual pipeline
+ */
+@Composable
+fun VocalModeContent() {
+    Column(
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                brush = TutorialDefaults.primaryGradient,
+                shape = RoundedCornerShape(20.dp)
+            )
+            .background(
+                color = TutorialDefaults.magenta.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "ReVerseY auto-detects your vocal style:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TutorialDefaults.white.copy(alpha = 0.9f),
+            modifier = Modifier.Companion.padding(bottom = 4.dp)
+        )
+
+        // Speech section
+        Row(
+            verticalAlignment = Alignment.Companion.CenterVertically,
+            modifier = Modifier.Companion.fillMaxWidth()
+        ) {
+            Text("🗣️", fontSize = 28.sp)
+            Spacer(modifier = Modifier.Companion.width(12.dp))
+            Column {
+                Text(
+                    "Speech Mode",
+                    fontWeight = FontWeight.Companion.Bold,
+                    color = TutorialDefaults.cyan,
+                    fontSize = 16.sp
+                )
+                Text(
+                    "Focuses on rhythm & phonetics",
+                    color = TutorialDefaults.white.copy(alpha = 0.7f),
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        // Singing section
+        Row(
+            verticalAlignment = Alignment.Companion.CenterVertically,
+            modifier = Modifier.Companion.fillMaxWidth()
+        ) {
+            Text("🎵", fontSize = 28.sp)
+            Spacer(modifier = Modifier.Companion.width(12.dp))
+            Column {
+                Text(
+                    "Singing Mode",
+                    fontWeight = FontWeight.Companion.Bold,
+                    color = TutorialDefaults.magenta,
+                    fontSize = 16.sp
+                )
+                Text(
+                    "Emphasizes pitch & melody",
+                    color = TutorialDefaults.white.copy(alpha = 0.7f),
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        Text(
+            text = "💡 The scoring adapts to each mode!",
+            style = MaterialTheme.typography.bodySmall,
+            color = TutorialDefaults.cyan,
+            modifier = Modifier.Companion.padding(top = 6.dp)
+        )
+    }
+}
+
+/**
+ * SLIDE: Attempts - Explains how to make attempts and challenge recordings
+ */
+@Composable
+fun AttemptsContent() {
+    Column(
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                brush = TutorialDefaults.magentaBrush,
+                shape = RoundedCornerShape(20.dp)
+            )
+            .background(
+                color = TutorialDefaults.magenta.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        TutorialBullet("▶️", "Tap a recording to select it")
+        TutorialBullet("🔊", "Listen to the reversed audio")
+        TutorialBullet("🎙️", "Hit record to make your attempt")
+        TutorialBullet("🔁", "Try to say/sing it backwards!")
+        TutorialBullet("📈", "Make unlimited attempts to improve")
+
+        // Difficulty tip
+        Box(
+            modifier = Modifier.Companion
+                .fillMaxWidth()
+                .background(
+                    color = TutorialDefaults.cyan.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .padding(10.dp)
+        ) {
+            Text(
+                text = "💡 Choose Easy, Normal, or Hard difficulty\nto adjust scoring sensitivity!",
+                fontSize = 12.sp,
+                color = TutorialDefaults.white.copy(alpha = 0.9f),
+                textAlign = TextAlign.Companion.Center,
+                modifier = Modifier.Companion.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/**
+ * SLIDE: Scorecards - Explains the scoring breakdown
+ */
+@Composable
+fun ScorecardContent() {
+    Column(
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                brush = TutorialDefaults.cyanBrush,
+                shape = RoundedCornerShape(20.dp)
+            )
+            .background(
+                color = TutorialDefaults.cyan.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Tap any attempt to see detailed stats:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TutorialDefaults.white.copy(alpha = 0.9f),
+            modifier = Modifier.Companion.padding(bottom = 4.dp)
+        )
+
+        ScoreMetricRow("🎼", "Pitch Similarity", "How close your notes match")
+        ScoreMetricRow("🗣️", "Voice Matching", "Tonal & timber accuracy")
+        ScoreMetricRow("⭐", "Overall Score", "Combined performance grade")
+
+        Spacer(modifier = Modifier.Companion.height(6.dp))
+
+        Text(
+            text = "📋 Get personalized tips based on\nyour performance!",
+            fontSize = 12.sp,
+            color = TutorialDefaults.magenta,
+            textAlign = TextAlign.Companion.Center,
+            modifier = Modifier.Companion.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun ScoreMetricRow(emoji: String, title: String, description: String) {
+    Row(
+        verticalAlignment = Alignment.Companion.CenterVertically,
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .background(
+                color = TutorialDefaults.black.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(10.dp)
+    ) {
+        Text(emoji, fontSize = 20.sp)
+        Spacer(modifier = Modifier.Companion.width(10.dp))
+        Column {
+            Text(
+                title,
+                fontWeight = FontWeight.Companion.Bold,
+                color = TutorialDefaults.cyan,
+                fontSize = 14.sp
+            )
+            Text(
+                description,
+                color = TutorialDefaults.white.copy(alpha = 0.7f),
+                fontSize = 11.sp
+            )
+        }
+    }
+}
+
+/**
+ * SLIDE: File Management - Backup & Restore
+ */
+@Composable
+fun FileManagementContent() {
+    Column(
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                brush = TutorialDefaults.primaryGradient,
+                shape = RoundedCornerShape(20.dp)
+            )
+            .background(
+                color = TutorialDefaults.magenta.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Backup section
+        Row(
+            verticalAlignment = Alignment.Companion.CenterVertically,
+            modifier = Modifier.Companion.fillMaxWidth()
+        ) {
+            Text("📦", fontSize = 26.sp)
+            Spacer(modifier = Modifier.Companion.width(12.dp))
+            Column {
+                Text(
+                    "Back It Up",
+                    fontWeight = FontWeight.Companion.Bold,
+                    color = TutorialDefaults.cyan,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Export all recordings & attempts\nto a single .zip file",
+                    color = TutorialDefaults.white.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        // Restore section
+        Row(
+            verticalAlignment = Alignment.Companion.CenterVertically,
+            modifier = Modifier.Companion.fillMaxWidth()
+        ) {
+            Text("📥", fontSize = 26.sp)
+            Spacer(modifier = Modifier.Companion.width(12.dp))
+            Column {
+                Text(
+                    "Restore",
+                    fontWeight = FontWeight.Companion.Bold,
+                    color = TutorialDefaults.magenta,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Import a backup with the wizard\nSkip duplicates or merge attempts",
+                    color = TutorialDefaults.white.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        // Add recording tip
+        Box(
+            modifier = Modifier.Companion
+                .fillMaxWidth()
+                .background(
+                    color = TutorialDefaults.cyan.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .padding(10.dp)
+        ) {
+            Text(
+                text = "🎵 Import .wav files directly from\nMenu → Files → Add Recording",
+                fontSize = 12.sp,
+                color = TutorialDefaults.white.copy(alpha = 0.9f),
+                textAlign = TextAlign.Companion.Center,
+                modifier = Modifier.Companion.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/**
+ * SLIDE: Themes - Visual customization options
+ */
+@Composable
+fun ThemesContent() {
+    Column(
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                brush = TutorialDefaults.primaryGradient,
+                shape = RoundedCornerShape(20.dp)
+            )
+            .background(
+                color = TutorialDefaults.magenta.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Choose from stunning visual styles:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TutorialDefaults.white.copy(alpha = 0.9f),
+            modifier = Modifier.Companion.padding(bottom = 4.dp)
+        )
+
+        // Theme grid - 2 columns
+        Row(
+            modifier = Modifier.Companion.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.Companion.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ThemeChip("💿", "Y2K Cyber")
+                ThemeChip("⚙️", "Steampunk")
+                ThemeChip("✏️", "Graphite Sketch")
+            }
+            Column(
+                modifier = Modifier.Companion.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ThemeChip("📒", "Scrapbook")
+                ThemeChip("🌆", "Cyberpunk")
+                ThemeChip("🌴", "Vaporwave")
+            }
+        }
+
+        Spacer(modifier = Modifier.Companion.height(4.dp))
+
+        // Access tip
+        Box(
+            modifier = Modifier.Companion
+                .fillMaxWidth()
+                .background(
+                    color = TutorialDefaults.cyan.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .padding(10.dp)
+        ) {
+            Text(
+                text = "🎭 Access themes from Menu → Themes\nEach theme changes colors, cards & animations!",
+                fontSize = 12.sp,
+                color = TutorialDefaults.white.copy(alpha = 0.9f),
+                textAlign = TextAlign.Companion.Center,
+                modifier = Modifier.Companion.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeChip(emoji: String, name: String) {
+    Row(
+        verticalAlignment = Alignment.Companion.CenterVertically,
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .background(
+                color = TutorialDefaults.black.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Text(emoji, fontSize = 18.sp)
+        Spacer(modifier = Modifier.Companion.width(8.dp))
+        Text(
+            name,
+            color = TutorialDefaults.white,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Companion.Medium
+        )
+    }
+}
+
+/**
+ * SLIDE: Quick Example - Shows the game flow
+ */
+@Composable
+fun ExampleContent() {
+    Column(
+        modifier = Modifier.Companion.fillMaxWidth(),
+        horizontalAlignment = Alignment.Companion.CenterHorizontally
+    ) {
+        // Example Box
+        Column(
+            modifier = Modifier.Companion
+                .fillMaxWidth()
+                .border(
+                    width = 2.dp,
+                    color = TutorialDefaults.cyan,
+                    shape = RoundedCornerShape(15.dp)
+                )
+                .background(
+                    color = TutorialDefaults.cyan.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(15.dp)
+                )
+                .padding(15.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ExampleText("🎤 Record:", "\"Hello world!\"")
+            ExampleText("🔄 Reversed:", "\"!dlrow olleH\"")
+            ExampleText("🎯 Challenge:", "Say it backwards\nto match the original")
+
+            // Score Badge
+            Box(
+                modifier = Modifier.Companion
+                    .align(Alignment.Companion.CenterHorizontally)
+                    .padding(top = 10.dp)
+                    .background(
+                        brush = TutorialDefaults.primaryGradient,
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Your Score: 87% 🌟",
+                    color = TutorialDefaults.black,
+                    fontWeight = FontWeight.Companion.Bold,
+                    fontSize = 16.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.Companion.height(25.dp))
+
+        Text(
+            text = "The better your backwards attempt,\nthe higher your score!",
+            fontSize = 14.sp,
+            color = TutorialDefaults.white.copy(alpha = 0.9f),
+            textAlign = TextAlign.Companion.Center,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+private fun ExampleText(label: String, value: String) {
+    Row(
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .background(
+                color = TutorialDefaults.black.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(8.dp)
+    ) {
+        Text(
+            text = "$label ",
+            color = TutorialDefaults.cyan,
+            fontWeight = FontWeight.Companion.Bold,
+            fontSize = 14.sp
+        )
+        Text(
+            text = value,
+            color = TutorialDefaults.white,
+            fontSize = 14.sp
+        )
+    }
+}
+
+/**
+ * Reusable bullet point for tutorial slides
+ */
+@Composable
+private fun TutorialBullet(emoji: String, text: String) {
+    Row(
+        verticalAlignment = Alignment.Companion.CenterVertically,
+        modifier = Modifier.Companion.fillMaxWidth()
+    ) {
+        Text(
+            text = emoji,
+            fontSize = 22.sp,
+            modifier = Modifier.Companion.width(36.dp)
+        )
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            color = TutorialDefaults.white,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
 }
