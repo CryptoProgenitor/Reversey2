@@ -307,7 +307,8 @@ class StrangePlanetComponents : ThemeComponents {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.45f)
+                    .padding(top = UiConstants.TOP_APP_BAR_HEIGHT + UiConstants.SPACER_ABOVE_RECORD_BUTTON)
+                    .height(UiConstants.RECORD_BUTTON_SIZE)
             ) {
                 val sideWidth = (maxWidth - UiConstants.RECORD_BUTTON_SIZE) / 2
 

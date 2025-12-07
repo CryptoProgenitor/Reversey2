@@ -7,6 +7,8 @@ object UiConstants {
     val RECORD_BUTTON_SIZE = 150.dp
     val PERMISSION_BUTTON_SIZE = 120.dp
     val MIC_ICON_SIZE = 22.dp
+    // TopAppBar
+    val TOP_APP_BAR_HEIGHT = 64.dp
     
     // Layout Padding
     val CONTENT_PADDING = 2.dp
