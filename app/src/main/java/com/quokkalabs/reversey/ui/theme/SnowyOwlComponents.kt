@@ -58,9 +58,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -80,6 +80,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -847,7 +848,11 @@ fun SnowyOwlFlying() {
             Canvas(
                 modifier = Modifier.fillMaxSize().graphicsLayer(scaleX = if (facingRight) 1f else -1f, rotationZ = cos(phase) * 2f)
             ) {
-                drawOwl(sin(phase * 5f) * 17f, sin(phase * 5f) * 8f)
+                drawOwl(
+                    wingAngle = sin(phase * 2.5f) * 25f, // Slower, bigger flaps
+                    wingY = 0f, // No vertical movement needed now
+                    facingRight = facingRight // Pass the facing direction
+                )
             }
         }
 
@@ -872,10 +877,19 @@ fun SnowyOwlFlying() {
     }
 }
 
-//claude's luxurious owl
+// ============================================
+// 🦉 ARTICULATED OWL WING SYSTEM (DROP-IN REPLACEMENT)
+// ============================================
+
+/**
+ * REPLACES: The old drawOwl() function
+ * NEW: Uses articulated wings with natural flapping motion
+ * FIXED: Proper depth logic for mirrored canvas
+ */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     wingAngle: Float,
-    wingY: Float
+    wingY: Float,
+    facingRight: Boolean = true
 ) {
     val bodyColor = Color(0xFFf8f8f8)
     val wingColor = Color(0xFFf5f5f5)
@@ -883,18 +897,191 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     val beakColor = Color(0xFFffb84d)
     val spotColor = Color(0xFF505050).copy(alpha = 0.85f)
 
-    // Wings with flapping animation (4x bigger positions)
-    drawWingAnimated(-220f, 30f, wingColor, -wingAngle, wingY) // Left wing flaps down
-    drawWingAnimated(220f, 30f, wingColor, wingAngle, wingY)   // Right wing flaps up
+    // Calculate articulated wing states (natural flapping, not rigid rotation)
+    val flapPhase = wingAngle / 25f // Convert old wingAngle to phase
+    val leftWingState = calculateWingState(flapPhase, isRightWing = false)
+    val rightWingState = calculateWingState(flapPhase, isRightWing = true)
 
-    // Body with gradient shading (4x bigger)
+    // ---- CORRECTED DEPTH LOGIC FOR MIRRORED CANVAS ----
+
+
+        drawArticulatedWing(
+            side = 1f, // Body's RIGHT = Visual LEFT
+            state = rightWingState,
+            isNearWing = false, // Visual LEFT should be FAR (behind)
+            wingColor = wingColor,
+            spotColor = spotColor
+        )
+
+        drawBodyCore(bodyColor, spotColor)
+
+        drawArticulatedWing(
+            side = -1f, // Body's LEFT = Visual RIGHT
+            state = leftWingState,
+            isNearWing = true,//visual RIGHT should be NEAR (in front)
+            wingColor = wingColor,
+            spotColor = spotColor
+        )
+
+
+    // Head always on top (unchanged from your original)
+    drawHead(eyeColor, beakColor, spotColor)
+}
+
+/**
+ * REPLACES: The old drawWingAnimated() function
+ * NEW: Draws articulated wing with shoulder-elbow-wrist joints
+ */
+private fun DrawScope.drawArticulatedWing(
+    side: Float, // -1 for left, 1 for right
+    state: WingState,
+    isNearWing: Boolean,
+    wingColor: Color,
+    spotColor: Color
+) {
+    val shoulderX = 400f
+    val shoulderY = 240f
+
+    // --- ARTICULATED JOINT CALCULATIONS ---
+    // Upper arm (shoulder to elbow)
+    val upperLength = 75f
+    val elbowX = shoulderX + cos(state.shoulderAngle) * upperLength * side
+    val elbowY = shoulderY + sin(state.shoulderAngle) * upperLength
+
+    // Forearm (elbow to wrist) - includes elbow bend
+    val forearmLength = 65f
+    val totalForearmAngle = state.shoulderAngle + state.elbowAngle
+    val wristX = elbowX + cos(totalForearmAngle) * forearmLength * side
+    val wristY = elbowY + sin(totalForearmAngle) * forearmLength
+
+    // Hand (wrist to tip) - includes wrist adjustment
+    val handLength = 55f
+    val totalHandAngle = totalForearmAngle + state.wristAngle
+    val tipX = wristX + cos(totalHandAngle) * handLength * side
+    val tipY = wristY + sin(totalHandAngle) * handLength
+
+    // --- DRAW WING WITH NATURAL CURVES ---
+    val wingPath = Path().apply {
+        moveTo(shoulderX, shoulderY)
+
+        // Upper arm curve
+        quadraticBezierTo(
+            shoulderX + (elbowX - shoulderX) * 0.3f * side,
+            shoulderY + (elbowY - shoulderY) * 0.3f,
+            elbowX, elbowY
+        )
+
+        // Forearm curve with feather spread
+        val featherSpreadX = state.featherSpread * 15f * side
+        quadraticBezierTo(
+            elbowX + (wristX - elbowX) * 0.5f + featherSpreadX,
+            elbowY + (wristY - elbowY) * 0.5f,
+            wristX, wristY
+        )
+
+        // Wing tip with finger feathers
+        val featherCount = 5
+        val featherStep = handLength / featherCount
+        for (i in 0..featherCount) {
+            val t = i.toFloat() / featherCount
+            val curveX = wristX + (tipX - wristX) * t
+            val curveY = wristY + (tipY - wristY) * t
+
+            // Feather splay based on spread amount
+            val featherSplay = sin(t * PI.toFloat()) * state.featherSpread * 12f * side
+            lineTo(curveX + featherSplay, curveY)
+        }
+
+        // Close back to body with trailing edge curve
+        quadraticBezierTo(
+            wristX - featherSpreadX * 0.7f,
+            wristY - 20f,
+            shoulderX, shoulderY + 40f
+        )
+        close()
+    }
+
+    // Draw wing fill with gradient
+    drawPath(
+        wingPath,
+        brush = Brush.linearGradient(
+            colors = listOf(
+                Color.White,
+                wingColor,
+                Color(0xFFe8e8e8)
+            ),
+            start = Offset(shoulderX, shoulderY),
+            end = Offset(tipX, tipY)
+        ),
+        style = Fill
+    )
+
+    // Draw wing spots (more on near wing for depth)
+    val spotAlpha = if (isNearWing) 0.9f else 0.7f
+    drawCircle(
+        color = spotColor.copy(alpha = spotAlpha),
+        radius = 8f,
+        center = Offset(elbowX, elbowY)
+    )
+    drawCircle(
+        color = spotColor.copy(alpha = spotAlpha),
+        radius = 6f,
+        center = Offset(
+            elbowX + (wristX - elbowX) * 0.5f,
+            elbowY + (wristY - elbowY) * 0.5f
+        )
+    )
+
+    // Wing outline (thicker for near wing)
+    val outlineWidth = if (isNearWing) 4f else 3f
+    drawPath(
+        wingPath,
+        color = Color(0xFF909090),
+        style = Stroke(width = outlineWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    )
+}
+
+/**
+ * NEW: Helper data class for articulated wing state
+ * (Add this ABOVE the drawOwl function in your file)
+ */
+private data class WingState(
+    val shoulderAngle: Float,  // Main flap angle in radians
+    val elbowAngle: Float,     // Secondary bend
+    val wristAngle: Float,     // Minor adjustment
+    val featherSpread: Float   // 0 = folded, 1 = spread
+)
+
+/**
+ * NEW: Calculates natural wing motion (replaces rigid rotation)
+ * Using Float-specific math operations
+ */
+private fun calculateWingState(phase: Float, isRightWing: Boolean): WingState {
+    // 1. Explicitly type 'side' as Float to ensure it isn't inferred as Int or Number
+    val side: Float = if (isRightWing) 1f else -1f
+
+    val sinPhase = sin(phase.toDouble()).toFloat()
+    val sinDoublePhase = sin((phase * 2f).toDouble()).toFloat()
+
+    return WingState(
+        shoulderAngle = sinPhase * 0.7f,
+        elbowAngle = max(0f, -sinPhase) * 0.4f,
+        // This calculation should now work because all operands are Floats
+        wristAngle = sinDoublePhase * 0.15f * side,
+        featherSpread = (sinPhase + 1f) / 2f
+    )
+}
+
+private fun max(f: Float, f2: Float) {}
+
+/**
+ * NEW: Draws just the body (without head/wings logic)
+ */
+private fun DrawScope.drawBodyCore(bodyColor: Color, spotColor: Color) {
+    // Body oval (same as your original but without head)
     drawOval(
         brush = Brush.radialGradient(
-            colors = listOf(
-                Color(0xFFffffff),
-                bodyColor,
-                Color(0xFFe0e0e0)
-            ),
+            colors = listOf(Color(0xFFffffff), bodyColor, Color(0xFFe0e0e0)),
             center = Offset(380f, 260f),
             radius = 120f
         ),
@@ -903,7 +1090,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
         style = Fill
     )
 
-    // Body feather spots - MUCH MORE VISIBLE (bigger, darker)
+    // Body spots (unchanged from your original)
     drawCircle(color = spotColor, radius = 8f, center = Offset(340f, 240f))
     drawCircle(color = spotColor, radius = 7f, center = Offset(460f, 260f))
     drawCircle(color = spotColor, radius = 9f, center = Offset(380f, 300f))
@@ -912,12 +1099,17 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     drawCircle(color = spotColor, radius = 6f, center = Offset(440f, 250f))
     drawCircle(color = spotColor, radius = 7f, center = Offset(370f, 270f))
 
-    // Horizontal bar markings on body - THICKER, DARKER
+    // Body markings
     drawLine(color = spotColor, start = Offset(320f, 250f), end = Offset(370f, 252f), strokeWidth = 5f, cap = StrokeCap.Round)
     drawLine(color = spotColor, start = Offset(430f, 270f), end = Offset(480f, 268f), strokeWidth = 5f, cap = StrokeCap.Round)
     drawLine(color = spotColor, start = Offset(340f, 310f), end = Offset(390f, 312f), strokeWidth = 5f, cap = StrokeCap.Round)
+}
 
-    // Head with subtle gradient (4x bigger)
+/**
+ * NEW: Draws just the head (separated from body)
+ */
+private fun DrawScope.drawHead(eyeColor: Color, beakColor: Color, spotColor: Color) {
+    // Head circle
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(Color(0xFFffffff), Color(0xFFf8f8f8), Color(0xFFe8e8e8)),
@@ -928,7 +1120,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
         center = Offset(460f, 240f)
     )
 
-    // Head spots - BIGGER, MORE VISIBLE
+    // Head spots
     drawCircle(color = spotColor, radius = 5f, center = Offset(410f, 200f))
     drawCircle(color = spotColor, radius = 5f, center = Offset(510f, 200f))
     drawCircle(color = spotColor, radius = 4f, center = Offset(430f, 190f))
@@ -936,7 +1128,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     drawCircle(color = spotColor, radius = 4f, center = Offset(390f, 220f))
     drawCircle(color = spotColor, radius = 4f, center = Offset(530f, 220f))
 
-    // Eyes with subtle gradient (4x bigger)
+    // Eyes
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(eyeColor, eyeColor.copy(alpha = 0.8f), Color(0xFF1a2030)),
@@ -952,11 +1144,11 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
         radius = 20f, center = Offset(480f, 232f)
     )
 
-    // Eye highlights (4x bigger)
+    // Eye highlights
     drawCircle(color = Color.White, radius = 6f, center = Offset(444f, 226f))
     drawCircle(color = Color.White, radius = 6f, center = Offset(484f, 226f))
 
-    // Beak with gradient (4x bigger)
+    // Beak
     val beakPath = Path().apply {
         moveTo(460f, 248f)
         lineTo(452f, 260f)
@@ -969,95 +1161,13 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     ))
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawWing(
-    xOffset: Float,
-    yOffset: Float,
-    color: Color
-) {
-    val wingPath = Path().apply {
-        moveTo(400f, 240f)
-        quadraticBezierTo(400f + xOffset * 0.5f, 160f + yOffset, 400f + xOffset, 140f + yOffset)
-        quadraticBezierTo(400f + xOffset * 0.8f, 180f + yOffset, 400f + xOffset * 0.3f, 280f + yOffset)
-        close()
-    }
-    drawPath(wingPath, color, style = Fill)
-    drawPath(wingPath, Color(0xFFd0d0d0), style = Stroke(width = 8f))
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawWingAnimated(
-    xOffset: Float,
-    yOffset: Float,
-    color: Color,
-    rotationAngle: Float,
-    verticalOffset: Float
-) {
-    val spotColor = Color(0xFF505050).copy(alpha = 0.85f)
-
-    rotate(degrees = rotationAngle, pivot = Offset(400f, 240f)) {
-        val wingPath = Path().apply {
-            moveTo(400f, 240f + verticalOffset)
-
-            // Broad base connection to body
-            cubicTo(
-                400f + xOffset * 0.15f, 230f + yOffset + verticalOffset,
-                400f + xOffset * 0.3f, 220f + yOffset + verticalOffset,
-                400f + xOffset * 0.45f, 200f + yOffset + verticalOffset
-            )
-
-            // Finger feathers - 5 individual "fingers" at wing tip
-            // Finger 1 (outermost)
-            cubicTo(400f + xOffset * 0.65f, 170f + yOffset + verticalOffset, 400f + xOffset * 0.85f, 140f + yOffset + verticalOffset, 400f + xOffset * 0.95f, 125f + yOffset + verticalOffset)
-            cubicTo(400f + xOffset * 0.93f, 132f + yOffset + verticalOffset, 400f + xOffset * 0.90f, 138f + yOffset + verticalOffset, 400f + xOffset * 0.88f, 145f + yOffset + verticalOffset)
-
-            // Finger 2
-            cubicTo(400f + xOffset * 0.90f, 140f + yOffset + verticalOffset, 400f + xOffset * 0.92f, 135f + yOffset + verticalOffset, 400f + xOffset * 0.93f, 132f + yOffset + verticalOffset)
-            cubicTo(400f + xOffset * 0.90f, 140f + yOffset + verticalOffset, 400f + xOffset * 0.87f, 148f + yOffset + verticalOffset, 400f + xOffset * 0.84f, 155f + yOffset + verticalOffset)
-
-            // Finger 3 (middle)
-            cubicTo(400f + xOffset * 0.86f, 150f + yOffset + verticalOffset, 400f + xOffset * 0.88f, 145f + yOffset + verticalOffset, 400f + xOffset * 0.89f, 142f + yOffset + verticalOffset)
-            cubicTo(400f + xOffset * 0.86f, 152f + yOffset + verticalOffset, 400f + xOffset * 0.83f, 160f + yOffset + verticalOffset, 400f + xOffset * 0.80f, 168f + yOffset + verticalOffset)
-
-            // Finger 4
-            cubicTo(400f + xOffset * 0.82f, 162f + yOffset + verticalOffset, 400f + xOffset * 0.84f, 157f + yOffset + verticalOffset, 400f + xOffset * 0.85f, 154f + yOffset + verticalOffset)
-            cubicTo(400f + xOffset * 0.82f, 164f + yOffset + verticalOffset, 400f + xOffset * 0.78f, 174f + yOffset + verticalOffset, 400f + xOffset * 0.74f, 182f + yOffset + verticalOffset)
-
-            // Finger 5 (innermost)
-            cubicTo(400f + xOffset * 0.76f, 177f + yOffset + verticalOffset, 400f + xOffset * 0.78f, 172f + yOffset + verticalOffset, 400f + xOffset * 0.79f, 169f + yOffset + verticalOffset)
-
-            // Scalloped trailing edge back to body
-            cubicTo(400f + xOffset * 0.75f, 185f + yOffset + verticalOffset, 400f + xOffset * 0.65f, 215f + yOffset + verticalOffset, 400f + xOffset * 0.50f, 245f + yOffset + verticalOffset)
-            cubicTo(400f + xOffset * 0.40f, 260f + yOffset + verticalOffset, 400f + xOffset * 0.25f, 270f + yOffset + verticalOffset, 400f + xOffset * 0.15f, 275f + yOffset + verticalOffset)
-            cubicTo(400f + xOffset * 0.08f, 270f + yOffset + verticalOffset, 400f + xOffset * 0.03f, 255f + yOffset + verticalOffset, 400f, 240f + verticalOffset)
-            close()
-        }
-
-        // Draw wing fill with gradient for depth
-        drawPath(wingPath, brush = Brush.linearGradient(
-            colors = listOf(Color(0xFFffffff), color, Color(0xFFd8d8d8)),
-            start = Offset(400f, 240f + verticalOffset),
-            end = Offset(400f + xOffset, 140f + yOffset + verticalOffset)
-        ), style = Fill)
-
-        // Dark spots along wing edge
-        val spots = listOf(
-            Pair(400f + xOffset * 0.88f, 145f + yOffset + verticalOffset),
-            Pair(400f + xOffset * 0.84f, 155f + yOffset + verticalOffset),
-            Pair(400f + xOffset * 0.80f, 168f + yOffset + verticalOffset),
-            Pair(400f + xOffset * 0.74f, 182f + yOffset + verticalOffset),
-            Pair(400f + xOffset * 0.55f, 235f + yOffset + verticalOffset),
-            Pair(400f + xOffset * 0.45f, 250f + yOffset + verticalOffset),
-            Pair(400f + xOffset * 0.60f, 210f + yOffset + verticalOffset),
-            Pair(400f + xOffset * 0.50f, 225f + yOffset + verticalOffset),
-        )
-
-        spots.forEach { (x, y) ->
-            drawCircle(color = spotColor, radius = 6f, center = Offset(x, y))
-        }
-
-        // Wing outline
-        drawPath(wingPath, Color(0xFF909090), style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    }
-}
+/**
+ * DELETE this old function from your file:
+ * private fun DrawScope.drawWingAnimated(...)
+ *
+ * DELETE this old function from your file:
+ * private fun DrawScope.drawWing(...)
+ */
 
 // ============================================
 // UI ITEMS
