@@ -611,14 +611,18 @@ class SpeechScoringEngine @Inject constructor(
     // Utility methods (similar to ScoringEngine but speech-optimised)
 
     private fun alignAudio(original: FloatArray, attempt: FloatArray): Pair<FloatArray, FloatArray> {
-        Log.d("SPEECH_ENGINE", "🔧 Aligning speech audio...")
+        Log.d("MFCC_DEBUG", "alignAudio: original.size=${original.size}, attempt.size=${attempt.size}")
 
         // Simple energy-based alignment for speech
         val originalPeak = findSpeechStart(original)
         val attemptPeak = findSpeechStart(attempt)
 
+        Log.d("MFCC_DEBUG", "alignAudio: originalStart=$originalPeak, attemptStart=$attemptPeak")
+
         val alignedLength = min(original.size - originalPeak, attempt.size - attemptPeak)
         if (alignedLength <= 0) return Pair(FloatArray(0), FloatArray(0))
+
+        Log.d("MFCC_DEBUG", "alignAudio: alignedLength=$alignedLength (${alignedLength / 44100f}s at 44.1kHz)")
 
         return Pair(
             original.sliceArray(originalPeak until originalPeak + alignedLength),
@@ -666,11 +670,21 @@ class SpeechScoringEngine @Inject constructor(
     }
 
     private fun calculateMfccSimilarity(originalMfccs: List<FloatArray>, attemptMfccs: List<FloatArray>): Float {
-        if (originalMfccs.isEmpty() || attemptMfccs.isEmpty()) return 0f
+        if (originalMfccs.isEmpty() || attemptMfccs.isEmpty()) {
+            Log.d("MFCC_DEBUG", "Empty MFCCs! original=${originalMfccs.size}, attempt=${attemptMfccs.size}")
+            return 0f
+        }
 
-        return dtw(originalMfccs, attemptMfccs) { a, b ->
+        Log.d("MFCC_DEBUG", "Frame counts: original=${originalMfccs.size}, attempt=${attemptMfccs.size}")
+        Log.d("MFCC_DEBUG", "MFCC vector size: original[0]=${originalMfccs[0].size}, attempt[0]=${attemptMfccs[0].size}")
+        Log.d("MFCC_DEBUG", "dtwNormalizationFactor=${getCurrentScoringParameters().dtwNormalizationFactor}")
+
+        val result = dtw(originalMfccs, attemptMfccs) { a, b ->
             euclideanDistance(a, b) / getCurrentScoringParameters().dtwNormalizationFactor
         }
+
+        Log.d("MFCC_DEBUG", "Final MFCC similarity: $result")
+        return result
     }
 
     private fun <T> dtw(seq1: List<T>, seq2: List<T>, costFunc: (T, T) -> Float): Float {
@@ -688,6 +702,9 @@ class SpeechScoringEngine @Inject constructor(
 
         val maxDtwCost = (m + n) * 2f
         val normalizedDtw = (maxDtwCost - dp[m][n]) / maxDtwCost
+
+        Log.d("MFCC_DEBUG", "DTW: m=$m, n=$n, rawCost=${dp[m][n]}, maxCost=$maxDtwCost, normalized=$normalizedDtw")
+
         return normalizedDtw.coerceIn(0f, 1f)
     }
 

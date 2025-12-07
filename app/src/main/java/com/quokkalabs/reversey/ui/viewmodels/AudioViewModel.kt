@@ -10,7 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.quokkalabs.reversey.audio.AudioConstants
 import com.quokkalabs.reversey.audio.AudioPlayerHelper
 import com.quokkalabs.reversey.audio.AudioRecorderHelper
-import com.quokkalabs.reversey.audio.RecorderEvent // 🎯 FIX: Import the sealed class
+import com.quokkalabs.reversey.audio.RecorderEvent
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
@@ -209,12 +209,10 @@ class AudioViewModel @Inject constructor(
 
         viewModelScope.launch {
             settingsDataStore.getDifficultyLevel.collect { savedDifficultyName ->
-                try {
-                    val savedDifficulty = DifficultyLevel.valueOf(savedDifficultyName)
-                    _currentDifficulty.value = savedDifficulty
-                } catch (e: Exception) {
-                    _currentDifficulty.value = DifficultyLevel.NORMAL
-                }
+                // 🎯 FIX: Apply restored difficulty to engines (no persist to avoid loop)
+                val level = runCatching { DifficultyLevel.valueOf(savedDifficultyName) }
+                    .getOrElse { DifficultyLevel.NORMAL }
+                applyDifficulty(level)
             }
         }
     }
@@ -378,9 +376,17 @@ class AudioViewModel @Inject constructor(
                 if (audioRecorderHelper.isRecording.value) return@withLock
 
                 // 🎯 DEFENSIVE CHECK: Ensure parent still exists before starting
-                val parentExists = uiState.value.recordings.any { it.originalPath == originalPath }
-                if (!parentExists) {
+                val parentRecording = uiState.value.recordings.find { it.originalPath == originalPath }
+                if (parentRecording == null) {
                     showUserMessage("Error: Cannot start challenge. Parent recording not found.")
+                    return@withLock
+                }
+
+                // 🎯 FIX: Block REVERSE challenges if reversed audio isn't ready yet
+                val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
+                if (challengeType == ChallengeType.REVERSE && parentRecording.reversedPath == null) {
+                    showUserMessage("Reversed audio isn't ready yet. Please wait a moment and try again.")
+                    _uiState.update { it.copy(pendingChallengeType = null) }
                     return@withLock
                 }
 
@@ -490,10 +496,18 @@ class AudioViewModel @Inject constructor(
                 val reversedAttemptFile = repository.reverseWavFile(attemptFile)
 
                 // 2. Load Audio Data (Disk -> Memory)
-                val reversedParentAudio = readAudioFile(reversedRecordingPath)
+                // 🎯 FIX: Select correct reference audio based on Challenge Type (SAFE 'WHEN' LOGIC)
+                val referenceAudioPath = when (challengeType) {
+                    ChallengeType.FORWARD -> originalRecordingPath
+                    ChallengeType.REVERSE -> reversedRecordingPath
+                }
+
+                Log.d("SCORING_DEBUG", "challengeType=$challengeType, loading reference=$referenceAudioPath")
+
+                val referenceAudio = readAudioFile(referenceAudioPath)
                 val attemptAudio = readAudioFile(attemptFilePath)
 
-                if (reversedParentAudio.isEmpty() || attemptAudio.isEmpty()) {
+                if (referenceAudio.isEmpty() || attemptAudio.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         showUserMessage("Error: Could not read audio files for scoring")
                         _uiState.update { it.copy(isScoring = false) }
@@ -507,7 +521,7 @@ class AudioViewModel @Inject constructor(
 
                 // 4. Score via Orchestrator (with reference mode to prevent cross-engine contamination)
                 val scoringResult = scoreDualPipeline(
-                    referenceAudio = reversedParentAudio,
+                    referenceAudio = referenceAudio,
                     attemptAudio = attemptAudio,
                     challengeType = challengeType,
                     referenceVocalMode = referenceVocalMode,
@@ -729,9 +743,12 @@ class AudioViewModel @Inject constructor(
         _uiState.update { it.copy(showQualityWarning = false, qualityWarningMessage = "") }
     }
 
-    fun updateDifficulty(level: DifficultyLevel) {
-        _currentDifficulty.update { level }
-        viewModelScope.launch { settingsDataStore.saveDifficultyLevel(level.name) }
+    /**
+     * Apply difficulty to engines WITHOUT persisting to DataStore.
+     * Used by init collector to avoid write-back loops.
+     */
+    private fun applyDifficulty(level: DifficultyLevel) {
+        _currentDifficulty.value = level
         val preset = when (level) {
             DifficultyLevel.EASY -> ScoringPresets.easyMode()
             DifficultyLevel.NORMAL -> ScoringPresets.normalMode()
@@ -739,6 +756,15 @@ class AudioViewModel @Inject constructor(
             else -> ScoringPresets.normalMode()
         }
         updateScoringEngine(preset)
+    }
+
+    /**
+     * Update difficulty AND persist to DataStore.
+     * Called by UI when user changes difficulty.
+     */
+    fun updateDifficulty(level: DifficultyLevel) {
+        applyDifficulty(level)
+        viewModelScope.launch { settingsDataStore.saveDifficultyLevel(level.name) }
     }
 
     fun updateScoringEngine(preset: Presets) {
