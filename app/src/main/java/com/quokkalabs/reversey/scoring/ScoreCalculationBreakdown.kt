@@ -48,7 +48,7 @@ fun ScoreCalculationBreakdown.toDisplaySteps(): List<CalculationStep> {
         title = "Input Similarities",
         formula = "From DTW alignment",
         calculation = "Pitch: ${formatPercent(pitchSimilarity)}, MFCC: ${formatPercent(mfccSimilarity)}",
-        result = "✓ Features extracted"
+        result = "✓"
     ))
 
     // Step 2: Weighted Combination

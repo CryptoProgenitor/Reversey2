@@ -501,16 +501,20 @@ class AudioViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 3. Score via Orchestrator
+                // 3. Get parent recording for reference vocal mode (BEFORE scoring)
+                val parentRecording = uiState.value.recordings.find { it.originalPath == originalRecordingPath }
+                val referenceVocalMode = parentRecording?.vocalAnalysis?.mode
+
+                // 4. Score via Orchestrator (with reference mode to prevent cross-engine contamination)
                 val scoringResult = scoreDualPipeline(
                     referenceAudio = reversedParentAudio,
                     attemptAudio = attemptAudio,
                     challengeType = challengeType,
+                    referenceVocalMode = referenceVocalMode,
                     sampleRate = AudioConstants.SAMPLE_RATE
                 )
 
-                // 4. Save Result to Repo
-                val parentRecording = uiState.value.recordings.find { it.originalPath == originalRecordingPath }
+                // 5. Save Result to Repo
                 val playerIndex = (parentRecording?.attempts?.size ?: 0) + 1
 
                 val attempt = PlayerAttempt(
@@ -570,6 +574,7 @@ class AudioViewModel @Inject constructor(
         referenceAudio: FloatArray,
         attemptAudio: FloatArray,
         challengeType: ChallengeType,
+        referenceVocalMode: VocalMode? = null,
         sampleRate: Int = AudioConstants.SAMPLE_RATE
     ): ScoringResult {
         return vocalScoringOrchestrator.scoreAttempt(
@@ -577,6 +582,7 @@ class AudioViewModel @Inject constructor(
             attemptAudio = attemptAudio,
             challengeType = challengeType,
             difficulty = _currentDifficulty.value,
+            referenceVocalMode = referenceVocalMode,
             sampleRate = sampleRate
         )
     }

@@ -17,28 +17,36 @@ class VocalScoringOrchestrator @Inject constructor(
         attemptAudio: FloatArray,
         challengeType: ChallengeType,
         difficulty: DifficultyLevel,
+        referenceVocalMode: VocalMode? = null,  // 🎯 FIX: Use reference's stored mode for engine selection
         sampleRate: Int = AudioConstants.SAMPLE_RATE
     ): ScoringResult {
 
         Log.d("VSO", "=== ORCHESTRATOR ENTRY ===")
         val recordingId = "mem_${System.currentTimeMillis()}"
 
-        // ⚡ FIX: Detect mode on the ATTEMPT (User's Voice)
-        // We must analyze the human audio to decide if they are singing or speaking.
-        val analysis = vocalModeDetector.classifyVocalMode(attemptAudio, sampleRate)
+        // Analyze attempt audio (for UI feedback showing user's actual vocal style)
+        val attemptAnalysis = vocalModeDetector.classifyVocalMode(attemptAudio, sampleRate)
+        Log.d("VSO", "Attempt analysis → mode=${attemptAnalysis.mode}, confidence=${attemptAnalysis.confidence}")
 
-        Log.d("VSO", "Detector → mode=${analysis.mode}, confidence=${analysis.confidence}")
-        ScoringDebugLogger.logDetectorDecision(recordingId, analysis.mode)
+        // 🎯 FIX: Use reference's stored mode for engine selection (prevents cross-engine contamination)
+        // Fallback to attempt analysis if reference mode unavailable (legacy recordings, null safety)
+        val engineMode = referenceVocalMode?.takeIf { it != VocalMode.UNKNOWN }
+            ?: attemptAnalysis.mode
 
-        // 2) Route to SPEECH or SINGING engine
-        val decision = vocalModeRouter.getRoutingDecision(analysis)
+        Log.d("VSO", "🎯 ENGINE SELECTION: referenceMode=$referenceVocalMode, attemptMode=${attemptAnalysis.mode}, using=$engineMode")
+        ScoringDebugLogger.logDetectorDecision(recordingId, engineMode)
+
+        // Route to engine based on reference mode (or fallback)
+        val decision = vocalModeRouter.getRoutingDecision(
+            VocalAnalysis(engineMode, attemptAnalysis.confidence, attemptAnalysis.features)
+        )
         ScoringDebugLogger.logRouterSelection(
             recordingId = recordingId,
-            detectedMode = analysis.mode,
+            detectedMode = engineMode,
             selectedEngine = decision.selectedEngine
         )
 
-        // 3) Pick the correct engine
+        // Pick the correct engine
         val result = when (decision.selectedEngine) {
             ScoringEngineType.SPEECH_ENGINE -> {
                 ScoringDebugLogger.logOrchestratorEngine(recordingId, ScoringEngineType.SPEECH_ENGINE)
@@ -64,6 +72,7 @@ class VocalScoringOrchestrator @Inject constructor(
         }
 
         Log.d("VSO", "=== ORCHESTRATOR EXIT → score=${result.score} ===")
-        return result.copy(vocalAnalysis = analysis)
+        // Return attempt's actual analysis for UI feedback (shows what USER did, not what challenge requires)
+        return result.copy(vocalAnalysis = attemptAnalysis)
     }
 }
