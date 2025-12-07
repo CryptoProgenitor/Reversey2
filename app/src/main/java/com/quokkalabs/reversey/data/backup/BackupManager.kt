@@ -321,6 +321,11 @@ class BackupManager @Inject constructor(
                 return@withContext RestoreResult(false, 0, 0, 0, 0, "Invalid Zip")
             }
 
+            if (!securityUtils.isReasonableBackupSize(backupZipFile)) {
+                _importProgress.value = BackupProgress.Error("Backup file too large (max 500MB)")
+                return@withContext RestoreResult(false, 0, 0, 0, 0, "File Too Large")
+            }
+
             val manifest = extractManifest(backupZipFile)
             if (manifest == null) {
                 _importProgress.value = BackupProgress.Error("Invalid manifest")

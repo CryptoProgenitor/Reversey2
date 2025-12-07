@@ -139,26 +139,25 @@ private fun AnimatedWaveform() {
         val waveWidth = size.width
         val strokeWidth = 4.dp.toPx()
 
-        // Draw animated waveform
-        val points = mutableListOf<Offset>()
-
+        // Draw animated waveform - OPTIMIZED: draw inline without allocating List
+        var prevOffset: Offset? = null
         for (x in 0..waveWidth.toInt() step 8) {
             val progress = x / waveWidth
             val radians = Math.toRadians((progress * 720 + phase).toDouble())
             val yOffset = sin(radians).toFloat() * amplitude * centerY * 0.6f
+            val currentOffset = Offset(x.toFloat(), centerY + yOffset)
 
-            points.add(Offset(x.toFloat(), centerY + yOffset))
-        }
-
-        // Draw the waveform lines
-        for (i in 0 until points.size - 1) {
-            drawLine(
-                color = waveColor,
-                start = points[i],
-                end = points[i + 1],
-                strokeWidth = strokeWidth,
-                cap = StrokeCap.Round
-            )
+            // Draw line from previous point to current (skip first point)
+            prevOffset?.let { prev ->
+                drawLine(
+                    color = waveColor,
+                    start = prev,
+                    end = currentOffset,
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+            prevOffset = currentOffset
         }
 
         // Draw center line

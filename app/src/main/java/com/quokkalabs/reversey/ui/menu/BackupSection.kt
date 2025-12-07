@@ -110,7 +110,7 @@ fun BackupSection(
                             statusMessage = result
                             isError = false
                         } catch (e: Exception) {
-                            statusMessage = "Export failed: ${e.message}"
+                            statusMessage = "Export failed. Please try again."
                             isError = true
                         } finally {
                             isExporting = false
@@ -231,7 +231,7 @@ fun BackupSection(
                                 isError = false
                                 onBackupComplete()
                             } catch (e: Exception) {
-                                statusMessage = "Import failed: ${e.message}"
+                                statusMessage = "Import failed. Please try again."
                                 isError = true
                             } finally {
                                 isImporting = false
@@ -262,7 +262,7 @@ fun BackupSection(
                                     isError = false
                                     onBackupComplete()
                                 } catch (e: Exception) {
-                                    statusMessage = "Import failed: ${e.message}"
+                                    statusMessage = "Import failed. Please try again."
                                     isError = true
                                 } finally {
                                     isImporting = false

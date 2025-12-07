@@ -101,7 +101,7 @@ class AudioPlayerHelper @Inject constructor() {
                 if (total > 0) {
                     _progress.value = current.toFloat() / total.toFloat()
                 }
-                delay(50) // 20fps update rate
+                delay(100) // 10fps update rate - reduces recomposition
             }
         }
     }

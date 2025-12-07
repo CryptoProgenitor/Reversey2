@@ -186,7 +186,9 @@ class AudioViewModel @Inject constructor(
 
         // --- Init Data Loading ---
         viewModelScope.launch(Dispatchers.IO) {
-            try { repository.cleanupAnalysisCache() } catch (e: Exception) { }
+            try { repository.cleanupAnalysisCache() } catch (e: Exception) {
+                Log.w("AudioViewModel", "Cache cleanup failed (non-critical)", e)
+            }
             withContext(Dispatchers.Main) { loadRecordings() }
         }
 
@@ -619,8 +621,14 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteRecording(recording.originalPath, recording.reversedPath)
             recording.attempts.forEach { attempt ->
-                try { File(attempt.attemptFilePath).delete() } catch (e: Exception) { }
-                attempt.reversedAttemptFilePath?.let { try { File(it).delete() } catch (e: Exception) { } }
+                try { File(attempt.attemptFilePath).delete() } catch (e: Exception) {
+                    Log.w("AudioViewModel", "Failed to delete attempt file: ${attempt.attemptFilePath}")
+                }
+                attempt.reversedAttemptFilePath?.let { path ->
+                    try { File(path).delete() } catch (e: Exception) {
+                        Log.w("AudioViewModel", "Failed to delete reversed attempt: $path")
+                    }
+                }
             }
             loadRecordings()
         }
@@ -673,7 +681,9 @@ class AudioViewModel @Inject constructor(
             try {
                 File(attemptToDelete.attemptFilePath).delete()
                 attemptToDelete.reversedAttemptFilePath?.let { File(it).delete() }
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+                Log.w("AudioViewModel", "Failed to delete attempt files", e)
+            }
             val updatedRecordings = _uiState.value.recordings.map { recording ->
                 if (recording.originalPath == parentRecordingPath) {
                     recording.copy(attempts = recording.attempts.filter { it.attemptFilePath != attemptToDelete.attemptFilePath })

@@ -54,7 +54,7 @@ fun ScoreCalculationBreakdown.toDisplaySteps(): List<CalculationStep> {
     // Step 2: Weighted Combination
     steps.add(CalculationStep(
         stepNumber = 2,
-        title = "Weighted Combination",
+        title = "Weighted\nCombination",
         formula = "pitch × ${formatWeight(pitchWeight)} + mfcc × ${formatWeight(mfccWeight)}",
         calculation = "${formatPercent(pitchSimilarity)} × ${formatWeight(pitchWeight)} + ${formatPercent(mfccSimilarity)} × ${formatWeight(mfccWeight)}",
         result = formatPercent(baseWeightedScore)
@@ -117,7 +117,7 @@ fun ScoreCalculationBreakdown.toDisplaySteps(): List<CalculationStep> {
 
         steps.add(CalculationStep(
             stepNumber = perfStepNumber,
-            title = "Performance Adjustments",
+            title = "Performance\n Adjustments",
             formula = "× (1 + bonuses) × humming",
             calculation = adjustmentParts.joinToString(", "),
             result = "×${formatWeight(totalPerformanceMultiplier * hummingPenaltyMultiplier)}",

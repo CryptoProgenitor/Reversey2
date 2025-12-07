@@ -162,7 +162,7 @@ fun SingleWavImportDialog(
                                 }
                             } catch (e: Exception) {
                                 Log.e("SingleWavImport", "Failed to import", e)
-                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Import failed. Please try again.", Toast.LENGTH_SHORT).show()
                                 isImporting = false
                             }
                         }
