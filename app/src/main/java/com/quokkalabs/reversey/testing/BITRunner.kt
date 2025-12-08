@@ -19,16 +19,104 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import dagger.hilt.android.qualifiers.ApplicationContext
+import com.quokkalabs.reversey.scoring.SingingScoringEngine
 
 /**
  * Built-In Test (BIT) Runner - Multi-File Testing
- *
+ * suitable only for testing scoring of singing tonal differences
  * Tests all 15 synthetic WAV files to validate scoring parameters
+ */
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════
+ * 🔧 BITRunner — Built-In Test Runner (SYNTHETIC VALIDATION)
+ *    suitable only for testing scoring of singing tonal differences
+ * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * PURPOSE:
+ *   Validates scoring algorithm correctness using SYNTHETIC audio files with
+ *   KNOWN TARGET SCORES. Tests the math, not the vibe.
+ *
+ * KEY QUESTION:
+ *   "If I shift pitch by exactly 0.5 semitones, does the score drop by the
+ *    expected amount?"
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * HOW IT DIFFERS FROM ScoringStressTester:
+ * ──────────────────────────────────────────────────────────────────────────────
+ *
+ *   BITRunner (this file)          │  ScoringStressTester
+ *   ───────────────────────────────┼────────────────────────────────────────
+ *   Synthetic audio files          │  Human recordings (CPD's files)
+ *   res/raw/ folder                │  assets/bit_audio/ folder
+ *   Known target scores (85%, etc) │  No targets — exploratory
+ *   Tests ALGORITHM correctness    │  Tests REAL-WORLD experience
+ *   Output: .txt pass/fail report  │  Output: .csv for analysis
+ *   Single mode (no speech/sing)   │  Dual mode (speech vs singing routing)
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * TEST FILES (in res/raw/):
+ * ──────────────────────────────────────────────────────────────────────────────
+ *
+ *   bit_test_baseline.wav      → 90%  (perfect reference)
+ *   bit_test_pitch_025off.wav  → 85%  (pitch +0.25 semitones)
+ *   bit_test_pitch_050off.wav  → 75%  (pitch +0.5 semitones)
+ *   bit_test_pitch_100off.wav  → 60%  (pitch +1.0 semitones)
+ *   bit_test_pitch_200off.wav  → 45%  (pitch +2.0 semitones)
+ *   bit_test_monotone.wav      → 25%  (GARBAGE TEST - flat tone)
+ *   bit_test_octave_up.wav     → 55%  (octave shift)
+ *   bit_test_wrong_notes.wav   → 50%  (3 notes changed)
+ *   bit_test_all_wrong.wav     → 35%  (completely different melody)
+ *   bit_test_missing_notes.wav → 48%  (3 notes removed)
+ *   bit_test_fast.wav          → 70%  (1.5x speed)
+ *   bit_test_delayed_50ms.wav  → 85%  (timing offset)
+ *   bit_test_delayed_100ms.wav → 75%  (larger timing offset)
+ *   bit_test_noise_20db.wav    → 82%  (light noise)
+ *   bit_test_noise_10db.wav    → 65%  (heavy noise)
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * OUTPUT:
+ * ──────────────────────────────────────────────────────────────────────────────
+ *
+ *   Location: /storage/emulated/0/Download/BIT_MultiFile_Results_[timestamp].txt
+ *
+ *   Contains:
+ *     - Per-file breakdown (target vs actual, pitch/MFCC similarity)
+ *     - Pass/fail status (±10 points tolerance)
+ *     - Summary with tuning recommendations
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * WHEN TO USE:
+ * ──────────────────────────────────────────────────────────────────────────────
+ *
+ *   ✅ After changing scoring algorithms (DCT, cosine distance, etc.)
+ *   ✅ After adjusting threshold parameters
+ *   ✅ Quick sanity check that nothing is catastrophically broken
+ *   ✅ Debugging unexpected score behavior
+ *
+ *   ❌ NOT for validating real-world user experience (use ScoringStressTester)
+ *   ❌ NOT for tuning "feel" of scores (use human recordings)
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * NOTE ON TARGET SCORES:
+ * ──────────────────────────────────────────────────────────────────────────────
+ *
+ *   Target scores were calibrated for a specific algorithm version.
+ *   After major algorithm changes (e.g., Phase 2 DCT+Cosine), expect scores
+ *   to shift. The GRADIENT matters more than absolute values:
+ *
+ *     - Baseline should still be highest
+ *     - Monotone should still be crushed
+ *     - Worse variants should score lower than better variants
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
  */
 @Singleton
 class BITRunner @Inject constructor(
-    private val context: Context,
-    private val orchestrator: VocalScoringOrchestrator  // ✅ New dual-lane orchestrator
+    @ApplicationContext private val context: Context,
+    private val orchestrator: VocalScoringOrchestrator,
+    private val singingScoringEngine: SingingScoringEngine  // ← ADD
 ) {
     private val TAG = "BITRunner"
 
@@ -165,10 +253,10 @@ class BITRunner @Inject constructor(
     ): TestResult {
         val timestamp = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
 
-        // 🎯 NEW: Use orchestrator, not legacy ScoringEngine
-        val result = orchestrator.scoreAttempt(
-            referenceAudio = originalAudio,
-            attemptAudio = attemptAudio,
+        // BIT uses SingingEngine directly (synthetic tonal test files)
+        val result = singingScoringEngine.scoreAttempt(
+            originalAudio = originalAudio,
+            playerAttempt = attemptAudio,
             challengeType = challengeType,
             difficulty = difficulty,
             sampleRate = AudioConstants.SAMPLE_RATE

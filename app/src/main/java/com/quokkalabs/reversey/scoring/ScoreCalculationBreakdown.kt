@@ -42,34 +42,87 @@ data class CalculationStep(
 fun ScoreCalculationBreakdown.toDisplaySteps(): List<CalculationStep> {
     val steps = mutableListOf<CalculationStep>()
 
+    // Phase 2.4: Check if REVERSE singing (different core formula)
+    val isReverseSinging = challengeType == ChallengeType.REVERSE &&
+            scoringEngineType == ScoringEngineType.SINGING_ENGINE
+    // Phase 2.5: Check if REVERSE speech (different core formula)
+    val isReverseSpeech = challengeType == ChallengeType.REVERSE &&
+            scoringEngineType == ScoringEngineType.SPEECH_ENGINE
+    val isReverse = isReverseSinging || isReverseSpeech
+
     // Step 1: Input Similarities
+    // For REVERSE (singing or speech), interval accuracy is also a core input
+    val inputCalc = if (isReverse && musicalBonuses != null) {
+        "Interval: ${formatPercent(musicalBonuses.intervalAccuracy)}, Pitch: ${formatPercent(pitchSimilarity)}, MFCC: ${formatPercent(mfccSimilarity)}"
+    } else {
+        "Pitch: ${formatPercent(pitchSimilarity)}, MFCC: ${formatPercent(mfccSimilarity)}"
+    }
     steps.add(CalculationStep(
         stepNumber = 1,
         title = "Input Similarities",
         formula = "From DTW alignment",
-        calculation = "Pitch: ${formatPercent(pitchSimilarity)}, MFCC: ${formatPercent(mfccSimilarity)}",
+        calculation = inputCalc,
         result = "✓"
     ))
 
     // Step 2: Weighted Combination
-    steps.add(CalculationStep(
-        stepNumber = 2,
-        title = "Weighted\nCombination",
-        formula = "pitch × ${formatWeight(pitchWeight)} + mfcc × ${formatWeight(mfccWeight)}",
-        calculation = "${formatPercent(pitchSimilarity)} × ${formatWeight(pitchWeight)} + ${formatPercent(mfccSimilarity)} × ${formatWeight(mfccWeight)}",
-        result = formatPercent(baseWeightedScore)
-    ))
-
-    // Step 3: Musical Bonuses (Singing only)
-    musicalBonuses?.let { bonuses ->
+    // Phase 2.4/2.5: REVERSE uses different formula (interval in core)
+    if (isReverse && musicalBonuses != null) {
+        // REVERSE: interval×weight + pitch×weight + mfcc×weight
+        val intervalWeight = musicalBonuses.intervalWeight
         steps.add(CalculationStep(
-            stepNumber = 3,
-            title = "Musical Bonuses",
-            formula = "complexity×0.10 + intervals×0.15 + harmonics×0.05",
-            calculation = "${formatPercent(bonuses.complexityBonus)}×0.10 + ${formatPercent(bonuses.intervalAccuracy)}×0.15 + ${formatPercent(bonuses.harmonicRichness)}×0.05",
-            result = "+${formatPercent(bonuses.totalMusicalBonus)}",
-            isBonus = true
+            stepNumber = 2,
+            title = "Weighted\nCombination",
+            formula = "interval × ${formatWeight(intervalWeight)} + pitch × ${formatWeight(pitchWeight)} + mfcc × ${formatWeight(mfccWeight)}",
+            calculation = "${formatPercent(musicalBonuses.intervalAccuracy)} × ${formatWeight(intervalWeight)} + ${formatPercent(pitchSimilarity)} × ${formatWeight(pitchWeight)} + ${formatPercent(mfccSimilarity)} × ${formatWeight(mfccWeight)}",
+            result = formatPercent(baseWeightedScore)
         ))
+    } else {
+        // FORWARD: pitch×weight + mfcc×weight
+        steps.add(CalculationStep(
+            stepNumber = 2,
+            title = "Weighted\nCombination",
+            formula = "pitch × ${formatWeight(pitchWeight)} + mfcc × ${formatWeight(mfccWeight)}",
+            calculation = "${formatPercent(pitchSimilarity)} × ${formatWeight(pitchWeight)} + ${formatPercent(mfccSimilarity)} × ${formatWeight(mfccWeight)}",
+            result = formatPercent(baseWeightedScore)
+        ))
+    }
+
+    // Step 3: Musical Bonuses (Singing only, or Speech REVERSE note)
+    // Phase 2.4: REVERSE singing has interval in core, not as bonus
+    // Phase 2.5: Speech REVERSE has interval in core too
+    musicalBonuses?.let { bonuses ->
+        if (isReverseSinging) {
+            // REVERSE singing: interval already in core score, only complexity + harmonics as bonuses
+            steps.add(CalculationStep(
+                stepNumber = 3,
+                title = "Musical Bonuses",
+                formula = "complexity×0.10 + harmonics×0.05 (intervals in core)",
+                calculation = "${formatPercent(bonuses.complexityBonus)}×0.10 + ${formatPercent(bonuses.harmonicRichness)}×0.05",
+                result = "+${formatPercent(bonuses.complexityContribution + bonuses.harmonicContribution)}",
+                isBonus = true
+            ))
+        } else if (isReverseSpeech) {
+            // REVERSE speech: interval in core score, no additional bonuses
+            steps.add(CalculationStep(
+                stepNumber = 3,
+                title = "Speech Analysis",
+                formula = "Interval accuracy in core score (70%)",
+                calculation = "Direction pattern matching",
+                result = "✓ Applied",
+                isBonus = false
+            ))
+        } else {
+            // FORWARD: all three as bonuses
+            steps.add(CalculationStep(
+                stepNumber = 3,
+                title = "Musical Bonuses",
+                formula = "complexity×0.10 + intervals×0.15 + harmonics×0.05",
+                calculation = "${formatPercent(bonuses.complexityBonus)}×0.10 + ${formatPercent(bonuses.intervalAccuracy)}×0.15 + ${formatPercent(bonuses.harmonicRichness)}×0.05",
+                result = "+${formatPercent(bonuses.totalMusicalBonus)}",
+                isBonus = true
+            ))
+        }
     }
 
     // Step 4: Content Detection Penalty

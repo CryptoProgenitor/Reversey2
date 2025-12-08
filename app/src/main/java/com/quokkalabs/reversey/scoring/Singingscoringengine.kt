@@ -224,19 +224,45 @@ class SingingScoringEngine @Inject constructor(
 
         val metrics = SimilarityMetrics(pitchSimilarity, mfccSimilarity)
 
-        // Music-focused weighted score (heavily emphasizes melody)
-        val baseWeightedScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
+        // === PHASE 2.4: DIRECTION-SENSITIVE SCORING ===
+        // REVERSE uses interval accuracy as core (most direction-sensitive)
+        // FORWARD uses validated 70/30 pitch/mfcc from Phase 2.3
+        val baseWeightedScore: Float
+        val usedPitchWeight: Float
+        val usedMfccWeight: Float
+        val usedIntervalWeight: Float
+
+        if (challengeType == ChallengeType.REVERSE) {
+            // REVERSE: interval×0.5 + pitch×0.4 + mfcc×0.1
+            usedIntervalWeight = parameters.reverseIntervalWeight
+            usedPitchWeight = parameters.reversePitchWeight
+            usedMfccWeight = parameters.reverseMfccWeight
+            baseWeightedScore = (intervalAccuracy * usedIntervalWeight) +
+                    (pitchSimilarity * usedPitchWeight) +
+                    (mfccSimilarity * usedMfccWeight)
+            Log.d("SINGING_ENGINE", "🔄 REVERSE scoring: interval×${usedIntervalWeight} + pitch×${usedPitchWeight} + mfcc×${usedMfccWeight}")
+        } else {
+            // FORWARD: pitch×0.7 + mfcc×0.3 (validated Phase 2.3)
+            usedIntervalWeight = 0f  // interval is bonus for FORWARD
+            usedPitchWeight = parameters.pitchWeight
+            usedMfccWeight = parameters.mfccWeight
+            baseWeightedScore = (pitchSimilarity * usedPitchWeight) + (mfccSimilarity * usedMfccWeight)
+            Log.d("SINGING_ENGINE", "▶️ FORWARD scoring: pitch×${usedPitchWeight} + mfcc×${usedMfccWeight}")
+        }
         var rawScore = baseWeightedScore
         Log.d("SINGING_ENGINE", "🎯 Base weighted score: $rawScore")
 
         // Apply musical bonuses
+        // NOTE: For REVERSE, interval is already in core score, so skip interval bonus
         val complexityContribution = musicalComplexityBonus * 0.1f
-        val intervalContribution = intervalAccuracy * 0.15f
+        val intervalContribution = if (challengeType == ChallengeType.REVERSE) 0f else intervalAccuracy * 0.15f
         val harmonicContribution = harmonicRichness * 0.05f
         val totalMusicalBonus = complexityContribution + intervalContribution + harmonicContribution
 
         rawScore += complexityContribution  // Up to 10% bonus for complexity
-        rawScore += intervalContribution    // Up to 15% bonus for accurate intervals
+        if (challengeType != ChallengeType.REVERSE) {
+            rawScore += intervalContribution    // Up to 15% bonus for accurate intervals (FORWARD only)
+        }
         rawScore += harmonicContribution    // Up to 5% bonus for rich harmonics
 
         val scoreAfterBonuses = rawScore
@@ -310,13 +336,15 @@ class SingingScoringEngine @Inject constructor(
         Log.d("SINGING_ENGINE", "==========================")
 
         // Build the musical bonuses breakdown
+        // For REVERSE: intervalWeight shows core weight (0.5), intervalContribution is 0 (in base score)
+        // For FORWARD: intervalWeight shows bonus weight (0.15), intervalContribution is the bonus
         val musicalBonusBreakdown = MusicalBonusBreakdown(
             complexityBonus = musicalComplexityBonus,
             complexityWeight = 0.10f,
             complexityContribution = complexityContribution,
 
             intervalAccuracy = intervalAccuracy,
-            intervalWeight = 0.15f,
+            intervalWeight = if (challengeType == ChallengeType.REVERSE) usedIntervalWeight else 0.15f,
             intervalContribution = intervalContribution,
 
             harmonicRichness = harmonicRichness,
@@ -335,8 +363,8 @@ class SingingScoringEngine @Inject constructor(
             pitchSimilarity = pitchSimilarity,
             mfccSimilarity = mfccSimilarity,
 
-            pitchWeight = parameters.pitchWeight,
-            mfccWeight = parameters.mfccWeight,
+            pitchWeight = usedPitchWeight,   // Phase 2.4: Use actual weight (differs for REVERSE)
+            mfccWeight = usedMfccWeight,     // Phase 2.4: Use actual weight (differs for REVERSE)
             baseWeightedScore = baseWeightedScore,
 
             musicalBonuses = musicalBonusBreakdown,
@@ -411,7 +439,7 @@ class SingingScoringEngine @Inject constructor(
             val origPitch = originalPitches[i]
             val attemptPitch = attemptPitches[i]
 
-            if (origPitch > 0f && attemptPitch > 0f) {
+            if (origPitch != 0f && attemptPitch != 0f) {
                 val pitchDifference = abs(origPitch - attemptPitch)
 
                 // Musical: Use tight tolerance and steep decay for accuracy
@@ -819,7 +847,7 @@ class SingingScoringEngine @Inject constructor(
         if (originalMfccs.isEmpty() || attemptMfccs.isEmpty()) return 0f
 
         return dtw(originalMfccs, attemptMfccs) { a, b ->
-            euclideanDistance(a, b) / getCurrentScoringParameters().dtwNormalizationFactor
+            cosineDistance(a, b)  // Already normalized 0-1, no factor needed
         }
     }
 
@@ -841,9 +869,20 @@ class SingingScoringEngine @Inject constructor(
         return normalizedDtw.coerceIn(0f, 1f)
     }
 
-    private fun euclideanDistance(vec1: FloatArray, vec2: FloatArray): Float {
+    private fun cosineDistance(vec1: FloatArray, vec2: FloatArray): Float {
         val minLen = min(vec1.size, vec2.size)
-        return sqrt((0 until minLen).map { (vec1[it] - vec2[it]).let { diff -> diff * diff } }.sum())
+        var dotProduct = 0f
+        var normA = 0f
+        var normB = 0f
+        for (i in 0 until minLen) {
+            dotProduct += vec1[i] * vec2[i]
+            normA += vec1[i] * vec1[i]
+            normB += vec2[i] * vec2[i]
+        }
+        val denominator = sqrt(normA) * sqrt(normB)
+        if (denominator < 1e-6f) return 1f  // Maximum distance if either vector is zero
+        val cosineSimilarity = dotProduct / denominator
+        return 1f - cosineSimilarity.coerceIn(-1f, 1f)  // Convert to distance (0 = identical)
     }
 
     /**

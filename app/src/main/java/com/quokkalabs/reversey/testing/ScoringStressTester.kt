@@ -15,19 +15,33 @@ import java.util.Date
 import java.util.Locale
 import com.quokkalabs.reversey.scoring.Presets
 import com.quokkalabs.reversey.scoring.SpeechScoringModels
+import com.quokkalabs.reversey.scoring.SpeechScoringEngine
+import com.quokkalabs.reversey.scoring.SingingScoringModels
+import com.quokkalabs.reversey.scoring.SingingScoringEngine
 
 /**
  * FULLY SELF-CONTAINED STRESS TESTER
  * -----------------------------------
  * Feature: Automatic Test File Discovery based on asset folder structure.
- * * New Structure (MUST be set up):
+ *
+ * PHASE 2.2 UPDATE:
+ *    ✔ Bypasses VocalScoringOrchestrator routing
+ *    ✔ Forces engine selection based on folder structure (speech/ or singing/)
+ *    ✔ Prevents VocalModeDetector misrouting on synthetic audio (tempo_slow, very_noisy)
+ *
+ * PHASE 2.4 UPDATE:
+ *    ✔ Fixed REVERSE challenge testing - now compares like-for-like
+ *    ✔ Creates reversed baselines programmatically (GLUTE: single source of truth)
+ *    ✔ Routes: fwd→fwdBaseline, rev→revBaseline
+ *
+ * Structure (MUST be set up):
  * assets/bit_audio/
  * ├── baselines/
  * │   ├── baseline_speech.wav
  * │   └── baseline_singing.wav
  * └── test_files/
- * ├── speech/ <-- CONTAINS speech_fwd_clean.wav etc.
- * └── singing/ <-- CONTAINS sing_fwd_clean.wav etc.
+ *     ├── speech/ <-- CONTAINS speech_fwd_clean.wav etc.
+ *     └── singing/ <-- CONTAINS sing_fwd_clean.wav etc.
  */
 
 object ScoringStressTester {
@@ -39,9 +53,6 @@ object ScoringStressTester {
     private const val BASE_ASSET_PATH = "bit_audio"
     private const val TEST_FILES_PATH = "$BASE_ASSET_PATH/test_files"
     private const val BASELINE_PATH = "$BASE_ASSET_PATH/baselines"
-
-    // The hardcoded list is now REMOVED
-    // private val testFilenames = listOf(...)
 
     private val difficulties = listOf(
         DifficultyLevel.EASY,
@@ -206,11 +217,13 @@ object ScoringStressTester {
         }
 
     // -----------------------------------------------------
-    // PUBLIC ENTRY POINT (UPDATED FOR NEW BASELINE LOADING AND LOGGING)
+    // PUBLIC ENTRY POINT (UPDATED: FORCED ENGINE ROUTING)
     // -----------------------------------------------------
     suspend fun runAll(
         context: Context,
         orchestrator: VocalScoringOrchestrator,
+        speechEngine: SpeechScoringEngine,
+        singingEngine: SingingScoringEngine,
         onProgress: (Progress) -> Unit
     ): File = withContext(Dispatchers.IO) {
 
@@ -221,13 +234,31 @@ object ScoringStressTester {
             throw IllegalStateException("No test audio files found. Check asset folder structure.")
         }
 
-        // Load baselines from the BASKETLINES folder
+        // Load baselines from the BASELINES folder
         val speechBaseline = loadBaseline(context, "baseline_speech.wav")
         val singingBaseline = loadBaseline(context, "baseline_singing.wav")
 
         if (speechBaseline == null || singingBaseline == null) {
             throw IllegalStateException("Missing one or both baseline files in $BASELINE_PATH.")
         }
+
+        // PHASE 2.4: Create reversed baselines programmatically
+        // GLUTE: Single source of truth - no duplicate asset files needed
+        val speechBaselineRev = speechBaseline.reversedArray()
+        val singingBaselineRev = singingBaseline.reversedArray()
+        Log.d(TAG, "Baselines loaded: speech=${speechBaseline.size}, singing=${singingBaseline.size}")
+        Log.d(TAG, "Reversed baselines created: speechRev=${speechBaselineRev.size}, singingRev=${singingBaselineRev.size}")
+
+        // PHASE 2.4: Log first/last samples for reversal verification
+        // If reversal is correct: FWD.first == REV.last AND FWD.last == REV.first
+        Log.d(TAG, "=== BASELINE REVERSAL VERIFICATION ===")
+        Log.d(TAG, "Speech FWD: first=${speechBaseline.first()}, last=${speechBaseline.last()}")
+        Log.d(TAG, "Speech REV: first=${speechBaselineRev.first()}, last=${speechBaselineRev.last()}")
+        Log.d(TAG, "Speech reversal OK: ${speechBaseline.first() == speechBaselineRev.last() && speechBaseline.last() == speechBaselineRev.first()}")
+        Log.d(TAG, "Singing FWD: first=${singingBaseline.first()}, last=${singingBaseline.last()}")
+        Log.d(TAG, "Singing REV: first=${singingBaselineRev.first()}, last=${singingBaselineRev.last()}")
+        Log.d(TAG, "Singing reversal OK: ${singingBaseline.first() == singingBaselineRev.last() && singingBaseline.last() == singingBaselineRev.first()}")
+        Log.d(TAG, "=======================================")
 
         val total = cached.size * difficulties.size * PASSES
         var done = 0
@@ -238,7 +269,8 @@ object ScoringStressTester {
         val headerParamsKeys = SpeechScoringModels.easyModeSpeech().getFlattenedParameters().keys.toList()
 
         // 1. Build the CSV Header
-        report.append("file,pass,difficulty,mode,direction,score")
+        // PHASE 2.4: Added baseline tracking columns for confidence verification
+        report.append("file,pass,difficulty,mode,direction,baseline_used,ref_first_sample,ref_last_sample,score")
         for (paramName in headerParamsKeys) {
             report.append(",$paramName")
         }
@@ -248,18 +280,45 @@ object ScoringStressTester {
             for (audio in cached) {
 
                 repeat(PASSES) { pass ->
-                    val reference = if (audio.isSpeech) speechBaseline else singingBaseline
+                    // PHASE 2.4: Select correct baseline based on mode AND direction
+                    // Also track which baseline for CSV confidence verification
+                    val (reference, baselineName) = when {
+                        audio.isSpeech && audio.direction == ChallengeType.FORWARD ->
+                            speechBaseline to "speechBaseline_FWD"
+                        audio.isSpeech && audio.direction == ChallengeType.REVERSE ->
+                            speechBaselineRev to "speechBaseline_REV"
+                        !audio.isSpeech && audio.direction == ChallengeType.FORWARD ->
+                            singingBaseline to "singingBaseline_FWD"
+                        else ->
+                            singingBaselineRev to "singingBaseline_REV"
+                    }
+
+                    // Capture first/last samples for reversal verification
+                    val refFirstSample = reference.firstOrNull() ?: 0f
+                    val refLastSample = reference.lastOrNull() ?: 0f
+
                     val attempt = audio.samples  // Test the variation against baseline
 
-                    // NOTE: The orchestrator will use the difficulty set above, and the scoring
-                    // engine will retrieve the correct preset and attach it to the result.
-                    val result = orchestrator.scoreAttempt(
-                        referenceAudio = reference,
-                        attemptAudio = attempt,
-                        challengeType = audio.direction,
-                        difficulty = difficulty,
-                        sampleRate = audio.sampleRate
-                    )
+                    // BYPASS ORCHESTRATOR: Force engine based on folder structure
+                    // This ensures test files are scored by the intended engine,
+                    // not misrouted by VocalModeDetector analyzing synthetic audio.
+                    val result = if (audio.isSpeech) {
+                        speechEngine.scoreAttempt(
+                            originalAudio = reference,
+                            playerAttempt = attempt,
+                            challengeType = audio.direction,
+                            difficulty = difficulty,
+                            sampleRate = audio.sampleRate
+                        )
+                    } else {
+                        singingEngine.scoreAttempt(
+                            originalAudio = reference,
+                            playerAttempt = attempt,
+                            challengeType = audio.direction,
+                            difficulty = difficulty,
+                            sampleRate = audio.sampleRate
+                        )
+                    }
 
                     done++
 
@@ -276,9 +335,9 @@ object ScoringStressTester {
                     // Extract and flatten the parameters for this specific score
                     val flattenedParams = result.debugPresets?.getFlattenedParameters() ?: emptyMap()
 
-                    // 2. Start the Data Row
+                    // 2. Start the Data Row (PHASE 2.4: added baseline tracking)
                     report.append(
-                        "${audio.name},${pass + 1},${difficulty.displayName},${if (audio.isSpeech) "speech" else "singing"},${audio.direction},${result.score}"
+                        "${audio.name},${pass + 1},${difficulty.displayName},${if (audio.isSpeech) "speech" else "singing"},${audio.direction},$baselineName,$refFirstSample,$refLastSample,${result.score}"
                     )
 
                     // 3. Append all parameter values in the correct order

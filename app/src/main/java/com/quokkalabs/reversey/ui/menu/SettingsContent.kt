@@ -71,6 +71,7 @@ import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.filled.BugReport
 
 @Composable
 fun SettingsContent(
@@ -393,11 +394,106 @@ fun SettingsContent(
                     }
                 }
             }
+            // ========== BIT RUNNER (Synthetic Tests) ==========
+            var bitRunning by remember { mutableStateOf(false) }
+            var bitProgress by remember { mutableStateOf("Ready") }
+            var bitCurrent by remember { mutableStateOf(0) }
+            var bitTotal by remember { mutableStateOf(15) }
+
+            GlassCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !bitRunning) {
+                            if (!bitRunning) {
+                                bitRunning = true
+                                bitProgress = "Starting..."
+                                scope.launch {
+                                    try {
+                                        // Get BITRunner from AudioViewModel
+                                        val bitRunner = audioViewModel.getBITRunner()
+
+                                        val result = bitRunner.runAllTests { current, total ->
+                                            bitCurrent = current
+                                            bitTotal = total
+                                            bitProgress = "Test $current/$total"
+                                        }
+
+                                        result.fold(
+                                            onSuccess = { message ->
+                                                bitProgress = "Complete!"
+                                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                            },
+                                            onFailure = { error ->
+                                                bitProgress = "Failed"
+                                                Toast.makeText(
+                                                    context,
+                                                    "BIT Failed: ${error.message}",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        )
+                                    } catch (e: Exception) {
+                                        bitProgress = "Error"
+                                        Toast.makeText(context, "BIT Error: ${e.message}", Toast.LENGTH_LONG)
+                                            .show()
+                                    } finally {
+                                        bitRunning = false
+                                    }
+                                }
+                            }
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.BugReport,
+                            contentDescription = "BIT",
+                            tint = if (bitRunning) StaticMenuColors.toggleActive else StaticMenuColors.textOnCard
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                if (bitRunning) "Running BIT..." else "Built-In Test (Synthetic)",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = StaticMenuColors.textOnCard
+                            )
+                            Text(
+                                bitProgress,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                            )
+                            if (bitRunning && bitCurrent > 0) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { bitCurrent.toFloat() / bitTotal.toFloat() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = StaticMenuColors.toggleActive,
+                                    trackColor = StaticMenuColors.toggleInactive,
+                                )
+                            }
+                        }
+                    }
+                    if (bitRunning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = StaticMenuColors.toggleActive
+                        )
+                    }
+                }
+            }
         }
         // Bottom spacing
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
+
+
+
+
 // ========== REUSABLE COMPONENTS ==========
 
 @Composable
@@ -495,12 +591,16 @@ fun StressTesterPanel(
 ) {
     val ctx = LocalContext.current
     val orchestrator = audioViewModel.getOrchestrator()
+    val speechEngine = audioViewModel.getSpeechEngine()
+    val singingEngine = audioViewModel.getSingingEngine()
     var localProgress by remember { mutableStateOf(progress) }
 
     LaunchedEffect(Unit) {
         ScoringStressTester.runAll(
             context = ctx,
             orchestrator = orchestrator,
+            speechEngine = speechEngine,
+            singingEngine = singingEngine,
             onProgress = { p -> localProgress = p }
         )
     }

@@ -1,6 +1,7 @@
 package com.quokkalabs.reversey.audio.processing
 
 import org.jtransforms.fft.FloatFFT_1D
+import org.jtransforms.dct.FloatDCT_1D
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -10,6 +11,8 @@ import kotlin.math.ln
 import kotlin.math.sqrt
 import com.quokkalabs.reversey.scoring.GarbageDetectionParameters
 import com.quokkalabs.reversey.scoring.PitchContourAnalysis
+
+
 class AudioProcessor {
 
     fun extractPitchYIN(audioFrame: FloatArray, sampleRate: Int, threshold: Float = 0.15f): Float {
@@ -86,9 +89,9 @@ class AudioProcessor {
         val melEnergies = applyMelFilterbank(powerSpectrum, sampleRate, numFilters)
         val logMelEnergies = melEnergies.map { ln(it.coerceAtLeast(1e-5f)) }.toFloatArray()
 
-        val dct = FloatFFT_1D(numFilters.toLong())
+        val dct = FloatDCT_1D(numFilters.toLong())
         val mfccs = logMelEnergies.copyOf()
-        dct.realForward(mfccs)
+        dct.forward(mfccs, true)  // true = normalize (Type-II DCT)
 
         return mfccs.copyOfRange(1, numCoefficients + 1)
     }

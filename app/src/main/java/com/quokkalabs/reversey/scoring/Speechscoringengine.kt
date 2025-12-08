@@ -205,12 +205,44 @@ class SpeechScoringEngine @Inject constructor(
 
         Log.d("SPEECH_ENGINE", "📊 Speech similarities - Pitch: ${pitchSimilarity}, MFCC: ${mfccSimilarity}")
 
+        // Phase 2.5: Calculate interval accuracy for REVERSE challenges
+        val intervalAccuracy = if (challengeType == ChallengeType.REVERSE) {
+            calculateIntervalAccuracy(originalPitchSequence, attemptPitchSequence)
+        } else {
+            0f  // Not used for FORWARD
+        }
+
         val metrics = SimilarityMetrics(pitchSimilarity, mfccSimilarity)
 
-        // Speech-focused weighted score (emphasises content over pure melody)
-        val baseWeightedScore = (pitchSimilarity * parameters.pitchWeight) + (mfccSimilarity * parameters.mfccWeight)
+        // Phase 2.5: REVERSE uses direction-sensitive formula
+        // Speech pitch is USELESS for direction detection (-0.8% delta in tests)
+        // Interval accuracy is the ONLY reliable signal (+11.1% delta, 66.7% theoretical max)
+        val baseWeightedScore: Float
+        val usedIntervalWeight: Float
+        val usedPitchWeight: Float
+        val usedMfccWeight: Float
+
+        if (challengeType == ChallengeType.REVERSE) {
+            // REVERSE: interval×0.85 + pitch×0.1 + mfcc×0.05
+            usedIntervalWeight = parameters.speechReverseIntervalWeight  // 0.85
+            usedPitchWeight = parameters.speechReversePitchWeight        // 0.10
+            usedMfccWeight = parameters.speechReverseMfccWeight          // 0.05
+            baseWeightedScore = (intervalAccuracy * usedIntervalWeight) +
+                    (pitchSimilarity * usedPitchWeight) +
+                    (mfccSimilarity * usedMfccWeight)
+            Log.d("SPEECH_ENGINE", "🔄 REVERSE scoring: interval×0.85 + pitch×0.1 + mfcc×0.05")
+            Log.d("SPEECH_ENGINE", "📊 Interval: $intervalAccuracy, Pitch: $pitchSimilarity, MFCC: $mfccSimilarity")
+        } else {
+            // FORWARD: pitch×weight + mfcc×weight (validated - unchanged)
+            usedIntervalWeight = 0f
+            usedPitchWeight = parameters.pitchWeight
+            usedMfccWeight = parameters.mfccWeight
+            baseWeightedScore = (pitchSimilarity * usedPitchWeight) + (mfccSimilarity * usedMfccWeight)
+            Log.d("SPEECH_ENGINE", "▶️ FORWARD scoring: pitch×${usedPitchWeight} + mfcc×${usedMfccWeight}")
+        }
+
         var rawScore = baseWeightedScore
-        Log.d("SPEECH_ENGINE", "🎯 Raw weighted score: $rawScore")
+        Log.d("SPEECH_ENGINE", "🎯 Base weighted score: $rawScore")
 
         // --- 1. CONTENT PENALTY LOGIC (With Reverse Handicap) ---
 
@@ -280,6 +312,24 @@ class SpeechScoringEngine @Inject constructor(
         Log.d("SPEECH_ENGINE", "========================")
 
         // Build the calculation breakdown
+        // Phase 2.5: Build musical bonuses for REVERSE (includes interval accuracy)
+        val musicalBonuses = if (challengeType == ChallengeType.REVERSE) {
+            MusicalBonusBreakdown(
+                complexityBonus = 0f,
+                complexityWeight = 0f,  // Speech doesn't use complexity
+                complexityContribution = 0f,
+                intervalAccuracy = intervalAccuracy,
+                intervalWeight = usedIntervalWeight,
+                intervalContribution = intervalAccuracy * usedIntervalWeight,
+                harmonicRichness = 0f,
+                harmonicWeight = 0f,
+                harmonicContribution = 0f,
+                totalMusicalBonus = 0f  // Interval is in core score, not bonus
+            )
+        } else {
+            null
+        }
+
         val breakdown = ScoreCalculationBreakdown(
             scoringEngineType = ScoringEngineType.SPEECH_ENGINE,
             challengeType = challengeType,
@@ -288,11 +338,12 @@ class SpeechScoringEngine @Inject constructor(
             pitchSimilarity = pitchSimilarity,
             mfccSimilarity = mfccSimilarity,
 
-            pitchWeight = parameters.pitchWeight,
-            mfccWeight = parameters.mfccWeight,
+            // Phase 2.5: Use actual weights (different for REVERSE)
+            pitchWeight = usedPitchWeight,
+            mfccWeight = usedMfccWeight,
             baseWeightedScore = baseWeightedScore,
 
-            musicalBonuses = null, // Speech engine has no musical bonuses
+            musicalBonuses = musicalBonuses,
 
             contentThresholdBase = contentParams.contentDetectionBestThreshold,
             reverseHandicap = reverseHandicapValue,
@@ -364,7 +415,7 @@ class SpeechScoringEngine @Inject constructor(
             val origPitch = originalPitches[i]
             val attemptPitch = attemptPitches[i]
 
-            if (origPitch > 0f && attemptPitch > 0f) {
+            if (origPitch != 0f && attemptPitch != 0f) {
                 val pitchDifference = abs(origPitch - attemptPitch)
 
                 // Speech: Use higher tolerance and more gradual decay
@@ -450,6 +501,55 @@ class SpeechScoringEngine @Inject constructor(
         val mean = validPitches.average().toFloat()
         val variance = validPitches.map { (it - mean) * (it - mean) }.average().toFloat()
         return sqrt(variance)
+    }
+
+    /**
+     * Phase 2.5: Calculate interval accuracy for speech REVERSE challenges
+     *
+     * Measures how well the user matched the direction of pitch changes.
+     * This is the ONLY metric that reliably detects speech reversal direction.
+     *
+     * Speech-specific notes:
+     * - Uses wider thresholds than singing (speech pitch is less precise)
+     * - Filters out micro-variations (< 0.1 semitones)
+     * - Focus is on direction (up/down) not magnitude
+     */
+    private fun calculateIntervalAccuracy(
+        originalPitches: List<Float>,
+        attemptPitches: List<Float>
+    ): Float {
+        if (originalPitches.size < 3 || attemptPitches.size < 3) return 0f
+
+        // Extract pitch intervals (differences between adjacent frames)
+        // Filter out micro-variations that are noise, not intentional pitch changes
+        val originalIntervals = originalPitches.zipWithNext { a, b -> b - a }.filter { abs(it) > 0.1f }
+        val attemptIntervals = attemptPitches.zipWithNext { a, b -> b - a }.filter { abs(it) > 0.1f }
+
+        if (originalIntervals.isEmpty() || attemptIntervals.isEmpty()) return 0f
+
+        val minLen = min(originalIntervals.size, attemptIntervals.size)
+        var intervalMatches = 0f
+
+        // Compare intervals with speech-appropriate tolerance
+        for (i in 0 until minLen) {
+            val originalInterval = originalIntervals[i]
+            val attemptInterval = attemptIntervals[i]
+            val intervalDifference = abs(originalInterval - attemptInterval)
+
+            // Use speech-specific thresholds (wider than singing)
+            val match = when {
+                intervalDifference <= musicalParams.sameIntervalThreshold -> musicalParams.sameIntervalScore
+                intervalDifference <= musicalParams.closeIntervalThreshold -> musicalParams.closeIntervalScore
+                intervalDifference <= musicalParams.similarIntervalThreshold -> musicalParams.similarIntervalScore
+                else -> musicalParams.differentIntervalScore
+            }
+
+            intervalMatches += match
+        }
+
+        val accuracy = intervalMatches / minLen
+        Log.d("SPEECH_ENGINE", "📈 Speech interval accuracy: $accuracy")
+        return accuracy
     }
 
     /**
@@ -680,7 +780,7 @@ class SpeechScoringEngine @Inject constructor(
         Log.d("MFCC_DEBUG", "dtwNormalizationFactor=${getCurrentScoringParameters().dtwNormalizationFactor}")
 
         val result = dtw(originalMfccs, attemptMfccs) { a, b ->
-            euclideanDistance(a, b) / getCurrentScoringParameters().dtwNormalizationFactor
+            cosineDistance(a, b)  // Already normalized 0-1, no factor needed
         }
 
         Log.d("MFCC_DEBUG", "Final MFCC similarity: $result")
@@ -708,9 +808,20 @@ class SpeechScoringEngine @Inject constructor(
         return normalizedDtw.coerceIn(0f, 1f)
     }
 
-    private fun euclideanDistance(vec1: FloatArray, vec2: FloatArray): Float {
+    private fun cosineDistance(vec1: FloatArray, vec2: FloatArray): Float {
         val minLen = min(vec1.size, vec2.size)
-        return sqrt((0 until minLen).map { (vec1[it] - vec2[it]).let { diff -> diff * diff } }.sum())
+        var dotProduct = 0f
+        var normA = 0f
+        var normB = 0f
+        for (i in 0 until minLen) {
+            dotProduct += vec1[i] * vec2[i]
+            normA += vec1[i] * vec1[i]
+            normB += vec2[i] * vec2[i]
+        }
+        val denominator = sqrt(normA) * sqrt(normB)
+        if (denominator < 1e-6f) return 1f  // Maximum distance if either vector is zero
+        val cosineSimilarity = dotProduct / denominator
+        return 1f - cosineSimilarity.coerceIn(-1f, 1f)  // Convert to distance (0 = identical)
     }
 
     /**

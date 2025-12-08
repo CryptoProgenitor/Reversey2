@@ -395,10 +395,12 @@ private fun DifficultyBadge(difficulty: DifficultyLevel) {
 
 @Composable
 private fun TagsRow(attempt: PlayerAttempt, colors: ColorScheme, onVocalModeClick: () -> Unit) {
-    val vocalMode = attempt.vocalAnalysis?.mode ?: when (attempt.calculationBreakdown?.scoringEngineType) {
+    // v22.2.0 FIX: Use scoringEngineType (what engine ACTUALLY ran) first,
+    // fall back to attempt's detected mode only if breakdown is missing
+    val vocalMode = when (attempt.calculationBreakdown?.scoringEngineType) {
         ScoringEngineType.SINGING_ENGINE -> VocalMode.SINGING
         ScoringEngineType.SPEECH_ENGINE -> VocalMode.SPEECH
-        else -> null
+        else -> attempt.vocalAnalysis?.mode
     }
     val confidence = attempt.vocalAnalysis?.confidence
 
@@ -477,7 +479,13 @@ private fun RichMetricsGrid(
     colors: ColorScheme,
     onMetricClick: (TooltipType) -> Unit
 ) {
-    val vocalMode = attempt.vocalAnalysis?.mode ?: VocalMode.SPEECH
+    // v22.2.0 FIX: Use scoringEngineType (what engine ACTUALLY ran) first,
+    // fall back to attempt's detected mode only if breakdown is missing
+    val vocalMode = when (attempt.calculationBreakdown?.scoringEngineType) {
+        ScoringEngineType.SINGING_ENGINE -> VocalMode.SINGING
+        ScoringEngineType.SPEECH_ENGINE -> VocalMode.SPEECH
+        else -> attempt.vocalAnalysis?.mode ?: VocalMode.SPEECH
+    }
     val breakdown = attempt.calculationBreakdown
 
     val consistencyRaw = breakdown?.let {
@@ -488,21 +496,69 @@ private fun RichMetricsGrid(
     } ?: 0f
 
     val metrics = if (vocalMode == VocalMode.SINGING) {
+        // Phase 2.4: REVERSE singing promotes Leaps to core metric
+        val isReverse = attempt.challengeType == ChallengeType.REVERSE
         listOf(
-            MetricData(TooltipType.PITCH_MATCH, "Pitch Match", "🎯", attempt.pitchSimilarity, MetricCategory.WEIGHTED, true),
-            MetricData(TooltipType.VOICE_MATCH, "Voice Match", "🗣️", attempt.mfccSimilarity, MetricCategory.WEIGHTED, false),
-            MetricData(TooltipType.LEAPS, "Leaps", "🦘", breakdown?.musicalBonuses?.intervalAccuracy ?: 0f, MetricCategory.BONUS, false),
+            // For REVERSE: Leaps is primary (50%), Pitch secondary (40%), Voice minor (10%)
+            // For FORWARD: Pitch is primary (70%), Voice secondary (30%), Leaps is bonus
+            MetricData(
+                TooltipType.PITCH_MATCH, "Pitch Match", "🎯",
+                attempt.pitchSimilarity,
+                MetricCategory.WEIGHTED,
+                isHighWeight = !isReverse  // Primary for FORWARD, secondary for REVERSE
+            ),
+            MetricData(
+                TooltipType.VOICE_MATCH, "Voice Match", "🗣️",
+                attempt.mfccSimilarity,
+                if (isReverse) MetricCategory.BONUS else MetricCategory.WEIGHTED,  // Demoted for REVERSE
+                isHighWeight = false
+            ),
+            MetricData(
+                TooltipType.LEAPS, "Leaps", "🦘",
+                breakdown?.musicalBonuses?.intervalAccuracy ?: 0f,
+                if (isReverse) MetricCategory.WEIGHTED else MetricCategory.BONUS,  // Promoted for REVERSE
+                isHighWeight = isReverse  // Primary for REVERSE
+            ),
             MetricData(TooltipType.RICHNESS, "Richness", "✨", breakdown?.musicalBonuses?.harmonicRichness ?: 0f, MetricCategory.BONUS, false),
             MetricData(TooltipType.CONTROL, "Control", "🎛️", consistencyRaw, MetricCategory.MULTIPLIER, false),
             MetricData(TooltipType.PRESENCE, "Presence", "🌟", confidenceRaw, MetricCategory.MULTIPLIER, false)
         )
     } else {
-        listOf(
-            MetricData(TooltipType.INTONATION, "Intonation", "🎯", attempt.pitchSimilarity, MetricCategory.WEIGHTED, true),
-            MetricData(TooltipType.PRONUNCIATION, "Diction", "🗣️", attempt.mfccSimilarity, MetricCategory.WEIGHTED, false),
-            MetricData(TooltipType.FLOW, "Flow", "🌊", consistencyRaw, MetricCategory.MULTIPLIER, false),
-            MetricData(TooltipType.CLARITY, "Clarity", "💎", confidenceRaw, MetricCategory.MULTIPLIER, false)
-        )
+        // Phase 2.5: Speech REVERSE adds Inflection card (5 cards total)
+        val isReverseSpeech = attempt.challengeType == ChallengeType.REVERSE
+        if (isReverseSpeech) {
+            listOf(
+                // For REVERSE: Inflection is primary (70%), Intonation secondary (20%), Diction minor (10%)
+                MetricData(
+                    TooltipType.INFLECTION, "Inflection", "📈",
+                    breakdown?.musicalBonuses?.intervalAccuracy ?: 0f,
+                    MetricCategory.WEIGHTED,
+                    isHighWeight = true  // Primary for REVERSE
+                ),
+                MetricData(
+                    TooltipType.INTONATION, "Intonation", "🎯",
+                    attempt.pitchSimilarity,
+                    MetricCategory.WEIGHTED,
+                    isHighWeight = false
+                ),
+                MetricData(
+                    TooltipType.PRONUNCIATION, "Diction", "🗣️",
+                    attempt.mfccSimilarity,
+                    MetricCategory.BONUS,  // Demoted for REVERSE
+                    isHighWeight = false
+                ),
+                MetricData(TooltipType.FLOW, "Flow", "🌊", consistencyRaw, MetricCategory.MULTIPLIER, false),
+                MetricData(TooltipType.CLARITY, "Clarity", "💎", confidenceRaw, MetricCategory.MULTIPLIER, false)
+            )
+        } else {
+            // FORWARD: Original 4 cards
+            listOf(
+                MetricData(TooltipType.INTONATION, "Intonation", "🎯", attempt.pitchSimilarity, MetricCategory.WEIGHTED, true),
+                MetricData(TooltipType.PRONUNCIATION, "Diction", "🗣️", attempt.mfccSimilarity, MetricCategory.WEIGHTED, false),
+                MetricData(TooltipType.FLOW, "Flow", "🌊", consistencyRaw, MetricCategory.MULTIPLIER, false),
+                MetricData(TooltipType.CLARITY, "Clarity", "💎", confidenceRaw, MetricCategory.MULTIPLIER, false)
+            )
+        }
     }
 
     val themeAccent = aesthetic.cardBorder
@@ -520,7 +576,12 @@ private fun RichMetricsGrid(
         if (metrics.size > 4) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MetricCell(metric = metrics[4], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[4].type) }, modifier = Modifier.weight(1f))
-                MetricCell(metric = metrics[5], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[5].type) }, modifier = Modifier.weight(1f))
+                // Handle odd number of cards (5 cards = add spacer, 6 cards = show 6th card)
+                if (metrics.size > 5) {
+                    MetricCell(metric = metrics[5], breakdown = breakdown, aesthetic = aesthetic, themeAccent = themeAccent, themeSurface = themeSurface, onClick = { onMetricClick(metrics[5].type) }, modifier = Modifier.weight(1f))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
     }
@@ -530,13 +591,34 @@ private fun RichMetricsGrid(
  * Derives weight description from ScoreCalculationBreakdown - SINGLE SOURCE OF TRUTH
  */
 private fun getWeightDescription(metric: MetricData, breakdown: ScoreCalculationBreakdown?): String {
+    // Phase 2.4: REVERSE singing has different weight structure
+    val isReverseSinging = breakdown?.challengeType == ChallengeType.REVERSE &&
+            breakdown?.scoringEngineType == ScoringEngineType.SINGING_ENGINE
+    // Phase 2.5: REVERSE speech has different weight structure
+    val isReverseSpeech = breakdown?.challengeType == ChallengeType.REVERSE &&
+            breakdown?.scoringEngineType == ScoringEngineType.SPEECH_ENGINE
+    val isReverse = isReverseSinging || isReverseSpeech
+
     return when (metric.type) {
         TooltipType.PITCH_MATCH, TooltipType.INTONATION ->
             breakdown?.pitchWeight?.let { "${(it * 100).toInt()}% weighting" } ?: "primary metric"
         TooltipType.VOICE_MATCH, TooltipType.PRONUNCIATION ->
-            breakdown?.mfccWeight?.let { "${(it * 100).toInt()}% weighting" } ?: "secondary metric"
+            // REVERSE: MFCC is demoted to minor role (10%)
+            if (isReverse) {
+                breakdown?.mfccWeight?.let { "up to +${(it * 100).toInt()}% bonus" } ?: "bonus"
+            } else {
+                breakdown?.mfccWeight?.let { "${(it * 100).toInt()}% weighting" } ?: "secondary metric"
+            }
         TooltipType.LEAPS ->
-            breakdown?.musicalBonuses?.intervalWeight?.let { "up to +${(it * 100).toInt()}% bonus" } ?: "bonus"
+            // REVERSE singing: interval is core metric (50%), not bonus
+            if (isReverseSinging) {
+                breakdown?.musicalBonuses?.intervalWeight?.let { "${(it * 100).toInt()}% weighting" } ?: "core metric"
+            } else {
+                breakdown?.musicalBonuses?.intervalWeight?.let { "up to +${(it * 100).toInt()}% bonus" } ?: "bonus"
+            }
+        TooltipType.INFLECTION ->
+            // REVERSE speech: interval is core metric (70%)
+            breakdown?.musicalBonuses?.intervalWeight?.let { "${(it * 100).toInt()}% weighting" } ?: "core metric"
         TooltipType.RICHNESS ->
             breakdown?.musicalBonuses?.harmonicWeight?.let { "up to +${(it * 100).toInt()}% bonus" } ?: "bonus"
         TooltipType.CONTROL, TooltipType.FLOW ->
@@ -656,6 +738,7 @@ private fun TipsSection(attempt: PlayerAttempt, aesthetic: AestheticThemeData) {
 enum class TooltipType {
     PITCH_MATCH, VOICE_MATCH, RANGE, LEAPS, RICHNESS, CONTROL, PRESENCE,
     INTONATION, PRONUNCIATION, FLOW, CLARITY,
+    INFLECTION,  // Phase 2.5: Speech interval accuracy for REVERSE
     SINGING_MODE, SPEECH_MODE, SCORE_BREAKDOWN
 }
 
@@ -717,6 +800,7 @@ private fun getTooltipData(type: TooltipType, breakdown: ScoreCalculationBreakdo
         TooltipType.PRONUNCIATION -> TooltipContent("🗣️", "Pronunciation", "How accurately you pronounced the words.", "Technical: mfccSimilarity (MFCC cosine distance)")
         TooltipType.FLOW -> TooltipContent("🌊", "Flow", "Smoothness and natural rhythm.", "Technical: consistency (pitch/voice balance)")
         TooltipType.CLARITY -> TooltipContent("💎", "Clarity", "How clear and projected your voice was.", "Technical: confidence (RMS-based vocal strength)")
+        TooltipType.INFLECTION -> TooltipContent("📈", "Inflection", "Pattern recognition - how well you matched the direction of speech rises and falls. Essential for reverse challenges.", "Technical: intervalAccuracy (pitch direction changes)")
         TooltipType.SINGING_MODE -> {
             val description = if (pitchPct != null && mfccPct != null)
                 "Detected melodic content with sustained pitches. Scoring emphasizes pitch accuracy ($pitchPct%) over voice timbre ($mfccPct%)."

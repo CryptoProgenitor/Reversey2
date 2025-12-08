@@ -1,33 +1,40 @@
 package com.quokkalabs.reversey.scoring
 
 /**
- * 🎤 SPEECH SCORING MODELS — FULLY COMMENTED
+ * 🎤 SPEECH SCORING MODELS — PHASE 2.5 CALIBRATION
+ *
+ * Recalibrated for DCT + Cosine Distance (v23.0.0)
  *
  * This file defines how ReVerseY evaluates SPEECH (spoken, not sung)
  * across the three supported difficulty levels:
  *
- *   • EASY   – friendly, highly forgiving, great for beginners
- *   • NORMAL – realistic spoken accuracy expectations
- *   • HARD   – demanding but still speech-appropriate
+ *   • EASY   — friendly, highly forgiving, great for beginners
+ *   • NORMAL — realistic spoken accuracy expectations
+ *   • HARD   — demanding but still speech-appropriate
  *
  * Speech scoring is fundamentally different from singing scoring:
  *
  * SINGING cares about:
- *    ✓ pitch accuracy
- *    ✓ melodic intervals
- *    ✓ musical phrasing
+ *    ✔ pitch accuracy
+ *    ✔ melodic intervals
+ *    ✔ musical phrasing
  *
  * SPEECH cares about:
- *    ✓ syllable correctness
- *    ✓ spectral match with reference (MFCCs)
- *    ✓ natural variation (not monotone robot voice)
- *    ✓ timing/phrasing
+ *    ✔ syllable correctness
+ *    ✔ spectral match with reference (MFCCs)
+ *    ✔ natural variation (not monotone robot voice)
+ *    ✔ timing/phrasing
  *
- * Pitch still matters (speech has pitch contours),
- * but MFCC/timbre is **far more important**.
+ * PHASE 2 CHANGES:
+ *    ✔ Fixed weight progression bug (was 0.65→0.85→0.75, now 0.65→0.75→0.85)
+ *    ✔ All thresholds raised to account for improved MFCC signal
+ *    ✔ dtwNormalizationFactor now defaults to 1.0 in ScoringCommonModels
  *
- * These presets work with the same “Presets” structure as singing,
- * but their values are tuned for speech-appropriate behaviour.
+ * PHASE 2.5 CHANGES (Speech REVERSE direction sensitivity):
+ *    ✔ Added interval accuracy calculation for REVERSE challenges
+ *    ✔ REVERSE uses 70/20/10 (interval/pitch/mfcc) - pitch is useless for speech direction
+ *    ✔ Added speech-specific interval thresholds (wider than singing)
+ *    ✔ FORWARD unchanged (validated)
  */
 object SpeechScoringModels {
 
@@ -49,18 +56,22 @@ object SpeechScoringModels {
                 pitchWeight = 0.65f,
                 mfccWeight = 0.35f,
                 pitchTolerance = 50f,
-                minScoreThreshold = 0.08f,
-                perfectScoreThreshold = 0.75f,
-                reverseMinScoreThreshold = 0.06f,
-                reversePerfectScoreThreshold = 0.68f,
-                scoreCurve = 3.0f
+                minScoreThreshold = 0.10f,             // ← Was 0.08f (+25%)
+                perfectScoreThreshold = 0.79f,         // ← Was 0.75f (+5%)
+                reverseMinScoreThreshold = 0.07f,      // ← Was 0.06f (+17%)
+                reversePerfectScoreThreshold = 0.71f,  // ← Was 0.68f (+5%)
+                scoreCurve = 3.0f,
+                // Phase 2.5: EXPLICIT speech reverse weights (GLUTE compliance)
+                // 85/10/5 - interval is ONLY direction signal
+                speechReverseIntervalWeight = 0.85f,
+                speechReversePitchWeight = 0.10f,
+                speechReverseMfccWeight = 0.05f
             ),
 
             content = ContentDetectionParameters(
-                // 🟢 EASY CALIBRATION: Very lenient. Allows easy passing.
-                contentDetectionBestThreshold = 0.65f,  // ⬆️ Adjusted from 0.20f for stability
-                contentDetectionAvgThreshold = 0.35f,
-                reverseHandicap = 0.20f, // ⬆️ Max Help: 0.65 - 0.20 = 0.45 (Very Safe)
+                contentDetectionBestThreshold = 0.68f,  // ← Was 0.65f (+5%)
+                contentDetectionAvgThreshold = 0.37f,   // ← Was 0.35f (+5%)
+                reverseHandicap = 0.20f,
                 rightContentFlatPenalty = 0.05f,
                 rightContentDifferentMelodyPenalty = 0.02f,
                 wrongContentStandardPenalty = 0.35f
@@ -79,7 +90,12 @@ object SpeechScoringModels {
                 sameIntervalScore = 0.8f,
                 closeIntervalScore = 0.7f,
                 emptyPhrasesPenalty = 0.10f,
-                emptyRhythmPenalty = 0.05f
+                emptyRhythmPenalty = 0.05f,
+                // Phase 2.5: Speech-specific thresholds (wider than singing)
+                // DeepSeek/Gemini review: widened for speech variability
+                sameIntervalThreshold = 2.0f,      // Was 1.0f
+                closeIntervalThreshold = 5.0f,     // Was 3.0f
+                similarIntervalThreshold = 10.0f   // Was 6.0f
             ),
 
             audio = AudioProcessingParameters(),
@@ -92,7 +108,7 @@ object SpeechScoringModels {
 
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.10f,
+                mfccVarianceThreshold = 0.12f,  // ← Was 0.10f (+20%)
                 pitchMonotoneThreshold = 3f,
                 pitchOscillationRate = 1.0f,
                 spectralEntropyThreshold = 0.25f,
@@ -105,28 +121,32 @@ object SpeechScoringModels {
     }
 
     // -------------------------------------------------------------------------
-    // 🎤 NORMAL MODE — Balanced and realistic (LOCKED)
+    // 🎤 NORMAL MODE — Balanced and realistic
     // -------------------------------------------------------------------------
     fun normalModeSpeech(): Presets {
         return Presets(
             difficulty = DifficultyLevel.NORMAL,
 
             scoring = ScoringParameters(
-                pitchWeight = 0.85f,
-                mfccWeight = 0.15f,
+                pitchWeight = 0.75f,                   // ← Was 0.85f (FIXED: progression bug)
+                mfccWeight = 0.25f,                    // ← Was 0.15f (FIXED: progression bug)
                 pitchTolerance = 40f,
-                minScoreThreshold = 0.12f,
-                perfectScoreThreshold = 0.80f,
-                reverseMinScoreThreshold = 0.10f,
-                reversePerfectScoreThreshold = 0.77f,
+                minScoreThreshold = 0.15f,             // ← Was 0.12f (+25%)
+                perfectScoreThreshold = 0.84f,         // ← Was 0.80f (+5%)
+                reverseMinScoreThreshold = 0.12f,      // ← Was 0.10f (+20%)
+                reversePerfectScoreThreshold = 0.81f,  // ← Was 0.77f (+5%)
                 scoreCurve = 3.2f,
+                // Phase 2.5: EXPLICIT speech reverse weights (GLUTE compliance)
+                // 85/10/5 - interval is ONLY direction signal
+                speechReverseIntervalWeight = 0.85f,
+                speechReversePitchWeight = 0.10f,
+                speechReverseMfccWeight = 0.05f
             ),
 
             content = ContentDetectionParameters(
-                // 🎯 BASELINE: 0.80 is the standard trap door.
-                contentDetectionBestThreshold = 0.80f,
-                contentDetectionAvgThreshold = 0.45f,
-                reverseHandicap = 0.15f, // 🎯 Standard Help: 0.80 - 0.15 = 0.65
+                contentDetectionBestThreshold = 0.84f,  // ← Was 0.80f (+5%)
+                contentDetectionAvgThreshold = 0.47f,   // ← Was 0.45f (+5%)
+                reverseHandicap = 0.15f,
                 rightContentFlatPenalty = 0.08f,
                 rightContentDifferentMelodyPenalty = 0.04f,
                 wrongContentStandardPenalty = 0.20f
@@ -145,7 +165,12 @@ object SpeechScoringModels {
                 sameIntervalScore = 0.85f,
                 closeIntervalScore = 0.75f,
                 emptyPhrasesPenalty = 0.15f,
-                emptyRhythmPenalty = 0.10f
+                emptyRhythmPenalty = 0.10f,
+                // Phase 2.5: Speech-specific thresholds (wider than singing)
+                // DeepSeek/Gemini review: widened for speech variability
+                sameIntervalThreshold = 2.0f,
+                closeIntervalThreshold = 5.0f,
+                similarIntervalThreshold = 10.0f
             ),
 
             audio = AudioProcessingParameters(),
@@ -158,7 +183,7 @@ object SpeechScoringModels {
 
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.25f,
+                mfccVarianceThreshold = 0.30f,  // ← Was 0.25f (+20%)
                 pitchMonotoneThreshold = 8f,
                 pitchOscillationRate = 0.7f,
                 spectralEntropyThreshold = 0.45f,
@@ -178,21 +203,25 @@ object SpeechScoringModels {
             difficulty = DifficultyLevel.HARD,
 
             scoring = ScoringParameters(
-                pitchWeight = 0.75f,
-                mfccWeight = 0.25f,
+                pitchWeight = 0.85f,                   // ← Was 0.75f (FIXED: progression bug)
+                mfccWeight = 0.15f,                    // ← Was 0.25f (FIXED: progression bug)
                 pitchTolerance = 30f,
-                minScoreThreshold = 0.18f,
-                perfectScoreThreshold = 0.80f,
-                reverseMinScoreThreshold = 0.14f,
-                reversePerfectScoreThreshold = 0.72f,
-                scoreCurve = 2.3f
+                minScoreThreshold = 0.22f,             // ← Was 0.18f (+25%)
+                perfectScoreThreshold = 0.84f,         // ← Was 0.80f (+5%)
+                reverseMinScoreThreshold = 0.18f,      // ← Was 0.14f (+29%)
+                reversePerfectScoreThreshold = 0.76f,  // ← Was 0.72f (+5%)
+                scoreCurve = 2.3f,
+                // Phase 2.5: EXPLICIT speech reverse weights (GLUTE compliance)
+                // 85/10/5 - interval is ONLY direction signal
+                speechReverseIntervalWeight = 0.85f,
+                speechReversePitchWeight = 0.10f,
+                speechReverseMfccWeight = 0.05f
             ),
 
             content = ContentDetectionParameters(
-                // 🚨 FIX: Must be higher than Normal's 0.80
-                contentDetectionBestThreshold = 0.88f, // ⬆️ Set to 0.88 for high demand
-                contentDetectionAvgThreshold = 0.50f,
-                reverseHandicap = 0.10f, // Minimal Help: 0.88 - 0.10 = 0.78
+                contentDetectionBestThreshold = 0.92f,  // ← Was 0.88f (+5%)
+                contentDetectionAvgThreshold = 0.53f,   // ← Was 0.50f (+5%)
+                reverseHandicap = 0.10f,
                 rightContentFlatPenalty = 0.15f,
                 rightContentDifferentMelodyPenalty = 0.08f,
                 wrongContentStandardPenalty = 0.65f
@@ -211,7 +240,12 @@ object SpeechScoringModels {
                 sameIntervalScore = 0.90f,
                 closeIntervalScore = 0.80f,
                 emptyPhrasesPenalty = 0.20f,
-                emptyRhythmPenalty = 0.15f
+                emptyRhythmPenalty = 0.15f,
+                // Phase 2.5: Speech-specific thresholds (wider than singing)
+                // DeepSeek/Gemini review: widened for speech variability
+                sameIntervalThreshold = 2.0f,
+                closeIntervalThreshold = 5.0f,
+                similarIntervalThreshold = 10.0f
             ),
 
             audio = AudioProcessingParameters(),
@@ -224,7 +258,7 @@ object SpeechScoringModels {
 
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.35f,
+                mfccVarianceThreshold = 0.42f,  // ← Was 0.35f (+20%)
                 pitchMonotoneThreshold = 10f,
                 pitchOscillationRate = 0.6f,
                 spectralEntropyThreshold = 0.55f,
@@ -247,8 +281,7 @@ object SpeechScoringModels {
         )
     }
 
-    //helper function This allows the orchestrator to call:
-    //SpeechScoringModels.presetFor(difficulty)
+    // Helper function: allows orchestrator to call SpeechScoringModels.presetFor(difficulty)
     fun presetFor(level: DifficultyLevel): Presets {
         return when (level) {
             DifficultyLevel.EASY -> easyModeSpeech()

@@ -1,9 +1,11 @@
 package com.quokkalabs.reversey.scoring
 
 /**
- * 🎵 SINGING SCORING MODELS — FULLY COMMENTED
+ * 🎵 SINGING SCORING MODELS — PHASE 2.2 CALIBRATION
  *
- * This file defines the scoring behaviour when the user is SINGING.
+ * Recalibrated for DCT + Cosine Distance (v23.0.0)
+ * Hard Mode pitch fix (v23.0.1) — Ed subjective calibration
+ * Hard Mode Round 2 loosening (v23.0.2) — Linear gradient preservation
  *
  * ReVerseY evaluates singing using a large set of parameters grouped into:
  *
@@ -23,21 +25,34 @@ package com.quokkalabs.reversey.scoring
  * And more forgiving about:
  * - minor phonetic errors when melody is correct
  *
- * This file implements ONLY the 3 supported difficulty levels:
- * EASY, NORMAL, HARD
+ * PHASE 2 CHANGES:
+ *    ✔ minScoreThreshold raised +15% (floor raised for better MFCC signal)
+ *    ✔ perfectScoreThreshold raised +3% (capped near 1.0)
+ *    ✔ contentDetectionBestThreshold raised +5%
+ *    ✔ contentDetectionAvgThreshold raised +5%
+ *    ✔ mfccVarianceThreshold raised +20% (garbage detection recalibration)
+ *    ✔ dtwNormalizationFactor now defaults to 1.0 in ScoringCommonModels
  *
- * EXPERT and MASTER modes have been intentionally removed.
- */
-
-
-/**
- * 🎵 SINGING SCORING MODELS — RE-CALIBRATED
+ * PHASE 2.1 CHANGES (Hard Mode Pitch Fix):
+ *    ✔ Hard pitchWeight 0.95→0.88 (less pitch dominance)
+ *    ✔ Hard mfccWeight 0.05→0.12 (more MFCC contribution)
+ *    ✔ Hard pitchTolerance 12→18 (less brutal on pitch shifts)
+ *    ✔ Hard scoreCurve 0.25→0.5 (square curve, not 4th power)
  *
- * Calibrated Nov 2025 for "No Nonsense" Scoring.
+ * PHASE 2.2 CHANGES (Hard Mode Round 2 Loosening):
+ *    ✔ Hard pitchTolerance 18→22 (more pitch forgiveness)
+ *    ✔ Hard scoreCurve 0.5→0.65 (gentler curve, preserves E>N>H gradient)
  *
- * • EASY:   Forgiving (Curve 1.8). "Feel Good" mode.
- * • NORMAL: Linear (Curve 1.0). "Reality Check" mode.
- * • HARD:   Punishing (Curve 0.25). "Sniper" mode.
+ * PHASE 2.3 CHANGES (70/30 Weighting — "Singing is singing"):
+ *    ✔ All difficulties: pitchWeight 0.90→0.70 (pitch still dominant)
+ *    ✔ All difficulties: mfccWeight 0.10→0.30 (words/rhythm matter too)
+ *    ✔ Philosophy: Amateurs shouldn't be murdered for being off-key
+ *
+ * PHASE 2.4 CHANGES (REVERSE Direction Sensitivity):
+ *    ✔ REVERSE challenges use different formula: interval×0.5 + pitch×0.4 + mfcc×0.1
+ *    ✔ Interval accuracy promoted from bonus to core metric for REVERSE
+ *    ✔ MFCC demoted (not direction-sensitive - same voice = same spectral fingerprint)
+ *    ✔ FORWARD scoring unchanged (validated in Phase 2.3)
  */
 object SingingScoringModels {
 
@@ -49,23 +64,21 @@ object SingingScoringModels {
             difficulty = DifficultyLevel.EASY,
 
             scoring = ScoringParameters(
-                pitchWeight = 0.90f,
-                mfccWeight = 0.10f,
-                pitchTolerance = 25f,          // Loose tolerance
-                minScoreThreshold = 0.15f,
-                perfectScoreThreshold = 0.92f, // Lower bar for perfection
-                scoreCurve = 1.8f              // 🚀 Inflation Curve (B becomes A+)
+                pitchWeight = 0.70f,
+                mfccWeight = 0.30f,
+                pitchTolerance = 25f,
+                minScoreThreshold = 0.17f,             // ← Was 0.15f (+15%)
+                perfectScoreThreshold = 0.95f,         // ← Was 0.92f (+3%)
+                scoreCurve = 1.8f
             ),
 
             content = ContentDetectionParameters(
-                // Trap Door 0.70: Safe for almost everyone, but stops humming.
-                contentDetectionBestThreshold = 0.70f,
-                contentDetectionAvgThreshold = 0.50f,
-                reverseHandicap = 0.20f, // 🟢 EASY: Huge help (-20%)
-
+                contentDetectionBestThreshold = 0.73f, // ← Was 0.70f (+5%)
+                contentDetectionAvgThreshold = 0.53f,  // ← Was 0.50f (+5%)
+                reverseHandicap = 0.20f,
                 rightContentFlatPenalty = 0.20f,
                 rightContentDifferentMelodyPenalty = 0.10f,
-                wrongContentStandardPenalty = 0.20f // Still crushes humming to 0
+                wrongContentStandardPenalty = 0.20f
             ),
 
             melodic = MelodicAnalysisParameters(
@@ -91,7 +104,7 @@ object SingingScoringModels {
 
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.35f,
+                mfccVarianceThreshold = 0.42f,         // ← Was 0.35f (+20%)
                 pitchMonotoneThreshold = 12f,
                 spectralEntropyThreshold = 0.6f,
                 garbageScoreMax = 15
@@ -107,23 +120,21 @@ object SingingScoringModels {
             difficulty = DifficultyLevel.NORMAL,
 
             scoring = ScoringParameters(
-                pitchWeight = 0.90f,
-                mfccWeight = 0.10f,
-                pitchTolerance = 20f,          // Standard precision
-                minScoreThreshold = 0.22f,
-                perfectScoreThreshold = 0.98f, // ⬆️ Raised: Must be nearly perfect for 100
-                scoreCurve = 1.0f              // 📏 Linear: What you get is what you score
+                pitchWeight = 0.70f,
+                mfccWeight = 0.30f,
+                pitchTolerance = 20f,
+                minScoreThreshold = 0.25f,             // ← Was 0.22f (+15%)
+                perfectScoreThreshold = 0.99f,         // ← Was 0.98f (+1%, capped)
+                scoreCurve = 1.0f
             ),
 
             content = ContentDetectionParameters(
-                // Catches humming (<0.60) but allows accents/gender diffs (0.78+).
-                contentDetectionBestThreshold = 0.75f,
-                contentDetectionAvgThreshold = 0.55f,
-                reverseHandicap = 0.15f, // 🎯 NORMAL: Validated Standard (-15%)
-
+                contentDetectionBestThreshold = 0.79f, // ← Was 0.75f (+5%)
+                contentDetectionAvgThreshold = 0.58f,  // ← Was 0.55f (+5%)
+                reverseHandicap = 0.15f,
                 rightContentFlatPenalty = 0.30f,
                 rightContentDifferentMelodyPenalty = 0.20f,
-                wrongContentStandardPenalty = 0.20f // The Crusher (Trap Door)
+                wrongContentStandardPenalty = 0.20f
             ),
 
             melodic = MelodicAnalysisParameters(
@@ -149,7 +160,7 @@ object SingingScoringModels {
 
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.45f,
+                mfccVarianceThreshold = 0.54f,         // ← Was 0.45f (+20%)
                 pitchMonotoneThreshold = 15f,
                 spectralEntropyThreshold = 0.70f,
                 garbageScoreMax = 12
@@ -158,31 +169,28 @@ object SingingScoringModels {
     }
 
     // -------------------------------------------------------------------------
-    // 🎵 HARD MODE — The Punisher (Nuclear Winter)
+    // 🎵 HARD MODE — The Punisher (Recalibrated Round 2)
     // -------------------------------------------------------------------------
     fun hardModeSinging(): Presets {
         return Presets(
             difficulty = DifficultyLevel.HARD,
 
             scoring = ScoringParameters(
-                pitchWeight = 0.95f,           // Melody is everything
-                mfccWeight = 0.05f,
-                pitchTolerance = 12f,          // 🎯 Sniper tolerance (12 cents)
-                minScoreThreshold = 0.30f,
-                perfectScoreThreshold = 0.99f, // Perfection required
-                scoreCurve = 0.25f             // 📉 Nuclear Curve: Crushes anything < 90%
+                pitchWeight = 0.70f,
+                mfccWeight = 0.30f,                    // ← Was 0.05f (more MFCC contribution)
+                pitchTolerance = 22f,                  // ← Was 18f → 22f (Round 2 loosening)
+                minScoreThreshold = 0.35f,             // ← Was 0.30f (+15%)
+                perfectScoreThreshold = 0.99f,         // ← Was 0.99f (already max)
+                scoreCurve = 0.65f                     // ← Was 0.5f → 0.65f (gentler curve)
             ),
 
             content = ContentDetectionParameters(
-                // 0.78 is the "Sniper" threshold.
-                // Requires clear articulation and close pitch match.
-                contentDetectionBestThreshold = 0.78f,
-                contentDetectionAvgThreshold = 0.60f,
-                reverseHandicap = 0.08f, // 🔥 HARD: Minimal help (-8%)
-
+                contentDetectionBestThreshold = 0.82f, // ← Was 0.78f (+5%)
+                contentDetectionAvgThreshold = 0.63f,  // ← Was 0.60f (+5%)
+                reverseHandicap = 0.08f,
                 rightContentFlatPenalty = 0.40f,
                 rightContentDifferentMelodyPenalty = 0.25f,
-                wrongContentStandardPenalty = 0.10f // Absolute annihilation (0.1x)
+                wrongContentStandardPenalty = 0.10f
             ),
 
             melodic = MelodicAnalysisParameters(
@@ -208,7 +216,7 @@ object SingingScoringModels {
 
             garbage = GarbageDetectionParameters(
                 enableGarbageDetection = true,
-                mfccVarianceThreshold = 0.50f,
+                mfccVarianceThreshold = 0.60f,         // ← Was 0.50f (+20%)
                 pitchMonotoneThreshold = 18f,
                 spectralEntropyThreshold = 0.75f,
                 garbageScoreMax = 5

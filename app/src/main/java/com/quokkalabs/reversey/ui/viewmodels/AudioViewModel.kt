@@ -47,6 +47,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+import com.quokkalabs.reversey.testing.BITRunner
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -84,7 +85,8 @@ class AudioViewModel @Inject constructor(
     private val speechScoringEngine: SpeechScoringEngine,
     private val singingScoringEngine: SingingScoringEngine,
     private val vocalScoringOrchestrator: VocalScoringOrchestrator,
-    private val scoreAcquisitionDataConcentrator: ScoreAcquisitionDataConcentrator
+    private val scoreAcquisitionDataConcentrator: ScoreAcquisitionDataConcentrator,
+    private val bitRunner: com.quokkalabs.reversey.testing.BITRunner
 ) : AndroidViewModel(application) {
 
     // 🎯 RE-INTRODUCED: Mutex for strict serialization of I/O operations
@@ -92,6 +94,18 @@ class AudioViewModel @Inject constructor(
 
     fun getOrchestrator(): VocalScoringOrchestrator {
         return vocalScoringOrchestrator
+    }
+
+    fun getSpeechEngine(): SpeechScoringEngine {
+        return speechScoringEngine
+    }
+
+    fun getSingingEngine(): SingingScoringEngine {
+        return singingScoringEngine
+    }
+
+    fun getBITRunner(): com.quokkalabs.reversey.testing.BITRunner {
+        return bitRunner
     }
 
     init {

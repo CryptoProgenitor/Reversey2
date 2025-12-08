@@ -52,14 +52,27 @@ enum class DifficultyLevel(
  * All the fields Gemini listed as missing live here.
  */
 data class ScoringParameters(
-    // --- Weights ---
+    // --- Weights (FORWARD) ---
     var pitchWeight: Float = 0.85f,      // pitch similarity weight
     var mfccWeight: Float = 0.15f,       // timbre/content weight
+
+    // --- Weights (REVERSE SINGING) --- Phase 2.4: Direction-sensitive scoring
+    // SINGING REVERSE: interval×0.5 + pitch×0.4 + mfcc×0.1
+    var reverseIntervalWeight: Float = 0.50f,  // interval accuracy (direction-sensitive)
+    var reversePitchWeight: Float = 0.40f,     // pitch similarity (weakly direction-sensitive)
+    var reverseMfccWeight: Float = 0.10f,      // voice matching (NOT direction-sensitive)
+
+    // --- Weights (REVERSE SPEECH) --- Phase 2.5: Speech direction-sensitive scoring
+    // SPEECH REVERSE: interval×0.85 + pitch×0.1 + mfcc×0.05
+    // Speech pitch is USELESS for direction (-0.8% delta), interval is ONLY signal
+    var speechReverseIntervalWeight: Float = 0.85f,  // interval accuracy (ONLY reliable signal)
+    var speechReversePitchWeight: Float = 0.10f,     // pitch (actively misleading for speech)
+    var speechReverseMfccWeight: Float = 0.05f,      // voice matching (minimal)
 
     // --- Pitch analysis / DTW ---
     var pitchTolerance: Float = 15f,           // cents / semitone-ish tolerance
     var variancePenalty: Float = 0.5f,         // factor for variance-based penalties
-    var dtwNormalizationFactor: Float = 35f,   // normalises DTW cost
+    var dtwNormalizationFactor: Float = 1.0f,   // DEPRECATED: cosine distance is self-normalizing
 
     // --- Silence detection for attempts ---
     var silenceThreshold: Float = 0.01f,
