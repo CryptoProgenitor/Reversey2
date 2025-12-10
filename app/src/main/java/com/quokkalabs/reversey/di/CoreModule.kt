@@ -40,6 +40,7 @@ object CoreModule {
     @Singleton
     fun provideVocalModeRouter(): VocalModeRouter = VocalModeRouter()
 
+    // 🎤 PHASE 3: Removed SpeechRecognitionService - live transcription handled upstream
     @Provides
     @Singleton
     fun provideSpeechScoringEngine(

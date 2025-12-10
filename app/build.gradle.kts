@@ -95,4 +95,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // VOSS speech recognition
+    implementation("com.alphacephei:vosk-android:0.3.47")
 }

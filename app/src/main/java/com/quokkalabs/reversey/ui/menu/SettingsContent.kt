@@ -72,6 +72,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.filled.BugReport
+import com.quokkalabs.reversey.asr.DualMicTest
+import com.quokkalabs.reversey.asr.VoskTranscriptionHelper
+import java.io.File
 
 @Composable
 fun SettingsContent(
@@ -254,6 +257,50 @@ fun SettingsContent(
         // ========== DEVELOPER OPTIONS SECTION ==========
         if (BuildConfig.DEBUG) {
             SectionTitle("DEVELOPER OPTIONS")
+
+        //START==========hacky test buttons!============
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+
+            // Create helper directly for testing
+            val voskHelper = remember { VoskTranscriptionHelper(context) }
+
+            Button(onClick = { DualMicTest(context).runSpeechOnlyTest() }) {
+                Text("Run Dual Mic Test")
+            }
+
+            // Button 1: Init (do once)
+            Button(onClick = {
+                scope.launch {
+                    Log.d("TEST", "Vosk init: ${voskHelper.initialize()}")
+                }
+            }) { Text("Init Vosk") }
+
+// Button 2: Transcribe last recording
+            Button(onClick = {
+                scope.launch {
+                    if (!voskHelper.isReady()) {
+                        Log.d("TEST", "Initializing Vosk first...")
+                        voskHelper.initialize()
+                    }
+
+                    // Find the most recent FORWARD recording (not reversed)
+                    val recordingsDir = File(context.filesDir, "recordings")
+                    val latestFile = recordingsDir.listFiles()
+                        ?.filter { it.extension == "wav" && !it.name.contains("reversed") }
+                        ?.maxByOrNull { it.lastModified() }
+
+                    if (latestFile != null) {
+                        Log.d("TEST", "Testing with: ${latestFile.name}")
+                        val result = voskHelper.transcribeFile(latestFile)
+                        Log.d("TEST", "Vosk: '${result.text}' (${result.status})")
+                    } else {
+                        Log.d("TEST", "No recordings found!")
+                    }
+                }
+            }) { Text("Test Vosk") }
+
+            //END==========hacky test buttons!============
 
             // ========== STRESS TESTER ==========
             var showStressTester by remember { mutableStateOf(false) }

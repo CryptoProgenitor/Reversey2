@@ -6,6 +6,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
+import com.quokkalabs.reversey.asr.TranscriptionResult
 import com.quokkalabs.reversey.utils.writeWavHeader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -20,15 +21,22 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
 
-// 🎯 NEW: Sealed class for type-safe events
+// 🎯 Sealed class for type-safe events
 sealed class RecorderEvent {
     object Warning : RecorderEvent()
     object Stop : RecorderEvent()
 }
 
+// 🎤 Result container for recording (transcription now handled separately by Vosk)
+data class RecordingResult(
+    val file: File?,
+    val transcription: TranscriptionResult? = null  // Kept for interface compatibility, but unused
+)
+
 @Singleton
 class AudioRecorderHelper @Inject constructor(
     @ApplicationContext private val context: Context
+    // 🎤 REMOVED: LiveTranscriptionHelper - no longer needed (Vosk handles transcription)
 ) {
     // Simple state for the ViewModel to observe
     private val _isRecording = MutableStateFlow(false)
@@ -37,7 +45,7 @@ class AudioRecorderHelper @Inject constructor(
     private val _amplitude = MutableStateFlow(0f)
     val amplitude = _amplitude.asStateFlow()
 
-    // 🎯 FIX: Use Typed RecorderEvent instead of String
+    // 🎯 Typed RecorderEvent
     private val _events = MutableSharedFlow<RecorderEvent>()
     val events: SharedFlow<RecorderEvent> = _events.asSharedFlow()
 
@@ -74,8 +82,9 @@ class AudioRecorderHelper @Inject constructor(
         )
 
         try {
+            // Use VOICE_RECOGNITION source for cleaner audio
             audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
                 sampleRate,
                 channelConfig,
                 audioFormat,
@@ -87,9 +96,13 @@ class AudioRecorderHelper @Inject constructor(
                 return
             }
 
+            // Start AudioRecord
             audioRecord?.startRecording()
             _isRecording.value = true
             currentFile = outputFile
+            Log.d("AudioRecorder", "🎙️ AudioRecord STARTED")
+
+            // 🎤 REMOVED: LiveTranscriptionHelper.startListening() - caused beep and didn't work
 
             // Launch the write loop in the helper's scope
             recorderJob = helperScope.launch {
@@ -104,11 +117,11 @@ class AudioRecorderHelper @Inject constructor(
 
     /**
      * Stops recording and waits for the file to be fully written.
-     * Returns the File if successful, null otherwise.
+     * Returns RecordingResult with file only (transcription handled by Vosk in AudioViewModel)
      */
-    suspend fun stop(): File? {
+    suspend fun stop(): RecordingResult {
         if (!_isRecording.value) {
-            return null
+            return RecordingResult(null, null)
         }
 
         try {
@@ -117,18 +130,22 @@ class AudioRecorderHelper @Inject constructor(
             Log.w("AudioRecorder", "Error stopping AudioRecord", e)
         }
 
+        // Await the file writing job to ensure data is flushed
         recorderJob?.join()
 
+        // 🎤 REMOVED: LiveTranscriptionHelper.stopAndGetResult() - Vosk handles transcription now
+
+        // Perform final file operations and cleanup on the IO thread
         return withContext(Dispatchers.IO) {
             val file = currentFile
 
             if (file != null && file.exists() && file.length() > AudioConstants.WAV_HEADER_SIZE) {
                 addWavHeader(file)
                 cleanup()
-                file
+                RecordingResult(file, null)  // Transcription handled separately by Vosk
             } else {
                 cleanup()
-                null
+                RecordingResult(null, null)
             }
         }
     }
@@ -180,13 +197,11 @@ class AudioRecorderHelper @Inject constructor(
         // Amber Alert (Approaching Limit)
         if (currentDurationMs > AudioConstants.WARNING_DURATION_MS && !hasShownSizeWarning) {
             hasShownSizeWarning = true
-            // 🎯 FIX: Emit typed event
             _events.emit(RecorderEvent.Warning)
         }
 
         // Red Alert (Hard Stop)
         if (currentDurationMs >= AudioConstants.MAX_RECORDING_DURATION_MS) {
-            // 🎯 FIX: Emit typed event
             _events.emit(RecorderEvent.Stop)
         }
     }
@@ -209,6 +224,8 @@ class AudioRecorderHelper @Inject constructor(
     }
 
     fun cleanup() {
+        // 🎤 REMOVED: liveTranscriptionHelper.cancel()
+
         try { audioRecord?.release() } catch (e: Exception) { }
         audioRecord = null
         recorderJob = null

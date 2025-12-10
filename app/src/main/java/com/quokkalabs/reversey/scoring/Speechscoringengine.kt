@@ -24,6 +24,9 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
+import com.quokkalabs.reversey.asr.WordAccuracyCalculator
+// 🎤 PHASE 3: Removed SpeechRecognitionService - live transcription passed in from AudioViewModel
+// 🎤 PHASE 3: Removed runBlocking - no more in-scoring ASR calls
 
 /**
  * 🎤 SPEECH SCORING ENGINE
@@ -39,11 +42,15 @@ import kotlin.math.sqrt
  * - Voice characteristic emphasis over pure melody
  *
  * GLUTE Principle: Unified architecture with speech specialization
+ *
+ * 🎤 PHASE 3: ASR transcription now passed in from AudioRecorderHelper (live capture)
+ *             No more in-scoring transcription calls.
  */
 @Singleton
 class SpeechScoringEngine @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore
+    // 🎤 PHASE 3: Removed speechRecognitionService - live transcription passed in from caller
 ) {
 
     private val audioProcessor = AudioProcessor()
@@ -127,20 +134,24 @@ class SpeechScoringEngine @Inject constructor(
     /**
      * Main speech scoring method
      * Optimised for speech patterns and content accuracy
+     *
+     * 🎤 PHASE 3: Added attemptTranscription parameter - live ASR result from AudioRecorderHelper
      */
     fun scoreAttempt(
         originalAudio: FloatArray,
         playerAttempt: FloatArray,
         challengeType: ChallengeType,
         difficulty: DifficultyLevel,
-        sampleRate: Int = AudioConstants.SAMPLE_RATE
+        sampleRate: Int = AudioConstants.SAMPLE_RATE,
+        referenceTranscription: String? = null,
+        attemptTranscription: String? = null  // 🎤 PHASE 3: Live transcription from AudioRecorderHelper
     ): ScoringResult {
 
         if (difficulty != _currentDifficulty.value) {
             updateDifficulty(difficulty)
         }
 
-        val currentPreset = SpeechScoringModels.presetFor(difficulty) // <--- ADDED FOR LOGGING
+        val currentPreset = SpeechScoringModels.presetFor(difficulty)
 
         Log.d("SPEECH_ENGINE", "=== SPEECH SCORING ENGINE ===")
         Log.d("SPEECH_ENGINE", "🎤 Difficulty: ${_currentDifficulty.value.displayName}")
@@ -158,7 +169,7 @@ class SpeechScoringEngine @Inject constructor(
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("🎤 Please speak more clearly - we detected silence!"),
                 isGarbage = false,
-                debugPresets = currentPreset // <--- ADDED FOR LOGGING
+                debugPresets = currentPreset
             )
         }
 
@@ -172,7 +183,7 @@ class SpeechScoringEngine @Inject constructor(
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("Recording too short to analyse - please try again!"),
                 isGarbage = false,
-                debugPresets = currentPreset // <--- ADDED FOR LOGGING
+                debugPresets = currentPreset
             )
         }
 
@@ -195,7 +206,7 @@ class SpeechScoringEngine @Inject constructor(
                 metrics = SimilarityMetrics(0f, 0f),
                 feedback = listOf("Please speak clearly with real words - that sounded like noise!"),
                 isGarbage = true,
-                debugPresets = currentPreset // <--- ADDED FOR LOGGING
+                debugPresets = currentPreset
             )
         }
 
@@ -222,6 +233,9 @@ class SpeechScoringEngine @Inject constructor(
         val usedPitchWeight: Float
         val usedMfccWeight: Float
 
+        var asrTranscription: String? = null
+        var asrWordAccuracy: Float? = null
+
         if (challengeType == ChallengeType.REVERSE) {
             // REVERSE: interval×0.85 + pitch×0.1 + mfcc×0.05
             usedIntervalWeight = parameters.speechReverseIntervalWeight  // 0.85
@@ -233,12 +247,42 @@ class SpeechScoringEngine @Inject constructor(
             Log.d("SPEECH_ENGINE", "🔄 REVERSE scoring: interval×0.85 + pitch×0.1 + mfcc×0.05")
             Log.d("SPEECH_ENGINE", "📊 Interval: $intervalAccuracy, Pitch: $pitchSimilarity, MFCC: $mfccSimilarity")
         } else {
-            // FORWARD: pitch×weight + mfcc×weight (validated - unchanged)
+            // FORWARD: Content-aware scoring with ASR (Phase 3)
             usedIntervalWeight = 0f
-            usedPitchWeight = parameters.pitchWeight
-            usedMfccWeight = parameters.mfccWeight
-            baseWeightedScore = (pitchSimilarity * usedPitchWeight) + (mfccSimilarity * usedMfccWeight)
-            Log.d("SPEECH_ENGINE", "▶️ FORWARD scoring: pitch×${usedPitchWeight} + mfcc×${usedMfccWeight}")
+
+            // 🎤 PHASE 3: Use LIVE transcription passed in from AudioRecorderHelper
+            // No more in-scoring ASR calls - transcription captured during recording
+            val wordAccuracy: Float? = if (referenceTranscription != null && attemptTranscription != null) {
+                val accuracy = WordAccuracyCalculator.calculate(referenceTranscription, attemptTranscription)
+                Log.d("SPEECH_ENGINE", "🎤 Reference: '${referenceTranscription.take(30)}...'")
+                Log.d("SPEECH_ENGINE", "🎤 Attempt: '${attemptTranscription.take(30)}...'")
+                Log.d("SPEECH_ENGINE", "🎤 Word accuracy: ${(accuracy * 100).toInt()}%")
+                accuracy
+            } else {
+                Log.d("SPEECH_ENGINE", "🎤 No transcriptions available - acoustic scoring only")
+                Log.d("SPEECH_ENGINE", "   referenceTranscription=${referenceTranscription != null}, attemptTranscription=${attemptTranscription != null}")
+                null
+            }
+
+            // Store for ScoringResult
+            asrTranscription = attemptTranscription
+            asrWordAccuracy = wordAccuracy
+
+            if (wordAccuracy != null) {
+                // Online: 50% words + 25% pitch + 25% mfcc
+                usedPitchWeight = 0.25f
+                usedMfccWeight = 0.25f
+                baseWeightedScore = (wordAccuracy * 0.50f) +
+                        (pitchSimilarity * usedPitchWeight) +
+                        (mfccSimilarity * usedMfccWeight)
+                Log.d("SPEECH_ENGINE", "▶️ FORWARD (ASR): words×0.50 = $baseWeightedScore")
+            } else {
+                // Offline fallback: acoustic only
+                usedPitchWeight = parameters.pitchWeight
+                usedMfccWeight = parameters.mfccWeight
+                baseWeightedScore = (pitchSimilarity * usedPitchWeight) + (mfccSimilarity * usedMfccWeight)
+                Log.d("SPEECH_ENGINE", "▶️ FORWARD (acoustic): pitch×${usedPitchWeight} + mfcc×${usedMfccWeight}")
+            }
         }
 
         var rawScore = baseWeightedScore
@@ -386,11 +430,13 @@ class SpeechScoringEngine @Inject constructor(
             metrics = metrics,
             feedback = generateSpeechFeedback(finalScore, metrics, challengeType),
             isGarbage = false,
-            debugPresets = currentPreset, // <--- ADDED FOR LOGGING
+            debugPresets = currentPreset,
             debugMinThreshold = scalingResult.minThreshold,
             debugPerfectThreshold = scalingResult.perfectThreshold,
             debugNormalizedScore = scalingResult.normalizedScore,
-            calculationBreakdown = breakdown
+            calculationBreakdown = breakdown,
+            attemptTranscription = asrTranscription,
+            wordAccuracy = asrWordAccuracy
         )
     }
 

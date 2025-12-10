@@ -20,6 +20,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
 
+    // 🎤 PHASE 3: Removed SpeechRecognitionService - live transcription handled by AudioRecorderHelper
     @Provides
     @Singleton
     fun provideRecordingRepository(

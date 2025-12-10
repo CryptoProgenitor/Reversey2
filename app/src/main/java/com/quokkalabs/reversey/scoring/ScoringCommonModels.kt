@@ -275,8 +275,10 @@ data class ScoringResult(
     // NEW: Full calculation breakdown for UI tooltip
     val calculationBreakdown: ScoreCalculationBreakdown? = null,
     // NEW: Vocal analysis for UI display (v21.7.1)
-    val vocalAnalysis: VocalAnalysis? = null
-
+    val vocalAnalysis: VocalAnalysis? = null,
+    // 🗣️ PHASE 3: ASR transcription for scorecard display
+    val attemptTranscription: String? = null,
+    val wordAccuracy: Float? = null
 )
 
 data class SimilarityMetrics(

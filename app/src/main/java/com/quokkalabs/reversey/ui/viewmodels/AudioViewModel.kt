@@ -11,6 +11,7 @@ import com.quokkalabs.reversey.audio.AudioConstants
 import com.quokkalabs.reversey.audio.AudioPlayerHelper
 import com.quokkalabs.reversey.audio.AudioRecorderHelper
 import com.quokkalabs.reversey.audio.RecorderEvent
+import com.quokkalabs.reversey.audio.RecordingResult
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
@@ -29,6 +30,9 @@ import com.quokkalabs.reversey.scoring.VocalModeDetector
 import com.quokkalabs.reversey.scoring.VocalModeRouter
 import com.quokkalabs.reversey.scoring.VocalScoringOrchestrator
 import com.quokkalabs.reversey.scoring.ScoringResult
+import com.quokkalabs.reversey.asr.TranscriptionResult
+import com.quokkalabs.reversey.asr.TranscriptionStatus
+import com.quokkalabs.reversey.asr.VoskTranscriptionHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -86,7 +90,8 @@ class AudioViewModel @Inject constructor(
     private val singingScoringEngine: SingingScoringEngine,
     private val vocalScoringOrchestrator: VocalScoringOrchestrator,
     private val scoreAcquisitionDataConcentrator: ScoreAcquisitionDataConcentrator,
-    private val bitRunner: com.quokkalabs.reversey.testing.BITRunner
+    private val bitRunner: com.quokkalabs.reversey.testing.BITRunner,
+    private val voskTranscriptionHelper: VoskTranscriptionHelper
 ) : AndroidViewModel(application) {
 
     // 🎯 RE-INTRODUCED: Mutex for strict serialization of I/O operations
@@ -110,10 +115,20 @@ class AudioViewModel @Inject constructor(
 
     init {
         Log.d("HILT_VERIFY", "📱 AudioViewModel created")
+
+        // 🎤 VOSK: Initialize model at startup
+        viewModelScope.launch {
+            Log.d("AudioViewModel", "🎤 Initializing Vosk...")
+            val success = voskTranscriptionHelper.initialize()
+            Log.d("AudioViewModel", "🎤 Vosk init: $success")
+        }
     }
 
     private var currentRecordingFile: File? = null
     private var currentAttemptFile: File? = null
+
+    // 🎤 PHASE 3: Store pending transcription for main recordings
+    private var pendingTranscription: TranscriptionResult? = null
 
     private val _uiState = MutableStateFlow(AudioUiState())
     val uiState = _uiState.asStateFlow()
@@ -197,8 +212,10 @@ class AudioViewModel @Inject constructor(
                 }
             }
         }
+    }
 
-        // --- Init Data Loading ---
+    // --- Init Data Loading ---
+    init {
         viewModelScope.launch(Dispatchers.IO) {
             try { repository.cleanupAnalysisCache() } catch (e: Exception) {
                 Log.w("AudioViewModel", "Cache cleanup failed (non-critical)", e)
@@ -322,16 +339,22 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch {
             // 🎯 MUTEX: Lock operation during file flush and processing
             recordingProcessingMutex.withLock {
-                val file = audioRecorderHelper.stop()
+                // 🎤 PHASE 3: Now returns RecordingResult with file + transcription
+                val result = audioRecorderHelper.stop()
+                val file = result.file
+                val transcription = result.transcription
 
                 // 🎯 CRITICAL FIX: Null Check & Smart Cast (removed !!)
                 if (file != null && validateRecordedFile(file)) {
 
                     if (!_uiState.value.isRecordingAttempt) {
+                        // 🎤 PHASE 3: Log transcription result
+                        Log.d("AudioViewModel", "🎤 Live transcription: '${transcription?.text}' (${transcription?.status})")
+
                         // 🎯 CRITICAL FIX: Use OPTIMISTIC_KEY to prevent LazyColumn crash
                         val optimisticRecording = Recording(
                             name = "🎤 New Recording",
-                            originalPath = "${file.absolutePath}_OPTIMISTIC", // 🎯 Smart cast used here
+                            originalPath = "${file.absolutePath}_OPTIMISTIC",
                             reversedPath = null,
                             attempts = emptyList(),
                             vocalAnalysis = com.quokkalabs.reversey.scoring.VocalAnalysis(
@@ -347,10 +370,32 @@ class AudioViewModel @Inject constructor(
                             )
                         }
 
+                        // 🎤 PHASE 3: Store transcription for repository to use
+                        pendingTranscription = transcription
+
                         // Background processing
                         withContext(Dispatchers.IO) {
                             try {
                                 repository.reverseWavFile(file)
+
+                                // 🎤 PHASE 3: Save transcription to cache (live result, not file-based)
+                                if (transcription?.isSuccess == true && transcription.text != null) {
+                                    try {
+                                        repository.cacheTranscription(
+                                            file,
+                                            transcription.text,
+                                            transcription.confidence
+                                        )
+                                        Log.d("AudioViewModel", "🎤 Cached live transcription: '${transcription.text}'")
+                                    } catch (e: Exception) {
+                                        Log.w("AudioViewModel", "🎤 Failed to cache transcription: ${e.message}")
+                                    }
+                                } else if (transcription?.isOffline == true) {
+                                    // Mark as pending for later transcription when online
+                                    Log.d("AudioViewModel", "🎤 Offline - transcription pending")
+                                    repository.markTranscriptionPending(file)
+                                }
+
                                 withContext(Dispatchers.Main) {
                                     // Remove the optimistic entry and reload the real entry
                                     _uiState.update { state ->
@@ -365,7 +410,8 @@ class AudioViewModel @Inject constructor(
                             }
                         }
                     } else {
-                        handleAttemptCompletion(file) // 🎯 Smart cast used here
+                        // 🎤 PHASE 3: Pass transcription to attempt handler
+                        handleAttemptCompletion(file, transcription)
                     }
                 } else {
                     // Failure (File too short)
@@ -432,7 +478,19 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch {
             // 🎯 MUTEX: Lock operation during file flush and scoring
             recordingProcessingMutex.withLock {
-                val attemptFile = audioRecorderHelper.stop()
+                val result = audioRecorderHelper.stop()
+                val attemptFile = result.file
+
+                // 🎤 VOSK: Transcribe the recorded WAV file
+                val transcription = if (attemptFile != null && attemptFile.exists()) {
+                    Log.d("AudioViewModel", "🎤 Starting Vosk transcription...")
+                    val voskResult = voskTranscriptionHelper.transcribeFile(attemptFile)
+                    Log.d("AudioViewModel", "🎤 Vosk result: '${voskResult.text}' (${voskResult.status})")
+                    voskResult
+                } else {
+                    Log.e("AudioViewModel", "🎤 No file to transcribe!")
+                    TranscriptionResult.error("No file to transcribe")
+                }
 
                 val parentPath = uiState.value.parentRecordingPath
                 val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
@@ -447,11 +505,13 @@ class AudioViewModel @Inject constructor(
 
                     val parentRecording = uiState.value.recordings.find { it.originalPath == parentPath }
                     if (parentRecording != null) {
+                        // 🎤 PHASE 3: Pass live transcription to scoring
                         scoreAttempt(
                             originalRecordingPath = parentRecording.originalPath,
                             reversedRecordingPath = parentRecording.reversedPath ?: "",
-                            attemptFilePath = attemptFile.absolutePath, // 🎯 Smart cast used here
-                            challengeType = challengeType
+                            attemptFilePath = attemptFile.absolutePath,
+                            challengeType = challengeType,
+                            attemptTranscription = transcription  // 🎤 NEW PARAMETER
                         )
                     } else {
                         // FINAL CLEANUP: If parent was deleted during recording, clear state
@@ -480,7 +540,8 @@ class AudioViewModel @Inject constructor(
         }
     }
 
-    private suspend fun handleAttemptCompletion(attemptFile: File) {
+    // 🎤 PHASE 3: Updated signature to accept transcription
+    private suspend fun handleAttemptCompletion(attemptFile: File, transcription: TranscriptionResult?) {
         val parentPath = uiState.value.parentRecordingPath
         val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
 
@@ -489,7 +550,8 @@ class AudioViewModel @Inject constructor(
                 originalRecordingPath = parentPath,
                 reversedRecordingPath = uiState.value.recordings.find { it.originalPath == parentPath }?.reversedPath ?: "",
                 attemptFilePath = attemptFile.absolutePath,
-                challengeType = challengeType
+                challengeType = challengeType,
+                attemptTranscription = transcription  // 🎤 NEW PARAMETER
             )
         } else {
             _uiState.update { it.copy(isRecordingAttempt = false, statusText = "Error: Parent not found") }
@@ -497,11 +559,13 @@ class AudioViewModel @Inject constructor(
     }
 
     // 🎯 IN-MEMORY SCORING
+    // 🎤 PHASE 3: Added attemptTranscription parameter
     private fun scoreAttempt(
         originalRecordingPath: String,
         reversedRecordingPath: String,
         attemptFilePath: String,
-        challengeType: ChallengeType = ChallengeType.REVERSE
+        challengeType: ChallengeType = ChallengeType.REVERSE,
+        attemptTranscription: TranscriptionResult? = null  // 🎤 NEW PARAMETER
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -533,12 +597,23 @@ class AudioViewModel @Inject constructor(
                 val parentRecording = uiState.value.recordings.find { it.originalPath == originalRecordingPath }
                 val referenceVocalMode = parentRecording?.vocalAnalysis?.mode
 
+                // 🎤 PHASE 3: Extract transcription text for scoring
+                val attemptTranscriptionText = if (attemptTranscription?.isSuccess == true) {
+                    attemptTranscription.text
+                } else {
+                    null
+                }
+
+                Log.d("SCORING_DEBUG", "🎤 Attempt transcription for scoring: '$attemptTranscriptionText'")
+
                 // 4. Score via Orchestrator (with reference mode to prevent cross-engine contamination)
                 val scoringResult = scoreDualPipeline(
                     referenceAudio = referenceAudio,
                     attemptAudio = attemptAudio,
                     challengeType = challengeType,
                     referenceVocalMode = referenceVocalMode,
+                    referenceTranscription = parentRecording?.referenceTranscription,
+                    attemptTranscriptionText = attemptTranscriptionText,  // 🎤 NEW: Pass attempt transcription
                     sampleRate = AudioConstants.SAMPLE_RATE
                 )
 
@@ -559,8 +634,10 @@ class AudioViewModel @Inject constructor(
                     feedback = scoringResult.feedback,
                     isGarbage = scoringResult.isGarbage,
                     vocalAnalysis = scoringResult.vocalAnalysis,
-                    // NEW: Pass the calculation breakdown through (v21.6.0)
-                    calculationBreakdown = scoringResult.calculationBreakdown
+                    calculationBreakdown = scoringResult.calculationBreakdown,
+                    // 🎤 PHASE 3: Use LIVE transcription (not from scoring engine re-transcription)
+                    attemptTranscription = attemptTranscriptionText ?: scoringResult.attemptTranscription,
+                    wordAccuracy = scoringResult.wordAccuracy
                 )
 
                 val updatedRecordings = uiState.value.recordings.map { recording ->
@@ -598,11 +675,14 @@ class AudioViewModel @Inject constructor(
         }
     }
 
+    // 🎤 PHASE 3: Added attemptTranscriptionText parameter
     private suspend fun scoreDualPipeline(
         referenceAudio: FloatArray,
         attemptAudio: FloatArray,
         challengeType: ChallengeType,
         referenceVocalMode: VocalMode? = null,
+        referenceTranscription: String? = null,
+        attemptTranscriptionText: String? = null,  // 🎤 NEW PARAMETER
         sampleRate: Int = AudioConstants.SAMPLE_RATE
     ): ScoringResult {
         return vocalScoringOrchestrator.scoreAttempt(
@@ -611,6 +691,8 @@ class AudioViewModel @Inject constructor(
             challengeType = challengeType,
             difficulty = _currentDifficulty.value,
             referenceVocalMode = referenceVocalMode,
+            referenceTranscription = referenceTranscription,
+            attemptTranscription = attemptTranscriptionText,  // 🎤 Pass through
             sampleRate = sampleRate
         )
     }

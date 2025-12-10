@@ -29,6 +29,8 @@ import kotlin.experimental.and
 import kotlin.math.abs
 import org.json.JSONObject
 
+// 🎤 PHASE 3: Removed SpeechRecognitionService import - no longer needed for file-based transcription
+
 // 🎯 GLUTE: WAV header validation - check file is completely written
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 suspend fun isWavFileComplete(file: File): Boolean = withContext(Dispatchers.IO) {
@@ -57,6 +59,7 @@ suspend fun isWavFileComplete(file: File): Boolean = withContext(Dispatchers.IO)
     }
 }
 
+// 🎤 PHASE 3: Removed SpeechRecognitionService from constructor - live transcription handled by AudioRecorderHelper
 class RecordingRepository(
     private val context: Context,
     private val vocalModeDetector: VocalModeDetector
@@ -93,6 +96,9 @@ class RecordingRepository(
 
                     Log.d("RecordingRepository", "LOADED: ${file.name} - mode=${vocalAnalysis.mode}")
 
+                    // 🗣️ PHASE 3: Get cached transcription (or null if not yet transcribed)
+                    val transcriptionData = getCachedTranscription(file)
+
                     Recording(
                         name = vocalAnalysis.let { analysis ->
                             when(analysis.mode) {
@@ -103,8 +109,11 @@ class RecordingRepository(
                         },
                         originalPath = file.absolutePath,
                         reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null,
-                        attempts = emptyList(), // Attempts will be loaded and merged in ViewModel
-                        vocalAnalysis = vocalAnalysis
+                        attempts = emptyList(),
+                        vocalAnalysis = vocalAnalysis,
+                        referenceTranscription = transcriptionData?.text,
+                        transcriptionConfidence = transcriptionData?.confidence,
+                        transcriptionPending = transcriptionData?.pending ?: false
                     )
 
                 } catch (e: Exception) {
@@ -182,88 +191,87 @@ class RecordingRepository(
             AudioConstants.AUDIO_FORMAT,
             bufferSize
         )
-        val buffer = ShortArray(bufferSize / 2)
 
-        try {
-            FileOutputStream(file).use { fos ->
-                audioRecord.startRecording()
-                while (currentCoroutineContext().isActive) {
-                    val readSize = audioRecord.read(buffer, 0, buffer.size)
-                    if (readSize > 0) {
-                        val byteBuffer = ByteArray(readSize * 2)
-                        for (i in 0 until readSize) {
-                            byteBuffer[i * 2] = buffer[i].and(0xFF).toByte()
-                            byteBuffer[i * 2 + 1] = (buffer[i].toInt() shr 8).toByte()
+        audioRecord.startRecording()
+
+        withContext(Dispatchers.IO) {
+            try {
+                FileOutputStream(file).use { fos ->
+                    val buffer = ShortArray(bufferSize)
+                    while (currentCoroutineContext().isActive) {
+                        val read = audioRecord.read(buffer, 0, bufferSize)
+                        if (read > 0) {
+                            val byteBuffer = ByteArray(read * 2)
+                            for (i in 0 until read) {
+                                byteBuffer[i * 2] = (buffer[i] and 0xFF).toByte()
+                                byteBuffer[i * 2 + 1] = ((buffer[i].toInt() shr 8) and 0xFF).toByte()
+                            }
+                            fos.write(byteBuffer)
+
+                            // Calculate amplitude (0-1 range)
+                            var maxAmp = 0
+                            for (i in 0 until read) {
+                                val amplitude = abs(buffer[i].toInt())
+                                if (amplitude > maxAmp) maxAmp = amplitude
+                            }
+                            val normalizedAmp = maxAmp / 32768f
+                            withContext(Dispatchers.Main) {
+                                onAmplitudeUpdate(normalizedAmp)
+                            }
                         }
-                        fos.write(byteBuffer)
-
-                        val maxAmplitude = buffer.maxOfOrNull { abs(it.toFloat()) } ?: 0f
-                        val normalizedAmplitude = maxAmplitude / Short.MAX_VALUE
-                        onAmplitudeUpdate(normalizedAmplitude)
                     }
                 }
+            } catch (e: IOException) {
+                Log.e("RecordingRepository", "Error during recording", e)
+            } finally {
+                audioRecord.stop()
+                audioRecord.release()
             }
-        } finally {
-            if (audioRecord.state == AudioRecord.STATE_INITIALIZED) audioRecord.stop()
-            audioRecord.release()
-            addWavHeader(file)
         }
     }
 
-    suspend fun reverseWavFile(originalFile: File?): File? = withContext(Dispatchers.IO) {
-        if (originalFile == null || !originalFile.exists() || originalFile.length() < 44) {
-            return@withContext null
-        }
-        try {
-            val fileBytes = originalFile.readBytes()
-            val rawPcmData = fileBytes.drop(44).toByteArray()
-            if (rawPcmData.isEmpty()) return@withContext null
+    suspend fun reverseWavFile(inputFile: File): File? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val bytes = inputFile.readBytes()
+                if (bytes.size <= 44) return@withContext null
 
-            val reversedPcmData = ByteArray(rawPcmData.size)
-            var i = 0
-            while (i < rawPcmData.size - 1) {
-                reversedPcmData[i] = rawPcmData[rawPcmData.size - 2 - i]
-                reversedPcmData[i + 1] = rawPcmData[rawPcmData.size - 1 - i]
-                i += 2
-            }
+                val header = bytes.sliceArray(0 until 44)
+                val audioData = bytes.sliceArray(44 until bytes.size)
 
-            val reversedFile =
-                File(originalFile.parent, originalFile.name.replace(".wav", "_reversed.wav"))
-            FileOutputStream(reversedFile).use { fos ->
-                writeWavHeader(fos, reversedPcmData, 1, AudioConstants.SAMPLE_RATE, 16)
+                // Reverse as 16-bit samples
+                val reversedAudioData = ByteArray(audioData.size)
+                for (i in audioData.indices step 2) {
+                    val targetIndex = audioData.size - 2 - i
+                    if (targetIndex >= 0 && targetIndex + 1 < audioData.size) {
+                        reversedAudioData[i] = audioData[targetIndex]
+                        reversedAudioData[i + 1] = audioData[targetIndex + 1]
+                    }
+                }
+
+                val reversedFile = File(
+                    inputFile.parent,
+                    inputFile.name.replace(".wav", "_reversed.wav")
+                )
+                FileOutputStream(reversedFile).use { fos ->
+                    fos.write(header)
+                    fos.write(reversedAudioData)
+                }
+
+                reversedFile
+
+            } catch (e: Exception) {
+                Log.e("RecordingRepository", "Error reversing WAV", e)
+                null
             }
-            return@withContext reversedFile
-        } catch (_: Exception) {
-            return@withContext null
         }
     }
 
-    private fun addWavHeader(file: File) {
-        if (!file.exists() || file.length() == 0L) return
-        val rawData = file.readBytes()
-        try {
-            val tempFile = File.createTempFile("temp_wav", ".tmp", file.parentFile)
-            FileOutputStream(tempFile).use { fos ->
-                writeWavHeader(fos, rawData, 1, AudioConstants.SAMPLE_RATE, 16)
-            }
-            file.delete()
-            tempFile.renameTo(file)
-        } catch (_: IOException) {
-            // Log error if needed
-        }
-    }
+    // ============================================================
+    //  ⚡ VOCAL MODE CACHING SYSTEM
+    // ============================================================
 
-    fun getLatestFile(isAttempt: Boolean = false): File? {
-        val dir = if (isAttempt) {
-            File(context.filesDir, "recordings/attempts")
-        } else {
-            getRecordingsDir(context)
-        }
-        return dir.listFiles { _, name -> name.endsWith(".wav") && !name.contains("_reversed") }?.maxByOrNull { it.lastModified() }
-    }
-
-    // ⚡ VOCAL ANALYSIS CACHING SYSTEM - ELIMINATES 5+ SECOND DELAYS!
-    private data class CachedVocalAnalysis(
+    data class CachedVocalAnalysis(
         val mode: VocalMode,
         val confidence: Float,
         val pitchStability: Float,
@@ -272,10 +280,6 @@ class RecordingRepository(
         val voicedRatio: Float
     )
 
-    /**
-     * Get cached vocal analysis or analyze if cache is invalid/missing
-     * This is the KEY performance fix - only analyze new files!
-     */
     private suspend fun getCachedOrAnalyzeVocalMode(audioFile: File): com.quokkalabs.reversey.scoring.VocalAnalysis {
         val cacheFile = getCacheFileForAudio(audioFile)
 
@@ -390,4 +394,77 @@ class RecordingRepository(
             Log.w("RecordingRepository", "Error cleaning analysis cache: ${e.message}")
         }
     }
+
+    // ============================================================
+    //  🗣️ PHASE 3: TRANSCRIPTION CACHING SYSTEM (LIVE ASR)
+    // ============================================================
+
+    data class CachedTranscription(
+        val text: String?,
+        val confidence: Float,
+        val pending: Boolean
+    )
+
+    private fun getTranscriptionCacheFile(audioFile: File): File {
+        val cacheDir = File(audioFile.parent, ".transcription_cache").apply { mkdirs() }
+        val baseName = audioFile.nameWithoutExtension
+        return File(cacheDir, "$baseName.transcription")
+    }
+
+    private fun getCachedTranscription(audioFile: File): CachedTranscription? {
+        val cacheFile = getTranscriptionCacheFile(audioFile)
+
+        if (cacheFile.exists() && cacheFile.lastModified() > audioFile.lastModified()) {
+            return try {
+                val json = JSONObject(cacheFile.readText())
+                CachedTranscription(
+                    text = if (json.has("text") && !json.isNull("text")) json.getString("text") else null,
+                    confidence = json.optDouble("confidence", 0.0).toFloat(),
+                    pending = json.optBoolean("pending", false)
+                )
+            } catch (e: Exception) {
+                Log.w("RecordingRepository", "Failed to load cached transcription: ${e.message}")
+                null
+            }
+        }
+        return null
+    }
+
+    /**
+     * 🎤 PHASE 3: Cache a LIVE transcription result.
+     * Called by AudioViewModel after recording stops with live ASR result.
+     */
+    suspend fun cacheTranscription(audioFile: File, text: String, confidence: Float) = withContext(Dispatchers.IO) {
+        Log.d("RecordingRepository", "🎤 Caching live transcription: '${text.take(50)}...'")
+        val cached = CachedTranscription(text, confidence, pending = false)
+        saveCachedTranscription(audioFile, cached)
+    }
+
+    /**
+     * 🎤 PHASE 3: Mark transcription as pending (when offline at record time).
+     * Can be retried later when device comes online.
+     */
+    suspend fun markTranscriptionPending(audioFile: File) = withContext(Dispatchers.IO) {
+        Log.d("RecordingRepository", "🎤 Marking transcription pending for: ${audioFile.name}")
+        val pending = CachedTranscription(null, 0f, pending = true)
+        saveCachedTranscription(audioFile, pending)
+    }
+
+    private fun saveCachedTranscription(audioFile: File, transcription: CachedTranscription) {
+        try {
+            val cacheFile = getTranscriptionCacheFile(audioFile)
+            val json = JSONObject().apply {
+                put("text", transcription.text)
+                put("confidence", transcription.confidence.toDouble())
+                put("pending", transcription.pending)
+                put("timestamp", System.currentTimeMillis())
+            }
+            cacheFile.writeText(json.toString())
+        } catch (e: Exception) {
+            Log.e("RecordingRepository", "Failed to save transcription cache: ${e.message}")
+        }
+    }
+
+    // 🗑️ REMOVED: transcribeAndCache() - file-based transcription doesn't work on Android
+    // Live transcription now handled by LiveTranscriptionHelper + AudioRecorderHelper
 }

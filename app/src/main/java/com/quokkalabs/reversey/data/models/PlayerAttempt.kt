@@ -33,5 +33,9 @@ data class PlayerAttempt(
     val debuggingData: DebuggingData? = null,
 
     // --- NEW: Full Calculation Breakdown for Scorecard Tooltip (v21.6.0) ----
-    val calculationBreakdown: ScoreCalculationBreakdown? = null
+    val calculationBreakdown: ScoreCalculationBreakdown? = null,
+
+    // 🗣️ PHASE 3: ASR Transcription for Forward Speech scoring + scorecard display
+    val attemptTranscription: String? = null,        // What the player SAID (first 50 words shown on scorecard)
+    val wordAccuracy: Float? = null                  // Content match (0.0-1.0), null if offline/unavailable
 )

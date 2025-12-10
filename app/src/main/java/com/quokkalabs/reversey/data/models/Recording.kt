@@ -27,5 +27,10 @@ data class Recording(
     val originalPath: String,
     val reversedPath: String? = null,
     val attempts: List<PlayerAttempt> = emptyList(),
-    val vocalAnalysis: VocalAnalysis? = null  // 🎯 DUAL PIPELINE CHANGE 1B: Stores vocal mode detected from original recording
+    val vocalAnalysis: VocalAnalysis? = null,  // 🎯 DUAL PIPELINE CHANGE 1B: Stores vocal mode detected from original recording
+
+    // 🗣️ PHASE 3: ASR Transcription for Forward Speech content scoring
+    val referenceTranscription: String? = null,      // What the challenge phrase IS
+    val transcriptionConfidence: Float? = null,      // ASR confidence (0.0-1.0)
+    val transcriptionPending: Boolean = false        // True if offline at record time, needs transcription
 )

@@ -18,10 +18,15 @@ class VocalScoringOrchestrator @Inject constructor(
         challengeType: ChallengeType,
         difficulty: DifficultyLevel,
         referenceVocalMode: VocalMode? = null,  // 🎯 FIX: Use reference's stored mode for engine selection
+        referenceTranscription: String? = null,  // 🗣️ PHASE 3: What the challenge phrase IS
+        attemptTranscription: String? = null,    // 🎤 PHASE 3: What the player SAID (live ASR)
         sampleRate: Int = AudioConstants.SAMPLE_RATE
     ): ScoringResult {
 
         Log.d("VSO", "=== ORCHESTRATOR ENTRY ===")
+        Log.d("VSO", "🎤 Reference transcription: '${referenceTranscription?.take(30)}...'")
+        Log.d("VSO", "🎤 Attempt transcription: '${attemptTranscription?.take(30)}...'")
+
         val recordingId = "mem_${System.currentTimeMillis()}"
 
         // Analyze attempt audio (for UI feedback showing user's actual vocal style)
@@ -55,7 +60,9 @@ class VocalScoringOrchestrator @Inject constructor(
                     playerAttempt = attemptAudio,
                     challengeType = challengeType,
                     difficulty = difficulty,
-                    sampleRate = sampleRate
+                    sampleRate = sampleRate,
+                    referenceTranscription = referenceTranscription,
+                    attemptTranscription = attemptTranscription  // 🎤 PHASE 3: Pass live transcription
                 )
             }
 

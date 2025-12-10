@@ -20,7 +20,8 @@ object AudioModule {
         return AudioPlayerHelper()
     }
 
-    // 🎯 NEW: Provide Recorder Helper
+    // 🎤 SIMPLIFIED: AudioRecorderHelper no longer needs LiveTranscriptionHelper
+    // Vosk transcription is now handled in AudioViewModel after recording stops
     @Provides
     @Singleton
     fun provideAudioRecorderHelper(
@@ -28,4 +29,6 @@ object AudioModule {
     ): AudioRecorderHelper {
         return AudioRecorderHelper(context)
     }
+
+    // 🎤 REMOVED: LiveTranscriptionHelper - no longer needed (replaced by Vosk)
 }
