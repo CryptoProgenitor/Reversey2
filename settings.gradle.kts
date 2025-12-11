@@ -19,6 +19,6 @@ dependencyResolutionManagement {
 }
 
 
-rootProject.name = "ReVerseY"
+rootProject.name = "ReVerseY_2_ASR"
 include(":app")
 //comment

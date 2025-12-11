@@ -52,6 +52,8 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import com.quokkalabs.reversey.testing.BITRunner
+import com.quokkalabs.reversey.scoring.PhonemeUtils
+import com.quokkalabs.reversey.scoring.ReverseScoringEngine
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -339,10 +341,20 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch {
             // 🎯 MUTEX: Lock operation during file flush and processing
             recordingProcessingMutex.withLock {
-                // 🎤 PHASE 3: Now returns RecordingResult with file + transcription
+                // 🎤 PHASE 3: Stop recording
                 val result = audioRecorderHelper.stop()
                 val file = result.file
-                val transcription = result.transcription
+
+                // 🎤 VOSK: Transcribe the original recording
+                val transcription = if (file != null && file.exists()) {
+                    Log.d("AudioViewModel", "🎤 Starting Vosk transcription for original...")
+                    val voskResult = voskTranscriptionHelper.transcribeFile(file)
+                    Log.d("AudioViewModel", "🎤 Vosk original result: '${voskResult.text}' (${voskResult.status})")
+                    voskResult
+                } else {
+                    Log.e("AudioViewModel", "🎤 No file to transcribe!")
+                    null
+                }
 
                 // 🎯 CRITICAL FIX: Null Check & Smart Cast (removed !!)
                 if (file != null && validateRecordedFile(file)) {
@@ -582,8 +594,10 @@ class AudioViewModel @Inject constructor(
 
                 Log.d("SCORING_DEBUG", "challengeType=$challengeType, loading reference=$referenceAudioPath")
 
-                val referenceAudio = readAudioFile(referenceAudioPath)
-                val attemptAudio = readAudioFile(attemptFilePath)
+                val referenceAudioRaw = readAudioFile(referenceAudioPath)
+                val attemptAudioRaw = readAudioFile(attemptFilePath)
+                val referenceAudio = trimSilence(referenceAudioRaw)
+                val attemptAudio = trimSilence(attemptAudioRaw)
 
                 if (referenceAudio.isEmpty() || attemptAudio.isEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -605,6 +619,36 @@ class AudioViewModel @Inject constructor(
                 }
 
                 Log.d("SCORING_DEBUG", "🎤 Attempt transcription for scoring: '$attemptTranscriptionText'")
+
+                // 🎤 PHONEME SCORING (with duration gate)
+                val phonemeScore = if (
+                    parentRecording?.referenceTranscription != null &&
+                    attemptTranscriptionText != null &&
+                    PhonemeUtils.isReady()
+                ) {
+                    // Duration gate: 40-250% of target length (after silence trim)
+                    val durationRatio = if (referenceAudio.isNotEmpty()) {
+                        attemptAudio.size.toFloat() / referenceAudio.size.toFloat()
+                    } else 1f
+
+                    if (durationRatio < AudioConstants.DURATION_GATE_MIN) {
+                        Log.d("PHONEME_SCORE", "❌ Too short: ${(durationRatio * 100).toInt()}% of target")
+                        0
+                    } else if (durationRatio > AudioConstants.DURATION_GATE_MAX) {
+                        Log.d("PHONEME_SCORE", "❌ Too long: ${(durationRatio * 100).toInt()}% of target")
+                        0
+                    } else {
+                        val score = ReverseScoringEngine.scoreTextOnly(
+                            targetText = parentRecording.referenceTranscription!!,
+                            attemptText = attemptTranscriptionText
+                        )
+                        Log.d("PHONEME_SCORE", "🎯 $score% | Dur: ${(durationRatio * 100).toInt()}% | Target: '${parentRecording.referenceTranscription}' | Attempt: '$attemptTranscriptionText'")
+                        score
+                    }
+                } else {
+                    Log.d("PHONEME_SCORE", "⚠️ Skipped: refTx=${parentRecording?.referenceTranscription != null}, attemptTx=${attemptTranscriptionText != null}, ready=${PhonemeUtils.isReady()}")
+                    null
+                }
 
                 // 4. Score via Orchestrator (with reference mode to prevent cross-engine contamination)
                 val scoringResult = scoreDualPipeline(
@@ -867,6 +911,42 @@ class AudioViewModel @Inject constructor(
         val difficulty = _currentDifficulty.value
         speechScoringEngine.updateDifficulty(difficulty)
         singingScoringEngine.updateDifficulty(difficulty)
+    }
+
+    // 🔇 SILENCE TRIMMING: Strip leading/trailing silence for accurate duration gate
+    private fun trimSilence(samples: FloatArray, threshold: Float = 0.015f): FloatArray {
+        if (samples.size < 1024) return samples
+
+        val windowSize = 512
+        var startIdx = 0
+        var endIdx = samples.size
+
+        // Find first loud window from start
+        for (i in 0 until samples.size - windowSize step windowSize / 2) {
+            var sum = 0f
+            for (j in i until i + windowSize) sum += samples[j] * samples[j]
+            val rms = kotlin.math.sqrt(sum / windowSize)
+            if (rms > threshold) {
+                startIdx = maxOf(0, i - windowSize)
+                break
+            }
+        }
+
+        // Find first loud window from end
+        for (i in samples.size - windowSize downTo windowSize step windowSize / 2) {
+            var sum = 0f
+            for (j in i until i + windowSize) sum += samples[j] * samples[j]
+            val rms = kotlin.math.sqrt(sum / windowSize)
+            if (rms > threshold) {
+                endIdx = minOf(samples.size, i + windowSize * 2)
+                break
+            }
+        }
+
+        if (endIdx <= startIdx || endIdx - startIdx < 1000) return samples
+
+        Log.d("AUDIO_TRIM", "Trimmed: ${samples.size} → ${endIdx - startIdx} samples")
+        return samples.sliceArray(startIdx until endIdx)
     }
 
     private fun readAudioFile(path: String): FloatArray {

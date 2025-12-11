@@ -70,10 +70,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -81,6 +81,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.quokkalabs.reversey.data.backup.BackupManager
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.Recording
 import com.quokkalabs.reversey.ui.components.AnalysisToast
@@ -88,8 +89,8 @@ import com.quokkalabs.reversey.ui.components.DifficultyIndicator
 import com.quokkalabs.reversey.ui.components.ThemedMenuModal
 import com.quokkalabs.reversey.ui.components.TutorialOverlay
 import com.quokkalabs.reversey.ui.constants.UiConstants
-import com.quokkalabs.reversey.ui.menu.ModalScreen
 import com.quokkalabs.reversey.ui.menu.FilesContent
+import com.quokkalabs.reversey.ui.menu.ModalScreen
 import com.quokkalabs.reversey.ui.theme.AestheticTheme
 import com.quokkalabs.reversey.ui.theme.MaterialColors
 import com.quokkalabs.reversey.ui.theme.ReVerseYTheme
@@ -101,14 +102,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import javax.inject.Inject
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
-import com.quokkalabs.reversey.data.backup.BackupManager
-import javax.inject.Inject
-
+import com.quokkalabs.reversey.scoring.PhonemeUtils
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -152,6 +152,11 @@ class MainActivity : ComponentActivity() {
                     onWavUriConsumed = { _incomingWavUri.value = null }
                 )
             }
+        }
+        // Initialize phoneme dictionary for scoring
+        lifecycleScope.launch {
+            val success = PhonemeUtils.initialize(applicationContext)
+            Log.d("PhonemeUtils", "CMU dictionary loaded: $success (${PhonemeUtils.dictionarySize()} words)")
         }
     }
 
@@ -432,7 +437,13 @@ fun AudioReverserApp(
                     hasPermission = recordAudioPermissionState.status.isGranted,
                     onRequestPermission = { recordAudioPermissionState.launchPermissionRequest() },
                     onStartRecording = { viewModel.startRecording() },
-                    onStopRecording = { viewModel.stopRecording() },
+                    onStopRecording = {
+                        if (uiState.isRecordingAttempt) {
+                            viewModel.stopAttempt()
+                        } else {
+                            viewModel.stopRecording()
+                        }
+                    },
                 )
 
                 Spacer(modifier = Modifier.height(UiConstants.SPACER_BELOW_RECORD_BUTTON))

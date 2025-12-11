@@ -35,4 +35,8 @@ object AudioConstants {
     // Calculated Durations
     val MAX_RECORDING_DURATION_MS: Long = (MAX_LOADABLE_AUDIO_BYTES * 1000) / (SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE)
     val WARNING_DURATION_MS: Long = (WARNING_THRESHOLD_BYTES * 1000) / (SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE)
+
+    // 🎤 PHONEME SCORING: Duration gate thresholds (attempt vs target length)
+    const val DURATION_GATE_MIN = 0.66f   // Reject if attempt < 40% of target
+    const val DURATION_GATE_MAX = 1.33f   // Reject if attempt > 250% of target
 }
