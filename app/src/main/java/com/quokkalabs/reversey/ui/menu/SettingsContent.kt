@@ -442,7 +442,7 @@ fun SettingsContent(
                 }
             }
             // ========== BIT RUNNER (Synthetic Tests) ==========
-            var bitRunning by remember { mutableStateOf(false) }
+            /*var bitRunning by remember { mutableStateOf(false) }
             var bitProgress by remember { mutableStateOf("Ready") }
             var bitCurrent by remember { mutableStateOf(0) }
             var bitTotal by remember { mutableStateOf(15) }
@@ -531,7 +531,7 @@ fun SettingsContent(
                         )
                     }
                 }
-            }
+            }*/
         }
         // Bottom spacing
         Spacer(modifier = Modifier.height(16.dp))

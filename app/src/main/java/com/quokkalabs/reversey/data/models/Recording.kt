@@ -32,5 +32,8 @@ data class Recording(
     // 🗣️ PHASE 3: ASR Transcription for Forward Speech content scoring
     val referenceTranscription: String? = null,      // What the challenge phrase IS
     val transcriptionConfidence: Float? = null,      // ASR confidence (0.0-1.0)
-    val transcriptionPending: Boolean = false        // True if offline at record time, needs transcription
+    val transcriptionPending: Boolean = false,       // True if offline at record time, needs transcription
+
+    // 🎯 PHASE 1: Trimmed duration for timed recording countdown
+    val trimmedDurationMs: Long? = null              // Duration after silence trimming
 )

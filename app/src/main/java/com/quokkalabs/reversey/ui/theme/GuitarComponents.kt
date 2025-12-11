@@ -244,10 +244,12 @@ class GuitarComponents : ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit
+        onStopRecording: () -> Unit,
+        countdownProgress: Float  // 🎯 PHASE 3
     ) {
         GuitarRecordButton(
             isRecording = isRecording,
+            countdownProgress = countdownProgress,  // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -447,7 +449,8 @@ fun FloatingMusicNote(
 fun GuitarRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    countdownProgress: Float = 1f  // 🎯 PHASE 3
 ) {
     val context = LocalContext.current
     var isStrumming by remember { mutableStateOf(false) }
@@ -579,6 +582,28 @@ fun GuitarRecordButton(
                     note = randomNote,
                     startPosition = Offset(randomX, randomY),
                     colorIndex = index % erasColors.size
+                )
+            }
+        }
+
+        // 🎯 PHASE 3: Countdown arc for timed recording
+        if (isRecording && countdownProgress < 1f) {
+            Canvas(modifier = Modifier.size(140.dp).align(Alignment.Center)) {
+                // Gray background track
+                drawArc(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+                // Red countdown arc
+                drawArc(
+                    color = Color.Red,
+                    startAngle = -90f,
+                    sweepAngle = 360f * countdownProgress,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
         }

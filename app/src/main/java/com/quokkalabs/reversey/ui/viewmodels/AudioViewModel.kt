@@ -143,6 +143,7 @@ class AudioViewModel @Inject constructor(
     // 🎯 FIX: Encapsulation - Assigned once instead of using custom getter
     val recordingState: StateFlow<Boolean> = audioRecorderHelper.isRecording
     val amplitudeState: StateFlow<Float> = audioRecorderHelper.amplitude
+    val countdownProgress: StateFlow<Float> = audioRecorderHelper.countdownProgress  // 🎯 PHASE 3
 
     val currentDifficultyFlow: StateFlow<DifficultyLevel> = _currentDifficulty.asStateFlow()
 
@@ -390,15 +391,23 @@ class AudioViewModel @Inject constructor(
                             try {
                                 repository.reverseWavFile(file)
 
+                                // 🎯 PHASE 1: Calculate trimmed duration for timed recording
+                                val samples = readAudioFile(file.absolutePath)
+                                val trimmedSamples = trimSilence(samples)
+                                val trimmedSampleCount = trimmedSamples.size
+                                Log.d("AudioViewModel", "🎯 Trimmed: ${samples.size} → $trimmedSampleCount samples")
+
                                 // 🎤 PHASE 3: Save transcription to cache (live result, not file-based)
+                                // 🎯 PHASE 1: Now also saves trimmedSampleCount
                                 if (transcription?.isSuccess == true && transcription.text != null) {
                                     try {
                                         repository.cacheTranscription(
                                             file,
                                             transcription.text,
-                                            transcription.confidence
+                                            transcription.confidence,
+                                            trimmedSampleCount  // 🎯 PHASE 1
                                         )
-                                        Log.d("AudioViewModel", "🎤 Cached live transcription: '${transcription.text}'")
+                                        Log.d("AudioViewModel", "🎤 Cached live transcription: '${transcription.text}' (trimmed=$trimmedSampleCount)")
                                     } catch (e: Exception) {
                                         Log.w("AudioViewModel", "🎤 Failed to cache transcription: ${e.message}")
                                     }
@@ -406,6 +415,14 @@ class AudioViewModel @Inject constructor(
                                     // Mark as pending for later transcription when online
                                     Log.d("AudioViewModel", "🎤 Offline - transcription pending")
                                     repository.markTranscriptionPending(file)
+                                } else {
+                                    // 🎯 PHASE 1: Cache trimmed duration even without transcription
+                                    try {
+                                        repository.cacheTranscription(file, "", 0f, trimmedSampleCount)
+                                        Log.d("AudioViewModel", "🎯 Cached trimmed duration only: $trimmedSampleCount samples")
+                                    } catch (e: Exception) {
+                                        Log.w("AudioViewModel", "🎯 Failed to cache trimmed duration: ${e.message}")
+                                    }
                                 }
 
                                 withContext(Dispatchers.Main) {
@@ -465,7 +482,13 @@ class AudioViewModel @Inject constructor(
                 val attemptFile = createAudioFile(getApplication(), isAttempt = true)
                 currentAttemptFile = attemptFile
 
-                audioRecorderHelper.start(attemptFile)
+                // 🎯 PHASE 2: Calculate max duration for timed recording
+                val maxMs = parentRecording.trimmedDurationMs?.let { trimmedMs ->
+                    (trimmedMs * AudioConstants.DURATION_GATE_MAX).toLong()
+                }
+                Log.d("AudioViewModel", "🎯 Starting attempt with maxMs=$maxMs (trimmedDurationMs=${parentRecording.trimmedDurationMs})")
+
+                audioRecorderHelper.start(attemptFile, maxMs)
 
                 _uiState.update {
                     it.copy(
@@ -914,7 +937,7 @@ class AudioViewModel @Inject constructor(
     }
 
     // 🔇 SILENCE TRIMMING: Strip leading/trailing silence for accurate duration gate
-    private fun trimSilence(samples: FloatArray, threshold: Float = 0.015f): FloatArray {
+    private fun trimSilence(samples: FloatArray, threshold: Float = AudioConstants.SILENCE_TRIM_THRESHOLD): FloatArray {
         if (samples.size < 1024) return samples
 
         val windowSize = 512

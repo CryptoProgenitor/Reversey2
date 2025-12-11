@@ -226,10 +226,12 @@ class EggThemeComponents : ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit
+        onStopRecording: () -> Unit,
+        countdownProgress: Float  // 🎯 PHASE 3
     ) {
         EggRecordButton(
             isRecording = isRecording,
+            countdownProgress = countdownProgress,  // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -1126,7 +1128,8 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
 fun EggRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    countdownProgress: Float = 1f  // 🎯 PHASE 3
 ) {
 
     // Sync to shared state so BouncingEggs can see it
@@ -1148,6 +1151,28 @@ fun EggRecordButton(
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
+        // 🎯 PHASE 3: Countdown arc timer (only during timed recording)
+        if (isRecording && countdownProgress < 1f) {
+            Canvas(modifier = Modifier.size(230.dp, 200.dp)) {
+                // Gray background track
+                drawArc(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+                // Red countdown arc
+                drawArc(
+                    color = Color.Red,
+                    startAngle = -90f,
+                    sweepAngle = 360f * countdownProgress,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+        }
+
         // Recording pulse glow
         if (isRecording) {
             Canvas(modifier = Modifier.size(240.dp, 210.dp)) {

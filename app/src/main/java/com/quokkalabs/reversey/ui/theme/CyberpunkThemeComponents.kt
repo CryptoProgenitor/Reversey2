@@ -154,9 +154,10 @@ class CyberpunkThemeComponents : ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit
+        onStopRecording: () -> Unit,
+        countdownProgress: Float  // 🎯 PHASE 3
     ) {
-        SharedDefaultComponents.MaterialRecordButton(isRecording) {
+        SharedDefaultComponents.MaterialRecordButton(isRecording, countdownProgress) {
             if (isRecording) onStopRecording() else onStartRecording()
         }
     }

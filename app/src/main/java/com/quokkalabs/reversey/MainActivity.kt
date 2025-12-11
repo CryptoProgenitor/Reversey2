@@ -430,6 +430,9 @@ fun AudioReverserApp(
             ) {
                 Spacer(modifier = Modifier.height(UiConstants.SPACER_ABOVE_RECORD_BUTTON))
 
+                // 🎯 PHASE 3: Collect countdown progress for arc timer
+                val countdownProgress by viewModel.countdownProgress.collectAsState()
+
                 EnhancedRecordButton(
                     isRecording = uiState.isRecording.also { recording ->
                         Log.d("RECORD_BUG", "🖥️ UI READS: isRecording=$recording, isRecordingAttempt=${uiState.isRecordingAttempt}")
@@ -444,6 +447,7 @@ fun AudioReverserApp(
                             viewModel.stopRecording()
                         }
                     },
+                    countdownProgress = countdownProgress  // 🎯 PHASE 3
                 )
 
                 Spacer(modifier = Modifier.height(UiConstants.SPACER_BELOW_RECORD_BUTTON))
@@ -612,7 +616,8 @@ fun EnhancedRecordButton(
     hasPermission: Boolean,
     onRequestPermission: () -> Unit,
     onStartRecording: () -> Unit,
-    onStopRecording: () -> Unit
+    onStopRecording: () -> Unit,
+    countdownProgress: Float = 1f  // 🎯 PHASE 3
 ) {
     val aesthetic = AestheticTheme()
     val colors = MaterialColors()
@@ -639,7 +644,8 @@ fun EnhancedRecordButton(
                 isProcessing = false,
                 aesthetic = aesthetic,
                 onStartRecording = onStartRecording,
-                onStopRecording = onStopRecording
+                onStopRecording = onStopRecording,
+                countdownProgress = countdownProgress  // 🎯 PHASE 3
             )
         }
     }

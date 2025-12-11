@@ -250,10 +250,12 @@ class SnowyOwlComponents : ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit
+        onStopRecording: () -> Unit,
+        countdownProgress: Float  // 🎯 PHASE 3
     ) {
         SnowyOwlRecordButton(
             isRecording = isRecording,
+            countdownProgress = countdownProgress,  // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -389,7 +391,8 @@ class SnowyOwlComponents : ThemeComponents {
 fun SnowyOwlRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    countdownProgress: Float = 1f  // 🎯 PHASE 3
 ) {
     val moonColor = Color(0xFFe8e8e8)
     val eclipseColor = Color(0xFF1c2541)
@@ -402,6 +405,28 @@ fun SnowyOwlRecordButton(
     )
 
     Box(modifier = modifier.size(120.dp), contentAlignment = Alignment.Center) {
+        // 🎯 PHASE 3: Countdown arc
+        Canvas(modifier = Modifier.size(100.dp)) {
+            drawArc(
+                color = Color.Gray.copy(alpha = 0.3f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+        if (isRecording && countdownProgress < 1f) {
+            Canvas(modifier = Modifier.size(100.dp)) {
+                drawArc(
+                    color = Color.Red,
+                    startAngle = -90f,
+                    sweepAngle = 360f * countdownProgress,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+        }
+
         if (isRecording) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawCircle(brush = Brush.radialGradient(colors = listOf(Color(0xFF4a5568).copy(alpha = 0.6f), Color.Transparent), radius = glowRadius), radius = glowRadius, center = center)
@@ -905,23 +930,23 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     // ---- CORRECTED DEPTH LOGIC FOR MIRRORED CANVAS ----
 
 
-        drawArticulatedWing(
-            side = 1f, // Body's RIGHT = Visual LEFT
-            state = rightWingState,
-            isNearWing = false, // Visual LEFT should be FAR (behind)
-            wingColor = wingColor,
-            spotColor = spotColor
-        )
+    drawArticulatedWing(
+        side = 1f, // Body's RIGHT = Visual LEFT
+        state = rightWingState,
+        isNearWing = false, // Visual LEFT should be FAR (behind)
+        wingColor = wingColor,
+        spotColor = spotColor
+    )
 
-        drawBodyCore(bodyColor, spotColor)
+    drawBodyCore(bodyColor, spotColor)
 
-        drawArticulatedWing(
-            side = -1f, // Body's LEFT = Visual RIGHT
-            state = leftWingState,
-            isNearWing = true,//visual RIGHT should be NEAR (in front)
-            wingColor = wingColor,
-            spotColor = spotColor
-        )
+    drawArticulatedWing(
+        side = -1f, // Body's LEFT = Visual RIGHT
+        state = leftWingState,
+        isNearWing = true,//visual RIGHT should be NEAR (in front)
+        wingColor = wingColor,
+        spotColor = spotColor
+    )
 
 
     // Head always on top (unchanged from your original)

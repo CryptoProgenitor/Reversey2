@@ -113,7 +113,11 @@ class RecordingRepository(
                         vocalAnalysis = vocalAnalysis,
                         referenceTranscription = transcriptionData?.text,
                         transcriptionConfidence = transcriptionData?.confidence,
-                        transcriptionPending = transcriptionData?.pending ?: false
+                        transcriptionPending = transcriptionData?.pending ?: false,
+                        // 🎯 PHASE 1: Compute trimmed duration from cached sample count
+                        trimmedDurationMs = transcriptionData?.trimmedSampleCount?.let { samples ->
+                            if (samples > 0) (samples * 1000L) / AudioConstants.SAMPLE_RATE else null
+                        }
                     )
 
                 } catch (e: Exception) {
@@ -402,7 +406,8 @@ class RecordingRepository(
     data class CachedTranscription(
         val text: String?,
         val confidence: Float,
-        val pending: Boolean
+        val pending: Boolean,
+        val trimmedSampleCount: Int = 0  // 🎯 PHASE 1: For timed recording countdown
     )
 
     private fun getTranscriptionCacheFile(audioFile: File): File {
@@ -420,7 +425,8 @@ class RecordingRepository(
                 CachedTranscription(
                     text = if (json.has("text") && !json.isNull("text")) json.getString("text") else null,
                     confidence = json.optDouble("confidence", 0.0).toFloat(),
-                    pending = json.optBoolean("pending", false)
+                    pending = json.optBoolean("pending", false),
+                    trimmedSampleCount = json.optInt("trimmedSampleCount", 0)  // 🎯 PHASE 1
                 )
             } catch (e: Exception) {
                 Log.w("RecordingRepository", "Failed to load cached transcription: ${e.message}")
@@ -433,10 +439,11 @@ class RecordingRepository(
     /**
      * 🎤 PHASE 3: Cache a LIVE transcription result.
      * Called by AudioViewModel after recording stops with live ASR result.
+     * 🎯 PHASE 1: Now also caches trimmed sample count for timed recording.
      */
-    suspend fun cacheTranscription(audioFile: File, text: String, confidence: Float) = withContext(Dispatchers.IO) {
-        Log.d("RecordingRepository", "🎤 Caching live transcription: '${text.take(50)}...'")
-        val cached = CachedTranscription(text, confidence, pending = false)
+    suspend fun cacheTranscription(audioFile: File, text: String, confidence: Float, trimmedSampleCount: Int = 0) = withContext(Dispatchers.IO) {
+        Log.d("RecordingRepository", "🎤 Caching live transcription: '${text.take(50)}...' (trimmed=$trimmedSampleCount samples)")
+        val cached = CachedTranscription(text, confidence, pending = false, trimmedSampleCount = trimmedSampleCount)
         saveCachedTranscription(audioFile, cached)
     }
 
@@ -457,6 +464,7 @@ class RecordingRepository(
                 put("text", transcription.text)
                 put("confidence", transcription.confidence.toDouble())
                 put("pending", transcription.pending)
+                put("trimmedSampleCount", transcription.trimmedSampleCount)  // 🎯 PHASE 1
                 put("timestamp", System.currentTimeMillis())
             }
             cacheFile.writeText(json.toString())

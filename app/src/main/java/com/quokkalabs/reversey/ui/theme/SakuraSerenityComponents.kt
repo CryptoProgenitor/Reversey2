@@ -419,7 +419,8 @@ class SakuraSerenityComponents : ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit
+        onStopRecording: () -> Unit,
+        countdownProgress: Float  // 🎯 PHASE 3
     ) {
         Box(
             modifier = Modifier
@@ -427,11 +428,33 @@ class SakuraSerenityComponents : ThemeComponents {
                 .clickable { if (isRecording) onStopRecording() else onStartRecording() },
             contentAlignment = Alignment.Center
         ) {
+            // 🎯 PHASE 3: Countdown arc (gray background)
+            Canvas(modifier = Modifier.size(80.dp)) {
+                drawArc(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+            // 🎯 PHASE 3: Countdown arc (red progress)
+            if (isRecording && countdownProgress < 1f) {
+                Canvas(modifier = Modifier.size(80.dp)) {
+                    drawArc(
+                        color = Color.Red,
+                        startAngle = -90f,
+                        sweepAngle = 360f * countdownProgress,
+                        useCenter = false,
+                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+            }
             ToriiRecordIcon(
                 isRecording = isRecording,
                 baseColor = Color(0xFFC71585),
                 recordingColor = Color(0xFFFF69B4),
-                iconSize = 64.dp
+                iconSize = 56.dp  // 🎯 Slightly smaller to fit inside arc
             )
         }
     }

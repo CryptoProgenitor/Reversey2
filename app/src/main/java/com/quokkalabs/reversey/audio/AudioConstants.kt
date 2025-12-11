@@ -37,6 +37,11 @@ object AudioConstants {
     val WARNING_DURATION_MS: Long = (WARNING_THRESHOLD_BYTES * 1000) / (SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE)
 
     // 🎤 PHONEME SCORING: Duration gate thresholds (attempt vs target length)
-    const val DURATION_GATE_MIN = 0.66f   // Reject if attempt < 40% of target
-    const val DURATION_GATE_MAX = 1.33f   // Reject if attempt > 250% of target
+    const val DURATION_GATE_MIN = 0.66f   // Reject if attempt < 66% of target
+    const val DURATION_GATE_MAX = 1.33f   // Reject if attempt > 133% of target
+
+    // 🔇 SILENCE TRIMMING: RMS threshold for detecting silence
+    // Lower = less aggressive (preserves quieter speech)
+    // 0.015f = original (aggressive), 0.008f = moderate, 0.005f = conservative
+    const val SILENCE_TRIM_THRESHOLD = 0.008f
 }

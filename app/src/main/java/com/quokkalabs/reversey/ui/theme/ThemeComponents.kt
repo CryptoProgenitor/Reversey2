@@ -61,6 +61,7 @@ interface ThemeComponents {
     /**
      * Record Button Component
      * Main recording button with theme-specific styling
+     * 🎯 PHASE 3: Added countdownProgress for timed recording arc
      */
     @Composable
     fun RecordButton(
@@ -68,7 +69,8 @@ interface ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit
+        onStopRecording: () -> Unit,
+        countdownProgress: Float = 1f  // 🎯 PHASE 3: 1.0 → 0.0 for arc timer
     )
 
     /**

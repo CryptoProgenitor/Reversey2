@@ -275,10 +275,12 @@ class StrangePlanetComponents : ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit
+        onStopRecording: () -> Unit,
+        countdownProgress: Float  // 🎯 PHASE 3
     ) {
         StrangePlanetRecordButton(
             isRecording = isRecording,
+            countdownProgress = countdownProgress,  // 🎯 PHASE 3
             onClick = {
                 if (isRecording) onStopRecording() else onStartRecording()
             }
@@ -518,7 +520,8 @@ class StrangePlanetComponents : ThemeComponents {
 fun StrangePlanetRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    countdownProgress: Float = 1f  // 🎯 PHASE 3
 ) {
     // Sync to shared state so floating creatures can see it
     LaunchedEffect(isRecording) {
@@ -585,6 +588,28 @@ fun StrangePlanetRecordButton(
         modifier = modifier.size(210.dp),
         contentAlignment = Alignment.Center
     ) {
+        // 🎯 PHASE 3: Countdown arc
+        Canvas(modifier = Modifier.size(140.dp)) {
+            drawArc(
+                color = Color.Gray.copy(alpha = 0.3f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+        if (isRecording && countdownProgress < 1f) {
+            Canvas(modifier = Modifier.size(140.dp)) {
+                drawArc(
+                    color = Color.Red,
+                    startAngle = -90f,
+                    sweepAngle = 360f * countdownProgress,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxSize()

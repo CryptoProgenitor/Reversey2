@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -331,7 +332,8 @@ class ScrapbookThemeComponents : ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit
+        onStopRecording: () -> Unit,
+        countdownProgress: Float  // 🎯 PHASE 3
     ) {
         // SVG booklet as the base
         val notebookPainter = painterResource(id = R.drawable.spiral_notebook)
@@ -352,11 +354,33 @@ class ScrapbookThemeComponents : ThemeComponents {
                 },
             contentAlignment = Alignment.Center
         ) {
+            // 🎯 PHASE 3: Countdown arc
+            Canvas(modifier = Modifier.size(140.dp)) {
+                drawArc(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+            if (isRecording && countdownProgress < 1f) {
+                Canvas(modifier = Modifier.size(140.dp)) {
+                    drawArc(
+                        color = Color.Red,
+                        startAngle = -90f,
+                        sweepAngle = 360f * countdownProgress,
+                        useCenter = false,
+                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+            }
+
             // The booklet SVG
             Image(
                 painter = notebookPainter,
                 contentDescription = if (isRecording) "Stop recording" else "Start recording",
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.size(120.dp),  // 🎯 Slightly smaller to fit inside arc
                 contentScale = ContentScale.Crop
             )
 

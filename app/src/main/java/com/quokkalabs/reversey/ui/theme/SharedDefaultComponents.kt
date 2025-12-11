@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -399,21 +402,55 @@ object SharedDefaultComponents {
 
     // --- RECORD BUTTON ---
 
+    /**
+     * 🎯 PHASE 3: Record button with countdown arc for timed recording
+     */
     @Composable
     fun MaterialRecordButton(
         isRecording: Boolean,
+        countdownProgress: Float = 1f,  // 🎯 PHASE 3: 1.0 → 0.0
         onClick: () -> Unit
     ) {
-        FloatingActionButton(
-            onClick = onClick,
+        Box(
             modifier = Modifier.size(80.dp),
-            containerColor = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+            contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                contentDescription = if (isRecording) "Stop" else "Record",
-                modifier = Modifier.size(32.dp)
-            )
+            // 🎯 PHASE 3: Background arc (gray track)
+            Canvas(modifier = Modifier.size(80.dp)) {
+                drawArc(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+
+            // 🎯 PHASE 3: Progress arc (depleting red arc during timed recording)
+            if (isRecording && countdownProgress < 1f) {
+                Canvas(modifier = Modifier.size(100.dp)) {
+                    drawArc(
+                        color = Color.Red,
+                        startAngle = -90f,
+                        sweepAngle = 360f * countdownProgress,
+                        useCenter = false,
+                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+            }
+
+            // Record button FAB
+            FloatingActionButton(
+                onClick = onClick,
+                modifier = Modifier.size(64.dp),
+                containerColor = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                    contentDescription = if (isRecording) "Stop" else "Record",
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
     }
 

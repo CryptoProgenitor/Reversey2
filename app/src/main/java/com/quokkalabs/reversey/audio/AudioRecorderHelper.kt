@@ -45,11 +45,16 @@ class AudioRecorderHelper @Inject constructor(
     private val _amplitude = MutableStateFlow(0f)
     val amplitude = _amplitude.asStateFlow()
 
+    // 🎯 PHASE 2: Countdown progress for timed recording (1.0 → 0.0)
+    private val _countdownProgress = MutableStateFlow(1f)
+    val countdownProgress = _countdownProgress.asStateFlow()
+
     // 🎯 Typed RecorderEvent
     private val _events = MutableSharedFlow<RecorderEvent>()
     val events: SharedFlow<RecorderEvent> = _events.asSharedFlow()
 
     private var recorderJob: Job? = null
+    private var countdownJob: Job? = null  // 🎯 PHASE 2: Separate job for countdown timer
     private var audioRecord: AudioRecord? = null
     private var currentFile: File? = null
 
@@ -63,12 +68,15 @@ class AudioRecorderHelper @Inject constructor(
     private val helperScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @SuppressLint("MissingPermission")
-    fun start(outputFile: File) {
+    fun start(outputFile: File, maxDurationMs: Long? = null) {
         if (_isRecording.value) return
 
         // Reset warning flag for new recording
         hasShownSizeWarning = false
         lastCheckTime = 0L
+
+        // 🎯 PHASE 2: Reset countdown progress
+        _countdownProgress.value = 1f
 
         // Use standard AudioFormat constants to ensure compatibility
         val channelConfig = AudioFormat.CHANNEL_IN_MONO
@@ -100,13 +108,31 @@ class AudioRecorderHelper @Inject constructor(
             audioRecord?.startRecording()
             _isRecording.value = true
             currentFile = outputFile
-            Log.d("AudioRecorder", "🎙️ AudioRecord STARTED")
+            Log.d("AudioRecorder", "🎙️ AudioRecord STARTED (maxDurationMs=$maxDurationMs)")
 
             // 🎤 REMOVED: LiveTranscriptionHelper.startListening() - caused beep and didn't work
 
             // Launch the write loop in the helper's scope
             recorderJob = helperScope.launch {
                 writeAudioDataToFile(outputFile, bufferSize)
+            }
+
+            // 🎯 PHASE 2: Start countdown timer if maxDurationMs is specified
+            if (maxDurationMs != null && maxDurationMs > 0) {
+                countdownJob = helperScope.launch {
+                    val intervalMs = 50L
+                    var elapsed = 0L
+                    while (elapsed < maxDurationMs && _isRecording.value) {
+                        delay(intervalMs)
+                        elapsed += intervalMs
+                        _countdownProgress.value = 1f - (elapsed.toFloat() / maxDurationMs)
+                    }
+                    // Auto-stop when countdown reaches zero
+                    if (_isRecording.value) {
+                        Log.d("AudioRecorder", "🎯 Countdown complete - auto-stopping")
+                        _events.emit(RecorderEvent.Stop)
+                    }
+                }
             }
 
         } catch (e: Exception) {
@@ -225,6 +251,11 @@ class AudioRecorderHelper @Inject constructor(
 
     fun cleanup() {
         // 🎤 REMOVED: liveTranscriptionHelper.cancel()
+
+        // 🎯 PHASE 2: Cancel countdown job
+        countdownJob?.cancel()
+        countdownJob = null
+        _countdownProgress.value = 1f
 
         try { audioRecord?.release() } catch (e: Exception) { }
         audioRecord = null
