@@ -51,33 +51,47 @@ class AttemptsRepository(private val context: Context) {
     suspend fun loadAttempts(): Map<String, List<PlayerAttempt>> = withContext(Dispatchers.IO) {
         try {
             if (!attemptsFile.exists()) {
-                Log.d("AttemptsRepository", "No attempts file found")
+                Log.e("AttemptsRepository", "No attempts file found")
                 return@withContext emptyMap()
             }
 
             val json = attemptsFile.readText()
+            Log.e("AttemptsRepository", "📄 JSON length: ${json.length}")
+            Log.e("AttemptsRepository", "📄 JSON preview: ${json.take(300)}")
+
             if (json.isBlank()) {
-                Log.d("AttemptsRepository", "Attempts file is empty")
+                Log.e("AttemptsRepository", "Attempts file is empty")
                 return@withContext emptyMap()
             }
 
             val type = object : TypeToken<AttemptsData>() {}.type
-            val data: AttemptsData = gson.fromJson(json, type)
+            val data: AttemptsData? = gson.fromJson(json, type)
+
+            Log.e("AttemptsRepository", "📦 Parsed data null? ${data == null}")
+            Log.e("AttemptsRepository", "📦 attemptsMap size: ${data?.attemptsMap?.size ?: -1}")
+
+            if (data == null) {
+                Log.e("AttemptsRepository", "❌ Gson returned null!")
+                return@withContext emptyMap()
+            }
+
+            // data is now guaranteed non-null
+            data.attemptsMap.forEach { (path, attempts) ->
+                Log.e("AttemptsRepository", "🎵 Recording: $path has ${attempts.size} attempts")
+                attempts.forEachIndexed { i, attempt ->
+                    Log.e("AttemptsRepository", "   [$i] file exists? ${File(attempt.attemptFilePath).exists()} - ${attempt.attemptFilePath}")
+                }
+            }
 
             // Filter out attempts whose files no longer exist
             val result = data.attemptsMap.mapValues { (_, attempts) ->
                 attempts.filter { File(it.attemptFilePath).exists() }
             }.filterValues { it.isNotEmpty() }
 
-            Log.d("AttemptsRepository", "Loaded ${result.size} parent recordings with attempts")
+            Log.e("AttemptsRepository", "✅ Final result: ${result.size} recordings")
             return@withContext result
         } catch (e: Exception) {
-            Log.e("AttemptsRepository", "Error loading attempts", e)
-            // If the file is corrupted, delete it
-            try {
-                attemptsFile.delete()
-            } catch (_: Exception) {
-            }
+            Log.e("AttemptsRepository", "💥 Error loading attempts", e)
             return@withContext emptyMap()
         }
     }

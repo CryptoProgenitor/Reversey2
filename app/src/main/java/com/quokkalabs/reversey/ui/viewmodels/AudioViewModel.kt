@@ -44,6 +44,7 @@ import javax.inject.Inject
 import com.quokkalabs.reversey.testing.BITRunner
 import com.quokkalabs.reversey.scoring.PhonemeUtils
 import com.quokkalabs.reversey.scoring.ReverseScoringEngine
+import com.quokkalabs.reversey.scoring.PhonemeScoreResult
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -359,10 +360,7 @@ class AudioViewModel @Inject constructor(
             return
         }
 
-        // 🎤 Transcribe attempt BEFORE scoring
-        Log.d("AudioViewModel", "🎤 Transcribing attempt audio...")
-        val attemptTranscription = voskTranscriptionHelper.transcribeFile(attemptFile)
-        Log.d("AudioViewModel", "🎤 Attempt transcription: ${attemptTranscription.text} (success=${attemptTranscription.isSuccess})")
+        // Transcription moved to scoreAttempt() - happens AFTER reversal
 
         _uiState.update { it.copy(
             isRecording = false,
@@ -376,8 +374,7 @@ class AudioViewModel @Inject constructor(
             originalRecordingPath = parentPath,
             reversedRecordingPath = parentRecording.reversedPath,
             attemptFile = attemptFile,
-            challengeType = challengeType,
-            attemptTranscription = attemptTranscription
+            challengeType = challengeType
         )
     }
 
@@ -427,15 +424,26 @@ class AudioViewModel @Inject constructor(
         originalRecordingPath: String,
         reversedRecordingPath: String?,
         attemptFile: File,
-        challengeType: ChallengeType = ChallengeType.REVERSE,
-        attemptTranscription: TranscriptionResult? = null
+        challengeType: ChallengeType = ChallengeType.REVERSE
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 // 1. Generate the Reversed Version of the Attempt
                 val reversedAttemptFile = repository.reverseWavFile(attemptFile)
 
-                // 2. Load Audio Data (Disk -> Memory)
+                // 2. 🎤 Transcribe the REVERSED attempt (this is the key fix!)
+                // User says "olleh olleh" → reversed = "hello hello" → Vosk hears "hello hello"
+                val attemptTranscription = if (reversedAttemptFile != null) {
+                    Log.d("AudioViewModel", "🎤 Transcribing REVERSED attempt audio...")
+                    val result = voskTranscriptionHelper.transcribeFile(reversedAttemptFile)
+                    Log.d("AudioViewModel", "🎤 Reversed attempt transcription: '${result.text}' (success=${result.isSuccess})")
+                    result
+                } else {
+                    Log.w("AudioViewModel", "🎤 No reversed file - transcribing raw attempt as fallback")
+                    voskTranscriptionHelper.transcribeFile(attemptFile)
+                }
+
+                // 3. Load Audio Data (Disk -> Memory)
                 val referenceAudioPath = when (challengeType) {
                     ChallengeType.FORWARD -> originalRecordingPath
                     ChallengeType.REVERSE -> reversedRecordingPath ?: originalRecordingPath
@@ -456,11 +464,11 @@ class AudioViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 3. Get parent recording for reference transcription
+                // 4. Get parent recording for reference transcription
                 val parentRecording = uiState.value.recordings.find { it.originalPath == originalRecordingPath }
 
-                // 4. Extract transcription texts
-                val attemptTranscriptionText = if (attemptTranscription?.isSuccess == true) {
+                // 5. Extract transcription texts
+                val attemptTranscriptionText = if (attemptTranscription.isSuccess) {
                     attemptTranscription.text
                 } else {
                     null
@@ -469,7 +477,7 @@ class AudioViewModel @Inject constructor(
                 Log.d("SCORING_DEBUG", "🎤 Attempt transcription for scoring: '$attemptTranscriptionText'")
                 Log.d("SCORING_DEBUG", "🎤 Reference transcription: '${parentRecording?.referenceTranscription}'")
 
-                // 5. Score using ReverseScoringEngine (phoneme-based)
+                // 6. Score using ReverseScoringEngine (phoneme-based)
                 val scoringOutput = if (
                     parentRecording?.referenceTranscription != null &&
                     attemptTranscriptionText != null &&
@@ -483,14 +491,16 @@ class AudioViewModel @Inject constructor(
                         targetText = parentRecording.referenceTranscription!!,
                         attemptText = attemptTranscriptionText,
                         targetDurationMs = targetDurationMs,
-                        attemptDurationMs = attemptDurationMs
+                        attemptDurationMs = attemptDurationMs,
+                        difficulty = _currentDifficulty.value
                     )
 
-                    Log.d("PHONEME_SCORE", "🎯 Score: ${result.score}% | Overlap: ${(result.phonemeOverlap * 100).toInt()}% | Duration: ${(result.durationRatio * 100).toInt()}%")
+                    Log.d("PHONEME_SCORE", "🎯 Score: ${result.score}% | ${result.shortSummary()}")
                     Log.d("PHONEME_SCORE", "🔤 Target phonemes: ${result.targetPhonemes.joinToString(" ")}")
                     Log.d("PHONEME_SCORE", "🔤 Attempt phonemes: ${result.attemptPhonemes.joinToString(" ")}")
+                    Log.d("PHONEME_SCORE", "🎚️ Difficulty: ${result.difficulty} | Leniency: ${result.phonemeLeniency}")
 
-                    val feedbackList = buildPhonemeFeedback(result.score, result.phonemeOverlap, result.durationRatio)
+                    val feedbackList = buildPhonemeFeedback(result)
 
                     ScoringOutput(
                         score = result.score,
@@ -519,7 +529,7 @@ class AudioViewModel @Inject constructor(
                     )
                 }
 
-                // 6. Build PlayerAttempt
+                // 7. Build PlayerAttempt
                 val playerIndex = (parentRecording?.attempts?.size ?: 0) + 1
 
                 val attempt = PlayerAttempt(
@@ -586,32 +596,36 @@ class AudioViewModel @Inject constructor(
     )
 
     // Build human-readable feedback from phoneme scoring
-    private fun buildPhonemeFeedback(score: Int, phonemeOverlap: Float, durationRatio: Float): List<String> {
+    private fun buildPhonemeFeedback(result: PhonemeScoreResult): List<String> {
         val feedback = mutableListOf<String>()
 
-        // Phoneme accuracy feedback
-        val overlapPercent = (phonemeOverlap * 100).toInt()
+        // Phoneme match feedback (now using actual match count)
+        val matchPercent = if (result.targetPhonemes.isNotEmpty()) {
+            (result.matchedCount * 100) / result.targetPhonemes.size
+        } else 100
+
         when {
-            overlapPercent >= 90 -> feedback.add("Excellent pronunciation! 🎯")
-            overlapPercent >= 70 -> feedback.add("Good attempt - most sounds matched")
-            overlapPercent >= 50 -> feedback.add("Some sounds were off - keep practicing")
+            matchPercent >= 90 -> feedback.add("Excellent pronunciation! 🎯")
+            matchPercent >= 70 -> feedback.add("Good attempt - ${result.matchedCount}/${result.targetPhonemes.size} sounds matched")
+            matchPercent >= 50 -> feedback.add("Some sounds were off - ${result.matchedCount}/${result.targetPhonemes.size} matched")
             else -> feedback.add("Try to match the sounds more closely")
         }
 
-        // Duration feedback
-        val durationPercent = (durationRatio * 100).toInt()
+        // Duration feedback (now using gate check)
+        val durationPercent = (result.durationRatio * 100).toInt()
         when {
+            result.durationInRange && durationPercent in 85..115 -> feedback.add("Great timing! ⏱️")
+            result.durationInRange -> {} // In range but not perfect - no comment
             durationPercent < 60 -> feedback.add("Too fast - slow down a bit")
             durationPercent > 150 -> feedback.add("Too slow - try to match the pace")
-            durationPercent in 85..115 -> feedback.add("Great timing! ⏱️")
-            else -> {} // Duration is acceptable, no feedback needed
+            else -> feedback.add("Timing slightly off for ${result.difficulty.name.lowercase()} mode")
         }
 
         // Overall score feedback
         when {
-            score >= 85 -> feedback.add("🔥 Amazing!")
-            score >= 70 -> feedback.add("👍 Nice work!")
-            score >= 50 -> feedback.add("Getting there...")
+            result.score >= 85 -> feedback.add("🔥 Amazing!")
+            result.score >= 70 -> feedback.add("👍 Nice work!")
+            result.score >= 50 -> feedback.add("Getting there...")
             else -> feedback.add("Keep practicing!")
         }
 

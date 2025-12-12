@@ -6,6 +6,8 @@ import androidx.compose.ui.graphics.Color
  * 🎯 SINGLE SOURCE OF TRUTH - DIFFICULTY CONFIGURATION
  * GLUTE Principle: Unified config for all difficulty-related UI & logic
  * Ed's 3-Level System: Easy, Normal, Hard
+ *
+ * Updated Dec 2025: Added ReverseScoringConfig for phoneme-based scoring
  */
 object DifficultyConfig {
 
@@ -46,19 +48,36 @@ object DifficultyConfig {
     )
 
     /**
-     * 🎛️ PRESET MAPPING - Difficulty → Speech preset
-     *
-     * 🎯 REFACTOR: Dual pipeline removed (Dec 2025)
-     * Now returns only speech preset. Primary scoring uses ReverseScoringEngine.
+     * 🎯 REVERSE SCORING CONFIGS - Difficulty → ReverseScoringConfig
+     * Used by ReverseScoringEngine for duration gates and phoneme leniency
      */
-    fun getSpeechPresetForDifficulty(difficulty: DifficultyLevel): Presets {
-        return when (difficulty) {
-            DifficultyLevel.EASY -> SpeechScoringModels.easyModeSpeech()
-            DifficultyLevel.NORMAL -> SpeechScoringModels.normalModeSpeech()
-            DifficultyLevel.HARD -> SpeechScoringModels.hardModeSpeech()
-        }
-    }
+    private val reverseScoringConfigs = mapOf(
+        DifficultyLevel.EASY to ReverseScoringConfig(
+            minDurationRatio = 0.50f,   // 50% of reference duration
+            maxDurationRatio = 1.50f,   // 150% of reference duration
+            phonemeLeniency = PhonemeLeniency.FUZZY,
+            description = "Wide duration window, similar phonemes accepted"
+        ),
+        DifficultyLevel.NORMAL to ReverseScoringConfig(
+            minDurationRatio = 0.66f,   // 66% of reference duration
+            maxDurationRatio = 1.33f,   // 133% of reference duration
+            phonemeLeniency = PhonemeLeniency.EXACT,
+            description = "Moderate duration window, exact phonemes required"
+        ),
+        DifficultyLevel.HARD to ReverseScoringConfig(
+            minDurationRatio = 0.80f,   // 80% of reference duration
+            maxDurationRatio = 1.20f,   // 120% of reference duration
+            phonemeLeniency = PhonemeLeniency.SEQUENCE,
+            description = "Tight duration window, exact phonemes in order"
+        )
+    )
 
+    /**
+     * 🎛️ GET REVERSE SCORING CONFIG - For ReverseScoringEngine
+     */
+    fun getReverseScoringConfig(difficulty: DifficultyLevel): ReverseScoringConfig {
+        return reverseScoringConfigs[difficulty] ?: reverseScoringConfigs[DifficultyLevel.NORMAL]!!
+    }
 
     /**
      * 🎨 GET COLOR - Safe color retrieval with fallback
@@ -86,5 +105,44 @@ object DifficultyConfig {
      */
     fun isSupported(difficulty: DifficultyLevel): Boolean {
         return difficulty in supportedLevels
+    }
+}
+
+/**
+ * 🎚️ PHONEME LENIENCY MODES
+ * Determines how strictly phonemes must match
+ */
+enum class PhonemeLeniency {
+    FUZZY,      // Similar phonemes count (T≈D, P≈B, etc.) - Easy mode
+    EXACT,      // Exact phoneme match required - Normal mode
+    SEQUENCE    // Exact match + sequence order matters - Hard mode
+}
+
+/**
+ * 📊 REVERSE SCORING CONFIG
+ * Duration gates and phoneme matching rules per difficulty
+ */
+data class ReverseScoringConfig(
+    val minDurationRatio: Float,    // Minimum attempt/reference ratio (fail below)
+    val maxDurationRatio: Float,    // Maximum attempt/reference ratio (penalize above)
+    val phonemeLeniency: PhonemeLeniency,
+    val description: String
+) {
+    /**
+     * Check if duration ratio passes the gate
+     */
+    fun isDurationInRange(ratio: Float): Boolean {
+        return ratio in minDurationRatio..maxDurationRatio
+    }
+
+    /**
+     * Calculate duration penalty (0 = no penalty, 1 = max penalty)
+     */
+    fun durationPenalty(ratio: Float): Float {
+        return when {
+            ratio < minDurationRatio -> (minDurationRatio - ratio) / minDurationRatio
+            ratio > maxDurationRatio -> (ratio - maxDurationRatio) / maxDurationRatio
+            else -> 0f
+        }.coerceIn(0f, 1f)
     }
 }
