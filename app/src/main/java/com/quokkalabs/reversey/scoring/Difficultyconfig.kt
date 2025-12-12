@@ -46,24 +46,16 @@ object DifficultyConfig {
     )
 
     /**
-     * 🎛️ PRESET MAPPING - Difficulty → BOTH preset sets
+     * 🎛️ PRESET MAPPING - Difficulty → Speech preset
      *
-     * Returns a pair:
-     *   first  = speech preset
-     *   second = singing preset
-     *
-     * The orchestrator chooses the correct one at runtime.
+     * 🎯 REFACTOR: Dual pipeline removed (Dec 2025)
+     * Now returns only speech preset. Primary scoring uses ReverseScoringEngine.
      */
-    fun getPresetForDifficulty(difficulty: DifficultyLevel): Pair<Presets, Presets> {
+    fun getSpeechPresetForDifficulty(difficulty: DifficultyLevel): Presets {
         return when (difficulty) {
-            DifficultyLevel.EASY ->
-                SpeechScoringModels.easyModeSpeech() to SingingScoringModels.easyModeSinging()
-
-            DifficultyLevel.NORMAL ->
-                SpeechScoringModels.normalModeSpeech() to SingingScoringModels.normalModeSinging()
-
-            DifficultyLevel.HARD ->
-                SpeechScoringModels.hardModeSpeech() to SingingScoringModels.hardModeSinging()
+            DifficultyLevel.EASY -> SpeechScoringModels.easyModeSpeech()
+            DifficultyLevel.NORMAL -> SpeechScoringModels.normalModeSpeech()
+            DifficultyLevel.HARD -> SpeechScoringModels.hardModeSpeech()
         }
     }
 

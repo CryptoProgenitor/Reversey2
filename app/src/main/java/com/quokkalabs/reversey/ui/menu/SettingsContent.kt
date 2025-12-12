@@ -64,7 +64,7 @@ import com.quokkalabs.reversey.audio.processing.AudioProcessor
 import com.quokkalabs.reversey.data.backup.BackupManager
 import com.quokkalabs.reversey.scoring.DifficultyConfig
 
-import com.quokkalabs.reversey.testing.VocalModeDetectorTuner
+
 import com.quokkalabs.reversey.ui.components.DifficultyButton
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
@@ -302,117 +302,6 @@ fun SettingsContent(
 
             //END==========hacky test buttons!============
 
-            // ========== VOCAL TUNER (Debug Only) ==========
-
-            var tunerRunning by remember { mutableStateOf(false) }
-            var tunerProgress by remember { mutableStateOf("Ready") }
-            var currentTest by remember { mutableStateOf(0) }
-            var totalTests by remember { mutableStateOf(4000) }
-            var progressPercentage by remember { mutableStateOf(0f) }
-
-            GlassCard {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !tunerRunning) {
-                            if (!tunerRunning) {
-                                tunerRunning = true
-                                scope.launch {
-                                    try {
-                                        Log.d("VocalTuner", "=== VOCAL TUNER START ===")
-                                        tunerProgress = "Initializing..."
-                                        val audioProcessor = AudioProcessor()
-                                        val tuner = VocalModeDetectorTuner(audioProcessor)
-                                        val dataLoaded =
-                                            tuner.loadTrainingDataFromAssets(context)
-                                        if (!dataLoaded) throw Exception("Failed to load training data")
-                                        tunerProgress = "Pre-processing..."
-                                        val preprocessed =
-                                            tuner.preProcessTrainingData { tunerProgress = it }
-                                        if (!preprocessed) throw Exception("Failed to pre-process")
-                                        tunerProgress = "Optimizing..."
-                                        val result = withContext(Dispatchers.Default) {
-                                            tuner.findOptimalParameters { progressString ->
-                                                val regex =
-                                                    """Tested (\d+)/(\d+) \((\d+)%\)""".toRegex()
-                                                val match = regex.find(progressString)
-                                                if (match != null) {
-                                                    currentTest =
-                                                        match.groupValues[1].toIntOrNull() ?: 0
-                                                    totalTests =
-                                                        match.groupValues[2].toIntOrNull()
-                                                            ?: 4000
-                                                    progressPercentage =
-                                                        match.groupValues[3].toFloatOrNull()
-                                                            ?: 0f
-                                                    tunerProgress = progressString
-                                                } else {
-                                                    tunerProgress = progressString
-                                                }
-                                            }
-                                        }
-                                        if (result == null) throw Exception("Optimization failed")
-                                        tunerProgress = "Complete!"
-                                        Toast.makeText(
-                                            context,
-                                            "Tuning Complete",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    } catch (e: Exception) {
-                                        Log.e("VocalTuner", "ERROR: ${e.message}", e)
-                                        Toast.makeText(
-                                            context,
-                                            "Failed: ${e.message}",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    } finally {
-                                        tunerRunning = false
-                                    }
-                                }
-                            }
-                        },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Tune,
-                            contentDescription = "Tune",
-                            tint = if (tunerRunning) StaticMenuColors.toggleActive else StaticMenuColors.textOnCard
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                if (tunerRunning) "Tuning..." else "Auto-Tune Detector",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = StaticMenuColors.textOnCard
-                            )
-                            Text(
-                                tunerProgress,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
-                            )
-                            if (tunerRunning && currentTest > 0) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                LinearProgressIndicator(
-                                    progress = { progressPercentage / 100f },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = StaticMenuColors.toggleActive,
-                                    trackColor = StaticMenuColors.toggleInactive,
-                                )
-                            }
-                        }
-                    }
-                    if (tunerRunning) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                            color = StaticMenuColors.toggleActive
-                        )
-                    }
-                }
-            }
             // ========== BIT RUNNER (Synthetic Tests) ==========
             /*var bitRunning by remember { mutableStateOf(false) }
             var bitProgress by remember { mutableStateOf("Ready") }

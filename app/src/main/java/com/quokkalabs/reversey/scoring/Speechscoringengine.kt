@@ -1,5 +1,15 @@
 package com.quokkalabs.reversey.scoring
 
+/**
+ * ⚠️ DEPRECATED - December 2025
+ * Kept for potential future Forward Challenge mode.
+ * ReVerseY 2.0 uses ReverseScoringEngine for all reverse speech scoring.
+ *
+ * This engine uses MFCC + DTW audio analysis.
+ * New system uses Vosk ASR + phoneme matching.
+ */
+
+
 import android.content.Context
 import android.util.Log
 import com.quokkalabs.reversey.audio.AudioConstants

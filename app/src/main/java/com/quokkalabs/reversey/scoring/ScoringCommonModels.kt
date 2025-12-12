@@ -88,6 +88,27 @@ enum class ScoringEngineType {
 }
 
 // ============================================================
+//  LEGACY TYPES (relocated from Scoreacquisitiondataconcentrator.kt)
+//  Kept for backward compatibility with stored PlayerAttempts
+// ============================================================
+
+/**
+ * Performance insights from scoring analysis.
+ * Now deprecated - kept for backup/restore compatibility.
+ */
+data class PerformanceInsights(
+    val feedback: List<String> = emptyList()
+)
+
+/**
+ * Debug data from scoring analysis.
+ * Now deprecated - kept for backup/restore compatibility.
+ */
+data class DebuggingData(
+    val debugInfo: String = ""
+)
+
+// ============================================================
 //  CORE PARAMETER SETS
 // ============================================================
 
