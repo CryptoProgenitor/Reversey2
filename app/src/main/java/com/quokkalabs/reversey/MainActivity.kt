@@ -175,7 +175,13 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND -> {
                 if (intent.type?.startsWith("audio/") == true) {
-                    intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                    // FIX: Handle API 33+ (Tiramisu) type-safe intent extras
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+                    }
                 } else null
             }
             else -> null

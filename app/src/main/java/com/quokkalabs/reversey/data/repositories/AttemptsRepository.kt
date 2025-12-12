@@ -1,95 +1,40 @@
 package com.quokkalabs.reversey.data.repositories
 
-import android.content.Context
 import android.util.Log
 import com.quokkalabs.reversey.data.models.PlayerAttempt
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
+import javax.inject.Inject
 
-class AttemptsRepository(private val context: Context) {
-    private val gson = Gson()
-    private val attemptsFile = File(context.filesDir, "attempts.json")
-
-    // Data structure to save: Map of parent recording path to list of attempts
-    data class AttemptsData(
-        val attemptsMap: Map<String, List<PlayerAttempt>> = emptyMap()
-    )
-
+class AttemptsRepository @Inject constructor(
+    private val threadSafeJsonRepository: ThreadSafeJsonRepository
+) {
     suspend fun saveAttempts(attemptsMap: Map<String, List<PlayerAttempt>>) =
         withContext(Dispatchers.IO) {
             try {
-                // Filter out any null or empty values
+                // Filter out empty entries
                 val cleanedMap = attemptsMap.filterValues { it.isNotEmpty() }
 
-                val data = AttemptsData(cleanedMap)
-                val json = gson.toJson(data)
+                // Delegate to the ThreadSafe repository
+                threadSafeJsonRepository.saveAttemptsJson(cleanedMap)
 
-                // Write to a temp file first, then rename to avoid corruption
-                val tempFile = File(context.filesDir, "attempts_temp.json")
-                tempFile.writeText(json)
-
-                // Delete old file if it exists
-                if (attemptsFile.exists()) {
-                    attemptsFile.delete()
-                }
-
-                // Rename temp file to actual file
-                tempFile.renameTo(attemptsFile)
-
-                Log.d(
-                    "AttemptsRepository",
-                    "Saved ${cleanedMap.size} parent recordings with attempts"
-                )
+                Log.d("AttemptsRepository", "✅ Saved attempts for ${cleanedMap.size} recordings")
             } catch (e: Exception) {
-                Log.e("AttemptsRepository", "Error saving attempts", e)
+                Log.e("AttemptsRepository", "💥 Error saving attempts", e)
             }
         }
 
     suspend fun loadAttempts(): Map<String, List<PlayerAttempt>> = withContext(Dispatchers.IO) {
         try {
-            if (!attemptsFile.exists()) {
-                Log.e("AttemptsRepository", "No attempts file found")
-                return@withContext emptyMap()
-            }
+            // Use the ThreadSafe repository to load
+            val attemptsMap = threadSafeJsonRepository.loadAttemptsJson()
 
-            val json = attemptsFile.readText()
-            Log.e("AttemptsRepository", "📄 JSON length: ${json.length}")
-            Log.e("AttemptsRepository", "📄 JSON preview: ${json.take(300)}")
+            // 🛑 CRITICAL FIX: Removed the .exists() filter.
+            // Do NOT hide attempts just because the file check fails.
+            // We need to see the data in the UI to debug path issues.
 
-            if (json.isBlank()) {
-                Log.e("AttemptsRepository", "Attempts file is empty")
-                return@withContext emptyMap()
-            }
-
-            val type = object : TypeToken<AttemptsData>() {}.type
-            val data: AttemptsData? = gson.fromJson(json, type)
-
-            Log.e("AttemptsRepository", "📦 Parsed data null? ${data == null}")
-            Log.e("AttemptsRepository", "📦 attemptsMap size: ${data?.attemptsMap?.size ?: -1}")
-
-            if (data == null) {
-                Log.e("AttemptsRepository", "❌ Gson returned null!")
-                return@withContext emptyMap()
-            }
-
-            // data is now guaranteed non-null
-            data.attemptsMap.forEach { (path, attempts) ->
-                Log.e("AttemptsRepository", "🎵 Recording: $path has ${attempts.size} attempts")
-                attempts.forEachIndexed { i, attempt ->
-                    Log.e("AttemptsRepository", "   [$i] file exists? ${File(attempt.attemptFilePath).exists()} - ${attempt.attemptFilePath}")
-                }
-            }
-
-            // Filter out attempts whose files no longer exist
-            val result = data.attemptsMap.mapValues { (_, attempts) ->
-                attempts.filter { File(it.attemptFilePath).exists() }
-            }.filterValues { it.isNotEmpty() }
-
-            Log.e("AttemptsRepository", "✅ Final result: ${result.size} recordings")
-            return@withContext result
+            Log.d("AttemptsRepository", "✅ Loaded attempts for ${attemptsMap.size} recordings")
+            return@withContext attemptsMap
         } catch (e: Exception) {
             Log.e("AttemptsRepository", "💥 Error loading attempts", e)
             return@withContext emptyMap()

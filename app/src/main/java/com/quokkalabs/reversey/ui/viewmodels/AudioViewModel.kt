@@ -162,6 +162,7 @@ class AudioViewModel @Inject constructor(
                 }
             }
         }
+        loadRecordings()
     }
 
     private fun showUserMessage(message: String) {

@@ -33,6 +33,8 @@ import org.json.JSONObject
 // 🎤 PHASE 3: Removed SpeechRecognitionService import - no longer needed for file-based transcription
 
 // 🎯 GLUTE: WAV header validation - check file is completely written
+// 🛑 DISABLED: This was causing valid files to be filtered out
+/*
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 suspend fun isWavFileComplete(file: File): Boolean = withContext(Dispatchers.IO) {
     try {
@@ -59,6 +61,7 @@ suspend fun isWavFileComplete(file: File): Boolean = withContext(Dispatchers.IO)
         return@withContext false
     }
 }
+*/
 
 // 🎤 PHASE 3: Removed SpeechRecognitionService from constructor - live transcription handled by AudioRecorderHelper
 // 🔄 REFACTOR: Removed VocalModeDetector - dual pipeline eliminated (Dec 2025)
@@ -79,17 +82,11 @@ class RecordingRepository(
                 try {
                     val reversedFile = File(dir, file.name.replace(".wav", "_reversed.wav"))
 
-                    // ⚡ PERFORMANCE FIX: Proper WAV validation instead of delay
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        if (!isWavFileComplete(file)) {
-                            Log.d("RecordingRepository", "Skipping incomplete WAV: ${file.name}")
-                            return@mapNotNull null
-                        }
-                    } else {
-                        // Fallback for older Android versions
-                        if (file.length() < 44) {
-                            return@mapNotNull null
-                        }
+                    // 🛑 CRITICAL FIX: Removed strict WAV validation
+                    // Only do basic sanity check - file exists and has some content
+                    if (file.length() < 44) {
+                        Log.d("RecordingRepository", "Skipping too-small file: ${file.name}")
+                        return@mapNotNull null
                     }
 
                     // 🔄 REFACTOR: Hardcoded neutral analysis - dual pipeline eliminated

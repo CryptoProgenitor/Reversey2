@@ -5,6 +5,7 @@ import com.quokkalabs.reversey.data.repositories.AttemptsRepository
 import com.quokkalabs.reversey.data.repositories.RecordingNamesRepository
 import com.quokkalabs.reversey.data.repositories.RecordingRepository
 import com.quokkalabs.reversey.data.repositories.SettingsDataStore
+import com.quokkalabs.reversey.data.repositories.ThreadSafeJsonRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,8 +20,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
 
-    // 🎤 PHASE 3: Removed SpeechRecognitionService - live transcription handled by AudioRecorderHelper
-    // 🔄 REFACTOR: Removed VocalModeDetector - dual pipeline eliminated (Dec 2025)
+
+
     @Provides
     @Singleton
     fun provideRecordingRepository(
@@ -29,11 +30,7 @@ object RepositoryModule {
         return RecordingRepository(context)
     }
 
-    @Provides
-    @Singleton
-    fun provideAttemptsRepository(@ApplicationContext context: Context): AttemptsRepository {
-        return AttemptsRepository(context)
-    }
+
 
     @Provides
     @Singleton
@@ -41,9 +38,5 @@ object RepositoryModule {
         return SettingsDataStore(context)
     }
 
-    @Provides
-    @Singleton
-    fun provideRecordingNamesRepository(@ApplicationContext context: Context): RecordingNamesRepository {
-        return RecordingNamesRepository(context)
-    }
+
 }
