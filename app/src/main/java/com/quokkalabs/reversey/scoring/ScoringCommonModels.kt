@@ -44,6 +44,50 @@ enum class DifficultyLevel(
 }
 
 // ============================================================
+//  VOCAL MODE TYPES (Canonical - relocated from VocalModeDetector.kt)
+// ============================================================
+
+/**
+ * Classification of vocal content type.
+ * UNKNOWN used as safe default when analysis unavailable.
+ */
+enum class VocalMode { SPEECH, SINGING, UNKNOWN }
+
+/**
+ * Low-level audio features extracted during vocal analysis.
+ * Retained for backward compatibility with cached data.
+ */
+data class VocalFeatures(
+    val pitchStability: Float,
+    val pitchContour: Float,
+    val mfccSpread: Float,
+    val voicedRatio: Float
+)
+
+/**
+ * Result of vocal mode classification.
+ * Stored in Recording and PlayerAttempt for historical reference.
+ */
+data class VocalAnalysis(
+    val mode: VocalMode,
+    val confidence: Float,
+    val features: VocalFeatures
+)
+
+// ============================================================
+//  SCORING ENGINE TYPE (Canonical - relocated from VocalModeRouter.kt)
+// ============================================================
+
+/**
+ * Identifies which scoring engine processed an attempt.
+ * Retained for backward compatibility with stored PlayerAttempts.
+ */
+enum class ScoringEngineType {
+    SPEECH_ENGINE,
+    SINGING_ENGINE
+}
+
+// ============================================================
 //  CORE PARAMETER SETS
 // ============================================================
 

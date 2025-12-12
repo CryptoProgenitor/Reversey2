@@ -11,7 +11,6 @@ import com.quokkalabs.reversey.audio.AudioConstants
 import com.quokkalabs.reversey.audio.AudioPlayerHelper
 import com.quokkalabs.reversey.audio.AudioRecorderHelper
 import com.quokkalabs.reversey.audio.RecorderEvent
-import com.quokkalabs.reversey.audio.RecordingResult
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
@@ -21,17 +20,10 @@ import com.quokkalabs.reversey.data.repositories.RecordingRepository
 import com.quokkalabs.reversey.data.repositories.SettingsDataStore
 import com.quokkalabs.reversey.scoring.DifficultyLevel
 import com.quokkalabs.reversey.scoring.Presets
-import com.quokkalabs.reversey.scoring.ScoreAcquisitionDataConcentrator
-import com.quokkalabs.reversey.scoring.ScoringPresets
-import com.quokkalabs.reversey.scoring.SingingScoringEngine
+import com.quokkalabs.reversey.scoring.SpeechScoringModels
 import com.quokkalabs.reversey.scoring.SpeechScoringEngine
-import com.quokkalabs.reversey.scoring.VocalMode
-import com.quokkalabs.reversey.scoring.VocalModeDetector
-import com.quokkalabs.reversey.scoring.VocalModeRouter
-import com.quokkalabs.reversey.scoring.VocalScoringOrchestrator
-import com.quokkalabs.reversey.scoring.ScoringResult
+import com.quokkalabs.reversey.scoring.ScoringEngineType
 import com.quokkalabs.reversey.asr.TranscriptionResult
-import com.quokkalabs.reversey.asr.TranscriptionStatus
 import com.quokkalabs.reversey.asr.VoskTranscriptionHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -39,8 +31,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,23 +48,35 @@ import com.quokkalabs.reversey.scoring.ReverseScoringEngine
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
     val isRecording: Boolean = false,
-    val statusText: String = "Ready to record",
-    val currentlyPlayingPath: String? = null,
-    val playbackProgress: Float = 0f,
-    val isPaused: Boolean = false,
-    val amplitudes: List<Float> = emptyList(),
-    val showEasterEgg: Boolean = false,
-    val showTutorial: Boolean = false,
-    val cpdTaps: Int = 0,
     val isRecordingAttempt: Boolean = false,
+    val currentlyPlayingPath: String? = null,
+    val isPaused: Boolean = false,
+    val playbackProgress: Float = 0f,
+    val recordingDuration: Long = 0L,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val showVocalModeChooser: Boolean = false,
     val parentRecordingPath: String? = null,
-    val attemptToRename: Pair<String, PlayerAttempt>? = null,
-    val scrollToIndex: Int? = null,
+    val statusText: String = "",
     val pendingChallengeType: ChallengeType? = null,
+    val isScoring: Boolean = false,
+    val userMessage: String? = null,
+    val attemptToRename: Pair<String, PlayerAttempt>? = null,
+    val showBitResults: Boolean = false,
+    val bitResults: String = "",
+    val bitProgress: Float = 0f,
+    // 🎯 Custom names stored separately (Recording model doesn't have customName field)
+    val customNames: Map<String, String> = emptyMap(),
+    // 🎯 Additional UI state for MainActivity
+    val scrollToIndex: Int? = null,
+    val amplitudes: List<Float> = emptyList(),
+    val showTutorial: Boolean = false,
     val showQualityWarning: Boolean = false,
     val qualityWarningMessage: String = "",
-    val isScoring: Boolean = false,
-    val showAnalysisToast: Boolean = false
+    val showAnalysisToast: Boolean = false,
+    // 🥚 Easter egg state
+    val showEasterEgg: Boolean = false,
+    val cpdTaps: Int = 0
 )
 
 @HiltViewModel
@@ -86,51 +88,17 @@ class AudioViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val audioPlayerHelper: AudioPlayerHelper,
     private val audioRecorderHelper: AudioRecorderHelper,
-    private val vocalModeDetector: VocalModeDetector,
-    private val vocalModeRouter: VocalModeRouter,
     private val speechScoringEngine: SpeechScoringEngine,
-    private val singingScoringEngine: SingingScoringEngine,
-    private val vocalScoringOrchestrator: VocalScoringOrchestrator,
-    private val scoreAcquisitionDataConcentrator: ScoreAcquisitionDataConcentrator,
-    private val bitRunner: com.quokkalabs.reversey.testing.BITRunner,
+    private val bitRunner: BITRunner,
     private val voskTranscriptionHelper: VoskTranscriptionHelper
 ) : AndroidViewModel(application) {
 
     // 🎯 RE-INTRODUCED: Mutex for strict serialization of I/O operations
     private val recordingProcessingMutex = Mutex()
 
-    fun getOrchestrator(): VocalScoringOrchestrator {
-        return vocalScoringOrchestrator
-    }
-
-    fun getSpeechEngine(): SpeechScoringEngine {
-        return speechScoringEngine
-    }
-
-    fun getSingingEngine(): SingingScoringEngine {
-        return singingScoringEngine
-    }
-
-    fun getBITRunner(): com.quokkalabs.reversey.testing.BITRunner {
-        return bitRunner
-    }
-
-    init {
-        Log.d("HILT_VERIFY", "📱 AudioViewModel created")
-
-        // 🎤 VOSK: Initialize model at startup
-        viewModelScope.launch {
-            Log.d("AudioViewModel", "🎤 Initializing Vosk...")
-            val success = voskTranscriptionHelper.initialize()
-            Log.d("AudioViewModel", "🎤 Vosk init: $success")
-        }
-    }
-
+    // 🎯 STATE: Must be declared BEFORE init block to avoid NPE
     private var currentRecordingFile: File? = null
     private var currentAttemptFile: File? = null
-
-    // 🎤 PHASE 3: Store pending transcription for main recordings
-    private var pendingTranscription: TranscriptionResult? = null
 
     private val _uiState = MutableStateFlow(AudioUiState())
     val uiState = _uiState.asStateFlow()
@@ -143,482 +111,340 @@ class AudioViewModel @Inject constructor(
     // 🎯 FIX: Encapsulation - Assigned once instead of using custom getter
     val recordingState: StateFlow<Boolean> = audioRecorderHelper.isRecording
     val amplitudeState: StateFlow<Float> = audioRecorderHelper.amplitude
-    val countdownProgress: StateFlow<Float> = audioRecorderHelper.countdownProgress  // 🎯 PHASE 3
+    val countdownProgress: StateFlow<Float> = audioRecorderHelper.countdownProgress
 
     val currentDifficultyFlow: StateFlow<DifficultyLevel> = _currentDifficulty.asStateFlow()
 
-    private fun showUserMessage(message: String) {
-        _uiState.update { it.copy(statusText = message) }
+    fun getSpeechEngine(): SpeechScoringEngine {
+        return speechScoringEngine
     }
 
-    private fun validateRecordedFile(file: File?): Boolean {
-        return file != null && file.exists() && file.length() > AudioConstants.MIN_VALID_RECORDING_SIZE
+    fun getBITRunner(): BITRunner {
+        return bitRunner
     }
 
     init {
-        // --- Player State Observation ---
+        Log.d("HILT_VERIFY", "📱 AudioViewModel created")
+
+        // 🎤 VOSK: Initialize model at startup
         viewModelScope.launch {
-            audioPlayerHelper.progress.collect { progress ->
-                _uiState.update { it.copy(playbackProgress = progress) }
-            }
-        }
-        viewModelScope.launch {
-            audioPlayerHelper.currentPath.collect { path ->
-                _uiState.update { it.copy(currentlyPlayingPath = path) }
-            }
-        }
-        viewModelScope.launch {
-            audioPlayerHelper.isPlaying.collect { isPlaying ->
-                val isPaused = _uiState.value.currentlyPlayingPath != null && !isPlaying
-                _uiState.update { it.copy(isPaused = isPaused) }
-            }
+            Log.d("AudioViewModel", "🎤 Initializing Vosk...")
+            val success = voskTranscriptionHelper.initialize()
+            Log.d("AudioViewModel", "🎤 Vosk init: $success")
         }
 
-        // --- Recorder State Observation ---
-        viewModelScope.launch {
-            audioRecorderHelper.amplitude.collect { amp ->
-                if (_uiState.value.isRecording) {
-                    _uiState.update {
-                        val newAmplitudes = it.amplitudes + amp
-                        it.copy(amplitudes = newAmplitudes.takeLast(AudioConstants.MAX_WAVEFORM_SAMPLES))
-                    }
-                }
-            }
-        }
-
-        // --- NEW: Recorder Event Observation (Size Limits) ---
+        // Listen for recorder events (Warning, Stop)
         viewModelScope.launch {
             audioRecorderHelper.events.collect { event ->
-                // 🎯 FIX: Type-safe event handling with sealed class
                 when (event) {
-                    RecorderEvent.Warning -> _uiState.update {
-                        it.copy(showQualityWarning = true, qualityWarningMessage = "Approaching recording limit")
+                    is RecorderEvent.Warning -> {
+                        showUserMessage("Recording approaching size limit...")
                     }
-                    RecorderEvent.Stop -> {
-                        showUserMessage("Recording limit reached")
-                        // Determine if we are stopping a normal recording or an attempt
-                        if (_uiState.value.isRecordingAttempt) {
-                            stopAttempt()
-                        } else {
-                            stopRecording()
-                        }
+                    is RecorderEvent.Stop -> {
+                        Log.d("AudioViewModel", "⏱️ Auto-stop event received")
+                        // Auto-stop triggered by duration limit
+                        handleAutoStop()
                     }
                 }
             }
         }
 
-        // Safety: Sync UI if helper stops unexpectedly
+        // Collect amplitude for waveform visualization
         viewModelScope.launch {
-            audioRecorderHelper.isRecording.collect { recording ->
-                if (!recording && _uiState.value.isRecording && _uiState.value.statusText != "Processing...") {
-                    _uiState.update { it.copy(isRecording = false) }
+            audioRecorderHelper.amplitude.collect { amp ->
+                if (_uiState.value.isRecording && amp > 0f) {
+                    val currentAmps = _uiState.value.amplitudes.toMutableList()
+                    currentAmps.add(amp)
+                    // Keep last 100 samples for visualization
+                    if (currentAmps.size > 100) currentAmps.removeAt(0)
+                    _uiState.update { it.copy(amplitudes = currentAmps) }
                 }
             }
         }
     }
 
-    // --- Init Data Loading ---
-    init {
-        viewModelScope.launch(Dispatchers.IO) {
-            try { repository.cleanupAnalysisCache() } catch (e: Exception) {
-                Log.w("AudioViewModel", "Cache cleanup failed (non-critical)", e)
-            }
-            withContext(Dispatchers.Main) { loadRecordings() }
-        }
-
+    private fun showUserMessage(message: String) {
+        _uiState.update { it.copy(userMessage = message) }
         viewModelScope.launch {
-            speechScoringEngine.isInitialized.filter { it == true }.collect { _isScoringReady.value = true }
+            delay(3000)
+            _uiState.update { it.copy(userMessage = null) }
         }
+    }
 
+    fun clearUserMessage() {
+        _uiState.update { it.copy(userMessage = null) }
+    }
+
+    /**
+     * Handle auto-stop from duration limit
+     */
+    private fun handleAutoStop() {
         viewModelScope.launch {
-            // Get initial value immediately (fixes race condition)
-            val initialCompleted = settingsDataStore.tutorialCompleted.first()
-            _uiState.update { it.copy(showTutorial = !initialCompleted) }
-
-            // Continue listening for changes (e.g., user completes tutorial)
-            settingsDataStore.tutorialCompleted.collect { completed ->
-                _uiState.update { it.copy(showTutorial = !completed) }
-            }
-        }
-
-        viewModelScope.launch {
-            settingsDataStore.getDifficultyLevel.collect { savedDifficultyName ->
-                // 🎯 FIX: Apply restored difficulty to engines (no persist to avoid loop)
-                val level = runCatching { DifficultyLevel.valueOf(savedDifficultyName) }
-                    .getOrElse { DifficultyLevel.NORMAL }
-                applyDifficulty(level)
+            if (_uiState.value.isRecording) {
+                stopRecording()
             }
         }
     }
 
     fun loadRecordings() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val loadedRecordingsFromDisk = repository.loadRecordings()
-            val attemptsMap = attemptsRepository.loadAttempts()
-            val customNamesMap = recordingNamesRepository.loadCustomNames()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                // 🎯 FIX: Use correct method names
+                val recordings = repository.loadRecordings()
+                val savedAttempts = attemptsRepository.loadAttempts()
+                val savedNames = recordingNamesRepository.loadCustomNames()
 
-            val mergedRecordings = loadedRecordingsFromDisk.map { diskRecording: Recording ->
-                val withAttempts = attemptsMap[diskRecording.originalPath]?.let { savedAttempts ->
-                    diskRecording.copy(attempts = savedAttempts)
-                } ?: diskRecording
+                val recordingsWithAttempts = recordings.map { recording ->
+                    val attempts = savedAttempts[recording.originalPath] ?: emptyList()
+                    recording.copy(attempts = attempts)
+                }
 
-                customNamesMap[diskRecording.originalPath]?.let { customName ->
-                    withAttempts.copy(name = customName)
-                } ?: withAttempts
+                _uiState.update { it.copy(
+                    recordings = recordingsWithAttempts,
+                    customNames = savedNames,
+                    isLoading = false
+                ) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
-
-            _uiState.update { it.copy(recordings = mergedRecordings) }
         }
     }
 
-    fun loadRecordingsWithAnalysis() {
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(showAnalysisToast = true) }
-            delay(1500)
-            loadRecordings()
-            _uiState.update { it.copy(showAnalysisToast = false) }
-        }
+    /**
+     * Get display name for a recording (custom name if set, otherwise default name)
+     */
+    fun getDisplayName(recording: Recording): String {
+        return _uiState.value.customNames[recording.originalPath] ?: recording.name
     }
-
-    fun onCpdTapped() {
-        val newTaps = _uiState.value.cpdTaps + 1
-        if (newTaps >= 5) {
-            _uiState.update { it.copy(showEasterEgg = true, cpdTaps = 0) }
-        } else {
-            _uiState.update { it.copy(cpdTaps = newTaps) }
-        }
-    }
-
-    private fun createAudioFile(context: Application, isAttempt: Boolean = false): File {
-        val timeStamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
-        val storageDir = if (isAttempt) {
-            File(context.filesDir, "recordings/attempts")
-        } else {
-            File(context.filesDir, "recordings")
-        }
-        storageDir.mkdirs()
-        return File(storageDir, "${timeStamp}.wav")
-    }
-
-    // --- RECORDING ACTIONS ---
 
     fun startRecording() {
-        Log.d("AudioViewModel", "Starting recording - setting isRecording = true")
-        if (audioRecorderHelper.isRecording.value) return
+        val context = getApplication<Application>()
 
-        if (ActivityCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
-            showUserMessage("Microphone permission is required")
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            _uiState.update { it.copy(error = "Microphone permission not granted") }
             return
         }
 
         viewModelScope.launch {
-            // 🎯 MUTEX: Lock operation before starting file creation
-            recordingProcessingMutex.withLock {
-                if (audioRecorderHelper.isRecording.value) return@withLock
+            _uiState.update { it.copy(
+                isRecording = true,
+                isRecordingAttempt = false,
+                statusText = "Recording...",
+                amplitudes = emptyList()
+            ) }
 
-                val file = createAudioFile(getApplication(), isAttempt = false)
-                currentRecordingFile = file
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val recordingFile = File(context.filesDir, "recordings/REC_$timestamp.wav")
+            recordingFile.parentFile?.mkdirs()
+            currentRecordingFile = recordingFile
 
-                audioRecorderHelper.start(file)
-
-                _uiState.update { it.copy(
-                    isRecording = true,
-                    isRecordingAttempt = false,        // Fix the bug - when rapid Main Record Button Pressing Triggers "Parent Not Found"
-                    parentRecordingPath = null,        // Fix the bug - when rapid Main Record Button Pressing Triggers "Parent Not Found"
-                    pendingChallengeType = null,       // Fix the bug - when rapid Main Record Button Pressing Triggers "Parent Not Found"
-                    statusText = "Recording...",
-                    amplitudes = emptyList()
-                    // Everything else preserved!
-                ) }
-            }
+            // 🎯 FIX: Use correct method signature - start(File, maxDurationMs?)
+            audioRecorderHelper.start(recordingFile)
         }
     }
 
     fun stopRecording() {
-        // ⚡ FAST UI UPDATE: Disable button immediately
-        _uiState.update { it.copy(isRecording = false, statusText = "Processing...") }
+        Log.d("AudioViewModel", "🛑 stopRecording() called | isRecordingAttempt=${_uiState.value.isRecordingAttempt}")
 
         viewModelScope.launch {
-            // 🎯 MUTEX: Lock operation during file flush and processing
+            val wasAttempt = _uiState.value.isRecordingAttempt
+
+            // 🎯 FIX: stop() returns RecordingResult directly (not via events flow)
+            val result = audioRecorderHelper.stop()
+
+            Log.d("AudioViewModel", "📻 Recording stopped: file=${result.file?.absolutePath}")
+
             recordingProcessingMutex.withLock {
-                // 🎤 PHASE 3: Stop recording
-                val result = audioRecorderHelper.stop()
-                val file = result.file
-
-                // 🎤 VOSK: Transcribe the original recording
-                val transcription = if (file != null && file.exists()) {
-                    Log.d("AudioViewModel", "🎤 Starting Vosk transcription for original...")
-                    val voskResult = voskTranscriptionHelper.transcribeFile(file)
-                    Log.d("AudioViewModel", "🎤 Vosk original result: '${voskResult.text}' (${voskResult.status})")
-                    voskResult
-                } else {
-                    Log.e("AudioViewModel", "🎤 No file to transcribe!")
-                    null
-                }
-
-                // 🎯 CRITICAL FIX: Null Check & Smart Cast (removed !!)
-                if (file != null && validateRecordedFile(file)) {
-
-                    if (!_uiState.value.isRecordingAttempt) {
-                        // 🎤 PHASE 3: Log transcription result
-                        Log.d("AudioViewModel", "🎤 Live transcription: '${transcription?.text}' (${transcription?.status})")
-
-                        // 🎯 CRITICAL FIX: Use OPTIMISTIC_KEY to prevent LazyColumn crash
-                        val optimisticRecording = Recording(
-                            name = "🎤 New Recording",
-                            originalPath = "${file.absolutePath}_OPTIMISTIC",
-                            reversedPath = null,
-                            attempts = emptyList(),
-                            vocalAnalysis = com.quokkalabs.reversey.scoring.VocalAnalysis(
-                                VocalMode.UNKNOWN, 0.0f, com.quokkalabs.reversey.scoring.VocalFeatures(0f, 0f, 0f, 0f)
-                            )
-                        )
-
-                        _uiState.update { state ->
-                            state.copy(
-                                statusText = "Recording complete",
-                                recordings = listOf(optimisticRecording) + state.recordings,
-                                scrollToIndex = 0
-                            )
-                        }
-
-                        // 🎤 PHASE 3: Store transcription for repository to use
-                        pendingTranscription = transcription
-
-                        // Background processing
-                        withContext(Dispatchers.IO) {
-                            try {
-                                repository.reverseWavFile(file)
-
-                                // 🎯 PHASE 1: Calculate trimmed duration for timed recording
-                                val samples = readAudioFile(file.absolutePath)
-                                val trimmedSamples = trimSilence(samples)
-                                val trimmedSampleCount = trimmedSamples.size
-                                Log.d("AudioViewModel", "🎯 Trimmed: ${samples.size} → $trimmedSampleCount samples")
-
-                                // 🎤 PHASE 3: Save transcription to cache (live result, not file-based)
-                                // 🎯 PHASE 1: Now also saves trimmedSampleCount
-                                if (transcription?.isSuccess == true && transcription.text != null) {
-                                    try {
-                                        repository.cacheTranscription(
-                                            file,
-                                            transcription.text,
-                                            transcription.confidence,
-                                            trimmedSampleCount  // 🎯 PHASE 1
-                                        )
-                                        Log.d("AudioViewModel", "🎤 Cached live transcription: '${transcription.text}' (trimmed=$trimmedSampleCount)")
-                                    } catch (e: Exception) {
-                                        Log.w("AudioViewModel", "🎤 Failed to cache transcription: ${e.message}")
-                                    }
-                                } else if (transcription?.isOffline == true) {
-                                    // Mark as pending for later transcription when online
-                                    Log.d("AudioViewModel", "🎤 Offline - transcription pending")
-                                    repository.markTranscriptionPending(file)
-                                } else {
-                                    // 🎯 PHASE 1: Cache trimmed duration even without transcription
-                                    try {
-                                        repository.cacheTranscription(file, "", 0f, trimmedSampleCount)
-                                        Log.d("AudioViewModel", "🎯 Cached trimmed duration only: $trimmedSampleCount samples")
-                                    } catch (e: Exception) {
-                                        Log.w("AudioViewModel", "🎯 Failed to cache trimmed duration: ${e.message}")
-                                    }
-                                }
-
-                                withContext(Dispatchers.Main) {
-                                    // Remove the optimistic entry and reload the real entry
-                                    _uiState.update { state ->
-                                        state.copy(
-                                            recordings = state.recordings.filterNot { it.originalPath == optimisticRecording.originalPath }
-                                        )
-                                    }
-                                    loadRecordings()
-                                }
-                            } catch (e: Exception) {
-                                Log.e("AudioViewModel", "Error processing file", e)
-                            }
-                        }
+                if (result.file != null && result.file.exists()) {
+                    if (wasAttempt) {
+                        Log.d("AudioViewModel", "🎯 Processing ATTEMPT recording")
+                        processAttemptResult(result.file)
                     } else {
-                        // 🎤 PHASE 3: Pass transcription to attempt handler
-                        handleAttemptCompletion(file, transcription)
+                        Log.d("AudioViewModel", "🎵 Processing MAIN recording")
+                        processMainRecordingResult(result.file)
                     }
                 } else {
-                    // Failure (File too short)
-                    _uiState.update { it.copy(statusText = "Recording failed - file too short") }
+                    Log.e("AudioViewModel", "❌ Recording failed: no file produced")
+                    _uiState.update { it.copy(
+                        isRecording = false,
+                        isRecordingAttempt = false,
+                        statusText = "Recording failed",
+                        parentRecordingPath = null,
+                        pendingChallengeType = null,
+                        amplitudes = emptyList()
+                    ) }
                 }
             }
         }
     }
 
-    fun startAttempt(originalPath: String) {
-        if (audioRecorderHelper.isRecording.value) return
+    private suspend fun processMainRecordingResult(recordingFile: File) {
+        try {
+            _uiState.update { it.copy(statusText = "Processing...") }
 
-        if (ActivityCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
-            showUserMessage("Microphone permission is required")
+            val reversedFile = repository.reverseWavFile(recordingFile)
+
+            if (reversedFile != null) {
+                // 🎤 Transcribe ORIGINAL recording for reference text
+                Log.d("AudioViewModel", "🎤 Transcribing reference audio...")
+                val transcriptionResult = voskTranscriptionHelper.transcribeFile(recordingFile)
+                val referenceTranscription = if (transcriptionResult.isSuccess) {
+                    Log.d("AudioViewModel", "🎤 Reference transcription: '${transcriptionResult.text}'")
+                    transcriptionResult.text
+                } else {
+                    Log.w("AudioViewModel", "🎤 Reference transcription failed: ${transcriptionResult.errorMessage}")
+                    null
+                }
+
+                // 🎯 FIX: Recording model fields - no createdAt, no customName
+                val newRecording = Recording(
+                    name = recordingFile.nameWithoutExtension,
+                    originalPath = recordingFile.absolutePath,
+                    reversedPath = reversedFile.absolutePath,
+                    referenceTranscription = referenceTranscription
+                )
+
+                val updatedRecordings = listOf(newRecording) + _uiState.value.recordings
+
+                _uiState.update { it.copy(
+                    recordings = updatedRecordings,
+                    isRecording = false,
+                    statusText = if (referenceTranscription != null) "Saved! Reference: \"$referenceTranscription\"" else "Saved!",
+                    amplitudes = emptyList()
+                ) }
+            } else {
+                _uiState.update { it.copy(
+                    isRecording = false,
+                    statusText = "Failed to reverse audio",
+                    amplitudes = emptyList()
+                ) }
+            }
+        } catch (e: Exception) {
+            Log.e("AudioViewModel", "Error processing recording", e)
+            _uiState.update { it.copy(
+                isRecording = false,
+                error = "Processing failed: ${e.message}",
+                amplitudes = emptyList()
+            ) }
+        }
+    }
+
+    private suspend fun processAttemptResult(attemptFile: File) {
+        val parentPath = _uiState.value.parentRecordingPath
+        val challengeType = _uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
+
+        Log.d("AudioViewModel", "📝 processAttemptResult: parentPath=$parentPath, challengeType=$challengeType")
+
+        if (parentPath == null) {
+            Log.e("AudioViewModel", "❌ No parent recording path!")
+            _uiState.update { it.copy(
+                isRecording = false,
+                isRecordingAttempt = false,
+                statusText = "Error: No parent recording",
+                amplitudes = emptyList()
+            ) }
+            return
+        }
+
+        val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
+        if (parentRecording == null) {
+            Log.e("AudioViewModel", "❌ Parent recording not found!")
+            _uiState.update { it.copy(
+                isRecording = false,
+                isRecordingAttempt = false,
+                statusText = "Error: Parent recording not found",
+                amplitudes = emptyList()
+            ) }
+            return
+        }
+
+        // 🎤 Transcribe attempt BEFORE scoring
+        Log.d("AudioViewModel", "🎤 Transcribing attempt audio...")
+        val attemptTranscription = voskTranscriptionHelper.transcribeFile(attemptFile)
+        Log.d("AudioViewModel", "🎤 Attempt transcription: ${attemptTranscription.text} (success=${attemptTranscription.isSuccess})")
+
+        _uiState.update { it.copy(
+            isRecording = false,
+            isRecordingAttempt = false,
+            isScoring = true,
+            statusText = "Scoring...",
+            amplitudes = emptyList()
+        ) }
+
+        scoreAttempt(
+            originalRecordingPath = parentPath,
+            reversedRecordingPath = parentRecording.reversedPath,
+            attemptFile = attemptFile,
+            challengeType = challengeType,
+            attemptTranscription = attemptTranscription
+        )
+    }
+
+    fun startAttempt(recordingPath: String) {
+        val context = getApplication<Application>()
+
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            _uiState.update { it.copy(error = "Microphone permission not granted") }
             return
         }
 
         viewModelScope.launch {
-            // 🎯 MUTEX: Lock operation before starting file creation
-            recordingProcessingMutex.withLock {
-                if (audioRecorderHelper.isRecording.value) return@withLock
+            Log.d("RECORD_BUG", "🎯 startAttempt() | recordingPath=$recordingPath")
 
-                // 🎯 DEFENSIVE CHECK: Ensure parent still exists before starting
-                val parentRecording = uiState.value.recordings.find { it.originalPath == originalPath }
-                if (parentRecording == null) {
-                    showUserMessage("Error: Cannot start challenge. Parent recording not found.")
-                    return@withLock
-                }
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val attemptFile = File(context.filesDir, "recordings/attempts/ATTEMPT_$timestamp.wav")
+            attemptFile.parentFile?.mkdirs()
+            currentAttemptFile = attemptFile
 
-                // 🎯 FIX: Block REVERSE challenges if reversed audio isn't ready yet
-                val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
-                if (challengeType == ChallengeType.REVERSE && parentRecording.reversedPath == null) {
-                    showUserMessage("Reversed audio isn't ready yet. Please wait a moment and try again.")
-                    _uiState.update { it.copy(pendingChallengeType = null) }
-                    return@withLock
-                }
+            Log.d("RECORD_BUG", "📝 Setting flags: isRecording=true, isRecordingAttempt=true, parentPath=$recordingPath")
 
-                val attemptFile = createAudioFile(getApplication(), isAttempt = true)
-                currentAttemptFile = attemptFile
+            _uiState.update { it.copy(
+                isRecording = true,
+                isRecordingAttempt = true,
+                parentRecordingPath = recordingPath,
+                statusText = "Recording attempt...",
+                amplitudes = emptyList()
+            ) }
 
-                // 🎯 PHASE 2: Calculate max duration for timed recording
-                val maxMs = parentRecording.trimmedDurationMs?.let { trimmedMs ->
-                    (trimmedMs * AudioConstants.DURATION_GATE_MAX).toLong()
-                }
-                Log.d("AudioViewModel", "🎯 Starting attempt with maxMs=$maxMs (trimmedDurationMs=${parentRecording.trimmedDurationMs})")
+            Log.d("RECORD_BUG", "🎤 About to call audioRecorderHelper.start()")
 
-                audioRecorderHelper.start(attemptFile, maxMs)
+            // 🎯 FIX: Use correct method signature
+            audioRecorderHelper.start(attemptFile)
 
-                _uiState.update {
-                    it.copy(
-                        isRecordingAttempt = true,
-                        isRecording = true,
-                        parentRecordingPath = originalPath,
-                        statusText = "Recording attempt...",
-                        amplitudes = emptyList()
-                    )
-                }
-            }
+            Log.d("RECORD_BUG", "✅ audioRecorderHelper.start() returned")
         }
     }
 
     fun stopAttempt() {
-        // ⚡ CRITICAL FIX: Lock UI immediately to prevent double-click race condition
-        _uiState.update { it.copy(
-            isRecording = false,
-            statusText = "Processing..."
-        )}
-
-        viewModelScope.launch {
-            // 🎯 MUTEX: Lock operation during file flush and scoring
-            recordingProcessingMutex.withLock {
-                val result = audioRecorderHelper.stop()
-                val attemptFile = result.file
-
-                // 🎤 VOSK: Transcribe the recorded WAV file
-                val transcription = if (attemptFile != null && attemptFile.exists()) {
-                    Log.d("AudioViewModel", "🎤 Starting Vosk transcription...")
-                    val voskResult = voskTranscriptionHelper.transcribeFile(attemptFile)
-                    Log.d("AudioViewModel", "🎤 Vosk result: '${voskResult.text}' (${voskResult.status})")
-                    voskResult
-                } else {
-                    Log.e("AudioViewModel", "🎤 No file to transcribe!")
-                    TranscriptionResult.error("No file to transcribe")
-                }
-
-                val parentPath = uiState.value.parentRecordingPath
-                val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
-
-                // 🎯 CRITICAL FIX: Null Check & Smart Cast (removed !!)
-                if (attemptFile != null && validateRecordedFile(attemptFile) && parentPath != null) {
-                    _uiState.update { it.copy(
-                        isRecordingAttempt = false,
-                        statusText = "Scoring attempt...",
-                        isScoring = true
-                    )}
-
-                    val parentRecording = uiState.value.recordings.find { it.originalPath == parentPath }
-                    if (parentRecording != null) {
-                        // 🎤 PHASE 3: Pass live transcription to scoring
-                        scoreAttempt(
-                            originalRecordingPath = parentRecording.originalPath,
-                            reversedRecordingPath = parentRecording.reversedPath ?: "",
-                            attemptFilePath = attemptFile.absolutePath,
-                            challengeType = challengeType,
-                            attemptTranscription = transcription  // 🎤 NEW PARAMETER
-                        )
-                    } else {
-                        // FINAL CLEANUP: If parent was deleted during recording, clear state
-                        _uiState.update {
-                            it.copy(
-                                isRecordingAttempt = false,
-                                parentRecordingPath = null,
-                                pendingChallengeType = null,
-                                isScoring = false,
-                                statusText = "Error: Parent not found after recording."
-                            )
-                        }
-                    }
-                } else {
-                    _uiState.update {
-                        it.copy(
-                            isRecordingAttempt = false,
-                            parentRecordingPath = null,
-                            pendingChallengeType = null,
-                            isScoring = false,
-                            statusText = "Attempt recording failed"
-                        )
-                    }
-                }
-            }
-        }
+        Log.d("RECORD_BUG", "🛑 stopAttempt() called | Delegating to stopRecording()")
+        stopRecording()
     }
 
-    // 🎤 PHASE 3: Updated signature to accept transcription
-    private suspend fun handleAttemptCompletion(attemptFile: File, transcription: TranscriptionResult?) {
-        val parentPath = uiState.value.parentRecordingPath
-        val challengeType = uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
+    // --- Scoring Logic (REFACTORED: ReverseScoringEngine only) ---
 
-        if (parentPath != null) {
-            scoreAttempt(
-                originalRecordingPath = parentPath,
-                reversedRecordingPath = uiState.value.recordings.find { it.originalPath == parentPath }?.reversedPath ?: "",
-                attemptFilePath = attemptFile.absolutePath,
-                challengeType = challengeType,
-                attemptTranscription = transcription  // 🎤 NEW PARAMETER
-            )
-        } else {
-            _uiState.update { it.copy(isRecordingAttempt = false, statusText = "Error: Parent not found") }
-        }
-    }
-
-    // 🎯 IN-MEMORY SCORING
-    // 🎤 PHASE 3: Added attemptTranscription parameter
     private fun scoreAttempt(
         originalRecordingPath: String,
-        reversedRecordingPath: String,
-        attemptFilePath: String,
+        reversedRecordingPath: String?,
+        attemptFile: File,
         challengeType: ChallengeType = ChallengeType.REVERSE,
-        attemptTranscription: TranscriptionResult? = null  // 🎤 NEW PARAMETER
+        attemptTranscription: TranscriptionResult? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // 1. Generate the Reversed Version of the Attempt (Crucial for "Rev" button!)
-                val attemptFile = File(attemptFilePath)
+                // 1. Generate the Reversed Version of the Attempt
                 val reversedAttemptFile = repository.reverseWavFile(attemptFile)
 
                 // 2. Load Audio Data (Disk -> Memory)
-                // 🎯 FIX: Select correct reference audio based on Challenge Type (SAFE 'WHEN' LOGIC)
                 val referenceAudioPath = when (challengeType) {
                     ChallengeType.FORWARD -> originalRecordingPath
-                    ChallengeType.REVERSE -> reversedRecordingPath
+                    ChallengeType.REVERSE -> reversedRecordingPath ?: originalRecordingPath
                 }
 
                 Log.d("SCORING_DEBUG", "challengeType=$challengeType, loading reference=$referenceAudioPath")
 
                 val referenceAudioRaw = readAudioFile(referenceAudioPath)
-                val attemptAudioRaw = readAudioFile(attemptFilePath)
+                val attemptAudioRaw = readAudioFile(attemptFile.absolutePath)
                 val referenceAudio = trimSilence(referenceAudioRaw)
                 val attemptAudio = trimSilence(attemptAudioRaw)
 
@@ -630,11 +456,10 @@ class AudioViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 3. Get parent recording for reference vocal mode (BEFORE scoring)
+                // 3. Get parent recording for reference transcription
                 val parentRecording = uiState.value.recordings.find { it.originalPath == originalRecordingPath }
-                val referenceVocalMode = parentRecording?.vocalAnalysis?.mode
 
-                // 🎤 PHASE 3: Extract transcription text for scoring
+                // 4. Extract transcription texts
                 val attemptTranscriptionText = if (attemptTranscription?.isSuccess == true) {
                     attemptTranscription.text
                 } else {
@@ -642,69 +467,78 @@ class AudioViewModel @Inject constructor(
                 }
 
                 Log.d("SCORING_DEBUG", "🎤 Attempt transcription for scoring: '$attemptTranscriptionText'")
+                Log.d("SCORING_DEBUG", "🎤 Reference transcription: '${parentRecording?.referenceTranscription}'")
 
-                // 🎤 PHONEME SCORING (with duration gate)
-                val phonemeScore = if (
+                // 5. Score using ReverseScoringEngine (phoneme-based)
+                val scoringOutput = if (
                     parentRecording?.referenceTranscription != null &&
                     attemptTranscriptionText != null &&
                     PhonemeUtils.isReady()
                 ) {
-                    // Duration gate: 40-250% of target length (after silence trim)
-                    val durationRatio = if (referenceAudio.isNotEmpty()) {
-                        attemptAudio.size.toFloat() / referenceAudio.size.toFloat()
-                    } else 1f
+                    // Calculate durations from trimmed audio
+                    val targetDurationMs = (referenceAudio.size * 1000L) / AudioConstants.SAMPLE_RATE
+                    val attemptDurationMs = (attemptAudio.size * 1000L) / AudioConstants.SAMPLE_RATE
 
-                    if (durationRatio < AudioConstants.DURATION_GATE_MIN) {
-                        Log.d("PHONEME_SCORE", "❌ Too short: ${(durationRatio * 100).toInt()}% of target")
-                        0
-                    } else if (durationRatio > AudioConstants.DURATION_GATE_MAX) {
-                        Log.d("PHONEME_SCORE", "❌ Too long: ${(durationRatio * 100).toInt()}% of target")
-                        0
-                    } else {
-                        val score = ReverseScoringEngine.scoreTextOnly(
-                            targetText = parentRecording.referenceTranscription!!,
-                            attemptText = attemptTranscriptionText
-                        )
-                        Log.d("PHONEME_SCORE", "🎯 $score% | Dur: ${(durationRatio * 100).toInt()}% | Target: '${parentRecording.referenceTranscription}' | Attempt: '$attemptTranscriptionText'")
-                        score
-                    }
+                    val result = ReverseScoringEngine.score(
+                        targetText = parentRecording.referenceTranscription!!,
+                        attemptText = attemptTranscriptionText,
+                        targetDurationMs = targetDurationMs,
+                        attemptDurationMs = attemptDurationMs
+                    )
+
+                    Log.d("PHONEME_SCORE", "🎯 Score: ${result.score}% | Overlap: ${(result.phonemeOverlap * 100).toInt()}% | Duration: ${(result.durationRatio * 100).toInt()}%")
+                    Log.d("PHONEME_SCORE", "🔤 Target phonemes: ${result.targetPhonemes.joinToString(" ")}")
+                    Log.d("PHONEME_SCORE", "🔤 Attempt phonemes: ${result.attemptPhonemes.joinToString(" ")}")
+
+                    val feedbackList = buildPhonemeFeedback(result.score, result.phonemeOverlap, result.durationRatio)
+
+                    ScoringOutput(
+                        score = result.score,
+                        phonemeOverlap = result.phonemeOverlap,
+                        durationRatio = result.durationRatio,
+                        feedback = feedbackList,
+                        isGarbage = result.shouldAutoReject
+                    )
                 } else {
-                    Log.d("PHONEME_SCORE", "⚠️ Skipped: refTx=${parentRecording?.referenceTranscription != null}, attemptTx=${attemptTranscriptionText != null}, ready=${PhonemeUtils.isReady()}")
-                    null
+                    // Missing transcription - can't score properly
+                    Log.w("PHONEME_SCORE", "⚠️ Cannot score: refTx=${parentRecording?.referenceTranscription != null}, attemptTx=${attemptTranscriptionText != null}, ready=${PhonemeUtils.isReady()}")
+
+                    val reason = when {
+                        parentRecording?.referenceTranscription == null -> "Reference transcription unavailable"
+                        attemptTranscriptionText == null -> "Could not transcribe your attempt"
+                        !PhonemeUtils.isReady() -> "Phoneme engine not ready"
+                        else -> "Unknown scoring error"
+                    }
+
+                    ScoringOutput(
+                        score = 0,
+                        phonemeOverlap = 0f,
+                        durationRatio = 0f,
+                        feedback = listOf(reason),
+                        isGarbage = true
+                    )
                 }
 
-                // 4. Score via Orchestrator (with reference mode to prevent cross-engine contamination)
-                val scoringResult = scoreDualPipeline(
-                    referenceAudio = referenceAudio,
-                    attemptAudio = attemptAudio,
-                    challengeType = challengeType,
-                    referenceVocalMode = referenceVocalMode,
-                    referenceTranscription = parentRecording?.referenceTranscription,
-                    attemptTranscriptionText = attemptTranscriptionText,  // 🎤 NEW: Pass attempt transcription
-                    sampleRate = AudioConstants.SAMPLE_RATE
-                )
-
-                // 5. Save Result to Repo
+                // 6. Build PlayerAttempt
                 val playerIndex = (parentRecording?.attempts?.size ?: 0) + 1
 
                 val attempt = PlayerAttempt(
                     playerName = "Player $playerIndex",
-                    attemptFilePath = attemptFilePath,
+                    attemptFilePath = attemptFile.absolutePath,
                     reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
-                    score = scoringResult.score,
-                    pitchSimilarity = scoringResult.metrics.pitch,
-                    mfccSimilarity = scoringResult.metrics.mfcc,
-                    rawScore = scoringResult.rawScore,
+                    score = scoringOutput.score,
+                    pitchSimilarity = 0f,  // Not used in phoneme scoring
+                    mfccSimilarity = 0f,   // Not used in phoneme scoring
+                    rawScore = scoringOutput.score.toFloat() / 100f,
                     challengeType = challengeType,
                     difficulty = _currentDifficulty.value,
-                    scoringEngine = scoringResult.calculationBreakdown?.scoringEngineType,
-                    feedback = scoringResult.feedback,
-                    isGarbage = scoringResult.isGarbage,
-                    vocalAnalysis = scoringResult.vocalAnalysis,
-                    calculationBreakdown = scoringResult.calculationBreakdown,
-                    // 🎤 PHASE 3: Use LIVE transcription (not from scoring engine re-transcription)
-                    attemptTranscription = attemptTranscriptionText ?: scoringResult.attemptTranscription,
-                    wordAccuracy = scoringResult.wordAccuracy
+                    scoringEngine = ScoringEngineType.SPEECH_ENGINE,
+                    feedback = scoringOutput.feedback,
+                    isGarbage = scoringOutput.isGarbage,
+                    vocalAnalysis = null,
+                    calculationBreakdown = null,
+                    attemptTranscription = attemptTranscriptionText,
+                    wordAccuracy = scoringOutput.phonemeOverlap
                 )
 
                 val updatedRecordings = uiState.value.recordings.map { recording ->
@@ -718,7 +552,7 @@ class AudioViewModel @Inject constructor(
                 val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
                 attemptsRepository.saveAttempts(attemptsMap)
 
-                // 5. Update UI
+                // 7. Update UI
                 withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
@@ -726,8 +560,8 @@ class AudioViewModel @Inject constructor(
                             parentRecordingPath = null,
                             pendingChallengeType = null,
                             isScoring = false,
-                            statusText = "Attempt scored: ${scoringResult.score}%",
-                            attemptToRename = if (scoringResult.score > 70) Pair(originalRecordingPath, attempt) else null
+                            statusText = "Attempt scored: ${scoringOutput.score}%",
+                            attemptToRename = if (scoringOutput.score > 70) Pair(originalRecordingPath, attempt) else null
                         )
                     }
                 }
@@ -742,26 +576,46 @@ class AudioViewModel @Inject constructor(
         }
     }
 
-    // 🎤 PHASE 3: Added attemptTranscriptionText parameter
-    private suspend fun scoreDualPipeline(
-        referenceAudio: FloatArray,
-        attemptAudio: FloatArray,
-        challengeType: ChallengeType,
-        referenceVocalMode: VocalMode? = null,
-        referenceTranscription: String? = null,
-        attemptTranscriptionText: String? = null,  // 🎤 NEW PARAMETER
-        sampleRate: Int = AudioConstants.SAMPLE_RATE
-    ): ScoringResult {
-        return vocalScoringOrchestrator.scoreAttempt(
-            referenceAudio = referenceAudio,
-            attemptAudio = attemptAudio,
-            challengeType = challengeType,
-            difficulty = _currentDifficulty.value,
-            referenceVocalMode = referenceVocalMode,
-            referenceTranscription = referenceTranscription,
-            attemptTranscription = attemptTranscriptionText,  // 🎤 Pass through
-            sampleRate = sampleRate
-        )
+    // Helper data class for scoring output
+    private data class ScoringOutput(
+        val score: Int,
+        val phonemeOverlap: Float,
+        val durationRatio: Float,
+        val feedback: List<String>,
+        val isGarbage: Boolean
+    )
+
+    // Build human-readable feedback from phoneme scoring
+    private fun buildPhonemeFeedback(score: Int, phonemeOverlap: Float, durationRatio: Float): List<String> {
+        val feedback = mutableListOf<String>()
+
+        // Phoneme accuracy feedback
+        val overlapPercent = (phonemeOverlap * 100).toInt()
+        when {
+            overlapPercent >= 90 -> feedback.add("Excellent pronunciation! 🎯")
+            overlapPercent >= 70 -> feedback.add("Good attempt - most sounds matched")
+            overlapPercent >= 50 -> feedback.add("Some sounds were off - keep practicing")
+            else -> feedback.add("Try to match the sounds more closely")
+        }
+
+        // Duration feedback
+        val durationPercent = (durationRatio * 100).toInt()
+        when {
+            durationPercent < 60 -> feedback.add("Too fast - slow down a bit")
+            durationPercent > 150 -> feedback.add("Too slow - try to match the pace")
+            durationPercent in 85..115 -> feedback.add("Great timing! ⏱️")
+            else -> {} // Duration is acceptable, no feedback needed
+        }
+
+        // Overall score feedback
+        when {
+            score >= 85 -> feedback.add("🔥 Amazing!")
+            score >= 70 -> feedback.add("👍 Nice work!")
+            score >= 50 -> feedback.add("Getting there...")
+            else -> feedback.add("Keep practicing!")
+        }
+
+        return feedback
     }
 
     // --- Boilerplate & Utils ---
@@ -777,7 +631,6 @@ class AudioViewModel @Inject constructor(
     }
 
     fun play(path: String) {
-        // 🎯 FIX: Removed 'playbackProgress = 0f' to stop race condition/flickering
         _uiState.update { it.copy(isPaused = false) }
 
         audioPlayerHelper.play(path) {
@@ -819,64 +672,58 @@ class AudioViewModel @Inject constructor(
 
     fun clearAllRecordings() {
         viewModelScope.launch {
-            repository.clearAllRecordings()
-            val attemptsDir = File(getApplication<Application>().filesDir, "recordings/attempts")
-            attemptsDir.listFiles()?.forEach { it.delete() }
-            attemptsRepository.saveAttempts(emptyMap())
+            _uiState.value.recordings.forEach { recording ->
+                deleteRecording(recording)
+            }
+            // 🎯 FIX: AttemptsRepository doesn't have clearAllAttempts()
+            // Clearing happens naturally as we delete each recording
             loadRecordings()
         }
     }
 
-    fun renameRecording(oldPath: String, newName: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            recordingNamesRepository.setCustomName(oldPath, newName)
-            loadRecordings()
-        }
-    }
+    fun deleteAttempt(recordingPath: String, attempt: PlayerAttempt) {
+        viewModelScope.launch {
+            try { File(attempt.attemptFilePath).delete() } catch (e: Exception) {
+                Log.w("AudioViewModel", "Failed to delete attempt file")
+            }
+            attempt.reversedAttemptFilePath?.let { path ->
+                try { File(path).delete() } catch (e: Exception) {
+                    Log.w("AudioViewModel", "Failed to delete reversed attempt")
+                }
+            }
 
-    fun dismissEasterEgg() {
-        _uiState.update { it.copy(showEasterEgg = false) }
-    }
-
-    fun renamePlayer(parentRecordingPath: String, oldAttempt: PlayerAttempt, newPlayerName: String) {
-        viewModelScope.launch(Dispatchers.IO) {
             val updatedRecordings = _uiState.value.recordings.map { recording ->
-                if (recording.originalPath == parentRecordingPath) {
-                    recording.copy(attempts = recording.attempts.map { attempt ->
-                        if (attempt.attemptFilePath == oldAttempt.attemptFilePath) {
-                            attempt.copy(playerName = newPlayerName)
-                        } else {
-                            attempt
-                        }
-                    })
+                if (recording.originalPath == recordingPath) {
+                    recording.copy(attempts = recording.attempts.filter { it != attempt })
                 } else {
                     recording
                 }
             }
+
             val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
             attemptsRepository.saveAttempts(attemptsMap)
+
             _uiState.update { it.copy(recordings = updatedRecordings) }
         }
     }
 
-    fun deleteAttempt(parentRecordingPath: String, attemptToDelete: PlayerAttempt) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                File(attemptToDelete.attemptFilePath).delete()
-                attemptToDelete.reversedAttemptFilePath?.let { File(it).delete() }
-            } catch (e: Exception) {
-                Log.w("AudioViewModel", "Failed to delete attempt files", e)
-            }
+    fun renamePlayer(recordingPath: String, attempt: PlayerAttempt, newName: String) {
+        viewModelScope.launch {
             val updatedRecordings = _uiState.value.recordings.map { recording ->
-                if (recording.originalPath == parentRecordingPath) {
-                    recording.copy(attempts = recording.attempts.filter { it.attemptFilePath != attemptToDelete.attemptFilePath })
+                if (recording.originalPath == recordingPath) {
+                    val updatedAttempts = recording.attempts.map {
+                        if (it == attempt) it.copy(playerName = newName) else it
+                    }
+                    recording.copy(attempts = updatedAttempts)
                 } else {
                     recording
                 }
             }
+
             val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
             attemptsRepository.saveAttempts(attemptsMap)
-            _uiState.update { it.copy(recordings = updatedRecordings) }
+
+            _uiState.update { it.copy(recordings = updatedRecordings, attemptToRename = null) }
         }
     }
 
@@ -884,40 +731,75 @@ class AudioViewModel @Inject constructor(
         _uiState.update { it.copy(attemptToRename = null) }
     }
 
-    fun completeTutorial() {
-        viewModelScope.launch {
-            settingsDataStore.setTutorialCompleted(true)
-            _uiState.update { it.copy(showTutorial = false) }
-        }
-    }
-
-    fun dismissTutorial() {
-        viewModelScope.launch {
-            settingsDataStore.setTutorialCompleted(true)
-            _uiState.update { it.copy(showTutorial = false) }
-        }
-    }
+    // --- Scroll/Tutorial/Warning UI Controls ---
 
     fun clearScrollToIndex() {
         _uiState.update { it.copy(scrollToIndex = null) }
+    }
+
+    fun dismissTutorial() {
+        _uiState.update { it.copy(showTutorial = false) }
+    }
+
+    fun completeTutorial() {
+        _uiState.update { it.copy(showTutorial = false) }
+        // Could persist completion state to DataStore here if needed
     }
 
     fun dismissQualityWarning() {
         _uiState.update { it.copy(showQualityWarning = false, qualityWarningMessage = "") }
     }
 
-    /**
-     * Apply difficulty to engines WITHOUT persisting to DataStore.
-     * Used by init collector to avoid write-back loops.
-     */
-    private fun applyDifficulty(level: DifficultyLevel) {
-        _currentDifficulty.value = level
-        val preset = when (level) {
-            DifficultyLevel.EASY -> ScoringPresets.easyMode()
-            DifficultyLevel.NORMAL -> ScoringPresets.normalMode()
-            DifficultyLevel.HARD -> ScoringPresets.hardMode()
-            else -> ScoringPresets.normalMode()
+    fun showQualityWarning(message: String) {
+        _uiState.update { it.copy(showQualityWarning = true, qualityWarningMessage = message) }
+    }
+
+    fun dismissAnalysisToast() {
+        _uiState.update { it.copy(showAnalysisToast = false) }
+    }
+
+    // 🥚 Easter Egg Methods
+    fun dismissEasterEgg() {
+        _uiState.update { it.copy(showEasterEgg = false) }
+    }
+
+    fun onCpdTapped() {
+        val newTaps = _uiState.value.cpdTaps + 1
+        if (newTaps >= 7) {
+            // Trigger easter egg after 7 taps
+            _uiState.update { it.copy(showEasterEgg = true, cpdTaps = 0) }
+        } else {
+            _uiState.update { it.copy(cpdTaps = newTaps) }
         }
+    }
+
+    fun renameRecording(recordingPath: String, newName: String) {
+        viewModelScope.launch {
+            // 🎯 FIX: Use correct method name
+            recordingNamesRepository.setCustomName(recordingPath, newName)
+
+            val updatedNames = _uiState.value.customNames.toMutableMap()
+            updatedNames[recordingPath] = newName
+
+            _uiState.update { it.copy(customNames = updatedNames) }
+        }
+    }
+
+    fun ensureScoringReady() {
+        viewModelScope.launch {
+            if (!_isScoringReady.value) {
+                _isScoringReady.value = PhonemeUtils.isReady()
+            }
+        }
+    }
+
+    /**
+     * Apply difficulty level internally (no persistence)
+     */
+    fun applyDifficulty(level: DifficultyLevel) {
+        _currentDifficulty.value = level
+        // 🎯 FIX: Use SpeechScoringModels.presetFor() instead of non-existent ScoringPresets
+        val preset = SpeechScoringModels.presetFor(level)
         updateScoringEngine(preset)
     }
 
@@ -933,7 +815,7 @@ class AudioViewModel @Inject constructor(
     fun updateScoringEngine(preset: Presets) {
         val difficulty = _currentDifficulty.value
         speechScoringEngine.updateDifficulty(difficulty)
-        singingScoringEngine.updateDifficulty(difficulty)
+        // Note: Phoneme scoring doesn't use difficulty presets directly
     }
 
     // 🔇 SILENCE TRIMMING: Strip leading/trailing silence for accurate duration gate
@@ -966,44 +848,86 @@ class AudioViewModel @Inject constructor(
             }
         }
 
-        if (endIdx <= startIdx || endIdx - startIdx < 1000) return samples
-
-        Log.d("AUDIO_TRIM", "Trimmed: ${samples.size} → ${endIdx - startIdx} samples")
-        return samples.sliceArray(startIdx until endIdx)
+        return if (startIdx < endIdx) samples.sliceArray(startIdx until endIdx) else samples
     }
 
     private fun readAudioFile(path: String): FloatArray {
-        val file = File(path)
-
-        if (!file.exists()) {
-            Log.e("AudioViewModel", "File not found: $path")
-            return floatArrayOf()
-        }
-
-        // NEW: Check against AudioConstants
-        if (file.length() > AudioConstants.MAX_LOADABLE_AUDIO_BYTES) {
-            Log.w("AudioViewModel", "File too large (${file.length()} bytes). Limit: ${AudioConstants.MAX_LOADABLE_AUDIO_BYTES}")
-            return floatArrayOf()
-        }
-
-        if (file.length() <= AudioConstants.WAV_HEADER_SIZE) {
-            return floatArrayOf()
-        }
-
         return try {
-            val bytes = file.readBytes()
-            if (bytes.size <= AudioConstants.WAV_HEADER_SIZE) return floatArrayOf()
-
-            val audioData = bytes.sliceArray(AudioConstants.WAV_HEADER_SIZE until bytes.size)
-
-            FloatArray(audioData.size / 2) { i ->
-                val low = audioData[i * 2].toInt() and 0xFF
-                val high = audioData[i * 2 + 1].toInt() shl 8
-                (high or low).toShort() / 32768f
+            val file = File(path)
+            if (!file.exists()) {
+                Log.e("AudioViewModel", "File not found: $path")
+                return floatArrayOf()
             }
+
+            val bytes = file.readBytes()
+            if (bytes.size < 44) {
+                Log.e("AudioViewModel", "File too small for WAV header: ${bytes.size}")
+                return floatArrayOf()
+            }
+
+            // Skip WAV header (44 bytes) and convert to float
+            val audioBytes = bytes.drop(44)
+            val samples = FloatArray(audioBytes.size / 2)
+            for (i in samples.indices) {
+                val low = audioBytes[i * 2].toInt() and 0xFF
+                val high = audioBytes[i * 2 + 1].toInt()
+                val sample = (high shl 8) or low
+                samples[i] = sample / 32768f
+            }
+            samples
         } catch (e: Exception) {
-            Log.e("AudioViewModel", "Error reading audio file", e)
+            Log.e("AudioViewModel", "Error reading audio file: $path", e)
             floatArrayOf()
         }
+    }
+
+    // 🧪 BIT (Built-In Test) Functions
+    fun runBIT() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(
+                showBitResults = true,
+                bitResults = "Running tests...",
+                bitProgress = 0f
+            ) }
+
+            val results = StringBuilder()
+
+            // Test 1: PhonemeUtils
+            results.append("=== PhonemeUtils ===\n")
+            val phonemeReady = PhonemeUtils.isReady()
+            results.append("Ready: $phonemeReady\n")
+            _uiState.update { it.copy(bitProgress = 0.25f) }
+
+            // Test 2: Vosk
+            results.append("\n=== Vosk ===\n")
+            // 🎯 FIX: Use correct method name
+            val voskReady = voskTranscriptionHelper.isReady()
+            results.append("Model loaded: $voskReady\n")
+            _uiState.update { it.copy(bitProgress = 0.5f) }
+
+            // Test 3: ReverseScoringEngine
+            results.append("\n=== ReverseScoringEngine ===\n")
+            try {
+                val testScore = ReverseScoringEngine.scoreTextOnly("hello", "olleh")
+                results.append("Test score (hello/olleh): $testScore%\n")
+            } catch (e: Exception) {
+                results.append("ERROR: ${e.message}\n")
+            }
+            _uiState.update { it.copy(bitProgress = 0.75f) }
+
+            // Test 4: Audio paths
+            results.append("\n=== Storage ===\n")
+            val context = getApplication<Application>()
+            val recordingsDir = File(context.filesDir, "recordings")
+            results.append("Recordings dir exists: ${recordingsDir.exists()}\n")
+            results.append("Recording count: ${recordingsDir.listFiles()?.size ?: 0}\n")
+            _uiState.update { it.copy(bitProgress = 1f) }
+
+            _uiState.update { it.copy(bitResults = results.toString()) }
+        }
+    }
+
+    fun dismissBitResults() {
+        _uiState.update { it.copy(showBitResults = false, bitResults = "", bitProgress = 0f) }
     }
 }

@@ -63,7 +63,7 @@ import com.quokkalabs.reversey.BuildConfig
 import com.quokkalabs.reversey.audio.processing.AudioProcessor
 import com.quokkalabs.reversey.data.backup.BackupManager
 import com.quokkalabs.reversey.scoring.DifficultyConfig
-import com.quokkalabs.reversey.testing.ScoringStressTester
+
 import com.quokkalabs.reversey.testing.VocalModeDetectorTuner
 import com.quokkalabs.reversey.ui.components.DifficultyButton
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
@@ -258,7 +258,7 @@ fun SettingsContent(
         if (BuildConfig.DEBUG) {
             SectionTitle("DEVELOPER OPTIONS")
 
-        //START==========hacky test buttons!============
+            //START==========hacky test buttons!============
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
 
@@ -301,34 +301,6 @@ fun SettingsContent(
             }) { Text("Test Vosk") }
 
             //END==========hacky test buttons!============
-
-            // ========== STRESS TESTER ==========
-            var showStressTester by remember { mutableStateOf(false) }
-            var progress by remember { mutableStateOf<ScoringStressTester.Progress?>(null) }
-
-            GlassCard {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showStressTester = true },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Scoring Stress Tester",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = StaticMenuColors.textOnCard,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            if (showStressTester) {
-                StressTesterPanel(
-                    progress = progress,
-                    onClose = { showStressTester = false },
-                    audioViewModel = audioViewModel
-                )
-            }
 
             // ========== VOCAL TUNER (Debug Only) ==========
 
@@ -628,65 +600,6 @@ private fun GlassDivider() {
             .height(1.dp)
             .background(StaticMenuColors.divider)
     )
-}
-
-@Composable
-fun StressTesterPanel(
-    progress: ScoringStressTester.Progress?,
-    onClose: () -> Unit,
-    audioViewModel: AudioViewModel,
-) {
-    val ctx = LocalContext.current
-    val orchestrator = audioViewModel.getOrchestrator()
-    val speechEngine = audioViewModel.getSpeechEngine()
-    val singingEngine = audioViewModel.getSingingEngine()
-    var localProgress by remember { mutableStateOf(progress) }
-
-    LaunchedEffect(Unit) {
-        ScoringStressTester.runAll(
-            context = ctx,
-            orchestrator = orchestrator,
-            speechEngine = speechEngine,
-            singingEngine = singingEngine,
-            onProgress = { p -> localProgress = p }
-        )
-    }
-
-    GlassCard {
-        Column(Modifier.fillMaxWidth()) {
-            Text(
-                "SCORING STRESS TEST",
-                style = MaterialTheme.typography.titleLarge,
-                color = StaticMenuColors.textOnCard,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(12.dp))
-
-            if (localProgress != null) {
-                val p = localProgress!!
-                val frac = p.current.toFloat() / p.total.toFloat()
-                LinearProgressIndicator(
-                    progress = { frac },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = StaticMenuColors.toggleActive
-                )
-                Spacer(Modifier.height(10.dp))
-                Text("File: ${p.file}", color = StaticMenuColors.textOnCard)
-                Text("Difficulty: ${p.difficulty.displayName}", color = StaticMenuColors.textOnCard)
-                Text("Pass: ${p.pass}", color = StaticMenuColors.textOnCard)
-                Text("${p.current} / ${p.total}", color = StaticMenuColors.textOnCard)
-            } else {
-                Text("Preparing tests…", color = StaticMenuColors.textOnCard)
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onClose) {
-                    Text("Close", color = StaticMenuColors.toggleActive)
-                }
-            }
-        }
-    }
 }
 
 @Composable

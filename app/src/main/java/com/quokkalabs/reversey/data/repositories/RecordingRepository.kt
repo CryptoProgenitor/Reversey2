@@ -14,8 +14,9 @@ import com.quokkalabs.reversey.data.models.Recording
 import com.quokkalabs.reversey.utils.formatFileName
 import com.quokkalabs.reversey.utils.getRecordingsDir
 import com.quokkalabs.reversey.utils.writeWavHeader
-import com.quokkalabs.reversey.scoring.VocalModeDetector
 import com.quokkalabs.reversey.scoring.VocalMode
+import com.quokkalabs.reversey.scoring.VocalAnalysis
+import com.quokkalabs.reversey.scoring.VocalFeatures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -60,9 +61,9 @@ suspend fun isWavFileComplete(file: File): Boolean = withContext(Dispatchers.IO)
 }
 
 // 🎤 PHASE 3: Removed SpeechRecognitionService from constructor - live transcription handled by AudioRecorderHelper
+// 🔄 REFACTOR: Removed VocalModeDetector - dual pipeline eliminated (Dec 2025)
 class RecordingRepository(
-    private val context: Context,
-    private val vocalModeDetector: VocalModeDetector
+    private val context: Context
 ) {
 
     // ⚡ PERFORMANCE OPTIMIZED: Removed delay, added caching
@@ -91,22 +92,20 @@ class RecordingRepository(
                         }
                     }
 
-                    // ⚡ PERFORMANCE FIX: Cached vocal analysis (only analyze new files)
-                    val vocalAnalysis = getCachedOrAnalyzeVocalMode(file)
+                    // 🔄 REFACTOR: Hardcoded neutral analysis - dual pipeline eliminated
+                    val vocalAnalysis = VocalAnalysis(
+                        mode = VocalMode.UNKNOWN,
+                        confidence = 0f,
+                        features = VocalFeatures(0f, 0f, 0f, 0f)
+                    )
 
-                    Log.d("RecordingRepository", "LOADED: ${file.name} - mode=${vocalAnalysis.mode}")
+                    Log.d("RecordingRepository", "LOADED: ${file.name}")
 
                     // 🗣️ PHASE 3: Get cached transcription (or null if not yet transcribed)
                     val transcriptionData = getCachedTranscription(file)
 
                     Recording(
-                        name = vocalAnalysis.let { analysis ->
-                            when(analysis.mode) {
-                                VocalMode.SPEECH -> "🗣️💬"
-                                VocalMode.SINGING -> "🎵🎼 "
-                                VocalMode.UNKNOWN -> "❓ "
-                            } + formatFileName(file.name)
-                        },
+                        name = formatFileName(file.name),
                         originalPath = file.absolutePath,
                         reversedPath = if (reversedFile.exists()) reversedFile.absolutePath else null,
                         attempts = emptyList(),
@@ -272,105 +271,14 @@ class RecordingRepository(
     }
 
     // ============================================================
-    //  ⚡ VOCAL MODE CACHING SYSTEM
+    //  ⚡ VOCAL MODE CACHING SYSTEM (DEPRECATED - Dec 2025)
+    //  Dual pipeline eliminated. Keeping cleanupAnalysisCache as no-op
+    //  for backward compatibility with existing cache directories.
     // ============================================================
-
-    data class CachedVocalAnalysis(
-        val mode: VocalMode,
-        val confidence: Float,
-        val pitchStability: Float,
-        val pitchContour: Float,
-        val mfccSpread: Float,
-        val voicedRatio: Float
-    )
-
-    private suspend fun getCachedOrAnalyzeVocalMode(audioFile: File): com.quokkalabs.reversey.scoring.VocalAnalysis {
-        val cacheFile = getCacheFileForAudio(audioFile)
-
-        // Check if cache exists and is newer than audio file
-        if (cacheFile.exists() && cacheFile.lastModified() > audioFile.lastModified()) {
-            try {
-                val cached = loadCachedAnalysis(cacheFile)
-                if (cached != null) {
-                    Log.d("RecordingRepository", "Using cached analysis for ${audioFile.name}")
-                    return com.quokkalabs.reversey.scoring.VocalAnalysis(
-                        mode = cached.mode,
-                        confidence = cached.confidence,
-                        features = com.quokkalabs.reversey.scoring.VocalFeatures(
-                            pitchStability = cached.pitchStability,
-                            pitchContour = cached.pitchContour,
-                            mfccSpread = cached.mfccSpread,
-                            voicedRatio = cached.voicedRatio
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                Log.w("RecordingRepository", "Failed to load cached analysis for ${audioFile.name}: ${e.message}")
-            }
-        }
-
-        // Analyze and cache on background thread (Dispatchers.Default for CPU-intensive work)
-        return withContext(Dispatchers.Default) {
-            Log.d("RecordingRepository", "Analyzing ${audioFile.name} (not cached)")
-            val analysis = vocalModeDetector.classifyVocalMode(audioFile)
-
-            // Save to cache
-            try {
-                saveCachedAnalysis(cacheFile, CachedVocalAnalysis(
-                    mode = analysis.mode,
-                    confidence = analysis.confidence,
-                    pitchStability = analysis.features.pitchStability,
-                    pitchContour = analysis.features.pitchContour,
-                    mfccSpread = analysis.features.mfccSpread,
-                    voicedRatio = analysis.features.voicedRatio
-                ))
-                Log.d("RecordingRepository", "Cached analysis for ${audioFile.name}")
-            } catch (e: Exception) {
-                Log.w("RecordingRepository", "Failed to cache analysis for ${audioFile.name}: ${e.message}")
-            }
-
-            analysis
-        }
-    }
-
-    private fun getCacheFileForAudio(audioFile: File): File {
-        val cacheDir = File(audioFile.parent, ".analysis_cache").apply { mkdirs() }
-        val baseName = audioFile.nameWithoutExtension
-        return File(cacheDir, "$baseName.analysis")
-    }
-
-    private fun loadCachedAnalysis(cacheFile: File): CachedVocalAnalysis? {
-        return try {
-            val json = JSONObject(cacheFile.readText())
-            CachedVocalAnalysis(
-                mode = VocalMode.valueOf(json.getString("mode")),
-                confidence = json.getDouble("confidence").toFloat(),
-                pitchStability = json.getDouble("pitchStability").toFloat(),
-                pitchContour = json.getDouble("pitchContour").toFloat(),
-                mfccSpread = json.getDouble("mfccSpread").toFloat(),
-                voicedRatio = json.getDouble("voicedRatio").toFloat()
-            )
-        } catch (e: Exception) {
-            Log.w("RecordingRepository", "Failed to parse cached analysis: ${e.message}")
-            null
-        }
-    }
-
-    private fun saveCachedAnalysis(cacheFile: File, analysis: CachedVocalAnalysis) {
-        val json = JSONObject().apply {
-            put("mode", analysis.mode.toString())
-            put("confidence", analysis.confidence.toDouble())
-            put("pitchStability", analysis.pitchStability.toDouble())
-            put("pitchContour", analysis.pitchContour.toDouble())
-            put("mfccSpread", analysis.mfccSpread.toDouble())
-            put("voicedRatio", analysis.voicedRatio.toDouble())
-            put("timestamp", System.currentTimeMillis())
-        }
-        cacheFile.writeText(json.toString())
-    }
 
     /**
      * Clean up old analysis cache files (call periodically)
+     * Now a no-op but kept for API compatibility
      */
     suspend fun cleanupAnalysisCache() = withContext(Dispatchers.IO) {
         try {
@@ -379,6 +287,7 @@ class RecordingRepository(
 
             if (!cacheDir.exists()) return@withContext
 
+            // Clean up orphaned cache files
             val cacheFiles = cacheDir.listFiles() ?: return@withContext
             var cleaned = 0
 
@@ -386,14 +295,15 @@ class RecordingRepository(
                 val audioFileName = cacheFile.nameWithoutExtension + ".wav"
                 val audioFile = File(recordingsDir, audioFileName)
 
-                // Remove cache if audio file no longer exists
                 if (!audioFile.exists()) {
                     cacheFile.delete()
                     cleaned++
                 }
             }
 
-            Log.d("RecordingRepository", "Cleaned $cleaned orphaned analysis cache files")
+            if (cleaned > 0) {
+                Log.d("RecordingRepository", "Cleaned $cleaned orphaned analysis cache files")
+            }
         } catch (e: Exception) {
             Log.w("RecordingRepository", "Error cleaning analysis cache: ${e.message}")
         }

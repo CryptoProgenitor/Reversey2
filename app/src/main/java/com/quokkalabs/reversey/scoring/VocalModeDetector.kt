@@ -10,23 +10,10 @@ import java.nio.ByteOrder
 import javax.inject.Inject
 import kotlin.math.sqrt
 
-/**
- * Vocal Mode Classification Results
- */
-data class VocalAnalysis(
-    val mode: VocalMode,
-    val confidence: Float,
-    val features: VocalFeatures
-)
-
-enum class VocalMode { SPEECH, SINGING, UNKNOWN }
-
-data class VocalFeatures(
-    val pitchStability: Float,
-    val pitchContour: Float,
-    val mfccSpread: Float,
-    val voicedRatio: Float
-)
+// ============================================================
+// TYPES RELOCATED TO ScoringCommonModels.kt (Dec 2025)
+// VocalAnalysis, VocalMode, VocalFeatures now canonical there
+// ============================================================
 
 data class VocalDetectionParameters(
     val speechConfidenceThreshold: Float = 0.2f,

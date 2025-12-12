@@ -75,13 +75,9 @@ class VocalModeRouter @Inject constructor() {
     }
 }
 
-/**
- * Engine selector for true separation architecture
- */
-enum class ScoringEngineType {
-    SPEECH_ENGINE,      // Optimized for speech patterns + fallback for errors
-    SINGING_ENGINE      // Optimized for musical patterns
-}
+// ============================================================
+// ScoringEngineType RELOCATED TO ScoringCommonModels.kt (Dec 2025)
+// ============================================================
 
 /**
  * True separation routing decision - selects which ENGINE to use

@@ -5,7 +5,6 @@ import com.quokkalabs.reversey.data.repositories.AttemptsRepository
 import com.quokkalabs.reversey.data.repositories.RecordingNamesRepository
 import com.quokkalabs.reversey.data.repositories.RecordingRepository
 import com.quokkalabs.reversey.data.repositories.SettingsDataStore
-import com.quokkalabs.reversey.scoring.VocalModeDetector
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -21,13 +20,13 @@ import javax.inject.Singleton
 object RepositoryModule {
 
     // 🎤 PHASE 3: Removed SpeechRecognitionService - live transcription handled by AudioRecorderHelper
+    // 🔄 REFACTOR: Removed VocalModeDetector - dual pipeline eliminated (Dec 2025)
     @Provides
     @Singleton
     fun provideRecordingRepository(
-        @ApplicationContext context: Context,
-        vocalModeDetector: VocalModeDetector
+        @ApplicationContext context: Context
     ): RecordingRepository {
-        return RecordingRepository(context, vocalModeDetector)
+        return RecordingRepository(context)
     }
 
     @Provides
