@@ -294,7 +294,8 @@ class SakuraSerenityComponents : ThemeComponents {
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
-        onOverrideScore: ((Int) -> Unit)?
+        onOverrideScore: ((Int) -> Unit)?,
+        onResetScore: (() -> Unit)?
     ) {
         // 🌸 THEME COLORS
         val cardBg = Color(0xFFFFFAFC)

@@ -96,11 +96,12 @@ class Y2KThemeComponents : ThemeComponents {
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
-        onOverrideScore: ((Int) -> Unit)?
+        onOverrideScore: ((Int) -> Unit)?,
+onResetScore: (() -> Unit)?
     ) {
         SharedDefaultComponents.MaterialAttemptCard(
             attempt, aesthetic, currentlyPlayingPath, isPaused, progress, onPlay, onPause, onStop,
-            onRenamePlayer, onDeleteAttempt, onShareAttempt, onJumpToParent, onOverrideScore
+             onRenamePlayer, onDeleteAttempt, onShareAttempt, onJumpToParent, onOverrideScore, onResetScore
         )
     }
 

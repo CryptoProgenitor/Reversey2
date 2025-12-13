@@ -798,6 +798,28 @@ class AudioViewModel @Inject constructor(
         }
     }
 
+    fun resetAttemptScore(recordingPath: String, attempt: PlayerAttempt) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedRecordings = _uiState.value.recordings.map { recording ->
+                if (recording.originalPath == recordingPath) {
+                    val updatedAttempts = recording.attempts.map {
+                        if (it == attempt) it.copy(finalScore = null) else it
+                    }
+                    recording.copy(attempts = updatedAttempts)
+                } else {
+                    recording
+                }
+            }
+
+            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+            attemptsRepository.saveAttempts(attemptsMap)
+
+            withContext(Dispatchers.Main) {
+                _uiState.update { it.copy(recordings = updatedRecordings) }
+            }
+        }
+    }
+
     fun clearAttemptToRename() {
         _uiState.update { it.copy(attemptToRename = null) }
     }

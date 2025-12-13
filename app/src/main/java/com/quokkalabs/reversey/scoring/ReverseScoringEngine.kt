@@ -4,6 +4,7 @@ import android.util.Log
 import kotlin.math.sqrt
 import kotlin.math.pow
 import kotlin.math.abs
+import kotlin.math.exp
 
 /**
  * ReVerseY Scoring Engine - EXPERIMENTAL MODELS
@@ -14,6 +15,30 @@ object ReverseScoringEngine {
 
     private const val TAG = "ScoringEngine"
     private const val TAG_PHONEME = "PHONEME_SCORE"
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SCORING CONSTANTS
+    // ═══════════════════════════════════════════════════════════════
+
+    // PHONEME_PRIMARY model weights
+    private const val PHONEME_WEIGHT = 0.85f          // Base phoneme contribution (85%)
+    private const val DURATION_BONUS_MAX = 0.15f      // Max duration bonus (15%)
+
+    // Gaussian width by difficulty (smaller = stricter timing required)
+    private const val GAUSSIAN_WIDTH_EASY = 0.3f      // Forgiving
+    private const val GAUSSIAN_WIDTH_NORMAL = 0.2f    // Balanced
+    private const val GAUSSIAN_WIDTH_HARD = 0.1f      // Strict
+
+    // Auto-accept/reject thresholds
+    const val AUTO_ACCEPT_HIGH = 90
+    const val AUTO_ACCEPT_LOW = 15
+
+    // Legacy model constants (kept for reference/testing)
+    private const val ADDITIVE_PHONEME_WEIGHT = 0.45f
+    private const val ADDITIVE_DURATION_WEIGHT = 0.55f
+    private const val MULTIPLICATIVE_BASE = 0.5f
+    private const val GATE_PENALTY = 0.5f
+    private const val DOMINANT_PENALTY_MAX = 0.2f
 
     // ═══════════════════════════════════════════════════════════════
     //  🎮 CHANGE THIS TO TEST DIFFERENT MODELS
@@ -28,7 +53,7 @@ object ReverseScoringEngine {
     }
 
     // 👇 SWITCH MODEL HERE 👇
-    private val ACTIVE_MODEL = ScoringModel.MULTIPLICATIVE
+    private val ACTIVE_MODEL = ScoringModel.PHONEME_PRIMARY
 
     // ═══════════════════════════════════════════════════════════════
     //  DIFFICULTY CONFIG
@@ -40,18 +65,15 @@ object ReverseScoringEngine {
         val durationMin: Float,      // e.g., 0.5 = 50%
         val durationMax: Float,      // e.g., 1.5 = 150%
         val phonemeLeniency: PhonemeMatch,
+        val gaussianWidth: Float,    // Bell curve width for duration bonus (smaller = stricter)
         val label: String
     )
 
     private val DIFFICULTY_CONFIGS = mapOf(
-        DifficultyLevel.EASY to DifficultyConfig(0.50f, 1.50f, PhonemeMatch.FUZZY, "Wide duration window, fuzzy phonemes"),
-        DifficultyLevel.NORMAL to DifficultyConfig(0.66f, 1.33f, PhonemeMatch.EXACT, "Moderate duration window, exact phonemes required"),
-        DifficultyLevel.HARD to DifficultyConfig(0.80f, 1.20f, PhonemeMatch.ORDERED, "Tight duration window, ordered phonemes required")
+        DifficultyLevel.EASY to DifficultyConfig(0.50f, 1.50f, PhonemeMatch.FUZZY, GAUSSIAN_WIDTH_EASY, "Wide duration window, fuzzy phonemes"),
+        DifficultyLevel.NORMAL to DifficultyConfig(0.66f, 1.33f, PhonemeMatch.EXACT, GAUSSIAN_WIDTH_NORMAL, "Moderate duration window, exact phonemes"),
+        DifficultyLevel.HARD to DifficultyConfig(0.80f, 1.20f, PhonemeMatch.ORDERED, GAUSSIAN_WIDTH_HARD, "Tight duration window, ordered phonemes")
     )
-
-    // Auto-accept thresholds
-    const val AUTO_ACCEPT_HIGH = 90
-    const val AUTO_ACCEPT_LOW = 15
 
     // ═══════════════════════════════════════════════════════════════
     //  MAIN ENTRY POINT
@@ -74,7 +96,7 @@ object ReverseScoringEngine {
         // 1. Extract phonemes
         val targetPhonemes = PhonemeUtils.textToPhonemes(targetText)
         val attemptPhonemes = PhonemeUtils.textToPhonemes(attemptText)
-        
+
         // 1b. Extract word-level phonemes for UI visualization
         val targetWordPhonemes = PhonemeUtils.textToWordPhonemes(targetText)
         val attemptWordPhonemes = PhonemeUtils.textToWordPhonemes(attemptText)
@@ -103,7 +125,7 @@ object ReverseScoringEngine {
 
         // 4. Compute final score using selected model
         val (finalScore, phonemeComponent, durationComponent) = computeScore(
-            matchDetail.overlap, durationScore, durationInRange, ACTIVE_MODEL
+            matchDetail.overlap, durationScore, durationInRange, durationRatio, config.gaussianWidth, ACTIVE_MODEL
         )
 
         Log.d(TAG, "Components: phoneme=$phonemeComponent duration=$durationComponent")
@@ -196,7 +218,7 @@ object ReverseScoringEngine {
                         val fuzzyMatch = minOf(available, remaining)
                         matchScore += fuzzyMatch * similarity
                         targetBag[similar] = available - fuzzyMatch
-                        
+
                         // Mark fuzzy-matched target phonemes
                         var marked = 0
                         for (i in target.indices) {
@@ -228,7 +250,7 @@ object ReverseScoringEngine {
             val available = targetBag[phoneme] ?: 0
             val matched = minOf(count, available)
             intersection += matched
-            
+
             // Mark matched target phonemes
             if (matched > 0) {
                 var marked = 0
@@ -253,13 +275,13 @@ object ReverseScoringEngine {
     private fun orderedMatch(target: List<String>, attempt: List<String>): PhonemeMatchDetail {
         val (lcs, matchedIndices) = longestCommonSubsequenceWithIndices(target, attempt)
         val overlap = if (target.isNotEmpty()) lcs.toFloat() / target.size else 0f
-        
+
         // Create match array from matched indices
         val targetMatched = BooleanArray(target.size) { false }
         for (i in matchedIndices) {
             targetMatched[i] = true
         }
-        
+
         return PhonemeMatchDetail(overlap, lcs, target.size, targetMatched.toList())
     }
 
@@ -287,7 +309,7 @@ object ReverseScoringEngine {
         val m = a.size
         val n = b.size
         if (m == 0 || n == 0) return Pair(0, emptyList())
-        
+
         val dp = Array(m + 1) { IntArray(n + 1) }
 
         for (i in 1..m) {
@@ -299,7 +321,7 @@ object ReverseScoringEngine {
                 }
             }
         }
-        
+
         // Backtrack to find matched indices in 'a' (target)
         val matchedIndices = mutableListOf<Int>()
         var i = m
@@ -315,7 +337,7 @@ object ReverseScoringEngine {
                 else -> j--
             }
         }
-        
+
         return Pair(dp[m][n], matchedIndices.reversed())  // Reverse to get ascending order
     }
 
@@ -382,6 +404,8 @@ object ReverseScoringEngine {
         phonemeOverlap: Float,
         durationScore: Float,
         durationInRange: Boolean,
+        durationRatio: Float,
+        gaussianWidth: Float,
         model: ScoringModel
     ): Triple<Int, Float, Float> {
 
@@ -392,8 +416,8 @@ object ReverseScoringEngine {
             // Problem: "bombastic" gets 67% because duration is good
             // ─────────────────────────────────────────────────────────
             ScoringModel.ADDITIVE_SQRT -> {
-                val p = sqrt(phonemeOverlap) * 0.45f
-                val d = sqrt(durationScore) * 0.55f
+                val p = sqrt(phonemeOverlap) * ADDITIVE_PHONEME_WEIGHT
+                val d = sqrt(durationScore) * ADDITIVE_DURATION_WEIGHT
                 val score = ((p + d) * 100).toInt().coerceIn(0, 100)
                 Triple(score, p, d)
             }
@@ -404,20 +428,21 @@ object ReverseScoringEngine {
             // ─────────────────────────────────────────────────────────
             ScoringModel.MULTIPLICATIVE -> {
                 val phonemeScore = phonemeOverlap * 100f
-                val durationMultiplier = 0.5f + (durationScore * 0.5f) // 0.5 to 1.0
+                val durationMultiplier = MULTIPLICATIVE_BASE + (durationScore * MULTIPLICATIVE_BASE)
                 val score = (phonemeScore * durationMultiplier).toInt().coerceIn(0, 100)
                 Triple(score, phonemeScore / 100f, durationMultiplier)
             }
 
             // ─────────────────────────────────────────────────────────
-            // PHONEME PRIMARY: 85% phoneme, 15% duration bonus
-            // Duration can only ADD, never carry the score
+            // PHONEME PRIMARY: √phoneme × 85% + Gaussian duration bonus
+            // Duration bonus uses bell curve: 15% × e^(-(ratio-1)²/width)
+            // Width varies by difficulty: EASY=0.3, NORMAL=0.2, HARD=0.1
             // ─────────────────────────────────────────────────────────
             ScoringModel.PHONEME_PRIMARY -> {
-                val phonemeScore = sqrt(phonemeOverlap) * 0.85f
-                val durationBonus = if (durationInRange) 0.15f else 0f
-                val score = ((phonemeScore + durationBonus) * 100).toInt().coerceIn(0, 100)
-                Triple(score, phonemeScore, durationBonus)
+                val phonemeBase = sqrt(phonemeOverlap) * PHONEME_WEIGHT
+                val durationBonus = DURATION_BONUS_MAX * exp(-(durationRatio - 1f).pow(2) / gaussianWidth)
+                val score = ((phonemeBase + durationBonus) * 100).toInt().coerceIn(0, 100)
+                Triple(score, phonemeBase, durationBonus)
             }
 
             // ─────────────────────────────────────────────────────────
@@ -428,10 +453,10 @@ object ReverseScoringEngine {
                 val gatedScore = if (durationInRange) {
                     phonemeScore
                 } else {
-                    phonemeScore * 0.5f // Halve score if duration bad
+                    phonemeScore * GATE_PENALTY
                 }
                 val score = gatedScore.toInt().coerceIn(0, 100)
-                Triple(score, phonemeScore / 100f, if (durationInRange) 1f else 0.5f)
+                Triple(score, phonemeScore / 100f, if (durationInRange) 1f else GATE_PENALTY)
             }
 
             // ─────────────────────────────────────────────────────────
@@ -441,7 +466,7 @@ object ReverseScoringEngine {
             ScoringModel.PHONEME_DOMINANT -> {
                 val baseScore = sqrt(phonemeOverlap) * 100f
                 val penalty = if (!durationInRange) {
-                    baseScore * 0.2f * (1f - durationScore) // Up to 20% penalty
+                    baseScore * DOMINANT_PENALTY_MAX * (1f - durationScore)
                 } else 0f
                 val score = (baseScore - penalty).toInt().coerceIn(0, 100)
                 Triple(score, baseScore / 100f, -penalty / 100f)

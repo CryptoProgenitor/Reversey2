@@ -255,7 +255,8 @@ class ScrapbookThemeComponents : ThemeComponents {
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
-        onOverrideScore: ((Int) -> Unit)?
+        onOverrideScore: ((Int) -> Unit)?,
+        onResetScore: (() -> Unit)?
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }

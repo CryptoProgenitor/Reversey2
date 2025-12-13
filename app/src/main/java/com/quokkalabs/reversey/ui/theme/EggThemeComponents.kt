@@ -203,7 +203,8 @@ class EggThemeComponents : ThemeComponents {
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
-        onOverrideScore: ((Int) -> Unit)?
+        onOverrideScore: ((Int) -> Unit)?,
+        onResetScore: (() -> Unit)?
     ) {
         EggAttemptItem(
             attempt = attempt,

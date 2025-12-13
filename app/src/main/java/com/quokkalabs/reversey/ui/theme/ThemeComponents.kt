@@ -56,7 +56,8 @@ interface ThemeComponents {
         onDeleteAttempt: ((PlayerAttempt) -> Unit)? = null,
         onShareAttempt: ((String) -> Unit)? = null,
         onJumpToParent: (() -> Unit)? = null,
-        onOverrideScore: ((Int) -> Unit)? = null  // Phase 4: Score override callback
+        onOverrideScore: ((Int) -> Unit)? = null,  // Phase 4: Score override callback
+        onResetScore: (() -> Unit)? = null  // Phase 4: Score reset callback
     )
 
     /**

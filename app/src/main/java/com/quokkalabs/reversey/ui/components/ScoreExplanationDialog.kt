@@ -27,10 +27,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,19 +42,59 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.scoring.WordPhonemes
+import kotlinx.coroutines.launch
+
+// ═══════════════════════════════════════════════════════════════
+//  SPACING CONFIG - Change ACTIVE_SPACING to switch layouts
+// ═══════════════════════════════════════════════════════════════
+
+private enum class SpacingMode { TIGHT, NORMAL, LOOSE }
+
+private data class SpacingConfig(
+    val cardPadding: Dp,
+    val sectionGap: Dp,
+    val innerPadding: Dp,
+    val smallGap: Dp
+)
+
+private val SPACING_CONFIGS = mapOf(
+    SpacingMode.TIGHT to SpacingConfig(
+        cardPadding = 10.dp,
+        sectionGap = 6.dp,
+        innerPadding = 10.dp,
+        smallGap = 4.dp
+    ),
+    SpacingMode.NORMAL to SpacingConfig(
+        cardPadding = 12.dp,
+        sectionGap = 10.dp,
+        innerPadding = 14.dp,
+        smallGap = 6.dp
+    ),
+    SpacingMode.LOOSE to SpacingConfig(
+        cardPadding = 16.dp,
+        sectionGap = 16.dp,
+        innerPadding = 20.dp,
+        smallGap = 10.dp
+    )
+)
+
+// 👇 CHANGE THIS TO SWITCH SPACING 👇
+private val ACTIVE_SPACING = SpacingMode.TIGHT
+private val S = SPACING_CONFIGS[ACTIVE_SPACING]!!
 
 /**
  * ScoreExplanationDialog v2 - Phase 4 UI
- * 
+ *
  * Variant 1: Stacked layout with word-grouped phonemes
  * Shows target/attempt transcriptions, phoneme visualization, and override controls
- * 
+ *
  * Backward compatible: onDismiss stays in position 2 for old call sites
  */
 @Composable
@@ -61,29 +103,45 @@ fun ScoreExplanationDialog(
     onDismiss: () -> Unit,
     targetTranscription: String = "",  // Empty = will derive from word phonemes
     onAccept: () -> Unit = onDismiss,  // Default: just dismiss
-    onOverrideScore: (Int) -> Unit = { }  // Default: no-op (override not wired up yet)
+    onOverrideScore: (Int) -> Unit = { },  // Override to specific score
+    onResetScore: () -> Unit = { }  // Reset to algo score (clears finalScore)
 ) {
     var showOverridePanel by remember { mutableStateOf(false) }
     var selectedOverrideScore by remember { mutableIntStateOf(50) }
-    
+    var showFormulaToast by remember { mutableStateOf(false) }
+
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+
     val displayScore = attempt.finalScore ?: attempt.score
     val isOverridden = attempt.finalScore != null
-    
+
+    // Auto-scroll to bottom when override panel opens
+    LaunchedEffect(showOverridePanel) {
+        if (showOverridePanel) {
+            coroutineScope.launch {
+                scrollState.animateScrollTo(scrollState.maxValue)
+            }
+        }
+    }
+
     // Derive target transcription from word phonemes if not provided
     val effectiveTargetTranscription = targetTranscription.ifEmpty {
         attempt.targetWordPhonemes.joinToString(" ") { it.word }
     }
-    
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
             dismissOnBackPress = true,
-            dismissOnClickOutside = true
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
         )
     ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth(0.95f),
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
@@ -92,60 +150,71 @@ fun ScoreExplanationDialog(
         ) {
             Column(
                 modifier = Modifier
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState())
+                    .padding(S.cardPadding)
+                    .verticalScroll(scrollState)
             ) {
                 // Header
                 DialogHeader(onDismiss = onDismiss)
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Score Display
+
+                Spacer(modifier = Modifier.height(S.sectionGap))
+
+                // Score Display (tap for formula)
                 ScoreDisplay(
                     score = displayScore,
                     originalScore = if (isOverridden) attempt.score else null,
                     matchedCount = attempt.phonemeMatches.count { it },
-                    totalCount = attempt.targetPhonemes.size
+                    totalCount = attempt.targetPhonemes.size,
+                    onTap = { showFormulaToast = true }
                 )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
+
+                // Formula Toast (dismissable overlay)
+                if (showFormulaToast) {
+                    FormulaToast(
+                        attempt = attempt,
+                        onDismiss = { showFormulaToast = false }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(S.sectionGap))
+
                 // Target Section
                 TargetSection(
                     transcription = effectiveTargetTranscription,
                     wordPhonemes = attempt.targetWordPhonemes,
                     phonemeMatches = attempt.phonemeMatches
                 )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
+
+                Spacer(modifier = Modifier.height(S.sectionGap))
+
                 // Attempt Section
                 AttemptSection(
                     transcription = attempt.attemptTranscription ?: "(no transcription)",
                     wordPhonemes = attempt.attemptWordPhonemes
                 )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
+
+                Spacer(modifier = Modifier.height(S.sectionGap))
+
                 // Breakdown (Duration + Difficulty)
                 BreakdownSection(attempt = attempt)
-                
+
                 // Override Panel (conditional)
                 if (showOverridePanel) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(S.sectionGap))
                     OverridePanel(
                         selectedScore = selectedOverrideScore,
                         onScoreSelected = { selectedOverrideScore = it }
                     )
                 }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
+
+                Spacer(modifier = Modifier.height(S.sectionGap))
+
                 // Action Buttons
                 ActionButtons(
                     showOverridePanel = showOverridePanel,
                     selectedOverrideScore = selectedOverrideScore,
                     currentScore = displayScore,
+                    isOverridden = isOverridden,
+                    algoScore = attempt.score,
                     onAccept = {
                         if (showOverridePanel) {
                             onOverrideScore(selectedOverrideScore)
@@ -154,7 +223,8 @@ fun ScoreExplanationDialog(
                             onAccept()
                         }
                     },
-                    onToggleOverride = { showOverridePanel = !showOverridePanel }
+                    onToggleOverride = { showOverridePanel = !showOverridePanel },
+                    onReset = { onResetScore() }
                 )
             }
         }
@@ -193,14 +263,15 @@ private fun ScoreDisplay(
     score: Int,
     originalScore: Int?,
     matchedCount: Int,
-    totalCount: Int
+    totalCount: Int,
+    onTap: () -> Unit = {}
 ) {
     val scoreColor = when {
         score >= 70 -> Color(0xFF4ADE80)  // Green
         score >= 40 -> Color(0xFFFBBF24)  // Yellow
         else -> Color(0xFFF87171)          // Red
     }
-    
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -213,7 +284,8 @@ private fun ScoreDisplay(
                     )
                 )
             )
-            .padding(20.dp),
+            .clickable { onTap() }
+            .padding(S.innerPadding),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -227,19 +299,131 @@ private fun ScoreDisplay(
                     fontStyle = FontStyle.Italic
                 )
             }
-            
+
             Text(
                 text = "$score",
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Bold,
                 color = scoreColor
             )
-            
+
             Text(
                 text = if (originalScore != null) "PLAYER OVERRIDE" else "$matchedCount/$totalCount phonemes matched",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 letterSpacing = 1.sp
+            )
+
+            // Hint to tap
+            if (originalScore == null) {
+                Text(
+                    text = "tap for formula",
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    fontStyle = FontStyle.Italic
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dismissable toast showing the mathematical formula calculation
+ */
+@Composable
+private fun FormulaToast(
+    attempt: PlayerAttempt,
+    onDismiss: () -> Unit
+) {
+    val matchedCount = attempt.phonemeMatches.count { it }
+    val totalCount = attempt.targetPhonemes.size
+    val phonemeOverlap = if (totalCount > 0) matchedCount.toFloat() / totalCount else 0f
+    val phonemeBase = kotlin.math.sqrt(phonemeOverlap) * 0.85f
+
+    val durationRatio = attempt.durationRatio ?: 1f
+    val gaussianWidth = when (attempt.difficulty) {
+        com.quokkalabs.reversey.scoring.DifficultyLevel.EASY -> 0.3f
+        com.quokkalabs.reversey.scoring.DifficultyLevel.NORMAL -> 0.2f
+        com.quokkalabs.reversey.scoring.DifficultyLevel.HARD -> 0.1f
+    }
+    val durationBonus = 0.15f * kotlin.math.exp(-(durationRatio - 1f).let { it * it } / gaussianWidth).toFloat()
+    val calculatedScore = ((phonemeBase + durationBonus) * 100).toInt().coerceIn(0, 100)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF1E1E2E))
+            .clickable { onDismiss() }
+            .padding(12.dp)
+    ) {
+        Column {
+            Text(
+                text = "📐 PHONEME_PRIMARY Formula",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF89B4FA)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Phoneme base calculation
+            Text(
+                text = "phonemeBase = √($matchedCount/$totalCount) × 0.85",
+                fontSize = 10.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = Color(0xFFA6E3A1)
+            )
+            Text(
+                text = "           = √(${String.format("%.2f", phonemeOverlap)}) × 0.85 = ${String.format("%.3f", phonemeBase)}",
+                fontSize = 10.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = Color(0xFFCDD6F4)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Duration bonus calculation
+            Text(
+                text = "durationBonus = 0.15 × e^(-(${String.format("%.2f", durationRatio)}-1)²/$gaussianWidth)",
+                fontSize = 10.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = Color(0xFFF9E2AF)
+            )
+            Text(
+                text = "             = ${String.format("%.3f", durationBonus)}",
+                fontSize = 10.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = Color(0xFFCDD6F4)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Final score
+            Text(
+                text = "score = (${String.format("%.3f", phonemeBase)} + ${String.format("%.3f", durationBonus)}) × 100",
+                fontSize = 10.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = Color(0xFFF38BA8)
+            )
+            Text(
+                text = "      = $calculatedScore%",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = Color(0xFF4ADE80)
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "tap to dismiss",
+                fontSize = 9.sp,
+                color = Color(0xFF6C7086),
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -254,13 +438,13 @@ private fun TargetSection(
 ) {
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val targetColor = Color(0xFFFBBF24)  // Yellow/gold
-    
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(surfaceVariant.copy(alpha = 0.5f))
-            .padding(14.dp)
+            .padding(S.innerPadding)
     ) {
         // Section header
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -273,9 +457,9 @@ private fun TargetSection(
                 letterSpacing = 1.sp
             )
         }
-        
-        Spacer(modifier = Modifier.height(10.dp))
-        
+
+        Spacer(modifier = Modifier.height(S.sectionGap))
+
         // Transcription text
         Box(
             modifier = Modifier
@@ -298,9 +482,9 @@ private fun TargetSection(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
+
+        Spacer(modifier = Modifier.height(S.sectionGap))
+
         // Word-grouped phonemes with match coloring
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
@@ -308,7 +492,7 @@ private fun TargetSection(
             modifier = Modifier.fillMaxWidth()
         ) {
             var phonemeIndex = 0
-            
+
             wordPhonemes.forEach { wordPhoneme ->
                 WordPhonemeGroup(
                     word = wordPhoneme.word,
@@ -333,13 +517,13 @@ private fun AttemptSection(
 ) {
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val attemptColor = Color(0xFF60A5FA)  // Blue
-    
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(surfaceVariant.copy(alpha = 0.5f))
-            .padding(14.dp)
+            .padding(S.innerPadding)
     ) {
         // Section header
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -352,9 +536,9 @@ private fun AttemptSection(
                 letterSpacing = 1.sp
             )
         }
-        
-        Spacer(modifier = Modifier.height(10.dp))
-        
+
+        Spacer(modifier = Modifier.height(S.sectionGap))
+
         // Transcription text
         Box(
             modifier = Modifier
@@ -377,9 +561,9 @@ private fun AttemptSection(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
+
+        Spacer(modifier = Modifier.height(S.sectionGap))
+
         // Word-grouped phonemes (all blue, no match coloring)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
@@ -417,9 +601,9 @@ private fun WordPhonemeGroup(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(4.dp))
-        
+
         // Word label
         Text(
             text = word,
@@ -441,13 +625,13 @@ private fun PhonemeChip(
         isMatched -> Color(0xFF166534)   // Green for matched
         else -> Color(0xFF7F1D1D)        // Red for missed
     }
-    
+
     val textColor = when {
         !isTarget -> Color(0xFF60A5FA)
         isMatched -> Color(0xFF4ADE80)
         else -> Color(0xFFF87171)
     }
-    
+
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
@@ -471,14 +655,14 @@ private fun BreakdownSection(attempt: PlayerAttempt) {
         val matchPercent = if (attempt.targetPhonemes.isNotEmpty()) {
             (attempt.phonemeMatches.count { it } * 100) / attempt.targetPhonemes.size
         } else 0
-        
+
         BreakdownRow(
             icon = "🔤",
             label = "Phoneme Match",
             value = "$matchPercent%",
             isGood = matchPercent >= 60
         )
-        
+
         // Duration row (if available)
         attempt.durationRatio?.let { ratio ->
             BreakdownRow(
@@ -488,7 +672,7 @@ private fun BreakdownSection(attempt: PlayerAttempt) {
                 isGood = ratio in 0.66f..1.33f
             )
         }
-        
+
         // Difficulty row
         BreakdownRow(
             icon = "🎚️",
@@ -511,7 +695,7 @@ private fun BreakdownRow(
         false -> Color(0xFFF87171)
         null -> Color(0xFFFBBF24)
     }
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -530,7 +714,7 @@ private fun BreakdownRow(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        
+
         Text(
             text = value + if (isGood == true) " ✓" else if (isGood == false) " ✗" else "",
             fontSize = 13.sp,
@@ -550,7 +734,7 @@ private fun OverridePanel(
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .padding(14.dp)
+            .padding(S.innerPadding)
     ) {
         Text(
             text = "SET SCORE",
@@ -560,9 +744,9 @@ private fun OverridePanel(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        
-        Spacer(modifier = Modifier.height(10.dp))
-        
+
+        Spacer(modifier = Modifier.height(S.sectionGap))
+
         // Slider with value display
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -580,7 +764,7 @@ private fun OverridePanel(
                     activeTrackColor = MaterialTheme.colorScheme.primary
                 )
             )
-            
+
             Text(
                 text = "$selectedScore",
                 fontSize = 24.sp,
@@ -605,13 +789,13 @@ private fun PresetButton(
     } else {
         MaterialTheme.colorScheme.surfaceVariant
     }
-    
+
     val textColor = if (isSelected) {
         MaterialTheme.colorScheme.onPrimary
     } else {
         MaterialTheme.colorScheme.onSurface
     }
-    
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
@@ -638,50 +822,84 @@ private fun ActionButtons(
     showOverridePanel: Boolean,
     selectedOverrideScore: Int,
     currentScore: Int,
+    isOverridden: Boolean,
+    algoScore: Int,
     onAccept: () -> Unit,
-    onToggleOverride: () -> Unit
+    onToggleOverride: () -> Unit,
+    onReset: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(S.smallGap)
     ) {
-        // Accept button
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF4ADE80))
-                .clickable { onAccept() }
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center
+        // Main action row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(S.sectionGap)
         ) {
-            Text(
-                text = if (showOverridePanel) "✓ SAVE $selectedOverrideScore" else "✓ ACCEPT",
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF052E16)
-            )
-        }
-        
-        // Override/Cancel button
-        Box(
-            modifier = Modifier
-                .weight(if (showOverridePanel) 0.5f else 1f)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .border(
-                    width = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(10.dp)
+            // Accept button
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF4ADE80))
+                    .clickable { onAccept() }
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (showOverridePanel) "✓ SAVE $selectedOverrideScore" else "✓ ACCEPT",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF052E16)
                 )
-                .clickable { onToggleOverride() }
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = if (showOverridePanel) "CANCEL" else "OVERRIDE",
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            }
+
+            // Override/Cancel button
+            Box(
+                modifier = Modifier
+                    .weight(if (showOverridePanel) 0.5f else 1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .clickable { onToggleOverride() }
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (showOverridePanel) "CANCEL" else "OVERRIDE",
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // Reset button (only shown if score has been overridden)
+        if (isOverridden && !showOverridePanel) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF87171).copy(alpha = 0.2f))
+                    .border(
+                        width = 1.dp,
+                        color = Color(0xFFF87171),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .clickable { onReset() }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "↺ RESET TO AUTOMATIC SCORE ($algoScore%)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFF87171)
+                )
+            }
         }
     }
 }

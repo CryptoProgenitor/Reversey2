@@ -230,7 +230,8 @@ object SharedDefaultComponents {
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
-        onOverrideScore: ((Int) -> Unit)? = null  // Phase 4
+        onOverrideScore: ((Int) -> Unit)? = null,  // Phase 4
+        onResetScore: (() -> Unit)? = null  // Phase 4 reset
     ) {
         // 🔧 FIX: Internalize state so dialogs actually open
         var showRenameDialog by remember { mutableStateOf(false) }
@@ -397,7 +398,8 @@ object SharedDefaultComponents {
             ScoreExplanationDialog(
                 attempt = attempt,
                 onDismiss = { showScoreDialog = false },
-                onOverrideScore = onOverrideScore ?: { }
+                onOverrideScore = onOverrideScore ?: { },
+                onResetScore = onResetScore ?: { }
             )
         }
     }
@@ -479,13 +481,14 @@ object SharedDefaultComponents {
         attempt: PlayerAttempt,
         aesthetic: AestheticThemeData,
         onDismiss: () -> Unit,
-        onOverrideScore: (Int) -> Unit = { }
+        onOverrideScore: (Int) -> Unit = { },
+        onResetScore: () -> Unit = { }
     ) {
-        // Delegate to the shared ScoreExplanationDialog which is already theme-aware
         ScoreExplanationDialog(
             attempt = attempt,
             onDismiss = onDismiss,
-            onOverrideScore = onOverrideScore
+            onOverrideScore = onOverrideScore,
+            onResetScore = onResetScore
         )
     }
 
