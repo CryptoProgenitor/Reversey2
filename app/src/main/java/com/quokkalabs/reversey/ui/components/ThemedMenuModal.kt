@@ -109,6 +109,7 @@ fun ThemedMenuModal(
                                 onNavigateAbout = { currentScreen = ModalScreen.About },
                                 onNavigateSettings = { currentScreen = ModalScreen.Settings },
                                 onNavigateThemes = { currentScreen = ModalScreen.Themes },
+                                onNavigateHelp = { currentScreen = ModalScreen.Help },
                                 onNavigateToFiles = { onNavigateToFiles(); onDismiss() },
                                 onShowTutorial = { onShowTutorial(); onDismiss() },
                                 onClearAll = { onClearAll(); onDismiss() }
@@ -131,6 +132,8 @@ fun ThemedMenuModal(
                                 themeViewModel = themeViewModel,
                                 onDismiss = onDismiss
                             )
+
+                            ModalScreen.Help -> HelpContent()
                         }
                     }
                 }
@@ -179,6 +182,7 @@ private fun GlassHeader(
         ModalScreen.About -> "ABOUT"
         ModalScreen.Settings -> "SETTINGS"
         ModalScreen.Themes -> "THEMES"
+        ModalScreen.Help -> "HELP"
     }
 
     val showBackButton = currentScreen != ModalScreen.Menu

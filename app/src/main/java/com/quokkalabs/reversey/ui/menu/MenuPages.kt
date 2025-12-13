@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
@@ -67,6 +68,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import androidx.compose.material.icons.filled.HelpOutline
 
 // Navigation State
 sealed class ModalScreen {
@@ -74,6 +76,7 @@ sealed class ModalScreen {
     object About : ModalScreen()
     object Settings : ModalScreen()
     object Themes : ModalScreen()
+    object Help : ModalScreen()
 }
 
 // ========== MENU SCREEN ==========
@@ -84,6 +87,7 @@ fun MenuContent(
     onNavigateAbout: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateThemes: () -> Unit,
+    onNavigateHelp: () -> Unit,
     onNavigateToFiles: () -> Unit,
     onShowTutorial: () -> Unit,
     onClearAll: () -> Unit
@@ -134,6 +138,13 @@ fun MenuContent(
             label = "Tutorial",
             selected = false,
             onClick = onShowTutorial
+        )
+
+        FloatingMenuItem(
+            icon= Icons.Default.HelpOutline,
+            label = "Help",
+            selected = false,
+            onClick = onNavigateHelp
         )
     }
 }
