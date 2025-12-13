@@ -5,69 +5,35 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import com.quokkalabs.reversey.audio.AudioConstants
 import com.quokkalabs.reversey.data.models.Recording
-import com.quokkalabs.reversey.utils.formatFileName
-import com.quokkalabs.reversey.utils.getRecordingsDir
-import com.quokkalabs.reversey.utils.writeWavHeader
-import com.quokkalabs.reversey.scoring.VocalMode
 import com.quokkalabs.reversey.scoring.VocalAnalysis
 import com.quokkalabs.reversey.scoring.VocalFeatures
+import com.quokkalabs.reversey.scoring.VocalMode
+import com.quokkalabs.reversey.utils.formatFileName
+import com.quokkalabs.reversey.utils.getRecordingsDir
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlin.experimental.and
 import kotlin.math.abs
-import org.json.JSONObject
 
-// 🎤 PHASE 3: Removed SpeechRecognitionService import - no longer needed for file-based transcription
-
-// 🎯 GLUTE: WAV header validation - check file is completely written
-// 🛑 DISABLED: This was causing valid files to be filtered out
-/*
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
-suspend fun isWavFileComplete(file: File): Boolean = withContext(Dispatchers.IO) {
-    try {
-        if (file.length() < 44) return@withContext false
-
-        val headerBytes = file.inputStream().use {
-            it.readNBytes(44)
-        }
-
-        // Parse WAV header - ChunkSize field at bytes 4-7
-        val declaredChunkSize = ByteBuffer.wrap(headerBytes, 4, 4)
-            .order(ByteOrder.LITTLE_ENDIAN)
-            .int
-
-        val expectedFileSize = declaredChunkSize + 8  // ChunkSize + 8 byte header
-        val actualFileSize = file.length()
-
-        Log.d("RecordingRepository", "WAV CHECK: ${file.name} - expected=$expectedFileSize, actual=$actualFileSize")
-
-        return@withContext actualFileSize >= expectedFileSize
-
-    } catch (e: Exception) {
-        Log.w("RecordingRepository", "WAV header check failed for ${file.name}: ${e.message}")
-        return@withContext false
-    }
-}
-*/
 
 // 🎤 PHASE 3: Removed SpeechRecognitionService from constructor - live transcription handled by AudioRecorderHelper
 // 🔄 REFACTOR: Removed VocalModeDetector - dual pipeline eliminated (Dec 2025)
 class RecordingRepository(
-    private val context: Context
+    private val context: Context,
 ) {
+    companion object {
+        private const val TAG = "RecordingRepository"
+    }
 
     // ⚡ PERFORMANCE OPTIMIZED: Removed delay, added caching
     suspend fun loadRecordings(): List<Recording> = withContext(Dispatchers.IO) {
@@ -117,7 +83,10 @@ class RecordingRepository(
                     )
 
                 } catch (e: Exception) {
-                    Log.w("RecordingRepository", "Error loading recording ${file.name}: ${e.message}")
+                    Log.w(
+                        "RecordingRepository",
+                        "Error loading recording ${file.name}: ${e.message}"
+                    )
                     null // Skip invalid files
                 }
             }
@@ -168,7 +137,8 @@ class RecordingRepository(
                     }
                 }
                 return@withContext renameSuccess
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to rename recording: $oldPath -> $newName", e)
                 return@withContext false
             }
         }
@@ -180,7 +150,11 @@ class RecordingRepository(
             AudioConstants.AUDIO_FORMAT
         )
 
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             return
         }
 
@@ -204,7 +178,8 @@ class RecordingRepository(
                             val byteBuffer = ByteArray(read * 2)
                             for (i in 0 until read) {
                                 byteBuffer[i * 2] = (buffer[i] and 0xFF).toByte()
-                                byteBuffer[i * 2 + 1] = ((buffer[i].toInt() shr 8) and 0xFF).toByte()
+                                byteBuffer[i * 2 + 1] =
+                                    ((buffer[i].toInt() shr 8) and 0xFF).toByte()
                             }
                             fos.write(byteBuffer)
 
@@ -314,7 +289,7 @@ class RecordingRepository(
         val text: String?,
         val confidence: Float,
         val pending: Boolean,
-        val trimmedSampleCount: Int = 0  // 🎯 PHASE 1: For timed recording countdown
+        val trimmedSampleCount: Int = 0,  // 🎯 PHASE 1: For timed recording countdown
     )
 
     private fun getTranscriptionCacheFile(audioFile: File): File {
@@ -348,9 +323,22 @@ class RecordingRepository(
      * Called by AudioViewModel after recording stops with live ASR result.
      * 🎯 PHASE 1: Now also caches trimmed sample count for timed recording.
      */
-    suspend fun cacheTranscription(audioFile: File, text: String, confidence: Float, trimmedSampleCount: Int = 0) = withContext(Dispatchers.IO) {
-        Log.d("RecordingRepository", "🎤 Caching live transcription: '${text.take(50)}...' (trimmed=$trimmedSampleCount samples)")
-        val cached = CachedTranscription(text, confidence, pending = false, trimmedSampleCount = trimmedSampleCount)
+    suspend fun cacheTranscription(
+        audioFile: File,
+        text: String,
+        confidence: Float,
+        trimmedSampleCount: Int = 0,
+    ) = withContext(Dispatchers.IO) {
+        Log.d(
+            "RecordingRepository",
+            "🎤 Caching live transcription: '${text.take(50)}...' (trimmed=$trimmedSampleCount samples)"
+        )
+        val cached = CachedTranscription(
+            text,
+            confidence,
+            pending = false,
+            trimmedSampleCount = trimmedSampleCount
+        )
         saveCachedTranscription(audioFile, cached)
     }
 
@@ -379,7 +367,4 @@ class RecordingRepository(
             Log.e("RecordingRepository", "Failed to save transcription cache: ${e.message}")
         }
     }
-
-    // 🗑️ REMOVED: transcribeAndCache() - file-based transcription doesn't work on Android
-    // Live transcription now handled by LiveTranscriptionHelper + AudioRecorderHelper
 }

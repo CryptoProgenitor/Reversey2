@@ -1,10 +1,9 @@
 package com.quokkalabs.reversey.scoring
 
 import android.util.Log
-import kotlin.math.sqrt
-import kotlin.math.pow
-import kotlin.math.abs
 import kotlin.math.exp
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 /**
  * ReVerseY Scoring Engine - EXPERIMENTAL MODELS
@@ -283,23 +282,6 @@ object ReverseScoringEngine {
         }
 
         return PhonemeMatchDetail(overlap, lcs, target.size, targetMatched.toList())
-    }
-
-    private fun longestCommonSubsequence(a: List<String>, b: List<String>): Int {
-        val m = a.size
-        val n = b.size
-        val dp = Array(m + 1) { IntArray(n + 1) }
-
-        for (i in 1..m) {
-            for (j in 1..n) {
-                dp[i][j] = if (a[i-1] == b[j-1]) {
-                    dp[i-1][j-1] + 1
-                } else {
-                    maxOf(dp[i-1][j], dp[i][j-1])
-                }
-            }
-        }
-        return dp[m][n]
     }
 
     /**

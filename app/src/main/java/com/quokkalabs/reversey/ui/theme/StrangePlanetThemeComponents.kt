@@ -78,8 +78,6 @@ import com.quokkalabs.reversey.ui.components.DifficultySquircle
 import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import com.quokkalabs.reversey.ui.constants.UiConstants
 import kotlinx.coroutines.isActive
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.random.Random
 
 /**
