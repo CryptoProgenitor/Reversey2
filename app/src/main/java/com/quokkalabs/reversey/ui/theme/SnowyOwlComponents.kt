@@ -1309,7 +1309,18 @@ fun SnowyOwlAttemptItem(
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                DifficultySquircle(attempt.score, attempt.difficulty, attempt.challengeType, "🦉", 100.dp, 130.dp, { showScoreDialog = true })
+
+
+                DifficultySquircle(
+                    attempt.score,
+                    attempt.difficulty,
+                    attempt.challengeType,
+                    "🦉",
+                    attempt.finalScore != null,
+                    100.dp,
+                    130.dp,
+                    { showScoreDialog = true }
+                )
             }
             if (isPlayingThis) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = Color(0xFFADD8E6).copy(0.5f))
         }

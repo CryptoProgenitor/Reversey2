@@ -62,6 +62,7 @@ fun DifficultySquircle(
     difficulty: DifficultyLevel,
     challengeType: ChallengeType,
     emoji: String,
+    isOverridden: Boolean = false,
     width: Dp = 100.dp,
     height: Dp = 130.dp,
     onClick: () -> Unit = {},
@@ -147,7 +148,7 @@ fun DifficultySquircle(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (challengeType == ChallengeType.REVERSE) "🔄" else "▶️",
+                    text = if (isOverridden) "✋" else "⚙️",
                     style = MaterialTheme.typography.bodyMedium,
                     fontSize = 18.sp
                 )

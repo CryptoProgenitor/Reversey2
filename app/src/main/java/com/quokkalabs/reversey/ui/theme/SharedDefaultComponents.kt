@@ -342,11 +342,14 @@ object SharedDefaultComponents {
                     Spacer(modifier = Modifier.width(12.dp))
 
                     // Right Column: Score Badge - 🔧 FIX: Restored full size (100x130)
+
+                    val displayScore = attempt.finalScore ?: attempt.score //in case score is overridden
                     DifficultySquircle(
-                        score = attempt.finalScore ?: attempt.score,
+                        score = displayScore,
                         difficulty = attempt.difficulty,
                         challengeType = attempt.challengeType,
-                        emoji = aesthetic.scoreEmojis.entries.firstOrNull { attempt.score >= it.key }?.value ?: "🎤",
+                        emoji = aesthetic.scoreEmojis.entries.firstOrNull { displayScore >= it.key }?.value ?: "🎤",
+                        isOverridden = attempt.finalScore != null,
                         width = 100.dp,  // Restored Width
                         height = 130.dp, // Restored Height
                         onClick = { showScoreDialog = true }

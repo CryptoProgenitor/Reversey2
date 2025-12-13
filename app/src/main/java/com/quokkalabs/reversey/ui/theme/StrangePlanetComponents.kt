@@ -1424,6 +1424,7 @@ fun StrangePlanetAttemptItem(
                     attempt.difficulty,
                     attempt.challengeType,
                     "🛸",
+                    attempt.finalScore != null,
                     100.dp,
                     130.dp,
                     { showScoreDialog = true }
