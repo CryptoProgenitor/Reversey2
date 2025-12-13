@@ -7,6 +7,7 @@ import com.quokkalabs.reversey.scoring.PerformanceInsights
 import com.quokkalabs.reversey.scoring.ScoreCalculationBreakdown
 import com.quokkalabs.reversey.scoring.ScoringEngineType
 import com.quokkalabs.reversey.scoring.VocalAnalysis
+import com.quokkalabs.reversey.scoring.WordPhonemes
 
 /**
  * Represents a single player's attempt to match a recording (forward or reverse).
@@ -37,5 +38,14 @@ data class PlayerAttempt(
 
     // 🗣️ PHASE 3: ASR Transcription for Forward Speech scoring + scorecard display
     val attemptTranscription: String? = null,        // What the player SAID (first 50 words shown on scorecard)
-    val wordAccuracy: Float? = null                  // Content match (0.0-1.0), null if offline/unavailable
+    val wordAccuracy: Float? = null,                 // Content match (0.0-1.0), null if offline/unavailable
+
+    // --- Phase 3: Score Override & Phoneme Visualization ---
+    val finalScore: Int? = null,                     // Player-overridden score (null = use algorithmic)
+    val targetPhonemes: List<String> = emptyList(), // From PhonemeScoreResult
+    val attemptPhonemes: List<String> = emptyList(), // From PhonemeScoreResult
+    val phonemeMatches: List<Boolean> = emptyList(), // From PhonemeScoreResult
+    val targetWordPhonemes: List<WordPhonemes> = emptyList(),  // Word-grouped for UI
+    val attemptWordPhonemes: List<WordPhonemes> = emptyList(), // Word-grouped for UI
+    val durationRatio: Float? = null                 // From PhonemeScoreResult (e.g. 1.1 = 10% longer)
 )

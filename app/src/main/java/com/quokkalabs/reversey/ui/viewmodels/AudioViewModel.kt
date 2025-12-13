@@ -45,6 +45,7 @@ import com.quokkalabs.reversey.testing.BITRunner
 import com.quokkalabs.reversey.scoring.PhonemeUtils
 import com.quokkalabs.reversey.scoring.ReverseScoringEngine
 import com.quokkalabs.reversey.scoring.PhonemeScoreResult
+import com.quokkalabs.reversey.scoring.WordPhonemes
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -508,7 +509,12 @@ class AudioViewModel @Inject constructor(
                         phonemeOverlap = result.phonemeOverlap,
                         durationRatio = result.durationRatio,
                         feedback = feedbackList,
-                        isGarbage = result.shouldAutoReject
+                        isGarbage = result.shouldAutoReject,
+                        targetPhonemes = result.targetPhonemes,
+                        attemptPhonemes = result.attemptPhonemes,
+                        phonemeMatches = result.phonemeMatches,
+                        targetWordPhonemes = result.targetWordPhonemes,
+                        attemptWordPhonemes = result.attemptWordPhonemes
                     )
                 } else {
                     // Missing transcription - can't score properly
@@ -549,7 +555,13 @@ class AudioViewModel @Inject constructor(
                     vocalAnalysis = null,
                     calculationBreakdown = null,
                     attemptTranscription = attemptTranscriptionText,
-                    wordAccuracy = scoringOutput.phonemeOverlap
+                    wordAccuracy = scoringOutput.phonemeOverlap,
+                    targetPhonemes = scoringOutput.targetPhonemes,
+                    attemptPhonemes = scoringOutput.attemptPhonemes,
+                    phonemeMatches = scoringOutput.phonemeMatches,
+                    targetWordPhonemes = scoringOutput.targetWordPhonemes,
+                    attemptWordPhonemes = scoringOutput.attemptWordPhonemes,
+                    durationRatio = scoringOutput.durationRatio
                 )
 
                 val updatedRecordings = uiState.value.recordings.map { recording ->
@@ -593,7 +605,13 @@ class AudioViewModel @Inject constructor(
         val phonemeOverlap: Float,
         val durationRatio: Float,
         val feedback: List<String>,
-        val isGarbage: Boolean
+        val isGarbage: Boolean,
+        // Phase 3: Phoneme visualization data
+        val targetPhonemes: List<String> = emptyList(),
+        val attemptPhonemes: List<String> = emptyList(),
+        val phonemeMatches: List<Boolean> = emptyList(),
+        val targetWordPhonemes: List<WordPhonemes> = emptyList(),
+        val attemptWordPhonemes: List<WordPhonemes> = emptyList()
     )
 
     // Build human-readable feedback from phoneme scoring

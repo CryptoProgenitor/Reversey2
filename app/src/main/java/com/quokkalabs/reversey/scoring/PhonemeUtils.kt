@@ -139,6 +139,27 @@ object PhonemeUtils {
     }
 
     /**
+     * Convert a sentence to phonemes WITH word boundaries preserved
+     * Returns list of WordPhonemes for UI visualization
+     */
+    fun textToWordPhonemes(text: String): List<WordPhonemes> {
+        val words = text.uppercase()
+            .replace(Regex("[^A-Z' ]"), "")
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+
+        return words.map { word ->
+            val phonemes = dictionary[word]
+            if (phonemes != null) {
+                WordPhonemes(word.lowercase(), phonemes)
+            } else {
+                Log.w(TAG, "Word not in dictionary: $word")
+                WordPhonemes(word.lowercase(), word.map { "?$it" })
+            }
+        }
+    }
+
+    /**
      * Get phoneme bag (multiset) for overlap calculation
      * Returns map of phoneme -> count
      */
@@ -398,3 +419,11 @@ data class PhonemeMatchResult(
     val matchRatio: Float
         get() = if (totalTarget > 0) matchedCount.toFloat() / totalTarget else 1f
 }
+
+/**
+ * Word with its phonemes for UI visualization
+ */
+data class WordPhonemes(
+    val word: String,
+    val phonemes: List<String>
+)

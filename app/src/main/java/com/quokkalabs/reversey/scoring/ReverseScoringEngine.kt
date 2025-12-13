@@ -75,16 +75,20 @@ object ReverseScoringEngine {
         val targetPhonemes = PhonemeUtils.textToPhonemes(targetText)
         val attemptPhonemes = PhonemeUtils.textToPhonemes(attemptText)
 
+        // 1b. Extract word-level phonemes for UI visualization
+        val targetWordPhonemes = PhonemeUtils.textToWordPhonemes(targetText)
+        val attemptWordPhonemes = PhonemeUtils.textToWordPhonemes(attemptText)
+
         Log.d(TAG, "Phonemes: target=$targetPhonemes")
         Log.d(TAG, "Phonemes: attempt=$attemptPhonemes")
 
         // 2. Calculate phoneme overlap based on leniency
-        val (phonemeOverlap, matchedCount, totalCount) = calculatePhonemeScore(
+        val matchDetail = calculatePhonemeScore(
             targetPhonemes, attemptPhonemes, config.phonemeLeniency
         )
 
-        Log.d(TAG, "Match result: $matchedCount/$totalCount matched")
-        Log.d(TAG, "Overlap (${config.phonemeLeniency}): $phonemeOverlap")
+        Log.d(TAG, "Match result: ${matchDetail.matchedCount}/${matchDetail.totalCount} matched")
+        Log.d(TAG, "Overlap (${config.phonemeLeniency}): ${matchDetail.overlap}")
 
         // 3. Calculate duration score
         val durationRatio = if (targetDurationMs > 0) {
@@ -99,7 +103,7 @@ object ReverseScoringEngine {
 
         // 4. Compute final score using selected model
         val (finalScore, phonemeComponent, durationComponent) = computeScore(
-            phonemeOverlap, durationScore, durationInRange, ACTIVE_MODEL
+            matchDetail.overlap, durationScore, durationInRange, ACTIVE_MODEL
         )
 
         Log.d(TAG, "Components: phoneme=$phonemeComponent duration=$durationComponent")
@@ -107,26 +111,30 @@ object ReverseScoringEngine {
 
         // Logging for debugging
         val durationEmoji = if (durationInRange) "✓" else "✗"
-        Log.d(TAG_PHONEME, "🎯 Score: $finalScore% | $matchedCount/$totalCount phonemes | Duration $durationEmoji | $finalScore%")
+        Log.d(TAG_PHONEME, "🎯 Score: $finalScore% | ${matchDetail.matchedCount}/${matchDetail.totalCount} phonemes | Duration $durationEmoji | $finalScore%")
         Log.d(TAG_PHONEME, "🔤 Target phonemes: ${targetPhonemes.joinToString(" ")}")
         Log.d(TAG_PHONEME, "🔤 Attempt phonemes: ${attemptPhonemes.joinToString(" ")}")
         Log.d(TAG_PHONEME, "🎚️ Difficulty: $difficulty | Leniency: ${config.phonemeLeniency}")
+        Log.d(TAG_PHONEME, "🟢🔴 Matches: ${matchDetail.matches.map { if (it) "✓" else "✗" }}")
 
         return PhonemeScoreResult(
             score = finalScore,
-            phonemeOverlap = phonemeOverlap,
+            phonemeOverlap = matchDetail.overlap,
             durationRatio = durationRatio,
             durationScore = durationScore,
             durationInRange = durationInRange,
             targetPhonemes = targetPhonemes,
             attemptPhonemes = attemptPhonemes,
-            matchedCount = matchedCount,
-            totalCount = totalCount,
+            matchedCount = matchDetail.matchedCount,
+            totalCount = matchDetail.totalCount,
             difficulty = difficulty,
             model = ACTIVE_MODEL.name,
             phonemeLeniency = config.phonemeLeniency.name,
             shouldAutoAccept = finalScore >= AUTO_ACCEPT_HIGH,
-            shouldAutoReject = finalScore <= AUTO_ACCEPT_LOW
+            shouldAutoReject = finalScore <= AUTO_ACCEPT_LOW,
+            phonemeMatches = matchDetail.matches,
+            targetWordPhonemes = targetWordPhonemes,
+            attemptWordPhonemes = attemptWordPhonemes
         )
     }
 
@@ -138,9 +146,9 @@ object ReverseScoringEngine {
         target: List<String>,
         attempt: List<String>,
         leniency: PhonemeMatch
-    ): Triple<Float, Int, Int> {
+    ): PhonemeMatchDetail {
 
-        if (target.isEmpty()) return Triple(0f, 0, 0)
+        if (target.isEmpty()) return PhonemeMatchDetail(0f, 0, 0, emptyList())
 
         return when (leniency) {
             PhonemeMatch.FUZZY -> fuzzyMatch(target, attempt)
@@ -153,7 +161,9 @@ object ReverseScoringEngine {
      * FUZZY: Similar phonemes get partial credit
      * "AH" matches "AE" with 0.7, "AH" matches "AH" with 1.0
      */
-    private fun fuzzyMatch(target: List<String>, attempt: List<String>): Triple<Float, Int, Int> {
+    private fun fuzzyMatch(target: List<String>, attempt: List<String>): PhonemeMatchDetail {
+        // Track which target phonemes are matched
+        val targetMatched = BooleanArray(target.size) { false }
         val targetBag = target.groupingBy { it }.eachCount().toMutableMap()
         val attemptBag = attempt.groupingBy { it }.eachCount()
 
@@ -166,6 +176,17 @@ object ReverseScoringEngine {
             matchCount += exactMatch
             targetBag[phoneme] = (targetBag[phoneme] ?: 0) - exactMatch
 
+            // Mark matched target phonemes (first N unmatched instances)
+            if (exactMatch > 0) {
+                var marked = 0
+                for (i in target.indices) {
+                    if (!targetMatched[i] && target[i] == phoneme && marked < exactMatch) {
+                        targetMatched[i] = true
+                        marked++
+                    }
+                }
+            }
+
             // Fuzzy: check similar phonemes
             if (exactMatch < count) {
                 val remaining = count - exactMatch
@@ -175,40 +196,71 @@ object ReverseScoringEngine {
                         val fuzzyMatch = minOf(available, remaining)
                         matchScore += fuzzyMatch * similarity
                         targetBag[similar] = available - fuzzyMatch
+
+                        // Mark fuzzy-matched target phonemes
+                        var marked = 0
+                        for (i in target.indices) {
+                            if (!targetMatched[i] && target[i] == similar && marked < fuzzyMatch) {
+                                targetMatched[i] = true
+                                marked++
+                            }
+                        }
                     }
                 }
             }
         }
 
         val total = target.size
-        return Triple(matchScore / total, matchCount, total)
+        return PhonemeMatchDetail(matchScore / total, matchCount, total, targetMatched.toList())
     }
 
     /**
      * EXACT: Bag overlap (order doesn't matter)
      */
-    private fun exactMatch(target: List<String>, attempt: List<String>): Triple<Float, Int, Int> {
-        val targetBag = PhonemeUtils.phonemeBag(target)
+    private fun exactMatch(target: List<String>, attempt: List<String>): PhonemeMatchDetail {
+        // Track which target phonemes are matched
+        val targetMatched = BooleanArray(target.size) { false }
+        val targetBag = target.groupingBy { it }.eachCount().toMutableMap()
         val attemptBag = PhonemeUtils.phonemeBag(attempt)
 
         var intersection = 0
         for ((phoneme, count) in attemptBag) {
-            intersection += minOf(count, targetBag[phoneme] ?: 0)
+            val available = targetBag[phoneme] ?: 0
+            val matched = minOf(count, available)
+            intersection += matched
+
+            // Mark matched target phonemes
+            if (matched > 0) {
+                var marked = 0
+                for (i in target.indices) {
+                    if (!targetMatched[i] && target[i] == phoneme && marked < matched) {
+                        targetMatched[i] = true
+                        marked++
+                    }
+                }
+            }
         }
 
         val union = target.size + attempt.size - intersection
         val overlap = if (union > 0) intersection.toFloat() / union else 0f
 
-        return Triple(overlap, intersection, target.size)
+        return PhonemeMatchDetail(overlap, intersection, target.size, targetMatched.toList())
     }
 
     /**
      * ORDERED: Longest common subsequence ratio
      */
-    private fun orderedMatch(target: List<String>, attempt: List<String>): Triple<Float, Int, Int> {
-        val lcs = longestCommonSubsequence(target, attempt)
+    private fun orderedMatch(target: List<String>, attempt: List<String>): PhonemeMatchDetail {
+        val (lcs, matchedIndices) = longestCommonSubsequenceWithIndices(target, attempt)
         val overlap = if (target.isNotEmpty()) lcs.toFloat() / target.size else 0f
-        return Triple(overlap, lcs, target.size)
+
+        // Create match array from matched indices
+        val targetMatched = BooleanArray(target.size) { false }
+        for (i in matchedIndices) {
+            targetMatched[i] = true
+        }
+
+        return PhonemeMatchDetail(overlap, lcs, target.size, targetMatched.toList())
     }
 
     private fun longestCommonSubsequence(a: List<String>, b: List<String>): Int {
@@ -226,6 +278,45 @@ object ReverseScoringEngine {
             }
         }
         return dp[m][n]
+    }
+
+    /**
+     * LCS with backtracking to find which target indices matched
+     */
+    private fun longestCommonSubsequenceWithIndices(a: List<String>, b: List<String>): Pair<Int, List<Int>> {
+        val m = a.size
+        val n = b.size
+        if (m == 0 || n == 0) return Pair(0, emptyList())
+
+        val dp = Array(m + 1) { IntArray(n + 1) }
+
+        for (i in 1..m) {
+            for (j in 1..n) {
+                dp[i][j] = if (a[i-1] == b[j-1]) {
+                    dp[i-1][j-1] + 1
+                } else {
+                    maxOf(dp[i-1][j], dp[i][j-1])
+                }
+            }
+        }
+
+        // Backtrack to find matched indices in 'a' (target)
+        val matchedIndices = mutableListOf<Int>()
+        var i = m
+        var j = n
+        while (i > 0 && j > 0) {
+            when {
+                a[i-1] == b[j-1] -> {
+                    matchedIndices.add(i - 1)  // 0-indexed
+                    i--
+                    j--
+                }
+                dp[i-1][j] > dp[i][j-1] -> i--
+                else -> j--
+            }
+        }
+
+        return Pair(dp[m][n], matchedIndices.reversed())  // Reverse to get ascending order
     }
 
     /**
@@ -378,6 +469,16 @@ object ReverseScoringEngine {
 }
 
 /**
+ * Intermediate result from phoneme matching functions
+ */
+data class PhonemeMatchDetail(
+    val overlap: Float,
+    val matchedCount: Int,
+    val totalCount: Int,
+    val matches: List<Boolean>  // true for each target phoneme that was matched
+)
+
+/**
  * Detailed scoring result
  */
 data class PhonemeScoreResult(
@@ -394,7 +495,10 @@ data class PhonemeScoreResult(
     val model: String,
     val phonemeLeniency: String,  // "FUZZY", "EXACT", or "ORDERED"
     val shouldAutoAccept: Boolean,
-    val shouldAutoReject: Boolean
+    val shouldAutoReject: Boolean,
+    val phonemeMatches: List<Boolean> = emptyList(),  // Per-target-phoneme match status for UI grid
+    val targetWordPhonemes: List<WordPhonemes> = emptyList(),  // Word-grouped target phonemes
+    val attemptWordPhonemes: List<WordPhonemes> = emptyList()  // Word-grouped attempt phonemes
 ) {
     /** Short summary for logging */
     fun shortSummary(): String = "$score% | $matchedCount/$totalCount phonemes | Duration ${if (durationInRange) "✓" else "✗"}"
