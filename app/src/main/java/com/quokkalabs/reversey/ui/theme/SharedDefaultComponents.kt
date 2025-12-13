@@ -229,7 +229,8 @@ object SharedDefaultComponents {
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
-        onJumpToParent: (() -> Unit)?
+        onJumpToParent: (() -> Unit)?,
+        onOverrideScore: ((Int) -> Unit)? = null  // Phase 4
     ) {
         // 🔧 FIX: Internalize state so dialogs actually open
         var showRenameDialog by remember { mutableStateOf(false) }
@@ -341,7 +342,7 @@ object SharedDefaultComponents {
 
                     // Right Column: Score Badge - 🔧 FIX: Restored full size (100x130)
                     DifficultySquircle(
-                        score = attempt.score,
+                        score = attempt.finalScore ?: attempt.score,
                         difficulty = attempt.difficulty,
                         challengeType = attempt.challengeType,
                         emoji = aesthetic.scoreEmojis.entries.firstOrNull { attempt.score >= it.key }?.value ?: "🎤",
@@ -395,7 +396,8 @@ object SharedDefaultComponents {
         if (showScoreDialog) {
             ScoreExplanationDialog(
                 attempt = attempt,
-                onDismiss = { showScoreDialog = false }
+                onDismiss = { showScoreDialog = false },
+                onOverrideScore = onOverrideScore ?: { }
             )
         }
     }
@@ -476,12 +478,14 @@ object SharedDefaultComponents {
     fun MaterialScoreCard(
         attempt: PlayerAttempt,
         aesthetic: AestheticThemeData,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
+        onOverrideScore: (Int) -> Unit = { }
     ) {
         // Delegate to the shared ScoreExplanationDialog which is already theme-aware
         ScoreExplanationDialog(
             attempt = attempt,
-            onDismiss = onDismiss
+            onDismiss = onDismiss,
+            onOverrideScore = onOverrideScore
         )
     }
 

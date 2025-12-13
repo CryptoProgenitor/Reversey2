@@ -202,7 +202,8 @@ class EggThemeComponents : ThemeComponents {
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
-        onJumpToParent: (() -> Unit)?
+        onJumpToParent: (() -> Unit)?,
+        onOverrideScore: ((Int) -> Unit)?
     ) {
         EggAttemptItem(
             attempt = attempt,
@@ -216,7 +217,8 @@ class EggThemeComponents : ThemeComponents {
             onRenamePlayer = onRenamePlayer,
             onDeleteAttempt = onDeleteAttempt,
             onShareAttempt = onShareAttempt,
-            onJumpToParent = onJumpToParent
+            onJumpToParent = onJumpToParent,
+            onOverrideScore = onOverrideScore
         )
     }
 
@@ -274,9 +276,10 @@ class EggThemeComponents : ThemeComponents {
     override fun ScoreCard(
         attempt: PlayerAttempt,
         aesthetic: AestheticThemeData,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
+        onOverrideScore: (Int) -> Unit
     ) {
-        ScoreExplanationDialog(attempt, onDismiss)
+        ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
     @Composable
@@ -548,7 +551,8 @@ fun EggAttemptItem(
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
     onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
     onShareAttempt: ((String) -> Unit)?,
-    onJumpToParent: (() -> Unit)?
+    onJumpToParent: (() -> Unit)?,
+    onOverrideScore: ((Int) -> Unit)?
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -682,7 +686,7 @@ fun EggAttemptItem(
     if (showRenameDialog && onRenamePlayer != null) aesthetic.components.RenameDialog(RenamableItemType.PLAYER, attempt.playerName, aesthetic, { onRenamePlayer(attempt, it) }, { showRenameDialog = false })
     if (showDeleteDialog && onDeleteAttempt != null) aesthetic.components.DeleteDialog(DeletableItemType.ATTEMPT, attempt, aesthetic, { onDeleteAttempt(attempt) }, { showDeleteDialog = false })
     if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(null, attempt, aesthetic, onShareAttempt, { showShareDialog = false })
-    if (showScoreDialog) aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false })
+    if (showScoreDialog) aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
 }
 
 // ============================================

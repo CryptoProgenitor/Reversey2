@@ -220,7 +220,8 @@ class GuitarComponents : ThemeComponents {
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
-        onJumpToParent: (() -> Unit)?
+        onJumpToParent: (() -> Unit)?,
+        onOverrideScore: ((Int) -> Unit)?
     ) {
         GuitarAttemptItem(
             attempt = attempt,
@@ -234,7 +235,8 @@ class GuitarComponents : ThemeComponents {
             onRenamePlayer = onRenamePlayer,
             onDeleteAttempt = onDeleteAttempt,
             onShareAttempt = onShareAttempt,
-            onJumpToParent = onJumpToParent
+            onJumpToParent = onJumpToParent,
+            onOverrideScore = onOverrideScore
         )
     }
 
@@ -288,8 +290,8 @@ class GuitarComponents : ThemeComponents {
     // --- NEW INTERFACE METHODS ---
 
     @Composable
-    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit) {
-        ScoreExplanationDialog(attempt, onDismiss)
+    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) {
+        ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
     @Composable
@@ -897,7 +899,8 @@ fun GuitarAttemptItem(
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
     onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
     onShareAttempt: ((String) -> Unit)?,
-    onJumpToParent: (() -> Unit)?
+    onJumpToParent: (() -> Unit)?,
+    onOverrideScore: ((Int) -> Unit)? = null
 ) {
     val darkBrown = Color(0xFF5d4a36)
     val tealGreen = Color(0xFF7DB9A8)
@@ -954,7 +957,7 @@ fun GuitarAttemptItem(
     if (showRenameDialog && onRenamePlayer != null) aesthetic.components.RenameDialog(RenamableItemType.PLAYER, attempt.playerName, aesthetic, { onRenamePlayer(attempt, it) }, { showRenameDialog = false })
     if (showDeleteDialog && onDeleteAttempt != null) aesthetic.components.DeleteDialog(DeletableItemType.ATTEMPT, attempt, aesthetic, { onDeleteAttempt(attempt) }, { showDeleteDialog = false })
     if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(null, attempt, aesthetic, onShareAttempt, { showShareDialog = false })
-    if (showScoreDialog) aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false })
+    if (showScoreDialog) aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
 }
 
 @Composable

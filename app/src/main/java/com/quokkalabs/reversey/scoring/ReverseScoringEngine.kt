@@ -74,7 +74,7 @@ object ReverseScoringEngine {
         // 1. Extract phonemes
         val targetPhonemes = PhonemeUtils.textToPhonemes(targetText)
         val attemptPhonemes = PhonemeUtils.textToPhonemes(attemptText)
-
+        
         // 1b. Extract word-level phonemes for UI visualization
         val targetWordPhonemes = PhonemeUtils.textToWordPhonemes(targetText)
         val attemptWordPhonemes = PhonemeUtils.textToWordPhonemes(attemptText)
@@ -196,7 +196,7 @@ object ReverseScoringEngine {
                         val fuzzyMatch = minOf(available, remaining)
                         matchScore += fuzzyMatch * similarity
                         targetBag[similar] = available - fuzzyMatch
-
+                        
                         // Mark fuzzy-matched target phonemes
                         var marked = 0
                         for (i in target.indices) {
@@ -228,7 +228,7 @@ object ReverseScoringEngine {
             val available = targetBag[phoneme] ?: 0
             val matched = minOf(count, available)
             intersection += matched
-
+            
             // Mark matched target phonemes
             if (matched > 0) {
                 var marked = 0
@@ -253,13 +253,13 @@ object ReverseScoringEngine {
     private fun orderedMatch(target: List<String>, attempt: List<String>): PhonemeMatchDetail {
         val (lcs, matchedIndices) = longestCommonSubsequenceWithIndices(target, attempt)
         val overlap = if (target.isNotEmpty()) lcs.toFloat() / target.size else 0f
-
+        
         // Create match array from matched indices
         val targetMatched = BooleanArray(target.size) { false }
         for (i in matchedIndices) {
             targetMatched[i] = true
         }
-
+        
         return PhonemeMatchDetail(overlap, lcs, target.size, targetMatched.toList())
     }
 
@@ -287,7 +287,7 @@ object ReverseScoringEngine {
         val m = a.size
         val n = b.size
         if (m == 0 || n == 0) return Pair(0, emptyList())
-
+        
         val dp = Array(m + 1) { IntArray(n + 1) }
 
         for (i in 1..m) {
@@ -299,7 +299,7 @@ object ReverseScoringEngine {
                 }
             }
         }
-
+        
         // Backtrack to find matched indices in 'a' (target)
         val matchedIndices = mutableListOf<Int>()
         var i = m
@@ -315,7 +315,7 @@ object ReverseScoringEngine {
                 else -> j--
             }
         }
-
+        
         return Pair(dp[m][n], matchedIndices.reversed())  // Reverse to get ascending order
     }
 

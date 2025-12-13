@@ -103,11 +103,12 @@ class DarkAcademiaThemeComponents : ThemeComponents {
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
-        onJumpToParent: (() -> Unit)?
+        onJumpToParent: (() -> Unit)?,
+        onOverrideScore: ((Int) -> Unit)?
     ) {
         SharedDefaultComponents.MaterialAttemptCard(
             attempt, aesthetic, currentlyPlayingPath, isPaused, progress, onPlay, onPause, onStop,
-            onRenamePlayer, onDeleteAttempt, onShareAttempt, onJumpToParent
+            onRenamePlayer, onDeleteAttempt, onShareAttempt, onJumpToParent, onOverrideScore
         )
     }
 
@@ -137,9 +138,10 @@ class DarkAcademiaThemeComponents : ThemeComponents {
     override fun ScoreCard(
         attempt: PlayerAttempt,
         aesthetic: AestheticThemeData,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
+        onOverrideScore: ((Int) -> Unit)
     ) {
-        SharedDefaultComponents.MaterialScoreCard(attempt, aesthetic, onDismiss)
+        SharedDefaultComponents.MaterialScoreCard(attempt, aesthetic, onDismiss, onOverrideScore)
     }
 
     @Composable

@@ -251,7 +251,8 @@ class StrangePlanetComponents : ThemeComponents {
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
-        onJumpToParent: (() -> Unit)?
+        onJumpToParent: (() -> Unit)?,
+        onOverrideScore: ((Int) -> Unit)?
     ) {
         StrangePlanetAttemptItem(
             attempt = attempt,
@@ -265,7 +266,8 @@ class StrangePlanetComponents : ThemeComponents {
             onRenamePlayer = onRenamePlayer,
             onDeleteAttempt = onDeleteAttempt,
             onShareAttempt = onShareAttempt,
-            onJumpToParent = onJumpToParent
+            onJumpToParent = onJumpToParent,
+            onOverrideScore = onOverrideScore
         )
     }
 
@@ -348,8 +350,8 @@ class StrangePlanetComponents : ThemeComponents {
     // --- DIALOG IMPLEMENTATIONS ---
 
     @Composable
-    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit) {
-        ScoreExplanationDialog(attempt, onDismiss)
+    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) {
+        ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
     @Composable
@@ -1315,7 +1317,8 @@ fun StrangePlanetAttemptItem(
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
     onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
     onShareAttempt: ((String) -> Unit)?,
-    onJumpToParent: (() -> Unit)?
+    onJumpToParent: (() -> Unit)?,
+    onOverrideScore: ((Int) -> Unit)?
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1469,7 +1472,7 @@ fun StrangePlanetAttemptItem(
         )
     }
     if (showScoreDialog) {
-        aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false })
+        aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
     }
 }
 

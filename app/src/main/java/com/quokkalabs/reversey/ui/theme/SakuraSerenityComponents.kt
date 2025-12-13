@@ -293,7 +293,8 @@ class SakuraSerenityComponents : ThemeComponents {
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
-        onJumpToParent: (() -> Unit)?
+        onJumpToParent: (() -> Unit)?,
+        onOverrideScore: ((Int) -> Unit)?
     ) {
         // 🌸 THEME COLORS
         val cardBg = Color(0xFFFFFAFC)
@@ -410,7 +411,7 @@ class SakuraSerenityComponents : ThemeComponents {
         if (showRenameDialog && onRenamePlayer != null) RenameDialog(RenamableItemType.PLAYER, attempt.playerName, aesthetic, { onRenamePlayer(attempt, it) }, { showRenameDialog = false })
         if (showDeleteDialog && onDeleteAttempt != null) DeleteDialog(DeletableItemType.ATTEMPT, attempt, aesthetic, { onDeleteAttempt(attempt) }, { showDeleteDialog = false })
         if (showShareDialog && onShareAttempt != null) ShareDialog(null, attempt, aesthetic, onShareAttempt, { showShareDialog = false })
-        if (showScoreDialog) ScoreCard(attempt, aesthetic, { showScoreDialog = false })
+        if (showScoreDialog) ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
     }
 
     @Composable
@@ -787,8 +788,8 @@ class SakuraSerenityComponents : ThemeComponents {
     // --- DIALOG INTERFACE IMPLEMENTATION ---
 
     @Composable
-    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit) {
-        ScoreExplanationDialog(attempt, onDismiss)
+    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) {
+        ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
     @Composable

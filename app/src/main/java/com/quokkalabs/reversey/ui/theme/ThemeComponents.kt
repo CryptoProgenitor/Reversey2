@@ -55,7 +55,8 @@ interface ThemeComponents {
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)? = null,
         onShareAttempt: ((String) -> Unit)? = null,
-        onJumpToParent: (() -> Unit)? = null
+        onJumpToParent: (() -> Unit)? = null,
+        onOverrideScore: ((Int) -> Unit)? = null  // Phase 4: Score override callback
     )
 
     /**
@@ -93,7 +94,8 @@ interface ThemeComponents {
     fun ScoreCard(
         attempt: PlayerAttempt,
         aesthetic: AestheticThemeData,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
+        onOverrideScore: (Int) -> Unit = { }
     )
 
     /**

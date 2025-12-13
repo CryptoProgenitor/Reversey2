@@ -566,6 +566,9 @@ fun AudioReverserApp(
                                                 flatIndex += 1 + rec.attempts.size
                                             }
                                         }
+                                    },
+                                    onOverrideScore = { score ->
+                                        viewModel.overrideAttemptScore(recording.originalPath, attempt, score)
                                     }
                                 )
                             }

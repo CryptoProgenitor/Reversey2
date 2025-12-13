@@ -293,8 +293,10 @@ class AudioViewModel @Inject constructor(
                 Log.d("AudioViewModel", "🎤 Transcribing reference audio...")
                 val transcriptionResult = voskTranscriptionHelper.transcribeFile(recordingFile)
                 val referenceTranscription = if (transcriptionResult.isSuccess) {
-                    Log.d("AudioViewModel", "🎤 Reference transcription: '${transcriptionResult.text}'")
-                    transcriptionResult.text
+                    val text = transcriptionResult.text!!
+                    Log.d("AudioViewModel", "🎤 Reference transcription: '$text'")
+                    repository.cacheTranscription(recordingFile, text, 1.0f)
+                    text
                 } else {
                     Log.w("AudioViewModel", "🎤 Reference transcription failed: ${transcriptionResult.errorMessage}")
                     null
@@ -430,6 +432,17 @@ class AudioViewModel @Inject constructor(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // 🛑 CRITICAL FIX: Wait for Phoneme Dictionary to load (max 2 seconds)
+                var attempts = 0
+                while (!PhonemeUtils.isReady() && attempts < 20) {
+                    delay(100)
+                    attempts++
+                }
+
+                if (!PhonemeUtils.isReady()) {
+                    Log.e("AudioViewModel", "⚠️ PhonemeUtils failed to load in time. Scoring might fail.")
+                }
+
                 // 1. Generate the Reversed Version of the Attempt
                 val reversedAttemptFile = repository.reverseWavFile(attemptFile)
 
@@ -757,6 +770,31 @@ class AudioViewModel @Inject constructor(
             attemptsRepository.saveAttempts(attemptsMap)
 
             _uiState.update { it.copy(recordings = updatedRecordings, attemptToRename = null) }
+        }
+    }
+
+    /**
+     * Override an attempt's score with a player-selected value
+     */
+    fun overrideAttemptScore(recordingPath: String, attempt: PlayerAttempt, overrideScore: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedRecordings = _uiState.value.recordings.map { recording ->
+                if (recording.originalPath == recordingPath) {
+                    val updatedAttempts = recording.attempts.map {
+                        if (it == attempt) it.copy(finalScore = overrideScore) else it
+                    }
+                    recording.copy(attempts = updatedAttempts)
+                } else {
+                    recording
+                }
+            }
+
+            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+            attemptsRepository.saveAttempts(attemptsMap)
+
+            withContext(Dispatchers.Main) {
+                _uiState.update { it.copy(recordings = updatedRecordings) }
+            }
         }
     }
 

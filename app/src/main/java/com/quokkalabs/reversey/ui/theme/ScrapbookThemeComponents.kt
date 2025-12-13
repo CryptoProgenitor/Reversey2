@@ -254,7 +254,8 @@ class ScrapbookThemeComponents : ThemeComponents {
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
         onShareAttempt: ((String) -> Unit)?,
-        onJumpToParent: (() -> Unit)?
+        onJumpToParent: (() -> Unit)?,
+        onOverrideScore: ((Int) -> Unit)?
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
@@ -315,7 +316,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         if (showRenameDialog && onRenamePlayer != null) RenameDialog(RenamableItemType.PLAYER, attempt.playerName, aesthetic, { onRenamePlayer(attempt, it) }, { showRenameDialog = false })
         if (showDeleteDialog && onDeleteAttempt != null) DeleteDialog(DeletableItemType.ATTEMPT, attempt, aesthetic, { onDeleteAttempt(attempt) }, { showDeleteDialog = false })
         if (showShareDialog && onShareAttempt != null) ShareDialog(null, attempt, aesthetic, onShareAttempt, { showShareDialog = false })
-        if (showScoreDialog) ScoreCard(attempt, aesthetic, { showScoreDialog = false })
+        if (showScoreDialog) ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
     }
 
     /*@Composable
@@ -449,7 +450,7 @@ class ScrapbookThemeComponents : ThemeComponents {
     }
 
     // --- DIALOGS ---
-    @Composable override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit) { ScoreExplanationDialog(attempt, onDismiss) }
+    @Composable override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) { ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore) }
     @Composable override fun DeleteDialog(itemType: DeletableItemType, item: Any, aesthetic: AestheticThemeData, onConfirm: () -> Unit, onDismiss: () -> Unit) {
         val copy = aesthetic.dialogCopy; val name = if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
         AlertDialog(onDismissRequest = onDismiss, containerColor = Color(0xFFFFF3E0), title = { Text(copy.deleteTitle(itemType), fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Color(0xFF3E2723)) }, text = { Text(copy.deleteMessage(itemType, name), fontFamily = dancingScriptFontFamily, fontSize = 18.sp, color = Color(0xFF5D4037)) }, confirmButton = { Button(onClick = { onConfirm(); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))) { Text(copy.deleteConfirmButton, fontFamily = dancingScriptFontFamily) } }, dismissButton = { TextButton(onClick = onDismiss) { Text(copy.deleteCancelButton, fontFamily = dancingScriptFontFamily, color = Color(0xFF795548)) } })

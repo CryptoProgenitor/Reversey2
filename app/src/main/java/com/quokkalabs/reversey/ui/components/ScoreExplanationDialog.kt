@@ -49,10 +49,10 @@ import com.quokkalabs.reversey.scoring.WordPhonemes
 
 /**
  * ScoreExplanationDialog v2 - Phase 4 UI
- *
+ * 
  * Variant 1: Stacked layout with word-grouped phonemes
  * Shows target/attempt transcriptions, phoneme visualization, and override controls
- *
+ * 
  * Backward compatible: onDismiss stays in position 2 for old call sites
  */
 @Composable
@@ -65,15 +65,15 @@ fun ScoreExplanationDialog(
 ) {
     var showOverridePanel by remember { mutableStateOf(false) }
     var selectedOverrideScore by remember { mutableIntStateOf(50) }
-
+    
     val displayScore = attempt.finalScore ?: attempt.score
     val isOverridden = attempt.finalScore != null
-
+    
     // Derive target transcription from word phonemes if not provided
     val effectiveTargetTranscription = targetTranscription.ifEmpty {
         attempt.targetWordPhonemes.joinToString(" ") { it.word }
     }
-
+    
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -83,8 +83,7 @@ fun ScoreExplanationDialog(
     ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .padding(8.dp),
+                .fillMaxWidth(0.95f),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
@@ -98,9 +97,9 @@ fun ScoreExplanationDialog(
             ) {
                 // Header
                 DialogHeader(onDismiss = onDismiss)
-
+                
                 Spacer(modifier = Modifier.height(12.dp))
-
+                
                 // Score Display
                 ScoreDisplay(
                     score = displayScore,
@@ -108,29 +107,29 @@ fun ScoreExplanationDialog(
                     matchedCount = attempt.phonemeMatches.count { it },
                     totalCount = attempt.targetPhonemes.size
                 )
-
+                
                 Spacer(modifier = Modifier.height(16.dp))
-
+                
                 // Target Section
                 TargetSection(
                     transcription = effectiveTargetTranscription,
                     wordPhonemes = attempt.targetWordPhonemes,
                     phonemeMatches = attempt.phonemeMatches
                 )
-
+                
                 Spacer(modifier = Modifier.height(12.dp))
-
+                
                 // Attempt Section
                 AttemptSection(
                     transcription = attempt.attemptTranscription ?: "(no transcription)",
                     wordPhonemes = attempt.attemptWordPhonemes
                 )
-
+                
                 Spacer(modifier = Modifier.height(12.dp))
-
+                
                 // Breakdown (Duration + Difficulty)
                 BreakdownSection(attempt = attempt)
-
+                
                 // Override Panel (conditional)
                 if (showOverridePanel) {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -139,9 +138,9 @@ fun ScoreExplanationDialog(
                         onScoreSelected = { selectedOverrideScore = it }
                     )
                 }
-
+                
                 Spacer(modifier = Modifier.height(16.dp))
-
+                
                 // Action Buttons
                 ActionButtons(
                     showOverridePanel = showOverridePanel,
@@ -150,6 +149,7 @@ fun ScoreExplanationDialog(
                     onAccept = {
                         if (showOverridePanel) {
                             onOverrideScore(selectedOverrideScore)
+                            onDismiss()  // Close dialog after override
                         } else {
                             onAccept()
                         }
@@ -200,7 +200,7 @@ private fun ScoreDisplay(
         score >= 40 -> Color(0xFFFBBF24)  // Yellow
         else -> Color(0xFFF87171)          // Red
     }
-
+    
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -227,14 +227,14 @@ private fun ScoreDisplay(
                     fontStyle = FontStyle.Italic
                 )
             }
-
+            
             Text(
                 text = "$score",
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Bold,
                 color = scoreColor
             )
-
+            
             Text(
                 text = if (originalScore != null) "PLAYER OVERRIDE" else "$matchedCount/$totalCount phonemes matched",
                 fontSize = 11.sp,
@@ -254,7 +254,7 @@ private fun TargetSection(
 ) {
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val targetColor = Color(0xFFFBBF24)  // Yellow/gold
-
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -273,9 +273,9 @@ private fun TargetSection(
                 letterSpacing = 1.sp
             )
         }
-
+        
         Spacer(modifier = Modifier.height(10.dp))
-
+        
         // Transcription text
         Box(
             modifier = Modifier
@@ -298,9 +298,9 @@ private fun TargetSection(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
+        
         Spacer(modifier = Modifier.height(12.dp))
-
+        
         // Word-grouped phonemes with match coloring
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
@@ -308,7 +308,7 @@ private fun TargetSection(
             modifier = Modifier.fillMaxWidth()
         ) {
             var phonemeIndex = 0
-
+            
             wordPhonemes.forEach { wordPhoneme ->
                 WordPhonemeGroup(
                     word = wordPhoneme.word,
@@ -333,7 +333,7 @@ private fun AttemptSection(
 ) {
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val attemptColor = Color(0xFF60A5FA)  // Blue
-
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -352,9 +352,9 @@ private fun AttemptSection(
                 letterSpacing = 1.sp
             )
         }
-
+        
         Spacer(modifier = Modifier.height(10.dp))
-
+        
         // Transcription text
         Box(
             modifier = Modifier
@@ -377,9 +377,9 @@ private fun AttemptSection(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
+        
         Spacer(modifier = Modifier.height(12.dp))
-
+        
         // Word-grouped phonemes (all blue, no match coloring)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
@@ -417,9 +417,9 @@ private fun WordPhonemeGroup(
                 )
             }
         }
-
+        
         Spacer(modifier = Modifier.height(4.dp))
-
+        
         // Word label
         Text(
             text = word,
@@ -441,13 +441,13 @@ private fun PhonemeChip(
         isMatched -> Color(0xFF166534)   // Green for matched
         else -> Color(0xFF7F1D1D)        // Red for missed
     }
-
+    
     val textColor = when {
         !isTarget -> Color(0xFF60A5FA)
         isMatched -> Color(0xFF4ADE80)
         else -> Color(0xFFF87171)
     }
-
+    
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
@@ -471,14 +471,14 @@ private fun BreakdownSection(attempt: PlayerAttempt) {
         val matchPercent = if (attempt.targetPhonemes.isNotEmpty()) {
             (attempt.phonemeMatches.count { it } * 100) / attempt.targetPhonemes.size
         } else 0
-
+        
         BreakdownRow(
             icon = "🔤",
             label = "Phoneme Match",
             value = "$matchPercent%",
             isGood = matchPercent >= 60
         )
-
+        
         // Duration row (if available)
         attempt.durationRatio?.let { ratio ->
             BreakdownRow(
@@ -488,7 +488,7 @@ private fun BreakdownSection(attempt: PlayerAttempt) {
                 isGood = ratio in 0.66f..1.33f
             )
         }
-
+        
         // Difficulty row
         BreakdownRow(
             icon = "🎚️",
@@ -511,7 +511,7 @@ private fun BreakdownRow(
         false -> Color(0xFFF87171)
         null -> Color(0xFFFBBF24)
     }
-
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -530,7 +530,7 @@ private fun BreakdownRow(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-
+        
         Text(
             text = value + if (isGood == true) " ✓" else if (isGood == false) " ✗" else "",
             fontSize = 13.sp,
@@ -560,22 +560,35 @@ private fun OverridePanel(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-
+        
         Spacer(modifier = Modifier.height(10.dp))
-
-        // Preset buttons
+        
+        // Slider with value display
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            listOf(0, 25, 50, 75, 100).forEach { score ->
-                PresetButton(
-                    score = score,
-                    isSelected = selectedScore == score,
-                    onClick = { onScoreSelected(score) },
-                    modifier = Modifier.weight(1f)
+            androidx.compose.material3.Slider(
+                value = selectedScore.toFloat(),
+                onValueChange = { onScoreSelected(it.toInt()) },
+                valueRange = 0f..100f,
+                steps = 19,  // 0, 5, 10, 15... 100
+                modifier = Modifier.weight(1f),
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary
                 )
-            }
+            )
+            
+            Text(
+                text = "$selectedScore",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.width(50.dp),
+                textAlign = TextAlign.End
+            )
         }
     }
 }
@@ -592,13 +605,13 @@ private fun PresetButton(
     } else {
         MaterialTheme.colorScheme.surfaceVariant
     }
-
+    
     val textColor = if (isSelected) {
         MaterialTheme.colorScheme.onPrimary
     } else {
         MaterialTheme.colorScheme.onSurface
     }
-
+    
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
@@ -648,7 +661,7 @@ private fun ActionButtons(
                 color = Color(0xFF052E16)
             )
         }
-
+        
         // Override/Cancel button
         Box(
             modifier = Modifier
