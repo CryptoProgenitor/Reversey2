@@ -95,6 +95,11 @@ class AudioViewModel @Inject constructor(
     private val voskTranscriptionHelper: VoskTranscriptionHelper
 ) : AndroidViewModel(application) {
 
+    companion object {
+        private const val PHONEME_LOAD_MAX_RETRIES = 20
+        private const val PHONEME_LOAD_RETRY_DELAY_MS = 100L
+    }
+
     // 🎯 RE-INTRODUCED: Mutex for strict serialization of I/O operations
     private val recordingProcessingMutex = Mutex()
 
@@ -293,9 +298,14 @@ class AudioViewModel @Inject constructor(
                 Log.d("AudioViewModel", "🎤 Transcribing reference audio...")
                 val transcriptionResult = voskTranscriptionHelper.transcribeFile(recordingFile)
                 val referenceTranscription = if (transcriptionResult.isSuccess) {
-                    val text = transcriptionResult.text!!
-                    Log.d("AudioViewModel", "🎤 Reference transcription: '$text'")
-                    repository.cacheTranscription(recordingFile, text, 1.0f)
+                    val text = transcriptionResult.text ?: run {
+                        Log.w("AudioViewModel", "🎤 Transcription succeeded but text was null")
+                        null
+                    }
+                    if (text != null) {
+                        Log.d("AudioViewModel", "🎤 Reference transcription: '$text'")
+                        repository.cacheTranscription(recordingFile, text, 1.0f)
+                    }
                     text
                 } else {
                     Log.w("AudioViewModel", "🎤 Reference transcription failed: ${transcriptionResult.errorMessage}")
@@ -424,18 +434,18 @@ class AudioViewModel @Inject constructor(
 
     // --- Scoring Logic (REFACTORED: ReverseScoringEngine only) ---
 
-    private fun scoreAttempt(
+    private suspend fun scoreAttempt(
         originalRecordingPath: String,
         reversedRecordingPath: String?,
         attemptFile: File,
         challengeType: ChallengeType = ChallengeType.REVERSE
     ) {
-        viewModelScope.launch(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             try {
                 // 🛑 CRITICAL FIX: Wait for Phoneme Dictionary to load (max 2 seconds)
                 var attempts = 0
-                while (!PhonemeUtils.isReady() && attempts < 20) {
-                    delay(100)
+                while (!PhonemeUtils.isReady() && attempts < PHONEME_LOAD_MAX_RETRIES) {
+                    delay(PHONEME_LOAD_RETRY_DELAY_MS)
                     attempts++
                 }
 
@@ -476,7 +486,7 @@ class AudioViewModel @Inject constructor(
                         showUserMessage("Error: Could not read audio files for scoring")
                         _uiState.update { it.copy(isScoring = false) }
                     }
-                    return@launch
+                    return@withContext
                 }
 
                 // 4. Get parent recording for reference transcription
@@ -493,8 +503,10 @@ class AudioViewModel @Inject constructor(
                 Log.d("SCORING_DEBUG", "🎤 Reference transcription: '${parentRecording?.referenceTranscription}'")
 
                 // 6. Score using ReverseScoringEngine (phoneme-based)
+                // Capture in local val for smart cast (parentRecording is mutable property)
+                val referenceText = parentRecording?.referenceTranscription
                 val scoringOutput = if (
-                    parentRecording?.referenceTranscription != null &&
+                    referenceText != null &&
                     attemptTranscriptionText != null &&
                     PhonemeUtils.isReady()
                 ) {
@@ -503,7 +515,7 @@ class AudioViewModel @Inject constructor(
                     val attemptDurationMs = (attemptAudio.size * 1000L) / AudioConstants.SAMPLE_RATE
 
                     val result = ReverseScoringEngine.score(
-                        targetText = parentRecording.referenceTranscription!!,
+                        targetText = referenceText,
                         attemptText = attemptTranscriptionText,
                         targetDurationMs = targetDurationMs,
                         attemptDurationMs = attemptDurationMs,
