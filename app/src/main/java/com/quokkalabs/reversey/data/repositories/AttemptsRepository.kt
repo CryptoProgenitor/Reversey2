@@ -40,4 +40,14 @@ class AttemptsRepository @Inject constructor(
             return@withContext emptyMap()
         }
     }
+
+    suspend fun clearAllAttempts() = withContext(Dispatchers.IO) {
+        try {
+            threadSafeJsonRepository.saveAttemptsJson(emptyMap())
+            Log.d("AttemptsRepository", "✅ Cleared all attempts")
+        } catch (e: Exception) {
+            Log.e("AttemptsRepository", "💥 Error clearing attempts", e)
+        }
+    }
+
 }

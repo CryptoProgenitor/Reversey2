@@ -87,7 +87,7 @@ fun FilesContent(
 
                         Toast.makeText(
                             context,
-                            "Backup saved! ${result.recordingsExported} recordings exported",
+                            "Backup saved! ${result.recordingsExported} recordings, ${result.attemptsExported} attempts",
                             Toast.LENGTH_SHORT
                         ).show()
                     } else {

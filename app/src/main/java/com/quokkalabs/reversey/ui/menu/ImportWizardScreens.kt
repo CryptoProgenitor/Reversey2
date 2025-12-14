@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.data.backup.*
 import com.quokkalabs.reversey.ui.viewmodels.DateChipOption
 import com.quokkalabs.reversey.ui.viewmodels.ImportWizardViewModel
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+
 
 // ============================================================
 //  STEP 1: FILE PICKER
@@ -225,10 +228,13 @@ fun RestoreStep2_Analysis(
             }
 
             // Summary card
+            // Summary card
             SummaryCard(
+                totalRecordings = filteredAnalysis.newRecordings.size + filteredAnalysis.duplicateRecordings.size + filteredAnalysis.conflictingRecordings.size,
                 newCount = filteredAnalysis.newRecordings.size,
                 duplicateCount = filteredAnalysis.duplicateRecordings.size,
                 conflictCount = filteredAnalysis.conflictingRecordings.size,
+                attemptCount = filteredAnalysis.newAttempts.size + filteredAnalysis.duplicateAttempts.size + filteredAnalysis.conflictingAttempts.size,
                 orphanCount = filteredAnalysis.orphanedAttempts.size,
                 totalSize = formatSize(filteredAnalysis.totalSizeBytes),
                 dateRange = filteredAnalysis.dateRange?.let {
@@ -246,10 +252,13 @@ fun RestoreStep2_Analysis(
             )
 
             // New Stuff section
+            // New Recordings section
             if (filteredAnalysis.newRecordings.isNotEmpty()) {
+                val newAttemptCount = filteredAnalysis.newAttempts.size
                 ExpandableSection(
                     emoji = "✨",
-                    title = "New Stuff",
+                    title = "New Recordings",
+                    subtitle = if (newAttemptCount > 0) "includes $newAttemptCount attempts" else null,
                     count = filteredAnalysis.newRecordings.size,
                     selectedCount = selectedNewRecordings.size,
                     badgeColor = Color(0xFF10B981)
@@ -392,6 +401,7 @@ fun RestoreStep2_Analysis(
                 onClick = onProceed
             )
         }
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -827,46 +837,44 @@ private fun DateFilterChip(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SummaryCard(
+    totalRecordings: Int,
     newCount: Int,
     duplicateCount: Int,
     conflictCount: Int,
+    attemptCount: Int,
     orphanCount: Int,
     totalSize: String,
     dateRange: String?
 ) {
     GlassCard {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                SummaryBadge("🎤 $totalRecordings recordings", Color(0xFF8B5CF6))
                 SummaryBadge("✨ $newCount new", Color(0xFF10B981))
-                SummaryBadge("✓ $duplicateCount have", Color(0xFF6B7280))
+                if (duplicateCount > 0) {
+                    SummaryBadge("✓ $duplicateCount skipped", Color(0xFF6B7280))
+                }
                 if (conflictCount > 0) {
                     SummaryBadge("⚠️ $conflictCount conflict", Color(0xFFF59E0B))
                 }
+                SummaryBadge("🎯 $attemptCount attempts", Color(0xFF3B82F6))
+                SummaryBadge("📊 $totalSize", Color(0xFF6B7280))
             }
 
-            HorizontalDivider(color = StaticMenuColors.divider)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            if (dateRange != null) {
+                HorizontalDivider(color = StaticMenuColors.divider)
                 Text(
-                    "📊 $totalSize total",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard
+                    "📅 $dateRange",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
                 )
-                if (dateRange != null) {
-                    Text(
-                        "📅 $dateRange",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
-                    )
-                }
             }
         }
     }
@@ -893,6 +901,7 @@ private fun SummaryBadge(text: String, color: Color) {
 private fun ExpandableSection(
     emoji: String,
     title: String,
+    subtitle: String? = null,
     count: Int,
     selectedCount: Int?,
     badgeColor: Color,
@@ -911,15 +920,25 @@ private fun ExpandableSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(emoji, fontSize = 20.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = StaticMenuColors.textOnCard
-                    )
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(emoji, fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = StaticMenuColors.textOnCard
+                        )
+                    }
+                    if (subtitle != null) {
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = StaticMenuColors.textOnCard.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(start = 32.dp)
+                        )
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {

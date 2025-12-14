@@ -33,4 +33,9 @@ class RecordingNamesRepository @Inject constructor(
 
     // Disable cleanup to prevent data loss during refactor
     suspend fun cleanupOrphanedNames() {}
+
+    suspend fun clearAllCustomNames() = withContext(Dispatchers.IO) {
+        threadSafeJsonRepository.saveRecordingNamesJson(emptyMap())
+    }
+
 }

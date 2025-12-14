@@ -170,11 +170,27 @@ class BackupManager @Inject constructor(
                             totalSizeBytes += originalFile.length()
                         }
 
+                        // Export reversed recording if exists
+                        var reversedFilename: String? = null
+                        recording.reversedPath?.let { revPath ->
+                            val reversedFile = File(revPath)
+                            if (reversedFile.exists()) {
+                                reversedFilename = reversedFile.name
+                                if (reversedFilename !in addedFiles) {
+                                    zipOut.putNextEntry(ZipEntry("$RECORDINGS_PATH$reversedFilename"))
+                                    FileInputStream(reversedFile).use { it.copyTo(zipOut) }
+                                    zipOut.closeEntry()
+                                    addedFiles.add(reversedFilename!!)
+                                    totalSizeBytes += reversedFile.length()
+                                }
+                            }
+                        }
+
                         // Create Manifest Entry
                         recordingEntries.add(
                             RecordingBackupEntry(
                                 filename = filename,
-                                reversedFilename = null,
+                                reversedFilename = reversedFilename,
                                 hash = calculateFileHash(originalFile),
                                 creationTimestampMs = originalFile.lastModified(),
                                 lastModified = originalFile.lastModified(),
@@ -377,52 +393,92 @@ class BackupManager @Inject constructor(
                             if (conflictStrategy != ConflictStrategy.MERGE_ATTEMPTS_ONLY) {
                                 val filename = entryName.removePrefix(RECORDINGS_PATH)
 
-                                // Emit progress
-                                _importProgress.value = BackupProgress.InProgress(
-                                    phase = BackupPhase.IMPORTING_RECORDINGS,
-                                    currentItem = importedRecs + skippedRecs + 1,
-                                    totalItems = manifest.recordings.size,
-                                    currentFileName = filename,
-                                    message = "Importing recordings..."
-                                )
+                                // Check if this is a reversed file (handled separately)
+                                val isReversedFile = filename.contains("_reversed")
 
-                                val targetFile = File(recordingsDir, filename)
+                                if (isReversedFile) {
+                                    // Reversed files: extract with rename if parent was renamed
+                                    // Derive parent name: "song_reversed.wav" -> "song.wav"
+                                    val parentFilename = filename.replace("_reversed.wav", ".wav")
+                                    val actualParentName = filenameMapping[parentFilename]
 
-                                if (targetFile.exists()) {
-                                    val localHash = calculateFileHash(targetFile)
-                                    val manifestHash = manifest.recordings.find { it.filename == filename }?.hash
-
-                                    if (localHash == manifestHash) {
-                                        // Exact duplicate - skip
-                                        skippedRecs++
-                                        filenameMapping[filename] = filename
-                                        Log.d(TAG, "Skipped duplicate recording: $filename")
+                                    // Compute target name based on parent's actual name
+                                    val targetFilename = if (actualParentName != null && actualParentName != parentFilename) {
+                                        // Parent was renamed, match it: "song (1).wav" -> "song (1)_reversed.wav"
+                                        actualParentName.replace(".wav", "_reversed.wav")
                                     } else {
-                                        // Conflict: Same filename, different content
-                                        when (conflictStrategy) {
-                                            ConflictStrategy.KEEP_BOTH -> {
-                                                // Generate unique name and import
-                                                val uniqueName = generateUniqueName(filename, recordingsDir)
-                                                val uniqueFile = File(recordingsDir, uniqueName)
-                                                FileOutputStream(uniqueFile).use { zipIn.copyTo(it) }
-                                                filenameMapping[filename] = uniqueName
-                                                importedRecs++
-                                                Log.d(TAG, "Renamed recording: $filename -> $uniqueName")
-                                            }
-                                            else -> {
-                                                // SKIP_DUPLICATES or MERGE_ATTEMPTS_ONLY
-                                                skippedRecs++
-                                                filenameMapping[filename] = filename
-                                                Log.d(TAG, "Skipped conflicting recording: $filename")
-                                            }
+                                        filename
+                                    }
+
+                                    val targetFile = File(recordingsDir, targetFilename)
+                                    if (!targetFile.exists()) {
+                                        FileOutputStream(targetFile).use { zipIn.copyTo(it) }
+                                        // Restore original timestamp (use parent's timestamp)
+                                        manifest.recordings.find { it.filename == parentFilename }?.let { entry ->
+                                            targetFile.setLastModified(entry.creationTimestampMs)
                                         }
+                                        Log.d(TAG, "Extracted reversed recording: $filename -> $targetFilename")
+                                    } else {
+                                        Log.d(TAG, "Reversed recording already exists: $targetFilename")
                                     }
                                 } else {
-                                    // New file - import normally
-                                    FileOutputStream(targetFile).use { zipIn.copyTo(it) }
-                                    filenameMapping[filename] = filename
-                                    importedRecs++
-                                    Log.d(TAG, "Imported new recording: $filename")
+                                    // Original recordings: full conflict detection logic
+
+                                    // Emit progress
+                                    _importProgress.value = BackupProgress.InProgress(
+                                        phase = BackupPhase.IMPORTING_RECORDINGS,
+                                        currentItem = importedRecs + skippedRecs + 1,
+                                        totalItems = manifest.recordings.size,
+                                        currentFileName = filename,
+                                        message = "Importing recordings..."
+                                    )
+
+                                    val targetFile = File(recordingsDir, filename)
+
+                                    if (targetFile.exists()) {
+                                        val localHash = calculateFileHash(targetFile)
+                                        val manifestHash = manifest.recordings.find { it.filename == filename }?.hash
+
+                                        if (localHash == manifestHash) {
+                                            // Exact duplicate - skip
+                                            skippedRecs++
+                                            filenameMapping[filename] = filename
+                                            Log.d(TAG, "Skipped duplicate recording: $filename")
+                                        } else {
+                                            // Conflict: Same filename, different content
+                                            when (conflictStrategy) {
+                                                ConflictStrategy.KEEP_BOTH -> {
+                                                    // Generate unique name and import
+                                                    val uniqueName = generateUniqueName(filename, recordingsDir)
+                                                    val uniqueFile = File(recordingsDir, uniqueName)
+                                                    FileOutputStream(uniqueFile).use { zipIn.copyTo(it) }
+                                                    // Restore original timestamp for correct sort order
+                                                    manifest.recordings.find { it.filename == filename }?.let { entry ->
+                                                        uniqueFile.setLastModified(entry.creationTimestampMs)
+                                                    }
+                                                    filenameMapping[filename] = uniqueName
+                                                    importedRecs++
+                                                    Log.d(TAG, "Renamed recording: $filename -> $uniqueName")
+                                                }
+                                                else -> {
+                                                    // SKIP_DUPLICATES or MERGE_ATTEMPTS_ONLY
+                                                    skippedRecs++
+                                                    filenameMapping[filename] = filename
+                                                    Log.d(TAG, "Skipped conflicting recording: $filename")
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // New file - import normally
+                                        FileOutputStream(targetFile).use { zipIn.copyTo(it) }
+                                        // Restore original timestamp for correct sort order
+                                        manifest.recordings.find { it.filename == filename }?.let { entry ->
+                                            targetFile.setLastModified(entry.creationTimestampMs)
+                                        }
+                                        filenameMapping[filename] = filename
+                                        importedRecs++
+                                        Log.d(TAG, "Imported new recording: $filename")
+                                    }
                                 }
                             }
                         }

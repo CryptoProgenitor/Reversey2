@@ -818,11 +818,15 @@ class AudioViewModel @Inject constructor(
 
     fun clearAllRecordings() {
         viewModelScope.launch {
+            // Step 1: Clear attempts JSON first
+            attemptsRepository.clearAllAttempts()
+            // Step 2: Clear custom names JSON
+            recordingNamesRepository.clearAllCustomNames()
+            // Step 3: Delete physical files
             _uiState.value.recordings.forEach { recording ->
                 deleteRecording(recording)
             }
-            // 🎯 FIX: AttemptsRepository doesn't have clearAllAttempts()
-            // Clearing happens naturally as we delete each recording
+            // Step 4: Reload state
             loadRecordings()
         }
     }
