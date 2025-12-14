@@ -362,7 +362,11 @@ class EggThemeComponents : ThemeComponents {
             text = {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
-                    label = { Text(copy.renameHint) }
+                    label = { Text(copy.renameHint, color = Color(0xFF2E2E2E)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color(0xFF2E2E2E),
+                        unfocusedTextColor = Color(0xFF2E2E2E)
+                    )
                 )
             },
             confirmButton = {
@@ -408,20 +412,18 @@ fun EggRecordingItem(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .shadow(elevation = 0.dp, shape = RoundedCornerShape(16.dp))
             .border(width = 4.dp, color = Color(0xFF2E2E2E), shape = RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color(0xBBFFFBF0)),  //recording card transparency
+        colors = CardDefaults.cardColors(containerColor = Color(0xBBFFFBF0)),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.Center
             ) {
                 FriedEggDecoration(size = 35.dp, rotation = 15f)
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = recording.name,
                         style = MaterialTheme.typography.titleMedium.copy(
@@ -438,14 +440,6 @@ fun EggRecordingItem(
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF2E2E2E).copy(alpha = 0.7f)
                     )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    HandDrawnEggButton(
-                        onClick = { showDeleteDialog = true },
-                        backgroundColor = Color(0xFFFF5722),
-                        size = 50.dp
-                    ) { CrackedEggIcon() }
-                    Text("Del", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
                 }
             }
 
@@ -467,7 +461,7 @@ fun EggRecordingItem(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -497,7 +491,7 @@ fun EggRecordingItem(
                     HandDrawnEggButton(
                         onClick = { onPlay(recording.reversedPath ?: "") },
                         backgroundColor = Color(0xFFFF8A65),
-                        enabled = isReady, // 🛡️ FIX: Protected
+                        enabled = isReady,
                         size = 50.dp
                     ) { EggRewindIcon(Color(0xFF2E2E2E)) }
                     Text("Rewind", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
@@ -506,25 +500,22 @@ fun EggRecordingItem(
                 if (isGameModeEnabled) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         HandDrawnEggButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.FORWARD) },
+                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
                             backgroundColor = Color(0xFFFF8A65),
-                            enabled = isReady, // 🛡️ FIX: Protected
+                            enabled = isReady,
                             size = 50.dp
-                        ) { EggMicRightArrowIcon(Color(0xFF2E2E2E)) }
-                        Text("Fwd", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
+                        ) { EggMicLeftArrowIcon(Color(0xFF2E2E2E)) }
+                        Text("Try", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
                     }
                 }
 
-                if (isGameModeEnabled) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        HandDrawnEggButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
-                            backgroundColor = Color(0xFFFF8A65),
-                            enabled = isReady, // 🛡️ FIX: Protected
-                            size = 50.dp
-                        ) { EggMicLeftArrowIcon(Color(0xFF2E2E2E)) }
-                        Text("Rev", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
-                    }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    HandDrawnEggButton(
+                        onClick = { showDeleteDialog = true },
+                        backgroundColor = Color(0xFFFF5722),
+                        size = 50.dp
+                    ) { CrackedEggIcon() }
+                    Text("Del", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E2E2E))
                 }
             }
         }

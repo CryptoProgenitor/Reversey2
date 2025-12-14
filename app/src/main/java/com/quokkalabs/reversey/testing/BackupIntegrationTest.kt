@@ -195,7 +195,7 @@ class BackupIntegrationTest @Inject constructor(
                     reversedAttemptFilePath = null,
                     score = 100,
                     pitchSimilarity = 1f, mfccSimilarity = 1f, rawScore = 1f,
-                    challengeType = ChallengeType.FORWARD,
+                    challengeType = ChallengeType.REVERSE,
                     difficulty = DifficultyLevel.NORMAL
                 )
             )

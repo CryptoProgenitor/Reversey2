@@ -223,7 +223,6 @@ fun ScoreCalculationBreakdown.toQuickSummary(): String {
         ScoringEngineType.SINGING_ENGINE -> "Singing"
     }
     val challengeName = when (challengeType) {
-        ChallengeType.FORWARD -> "Forward"
         ChallengeType.REVERSE -> "Reverse"
     }
     return "$engineName • $challengeName • ${difficultyLevel.displayName}"

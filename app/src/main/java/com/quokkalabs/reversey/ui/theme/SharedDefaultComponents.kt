@@ -160,20 +160,12 @@ object SharedDefaultComponents {
                         isPrimary = true // 🔧 FIX: Restore Pink color
                     )
 
-                    // 4 & 5. Game Mode Buttons (Fwd & Rev)
+                    // 4 & 5. Game Mode Buttons (Rev)
                     if (isGameModeEnabled) {
-                        SimpleGlowButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.FORWARD) },
-                            size = 50.dp,
-                            label = "Fwd", // 🔧 FIX: Restored Fwd button
-                            icon = Icons.Default.Mic,
-                            isPrimary = true
-                        )
-
                         SimpleGlowButton(
                             onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
                             size = 50.dp,
-                            label = "Rev", // 🔧 FIX: Restored Rev button
+                            label = "Try", // 🔧 FIX: Restored Rev button
                             icon = Icons.Default.Mic,
                             isPrimary = true
                         )

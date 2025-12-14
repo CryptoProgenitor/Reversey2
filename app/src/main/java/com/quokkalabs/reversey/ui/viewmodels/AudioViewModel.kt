@@ -469,10 +469,7 @@ class AudioViewModel @Inject constructor(
                 }
 
                 // 3. Load Audio Data (Disk -> Memory)
-                val referenceAudioPath = when (challengeType) {
-                    ChallengeType.FORWARD -> originalRecordingPath
-                    ChallengeType.REVERSE -> reversedRecordingPath ?: originalRecordingPath
-                }
+                val referenceAudioPath = reversedRecordingPath ?: originalRecordingPath
 
                 Log.d("SCORING_DEBUG", "challengeType=$challengeType, loading reference=$referenceAudioPath")
 

@@ -1233,10 +1233,6 @@ fun SnowyOwlRecordingItem(
                 Box(modifier = Modifier.weight(1f).background(Color(0xFF505064).copy(0.5f), RoundedCornerShape(12.dp)).clickable { showRenameDialog = true }.padding(12.dp)) {
                     Text(recording.name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Box(modifier = Modifier.size(44.dp).background(Color(0xFF8B3A6F).copy(0.7f), RoundedCornerShape(10.dp)).clickable { showDeleteDialog = true }, contentAlignment = Alignment.Center) {
-                    OwlDeleteIcon(Color.White)
-                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = Color(0xFFADD8E6).copy(0.5f))
@@ -1248,9 +1244,9 @@ fun SnowyOwlRecordingItem(
                 }
                 OwlControlButton(mysticPurple, "Rev", { recording.reversedPath?.let { onPlay(it) } }) { OwlRewindIcon(Color.White) }
                 if (isGameModeEnabled) {
-                    OwlControlButton(deepSlate, "Fwd", { onStartAttempt(recording, ChallengeType.FORWARD) }) { OwlMicRightArrowIcon(Color.White) }
-                    OwlControlButton(mysticPurple, "Rev", { onStartAttempt(recording, ChallengeType.REVERSE) }) { OwlMicLeftArrowIcon(Color.White) }
+                    OwlControlButton(mysticPurple, "Try", { onStartAttempt(recording, ChallengeType.REVERSE) }) { OwlMicLeftArrowIcon(Color.White) }
                 }
+                OwlControlButton(deepSlate, "Del", { showDeleteDialog = true }) { OwlDeleteIcon(Color.White) }
             }
         }
     }

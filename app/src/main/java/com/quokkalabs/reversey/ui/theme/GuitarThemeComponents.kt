@@ -859,8 +859,6 @@ fun GuitarRecordingItem(
                 Box(modifier = Modifier.weight(1f).background(lavenderBox.copy(alpha = 0.65f), RoundedCornerShape(10.dp)).border(3.dp, darkBrown, RoundedCornerShape(10.dp)).clickable { showRenameDialog = true }.padding(12.dp)) {
                     Text(text = recording.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = darkBrown, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = { showDeleteDialog = true }, modifier = Modifier.size(48.dp)) { GuitarDeleteIcon(darkBrown) }
             }
             Spacer(modifier = Modifier.height(12.dp))
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = tealGreen, trackColor = Color(0xFFE8DCC8))
@@ -873,9 +871,9 @@ fun GuitarRecordingItem(
                 GuitarControlButton(color = tealGreen, label = "Rev", onClick = { recording.reversedPath?.let { onPlay(it) } }) { GuitarRewindIcon(darkBrown) }
                 if (isGameModeEnabled) {
                     // 🛡️ FIX: Check if reversedPath exists before starting
-                    GuitarControlButton(color = peachOrange, label = "Fwd", onClick = { if (recording.reversedPath != null) onStartAttempt(recording, ChallengeType.FORWARD) }) { GuitarMicIcon(darkBrown) }
-                    GuitarControlButton(color = tealGreen, label = "Rev", onClick = { if (recording.reversedPath != null) onStartAttempt(recording, ChallengeType.REVERSE) }) { GuitarMicIcon(darkBrown) }
+                    GuitarControlButton(color = tealGreen, label = "Try", onClick = { if (recording.reversedPath != null) onStartAttempt(recording, ChallengeType.REVERSE) }) { GuitarMicIcon(darkBrown) }
                 }
+                GuitarControlButton(onClick = { showDeleteDialog = true }, color = peachOrange, label = "Del") { GuitarDeleteIcon(darkBrown) }
             }
         }
     }

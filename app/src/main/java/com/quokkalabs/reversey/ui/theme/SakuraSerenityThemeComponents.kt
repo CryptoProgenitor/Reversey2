@@ -208,17 +208,6 @@ class SakuraSerenityComponents : ThemeComponents {
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // 🌸 STYLED DELETE BUTTON (Consistent with control row)
-                    SakuraControlButton(
-                        color = buttonBg,
-                        label = "DEL",
-                        textColor = textDarkPink,
-                        onClick = { showDeleteDialog = true }
-                    ) {
-                        SakuraDeleteIcon(textDarkPink) // Torii Gate
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -264,12 +253,18 @@ class SakuraSerenityComponents : ThemeComponents {
 
                     // Game Mode Controls
                     if (isGameModeEnabled && recording.reversedPath != null) {
-                        SakuraControlButton(color = buttonBg, label = "Fwd", textColor = textDarkPink, onClick = { onStartAttempt(recording, ChallengeType.FORWARD) }) {
-                            Icon(Icons.Default.ArrowUpward, "Try", tint = textDarkPink, modifier = Modifier.size(20.dp))
-                        }
-                        SakuraControlButton(color = buttonBg, label = "Rev", textColor = textDarkPink, onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }) {
+                        SakuraControlButton(color = buttonBg, label = "Try", textColor = textDarkPink, onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }) {
                             Icon(Icons.Default.ArrowUpward, "Try", tint = textDarkPink, modifier = Modifier.size(20.dp).rotate(180f))
                         }
+                    }
+                    // 🌸 STYLED DELETE BUTTON (Consistent with control row)
+                    SakuraControlButton(
+                        color = buttonBg,
+                        label = "DEL",
+                        textColor = textDarkPink,
+                        onClick = { showDeleteDialog = true }
+                    ) {
+                        SakuraDeleteIcon(textDarkPink) // Torii Gate
                     }
                 }
             }

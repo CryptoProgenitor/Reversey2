@@ -196,20 +196,17 @@ class ScrapbookThemeComponents : ThemeComponents {
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "🎤 ${recording.name}",
-                            style = MaterialTheme.typography.titleMedium.copy(fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp),
-                            color = contentColor,
-                            modifier = Modifier.weight(1f).clickable { showRenameDialog = true },
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
-                        )
-                        ScrapbookButton(onClick = { showDeleteDialog = true }, icon = Icons.Default.Delete, label = "Del", iconColor = Color(0xFFFF1744))
-                    }
+                    Text(
+                        text = "🎤 ${recording.name}",
+                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp),
+                        color = contentColor,
+                        modifier = Modifier.fillMaxWidth().clickable { showRenameDialog = true },
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
                         ScrapbookButton(onClick = { showShareDialog = true }, icon = Icons.Default.Share, label = "Share", iconColor = Color(0xFF607D8B))
 
                         if (isPlaying && !isPaused) {
@@ -221,9 +218,10 @@ class ScrapbookThemeComponents : ThemeComponents {
                         ScrapbookButton(onClick = { recording.reversedPath?.let { onPlay(it) } }, icon = Icons.Default.FastForward, label = "Rev", iconColor = Color(0xFFFF9800), enabled = isReady)
 
                         if (isGameModeEnabled) {
-                            ScrapbookButton(onClick = { onStartAttempt(recording, ChallengeType.FORWARD) }, icon = Icons.Default.Mic, label = "Try", iconColor = Color(0xFF9C27B0), enabled = isReady)
-                            ScrapbookButton(onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }, icon = Icons.Default.Mic, label = "REV", iconColor = Color(0xFFE91E63), enabled = isReady)
+                            ScrapbookButton(onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }, icon = Icons.Default.Mic, label = "Try", iconColor = Color(0xFFE91E63), enabled = isReady)
                         }
+
+                        ScrapbookButton(onClick = { showDeleteDialog = true }, icon = Icons.Default.Delete, label = "Del", iconColor = Color(0xFFFF1744))
                     }
 
                     if (isPlaying) {

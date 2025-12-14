@@ -17,8 +17,7 @@ import com.quokkalabs.reversey.scoring.VocalAnalysis
  */
 
 enum class ChallengeType {
-    REVERSE,
-    FORWARD
+    REVERSE
 }
 
 @Immutable

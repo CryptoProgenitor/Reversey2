@@ -1186,17 +1186,6 @@ fun StrangePlanetRecordingItem(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                // Delete button in top right
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(buttonSecondary.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
-                        .clickable { showDeleteDialog = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    SPDeleteGlyph(Color.White)
-                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -1247,23 +1236,23 @@ fun StrangePlanetRecordingItem(
                     SPRewindGlyph(Color.White)
                 }
 
-                // Game mode buttons (like Owl: Fwd, Rev)
+                // Game mode button
                 if (isGameModeEnabled) {
-                    SPControlButton(
-                        color = buttonSecondary,
-                        label = "Fwd",
-                        onClick = { onStartAttempt(recording, ChallengeType.FORWARD) }
-                    ) {
-                        SPMicGlyph(Color.White)
-                    }
 
                     SPControlButton(
                         color = buttonPrimary,
-                        label = "Rev",
+                        label = "Try",
                         onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }
                     ) {
                         SPMicGlyph(Color.White)
                     }
+                }
+                SPControlButton(
+                    color = buttonSecondary,
+                    label = "Del",
+                    onClick = { showDeleteDialog = true }
+                ) {
+                    SPDeleteGlyph(Color.White)
                 }
             }
         }
