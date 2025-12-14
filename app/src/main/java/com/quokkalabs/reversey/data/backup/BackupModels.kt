@@ -4,10 +4,7 @@ import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.scoring.DebuggingData
 import com.quokkalabs.reversey.scoring.DifficultyLevel
 import com.quokkalabs.reversey.scoring.PerformanceInsights
-import com.quokkalabs.reversey.scoring.ScoringEngineType
 import com.quokkalabs.reversey.scoring.VocalAnalysis
-import com.quokkalabs.reversey.scoring.VocalFeatures
-import com.quokkalabs.reversey.scoring.VocalMode
 import java.io.File
 
 /**
@@ -203,9 +200,8 @@ data class AttemptMetadataBackup(
     val pitchSimilarity: Float,
     val mfccSimilarity: Float,
     val rawScore: Float,
-    val challengeType: String,          // "REVERSE" or "FORWARD"
+    val challengeType: String,          // "REVERSE"
     val difficulty: String,             // "EASY", "NORMAL", or "HARD"
-    val scoringEngine: String?,         // "SPEECH_ENGINE" or "SINGING_ENGINE"
 
     // Rich metadata
     val feedback: List<String>,
@@ -328,7 +324,6 @@ fun DifficultyLevel.toBackupString(): String = this.name
 /**
  * Convert ScoringEngineType enum to string for backup.
  */
-fun ScoringEngineType.toBackupString(): String = this.name
 
 /**
  * Convert VocalAnalysis to backup format.

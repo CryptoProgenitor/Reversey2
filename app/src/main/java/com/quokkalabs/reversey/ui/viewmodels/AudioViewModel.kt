@@ -1,12 +1,13 @@
 package com.quokkalabs.reversey.ui.viewmodels
 
+import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
-import android.Manifest
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.quokkalabs.reversey.asr.VoskTranscriptionHelper
 import com.quokkalabs.reversey.audio.AudioConstants
 import com.quokkalabs.reversey.audio.AudioPlayerHelper
 import com.quokkalabs.reversey.audio.AudioRecorderHelper
@@ -19,12 +20,11 @@ import com.quokkalabs.reversey.data.repositories.RecordingNamesRepository
 import com.quokkalabs.reversey.data.repositories.RecordingRepository
 import com.quokkalabs.reversey.data.repositories.SettingsDataStore
 import com.quokkalabs.reversey.scoring.DifficultyLevel
-import com.quokkalabs.reversey.scoring.Presets
-import com.quokkalabs.reversey.scoring.SpeechScoringModels
-import com.quokkalabs.reversey.scoring.SpeechScoringEngine
-import com.quokkalabs.reversey.scoring.ScoringEngineType
-import com.quokkalabs.reversey.asr.TranscriptionResult
-import com.quokkalabs.reversey.asr.VoskTranscriptionHelper
+import com.quokkalabs.reversey.scoring.PhonemeScoreResult
+import com.quokkalabs.reversey.scoring.PhonemeUtils
+import com.quokkalabs.reversey.scoring.ReverseScoringEngine
+import com.quokkalabs.reversey.scoring.WordPhonemes
+import com.quokkalabs.reversey.testing.BITRunner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -33,19 +33,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
-import com.quokkalabs.reversey.testing.BITRunner
-import com.quokkalabs.reversey.scoring.PhonemeUtils
-import com.quokkalabs.reversey.scoring.ReverseScoringEngine
-import com.quokkalabs.reversey.scoring.PhonemeScoreResult
-import com.quokkalabs.reversey.scoring.WordPhonemes
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -78,7 +73,7 @@ data class AudioUiState(
     val showAnalysisToast: Boolean = false,
     // 🥚 Easter egg state
     val showEasterEgg: Boolean = false,
-    val cpdTaps: Int = 0
+    val cpdTaps: Int = 0,
 )
 
 @HiltViewModel
@@ -90,9 +85,8 @@ class AudioViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val audioPlayerHelper: AudioPlayerHelper,
     private val audioRecorderHelper: AudioRecorderHelper,
-    private val speechScoringEngine: SpeechScoringEngine,
     private val bitRunner: BITRunner,
-    private val voskTranscriptionHelper: VoskTranscriptionHelper
+    private val voskTranscriptionHelper: VoskTranscriptionHelper,
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -122,10 +116,6 @@ class AudioViewModel @Inject constructor(
 
     val currentDifficultyFlow: StateFlow<DifficultyLevel> = _currentDifficulty.asStateFlow()
 
-    fun getSpeechEngine(): SpeechScoringEngine {
-        return speechScoringEngine
-    }
-
     fun getBITRunner(): BITRunner {
         return bitRunner
     }
@@ -147,6 +137,7 @@ class AudioViewModel @Inject constructor(
                     is RecorderEvent.Warning -> {
                         showUserMessage("Recording approaching size limit...")
                     }
+
                     is RecorderEvent.Stop -> {
                         Log.d("AudioViewModel", "⏱️ Auto-stop event received")
                         // Auto-stop triggered by duration limit
@@ -208,11 +199,13 @@ class AudioViewModel @Inject constructor(
                     recording.copy(attempts = attempts)
                 }
 
-                _uiState.update { it.copy(
-                    recordings = recordingsWithAttempts,
-                    customNames = savedNames,
-                    isLoading = false
-                ) }
+                _uiState.update {
+                    it.copy(
+                        recordings = recordingsWithAttempts,
+                        customNames = savedNames,
+                        isLoading = false
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
@@ -229,18 +222,24 @@ class AudioViewModel @Inject constructor(
     fun startRecording() {
         val context = getApplication<Application>()
 
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             _uiState.update { it.copy(error = "Microphone permission not granted") }
             return
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(
-                isRecording = true,
-                isRecordingAttempt = false,
-                statusText = "Recording...",
-                amplitudes = emptyList()
-            ) }
+            _uiState.update {
+                it.copy(
+                    isRecording = true,
+                    isRecordingAttempt = false,
+                    statusText = "Recording...",
+                    amplitudes = emptyList()
+                )
+            }
 
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val recordingFile = File(context.filesDir, "recordings/REC_$timestamp.wav")
@@ -253,7 +252,10 @@ class AudioViewModel @Inject constructor(
     }
 
     fun stopRecording() {
-        Log.d("AudioViewModel", "🛑 stopRecording() called | isRecordingAttempt=${_uiState.value.isRecordingAttempt}")
+        Log.d(
+            "AudioViewModel",
+            "🛑 stopRecording() called | isRecordingAttempt=${_uiState.value.isRecordingAttempt}"
+        )
 
         viewModelScope.launch {
             val wasAttempt = _uiState.value.isRecordingAttempt
@@ -274,14 +276,16 @@ class AudioViewModel @Inject constructor(
                     }
                 } else {
                     Log.e("AudioViewModel", "❌ Recording failed: no file produced")
-                    _uiState.update { it.copy(
-                        isRecording = false,
-                        isRecordingAttempt = false,
-                        statusText = "Recording failed",
-                        parentRecordingPath = null,
-                        pendingChallengeType = null,
-                        amplitudes = emptyList()
-                    ) }
+                    _uiState.update {
+                        it.copy(
+                            isRecording = false,
+                            isRecordingAttempt = false,
+                            statusText = "Recording failed",
+                            parentRecordingPath = null,
+                            pendingChallengeType = null,
+                            amplitudes = emptyList()
+                        )
+                    }
                 }
             }
         }
@@ -308,7 +312,10 @@ class AudioViewModel @Inject constructor(
                     }
                     text
                 } else {
-                    Log.w("AudioViewModel", "🎤 Reference transcription failed: ${transcriptionResult.errorMessage}")
+                    Log.w(
+                        "AudioViewModel",
+                        "🎤 Reference transcription failed: ${transcriptionResult.errorMessage}"
+                    )
                     null
                 }
 
@@ -322,26 +329,32 @@ class AudioViewModel @Inject constructor(
 
                 val updatedRecordings = listOf(newRecording) + _uiState.value.recordings
 
-                _uiState.update { it.copy(
-                    recordings = updatedRecordings,
-                    isRecording = false,
-                    statusText = if (referenceTranscription != null) "Saved! Reference: \"$referenceTranscription\"" else "Saved!",
-                    amplitudes = emptyList()
-                ) }
+                _uiState.update {
+                    it.copy(
+                        recordings = updatedRecordings,
+                        isRecording = false,
+                        statusText = if (referenceTranscription != null) "Saved! Reference: \"$referenceTranscription\"" else "Saved!",
+                        amplitudes = emptyList()
+                    )
+                }
             } else {
-                _uiState.update { it.copy(
-                    isRecording = false,
-                    statusText = "Failed to reverse audio",
-                    amplitudes = emptyList()
-                ) }
+                _uiState.update {
+                    it.copy(
+                        isRecording = false,
+                        statusText = "Failed to reverse audio",
+                        amplitudes = emptyList()
+                    )
+                }
             }
         } catch (e: Exception) {
             Log.e("AudioViewModel", "Error processing recording", e)
-            _uiState.update { it.copy(
-                isRecording = false,
-                error = "Processing failed: ${e.message}",
-                amplitudes = emptyList()
-            ) }
+            _uiState.update {
+                it.copy(
+                    isRecording = false,
+                    error = "Processing failed: ${e.message}",
+                    amplitudes = emptyList()
+                )
+            }
         }
     }
 
@@ -349,40 +362,49 @@ class AudioViewModel @Inject constructor(
         val parentPath = _uiState.value.parentRecordingPath
         val challengeType = _uiState.value.pendingChallengeType ?: ChallengeType.REVERSE
 
-        Log.d("AudioViewModel", "📝 processAttemptResult: parentPath=$parentPath, challengeType=$challengeType")
+        Log.d(
+            "AudioViewModel",
+            "📝 processAttemptResult: parentPath=$parentPath, challengeType=$challengeType"
+        )
 
         if (parentPath == null) {
             Log.e("AudioViewModel", "❌ No parent recording path!")
-            _uiState.update { it.copy(
-                isRecording = false,
-                isRecordingAttempt = false,
-                statusText = "Error: No parent recording",
-                amplitudes = emptyList()
-            ) }
+            _uiState.update {
+                it.copy(
+                    isRecording = false,
+                    isRecordingAttempt = false,
+                    statusText = "Error: No parent recording",
+                    amplitudes = emptyList()
+                )
+            }
             return
         }
 
         val parentRecording = _uiState.value.recordings.find { it.originalPath == parentPath }
         if (parentRecording == null) {
             Log.e("AudioViewModel", "❌ Parent recording not found!")
-            _uiState.update { it.copy(
-                isRecording = false,
-                isRecordingAttempt = false,
-                statusText = "Error: Parent recording not found",
-                amplitudes = emptyList()
-            ) }
+            _uiState.update {
+                it.copy(
+                    isRecording = false,
+                    isRecordingAttempt = false,
+                    statusText = "Error: Parent recording not found",
+                    amplitudes = emptyList()
+                )
+            }
             return
         }
 
         // Transcription moved to scoreAttempt() - happens AFTER reversal
 
-        _uiState.update { it.copy(
-            isRecording = false,
-            isRecordingAttempt = false,
-            isScoring = true,
-            statusText = "Scoring...",
-            amplitudes = emptyList()
-        ) }
+        _uiState.update {
+            it.copy(
+                isRecording = false,
+                isRecordingAttempt = false,
+                isScoring = true,
+                statusText = "Scoring...",
+                amplitudes = emptyList()
+            )
+        }
 
         scoreAttempt(
             originalRecordingPath = parentPath,
@@ -395,7 +417,11 @@ class AudioViewModel @Inject constructor(
     fun startAttempt(recordingPath: String) {
         val context = getApplication<Application>()
 
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             _uiState.update { it.copy(error = "Microphone permission not granted") }
             return
         }
@@ -408,15 +434,20 @@ class AudioViewModel @Inject constructor(
             attemptFile.parentFile?.mkdirs()
             currentAttemptFile = attemptFile
 
-            Log.d("RECORD_BUG", "📝 Setting flags: isRecording=true, isRecordingAttempt=true, parentPath=$recordingPath")
+            Log.d(
+                "RECORD_BUG",
+                "📝 Setting flags: isRecording=true, isRecordingAttempt=true, parentPath=$recordingPath"
+            )
 
-            _uiState.update { it.copy(
-                isRecording = true,
-                isRecordingAttempt = true,
-                parentRecordingPath = recordingPath,
-                statusText = "Recording attempt...",
-                amplitudes = emptyList()
-            ) }
+            _uiState.update {
+                it.copy(
+                    isRecording = true,
+                    isRecordingAttempt = true,
+                    parentRecordingPath = recordingPath,
+                    statusText = "Recording attempt...",
+                    amplitudes = emptyList()
+                )
+            }
 
             Log.d("RECORD_BUG", "🎤 About to call audioRecorderHelper.start()")
 
@@ -438,7 +469,7 @@ class AudioViewModel @Inject constructor(
         originalRecordingPath: String,
         reversedRecordingPath: String?,
         attemptFile: File,
-        challengeType: ChallengeType = ChallengeType.REVERSE
+        challengeType: ChallengeType = ChallengeType.REVERSE,
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -450,7 +481,10 @@ class AudioViewModel @Inject constructor(
                 }
 
                 if (!PhonemeUtils.isReady()) {
-                    Log.e("AudioViewModel", "⚠️ PhonemeUtils failed to load in time. Scoring might fail.")
+                    Log.e(
+                        "AudioViewModel",
+                        "⚠️ PhonemeUtils failed to load in time. Scoring might fail."
+                    )
                 }
 
                 // 1. Generate the Reversed Version of the Attempt
@@ -461,17 +495,26 @@ class AudioViewModel @Inject constructor(
                 val attemptTranscription = if (reversedAttemptFile != null) {
                     Log.d("AudioViewModel", "🎤 Transcribing REVERSED attempt audio...")
                     val result = voskTranscriptionHelper.transcribeFile(reversedAttemptFile)
-                    Log.d("AudioViewModel", "🎤 Reversed attempt transcription: '${result.text}' (success=${result.isSuccess})")
+                    Log.d(
+                        "AudioViewModel",
+                        "🎤 Reversed attempt transcription: '${result.text}' (success=${result.isSuccess})"
+                    )
                     result
                 } else {
-                    Log.w("AudioViewModel", "🎤 No reversed file - transcribing raw attempt as fallback")
+                    Log.w(
+                        "AudioViewModel",
+                        "🎤 No reversed file - transcribing raw attempt as fallback"
+                    )
                     voskTranscriptionHelper.transcribeFile(attemptFile)
                 }
 
                 // 3. Load Audio Data (Disk -> Memory)
                 val referenceAudioPath = reversedRecordingPath ?: originalRecordingPath
 
-                Log.d("SCORING_DEBUG", "challengeType=$challengeType, loading reference=$referenceAudioPath")
+                Log.d(
+                    "SCORING_DEBUG",
+                    "challengeType=$challengeType, loading reference=$referenceAudioPath"
+                )
 
                 val referenceAudioRaw = readAudioFile(referenceAudioPath)
                 val attemptAudioRaw = readAudioFile(attemptFile.absolutePath)
@@ -487,7 +530,8 @@ class AudioViewModel @Inject constructor(
                 }
 
                 // 4. Get parent recording for reference transcription
-                val parentRecording = uiState.value.recordings.find { it.originalPath == originalRecordingPath }
+                val parentRecording =
+                    uiState.value.recordings.find { it.originalPath == originalRecordingPath }
 
                 // 5. Extract transcription texts
                 val attemptTranscriptionText = if (attemptTranscription.isSuccess) {
@@ -496,8 +540,14 @@ class AudioViewModel @Inject constructor(
                     null
                 }
 
-                Log.d("SCORING_DEBUG", "🎤 Attempt transcription for scoring: '$attemptTranscriptionText'")
-                Log.d("SCORING_DEBUG", "🎤 Reference transcription: '${parentRecording?.referenceTranscription}'")
+                Log.d(
+                    "SCORING_DEBUG",
+                    "🎤 Attempt transcription for scoring: '$attemptTranscriptionText'"
+                )
+                Log.d(
+                    "SCORING_DEBUG",
+                    "🎤 Reference transcription: '${parentRecording?.referenceTranscription}'"
+                )
 
                 // 6. Score using ReverseScoringEngine (phoneme-based)
                 // Capture in local val for smart cast (parentRecording is mutable property)
@@ -508,7 +558,8 @@ class AudioViewModel @Inject constructor(
                     PhonemeUtils.isReady()
                 ) {
                     // Calculate durations from trimmed audio
-                    val targetDurationMs = (referenceAudio.size * 1000L) / AudioConstants.SAMPLE_RATE
+                    val targetDurationMs =
+                        (referenceAudio.size * 1000L) / AudioConstants.SAMPLE_RATE
                     val attemptDurationMs = (attemptAudio.size * 1000L) / AudioConstants.SAMPLE_RATE
 
                     val result = ReverseScoringEngine.score(
@@ -520,9 +571,18 @@ class AudioViewModel @Inject constructor(
                     )
 
                     Log.d("PHONEME_SCORE", "🎯 Score: ${result.score}% | ${result.shortSummary()}")
-                    Log.d("PHONEME_SCORE", "🔤 Target phonemes: ${result.targetPhonemes.joinToString(" ")}")
-                    Log.d("PHONEME_SCORE", "🔤 Attempt phonemes: ${result.attemptPhonemes.joinToString(" ")}")
-                    Log.d("PHONEME_SCORE", "🎚️ Difficulty: ${result.difficulty} | Leniency: ${result.phonemeLeniency}")
+                    Log.d(
+                        "PHONEME_SCORE",
+                        "🔤 Target phonemes: ${result.targetPhonemes.joinToString(" ")}"
+                    )
+                    Log.d(
+                        "PHONEME_SCORE",
+                        "🔤 Attempt phonemes: ${result.attemptPhonemes.joinToString(" ")}"
+                    )
+                    Log.d(
+                        "PHONEME_SCORE",
+                        "🎚️ Difficulty: ${result.difficulty} | Leniency: ${result.phonemeLeniency}"
+                    )
 
                     val feedbackList = buildPhonemeFeedback(result)
 
@@ -540,7 +600,10 @@ class AudioViewModel @Inject constructor(
                     )
                 } else {
                     // Missing transcription - can't score properly
-                    Log.w("PHONEME_SCORE", "⚠️ Cannot score: refTx=${parentRecording?.referenceTranscription != null}, attemptTx=${attemptTranscriptionText != null}, ready=${PhonemeUtils.isReady()}")
+                    Log.w(
+                        "PHONEME_SCORE",
+                        "⚠️ Cannot score: refTx=${parentRecording?.referenceTranscription != null}, attemptTx=${attemptTranscriptionText != null}, ready=${PhonemeUtils.isReady()}"
+                    )
 
                     val reason = when {
                         parentRecording?.referenceTranscription == null -> "Reference transcription unavailable"
@@ -571,7 +634,6 @@ class AudioViewModel @Inject constructor(
                     rawScore = scoringOutput.score.toFloat() / 100f,
                     challengeType = challengeType,
                     difficulty = _currentDifficulty.value,
-                    scoringEngine = ScoringEngineType.SPEECH_ENGINE,
                     feedback = scoringOutput.feedback,
                     isGarbage = scoringOutput.isGarbage,
                     vocalAnalysis = null,
@@ -594,7 +656,8 @@ class AudioViewModel @Inject constructor(
                     }
                 }
 
-                val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+                val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }
+                    .filterValues { it.isNotEmpty() }
                 attemptsRepository.saveAttempts(attemptsMap)
 
                 // 7. Update UI
@@ -606,7 +669,10 @@ class AudioViewModel @Inject constructor(
                             pendingChallengeType = null,
                             isScoring = false,
                             statusText = "Attempt scored: ${scoringOutput.score}%",
-                            attemptToRename = if (scoringOutput.score > 70) Pair(originalRecordingPath, attempt) else null
+                            attemptToRename = if (scoringOutput.score > 70) Pair(
+                                originalRecordingPath,
+                                attempt
+                            ) else null
                         )
                     }
                 }
@@ -615,7 +681,13 @@ class AudioViewModel @Inject constructor(
                 Log.e("SCORING", "Error during scoring", e)
                 withContext(Dispatchers.Main) {
                     showUserMessage("Scoring failed: ${e.message}")
-                    _uiState.update { it.copy(parentRecordingPath = null, pendingChallengeType = null, isScoring = false) }
+                    _uiState.update {
+                        it.copy(
+                            parentRecordingPath = null,
+                            pendingChallengeType = null,
+                            isScoring = false
+                        )
+                    }
                 }
             }
         }
@@ -633,7 +705,7 @@ class AudioViewModel @Inject constructor(
         val attemptPhonemes: List<String> = emptyList(),
         val phonemeMatches: List<Boolean> = emptyList(),
         val targetWordPhonemes: List<WordPhonemes> = emptyList(),
-        val attemptWordPhonemes: List<WordPhonemes> = emptyList()
+        val attemptWordPhonemes: List<WordPhonemes> = emptyList(),
     )
 
     // Build human-readable feedback from phoneme scoring
@@ -689,7 +761,13 @@ class AudioViewModel @Inject constructor(
         _uiState.update { it.copy(isPaused = false) }
 
         audioPlayerHelper.play(path) {
-            _uiState.update { it.copy(currentlyPlayingPath = null, isPaused = false, playbackProgress = 0f) }
+            _uiState.update {
+                it.copy(
+                    currentlyPlayingPath = null,
+                    isPaused = false,
+                    playbackProgress = 0f
+                )
+            }
         }
     }
 
@@ -699,7 +777,13 @@ class AudioViewModel @Inject constructor(
 
     fun stopPlayback() {
         audioPlayerHelper.stop()
-        _uiState.update { it.copy(currentlyPlayingPath = null, isPaused = false, playbackProgress = 0f) }
+        _uiState.update {
+            it.copy(
+                currentlyPlayingPath = null,
+                isPaused = false,
+                playbackProgress = 0f
+            )
+        }
     }
 
     override fun onCleared() {
@@ -712,11 +796,18 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteRecording(recording.originalPath, recording.reversedPath)
             recording.attempts.forEach { attempt ->
-                try { File(attempt.attemptFilePath).delete() } catch (e: Exception) {
-                    Log.w("AudioViewModel", "Failed to delete attempt file: ${attempt.attemptFilePath}")
+                try {
+                    File(attempt.attemptFilePath).delete()
+                } catch (e: Exception) {
+                    Log.w(
+                        "AudioViewModel",
+                        "Failed to delete attempt file: ${attempt.attemptFilePath}"
+                    )
                 }
                 attempt.reversedAttemptFilePath?.let { path ->
-                    try { File(path).delete() } catch (e: Exception) {
+                    try {
+                        File(path).delete()
+                    } catch (e: Exception) {
                         Log.w("AudioViewModel", "Failed to delete reversed attempt: $path")
                     }
                 }
@@ -738,11 +829,15 @@ class AudioViewModel @Inject constructor(
 
     fun deleteAttempt(recordingPath: String, attempt: PlayerAttempt) {
         viewModelScope.launch {
-            try { File(attempt.attemptFilePath).delete() } catch (e: Exception) {
+            try {
+                File(attempt.attemptFilePath).delete()
+            } catch (e: Exception) {
                 Log.w("AudioViewModel", "Failed to delete attempt file")
             }
             attempt.reversedAttemptFilePath?.let { path ->
-                try { File(path).delete() } catch (e: Exception) {
+                try {
+                    File(path).delete()
+                } catch (e: Exception) {
                     Log.w("AudioViewModel", "Failed to delete reversed attempt")
                 }
             }
@@ -755,7 +850,8 @@ class AudioViewModel @Inject constructor(
                 }
             }
 
-            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }
+                .filterValues { it.isNotEmpty() }
             attemptsRepository.saveAttempts(attemptsMap)
 
             _uiState.update { it.copy(recordings = updatedRecordings) }
@@ -775,7 +871,8 @@ class AudioViewModel @Inject constructor(
                 }
             }
 
-            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }
+                .filterValues { it.isNotEmpty() }
             attemptsRepository.saveAttempts(attemptsMap)
 
             _uiState.update { it.copy(recordings = updatedRecordings, attemptToRename = null) }
@@ -798,7 +895,8 @@ class AudioViewModel @Inject constructor(
                 }
             }
 
-            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }
+                .filterValues { it.isNotEmpty() }
             attemptsRepository.saveAttempts(attemptsMap)
 
             withContext(Dispatchers.Main) {
@@ -820,7 +918,8 @@ class AudioViewModel @Inject constructor(
                 }
             }
 
-            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }.filterValues { it.isNotEmpty() }
+            val attemptsMap = updatedRecordings.associate { it.originalPath to it.attempts }
+                .filterValues { it.isNotEmpty() }
             attemptsRepository.saveAttempts(attemptsMap)
 
             withContext(Dispatchers.Main) {
@@ -900,9 +999,6 @@ class AudioViewModel @Inject constructor(
      */
     fun applyDifficulty(level: DifficultyLevel) {
         _currentDifficulty.value = level
-        // 🎯 FIX: Use SpeechScoringModels.presetFor() instead of non-existent ScoringPresets
-        val preset = SpeechScoringModels.presetFor(level)
-        updateScoringEngine(preset)
     }
 
     /**
@@ -914,14 +1010,12 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch { settingsDataStore.saveDifficultyLevel(level.name) }
     }
 
-    fun updateScoringEngine(preset: Presets) {
-        val difficulty = _currentDifficulty.value
-        speechScoringEngine.updateDifficulty(difficulty)
-        // Note: Phoneme scoring doesn't use difficulty presets directly
-    }
 
     // 🔇 SILENCE TRIMMING: Strip leading/trailing silence for accurate duration gate
-    private fun trimSilence(samples: FloatArray, threshold: Float = AudioConstants.SILENCE_TRIM_THRESHOLD): FloatArray {
+    private fun trimSilence(
+        samples: FloatArray,
+        threshold: Float = AudioConstants.SILENCE_TRIM_THRESHOLD,
+    ): FloatArray {
         if (samples.size < 1024) return samples
 
         val windowSize = 512
@@ -986,11 +1080,13 @@ class AudioViewModel @Inject constructor(
     // 🧪 BIT (Built-In Test) Functions
     fun runBIT() {
         viewModelScope.launch {
-            _uiState.update { it.copy(
-                showBitResults = true,
-                bitResults = "Running tests...",
-                bitProgress = 0f
-            ) }
+            _uiState.update {
+                it.copy(
+                    showBitResults = true,
+                    bitResults = "Running tests...",
+                    bitProgress = 0f
+                )
+            }
 
             val results = StringBuilder()
 

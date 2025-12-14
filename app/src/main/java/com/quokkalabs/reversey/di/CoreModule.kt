@@ -6,9 +6,7 @@ import com.quokkalabs.reversey.data.backup.BackupManager
 import com.quokkalabs.reversey.data.repositories.AttemptsRepository
 import com.quokkalabs.reversey.data.repositories.RecordingNamesRepository
 import com.quokkalabs.reversey.data.repositories.RecordingRepository
-import com.quokkalabs.reversey.data.repositories.SettingsDataStore
 import com.quokkalabs.reversey.data.repositories.ThreadSafeJsonRepository
-import com.quokkalabs.reversey.scoring.SpeechScoringEngine
 import com.quokkalabs.reversey.testing.BackupIntegrationTest
 import dagger.Module
 import dagger.Provides
@@ -25,21 +23,7 @@ object CoreModule {
     @Singleton
     fun provideAudioProcessor(): AudioProcessor = AudioProcessor()
 
-    // ============================================================
-    //  SCORING PROVIDERS
-    //  🎯 REFACTOR: Dual pipeline removed. Only SpeechScoringEngine kept
-    //  for potential future Forward Challenge mode.
-    //  Primary scoring now uses ReverseScoringEngine (not injected, called directly)
-    // ============================================================
-
-    @Provides
-    @Singleton
-    fun provideSpeechScoringEngine(
-        @ApplicationContext context: Context,
-        settingsDataStore: SettingsDataStore
-    ): SpeechScoringEngine = SpeechScoringEngine(context, settingsDataStore)
-
-    // ============================================================
+       // ============================================================
     //  BACKUP SYSTEM PROVIDERS
     // ============================================================
 

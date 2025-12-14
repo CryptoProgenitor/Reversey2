@@ -74,18 +74,6 @@ data class VocalAnalysis(
     val features: VocalFeatures
 )
 
-// ============================================================
-//  SCORING ENGINE TYPE (Canonical - relocated from VocalModeRouter.kt)
-// ============================================================
-
-/**
- * Identifies which scoring engine processed an attempt.
- * Retained for backward compatibility with stored PlayerAttempts.
- */
-enum class ScoringEngineType {
-    SPEECH_ENGINE,
-    SINGING_ENGINE
-}
 
 // ============================================================
 //  LEGACY TYPES (relocated from Scoreacquisitiondataconcentrator.kt)
@@ -406,7 +394,7 @@ data class ScoreCalculationBreakdown(
     // METADATA - Which path was taken?
     // ═══════════════════════════════════════════════════════════════════
 
-    val scoringEngineType: ScoringEngineType,   // SPEECH_ENGINE or SINGING_ENGINE
+
     val challengeType: ChallengeType,            // FORWARD or REVERSE
     val difficultyLevel: DifficultyLevel,        // EASY, NORMAL, HARD
 

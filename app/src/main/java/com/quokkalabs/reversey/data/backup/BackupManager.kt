@@ -12,7 +12,6 @@ import com.quokkalabs.reversey.data.repositories.RecordingRepository
 import com.quokkalabs.reversey.data.repositories.ThreadSafeJsonRepository
 import com.quokkalabs.reversey.security.SecurityUtils
 import com.quokkalabs.reversey.scoring.DifficultyLevel
-import com.quokkalabs.reversey.scoring.ScoringEngineType
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
@@ -784,7 +783,6 @@ class BackupManager @Inject constructor(
             rawScore = attempt.rawScore,
             challengeType = attempt.challengeType.toBackupString(),
             difficulty = attempt.difficulty.toBackupString(),
-            scoringEngine = attempt.scoringEngine?.toBackupString(),
             feedback = attempt.feedback,
             isGarbage = attempt.isGarbage,
             vocalAnalysis = attempt.vocalAnalysis?.toBackup(),
@@ -807,7 +805,6 @@ class BackupManager @Inject constructor(
             rawScore = metadata.rawScore,
             challengeType = ChallengeType.valueOf(metadata.challengeType),
             difficulty = DifficultyLevel.valueOf(metadata.difficulty),
-            scoringEngine = metadata.scoringEngine?.let { ScoringEngineType.valueOf(it) },
             feedback = metadata.feedback,
             isGarbage = metadata.isGarbage,
             vocalAnalysis = null, // TODO: Restore if needed

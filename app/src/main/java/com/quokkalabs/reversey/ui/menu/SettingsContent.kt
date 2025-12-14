@@ -293,7 +293,7 @@ fun SettingsContent(
                     if (latestFile != null) {
                         Log.d("TEST", "Testing with: ${latestFile.name}")
                         val result = voskHelper.transcribeFile(latestFile)
-                        Log.d("TEST", "Vosk: '${result.text}' (${result.status})")
+                        Log.d("TEST", "Vosk: '${result.text}' (success=${result.isSuccess})")
                     } else {
                         Log.d("TEST", "No recordings found!")
                     }

@@ -91,7 +91,7 @@ class LiveTranscriptionHelper @Inject constructor(
 
         isListening = false
 
-        Log.d(TAG, "ðŸ“ Final: '${result.text}' (${result.status})")
+        Log.d(TAG, "🎤 Final: '${result.text}' (success=${result.isSuccess})")
         return result
     }
 

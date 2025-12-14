@@ -5,7 +5,6 @@ import com.quokkalabs.reversey.scoring.DebuggingData
 import com.quokkalabs.reversey.scoring.DifficultyLevel
 import com.quokkalabs.reversey.scoring.PerformanceInsights
 import com.quokkalabs.reversey.scoring.ScoreCalculationBreakdown
-import com.quokkalabs.reversey.scoring.ScoringEngineType
 import com.quokkalabs.reversey.scoring.VocalAnalysis
 import com.quokkalabs.reversey.scoring.WordPhonemes
 
@@ -24,7 +23,6 @@ data class PlayerAttempt(
     val rawScore: Float = 0f,
     val challengeType: ChallengeType,
     val difficulty: DifficultyLevel = DifficultyLevel.NORMAL,
-    val scoringEngine: ScoringEngineType? = null,
 
     // --- Rich Metadata ------------------------------------------------------
     val feedback: List<String> = emptyList(),

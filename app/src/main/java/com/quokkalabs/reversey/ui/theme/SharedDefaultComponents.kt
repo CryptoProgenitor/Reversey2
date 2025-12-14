@@ -92,7 +92,7 @@ object SharedDefaultComponents {
                             .clickable { showRenameDialog = true } // 🔧 FIX: Click to rename
                     )
 
-                    IconButton(
+                    /*IconButton(
                         onClick = { showDeleteDialog = true },
                         modifier = Modifier.size(36.dp)
                     ) {
@@ -102,7 +102,7 @@ object SharedDefaultComponents {
                             tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(20.dp)
                         )
-                    }
+                    }*/
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -170,6 +170,13 @@ object SharedDefaultComponents {
                             isPrimary = true
                         )
                     }
+                    SimpleGlowButton(
+                        onClick = { showDeleteDialog = true },
+                        size = 50.dp,
+                        label = "Del",
+                        icon = Icons.Default.Delete,
+                        isPrimary = false
+                    )
                 }
             }
         }
