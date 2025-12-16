@@ -315,9 +315,9 @@ object SharedDefaultComponents {
                             }
 
                             // 3. Reverse
-                            if (attempt.reversedAttemptFilePath != null) {
+                            attempt.reversedAttemptFilePath?.let { reversedPath ->
                                 SimpleGlowButton(
-                                    onClick = { onPlay(attempt.reversedAttemptFilePath!!) },
+                                    onClick = { onPlay(reversedPath) },
                                     size = 40.dp,
                                     label = "Rev",
                                     icon = Icons.Default.Replay,

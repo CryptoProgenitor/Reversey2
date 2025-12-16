@@ -87,7 +87,12 @@ private val SPACING_CONFIGS = mapOf(
 
 // 👇 CHANGE THIS TO SWITCH SPACING 👇
 private val ACTIVE_SPACING = SpacingMode.TIGHT
-private val S = SPACING_CONFIGS[ACTIVE_SPACING]!!
+private val S = SPACING_CONFIGS[ACTIVE_SPACING] ?: SpacingConfig(
+    cardPadding = 10.dp,
+    sectionGap = 6.dp,
+    innerPadding = 10.dp,
+    smallGap = 4.dp
+)
 
 /**
  * ScoreExplanationDialog v2 - Phase 4 UI

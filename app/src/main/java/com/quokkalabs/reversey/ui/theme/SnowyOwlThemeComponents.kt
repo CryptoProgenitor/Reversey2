@@ -228,7 +228,7 @@ class SnowyOwlComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
-onResetScore: (() -> Unit)?
+        onResetScore: (() -> Unit)?
     ) {
         SnowyOwlAttemptItem(
             attempt = attempt,
@@ -1300,7 +1300,7 @@ fun SnowyOwlAttemptItem(
                         OwlControlButton(deepSlate, if (isPlayingThis && !isPaused) "Pause" else "Play", { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }) {
                             if (isPlayingThis && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
                         }
-                        if (attempt.reversedAttemptFilePath != null) OwlControlButton(mysticPurple, "Rev", { onPlay(attempt.reversedAttemptFilePath!!) }) { OwlRewindIcon(Color.White) }
+                        attempt.reversedAttemptFilePath?.let { reversedPath -> OwlControlButton(mysticPurple, "Rev", { onPlay(reversedPath) }) { OwlRewindIcon(Color.White) } }
                         if (onDeleteAttempt != null) OwlControlButton(deepSlate, "Del", { showDeleteDialog = true }) { OwlDeleteIcon(Color.White) }
                     }
                 }

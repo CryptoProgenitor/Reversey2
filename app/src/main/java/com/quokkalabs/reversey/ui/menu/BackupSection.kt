@@ -31,7 +31,7 @@ import java.io.FileOutputStream
 
 /**
  * 📦 Backup & Restore Section for Settings Screen
- * 
+ *
  * Provides user-facing backup controls:
  * - Export backup to Downloads
  * - Import backup from file picker
@@ -45,14 +45,14 @@ fun BackupSection(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
+
     var isExporting by remember { mutableStateOf(false) }
     var isImporting by remember { mutableStateOf(false) }
     var showConflictDialog by remember { mutableStateOf(false) }
     var selectedBackupUri by remember { mutableStateOf<Uri?>(null) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
-    
+
     // File picker for import
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -62,7 +62,7 @@ fun BackupSection(
             showConflictDialog = true
         }
     }
-    
+
     // Glassmorphic card matching your GLUTE theme style
     Card(
         modifier = Modifier
@@ -87,18 +87,18 @@ fun BackupSection(
                 ),
                 color = MaterialTheme.colorScheme.onSurface
             )
-            
+
             Text(
                 text = "Save your recordings and attempts to a backup file",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Divider(
                 modifier = Modifier.padding(vertical = 8.dp),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
             )
-            
+
             // Export Button
             Button(
                 onClick = {
@@ -137,7 +137,7 @@ fun BackupSection(
                     Text("Export Backup")
                 }
             }
-            
+
             // Import Button
             OutlinedButton(
                 onClick = { importLauncher.launch("application/zip") },
@@ -148,9 +148,9 @@ fun BackupSection(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Import Backup")
             }
-            
+
             // Status Message
-            if (statusMessage != null) {
+            statusMessage?.let { message ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -162,7 +162,7 @@ fun BackupSection(
                     )
                 ) {
                     Text(
-                        text = statusMessage!!,
+                        text = message,
                         modifier = Modifier.padding(12.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isError) {
@@ -173,7 +173,7 @@ fun BackupSection(
                     )
                 }
             }
-            
+
             // Import Progress
             if (isImporting) {
                 Row(
@@ -195,56 +195,26 @@ fun BackupSection(
             }
         }
     }
-    
+
     // Conflict Strategy Dialog
-    if (showConflictDialog && selectedBackupUri != null) {
-        AlertDialog(
-            onDismissRequest = { showConflictDialog = false },
-            title = { Text("Import Options") },
-            text = {
-                Column {
-                    Text("How should conflicts be handled?")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "• Skip Duplicates: Don't overwrite existing files\n" +
-                               "• Merge Attempts: Add new attempts, keep recordings",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        scope.launch {
-                            isImporting = true
-                            showConflictDialog = false
-                            statusMessage = null
-                            try {
-                                val result = importBackup(
-                                    context,
-                                    backupManager,
-                                    selectedBackupUri!!,
-                                    ConflictStrategy.SKIP_DUPLICATES
-                                )
-                                statusMessage = result
-                                isError = false
-                                onBackupComplete()
-                            } catch (e: Exception) {
-                                statusMessage = "Import failed. Please try again."
-                                isError = true
-                            } finally {
-                                isImporting = false
-                                selectedBackupUri = null
-                            }
-                        }
+    selectedBackupUri?.let { backupUri ->
+        if (showConflictDialog) {
+            AlertDialog(
+                onDismissRequest = { showConflictDialog = false },
+                title = { Text("Import Options") },
+                text = {
+                    Column {
+                        Text("How should conflicts be handled?")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "• Skip Duplicates: Don't overwrite existing files\n" +
+                                    "• Merge Attempts: Add new attempts, keep recordings",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                ) {
-                    Text("Skip Duplicates")
-                }
-            },
-            dismissButton = {
-                Row {
+                },
+                confirmButton = {
                     TextButton(
                         onClick = {
                             scope.launch {
@@ -255,8 +225,8 @@ fun BackupSection(
                                     val result = importBackup(
                                         context,
                                         backupManager,
-                                        selectedBackupUri!!,
-                                        ConflictStrategy.MERGE_ATTEMPTS_ONLY
+                                        backupUri,
+                                        ConflictStrategy.SKIP_DUPLICATES
                                     )
                                     statusMessage = result
                                     isError = false
@@ -271,14 +241,46 @@ fun BackupSection(
                             }
                         }
                     ) {
-                        Text("Merge Attempts")
+                        Text("Skip Duplicates")
                     }
-                    TextButton(onClick = { showConflictDialog = false }) {
-                        Text("Cancel")
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    isImporting = true
+                                    showConflictDialog = false
+                                    statusMessage = null
+                                    try {
+                                        val result = importBackup(
+                                            context,
+                                            backupManager,
+                                            backupUri,
+                                            ConflictStrategy.MERGE_ATTEMPTS_ONLY
+                                        )
+                                        statusMessage = result
+                                        isError = false
+                                        onBackupComplete()
+                                    } catch (e: Exception) {
+                                        statusMessage = "Import failed. Please try again."
+                                        isError = true
+                                    } finally {
+                                        isImporting = false
+                                        selectedBackupUri = null
+                                    }
+                                }
+                            }
+                        ) {
+                            Text("Merge Attempts")
+                        }
+                        TextButton(onClick = { showConflictDialog = false }) {
+                            Text("Cancel")
+                        }
                     }
                 }
-            }
-        )
+            )
+        }
     }
 }
 
@@ -297,14 +299,14 @@ private suspend fun exportBackup(
     val tempDir = File(context.cacheDir, "backup_temp").apply {
         mkdirs()
     }
-    
+
     // Export to temp
     val result = backupManager.exportFullBackup(tempDir)
-    
+
     if (!result.success || result.zipFile == null) {
         throw Exception(result.error ?: "Export failed")
     }
-    
+
     // Copy to Downloads
     val downloadsDir = File(
         android.os.Environment.getExternalStoragePublicDirectory(
@@ -312,20 +314,20 @@ private suspend fun exportBackup(
         ),
         "ReVerseY"
     ).apply { mkdirs() }
-    
+
     val finalFile = File(downloadsDir, result.zipFile.name)
     FileInputStream(result.zipFile).use { input ->
         FileOutputStream(finalFile).use { output ->
             input.copyTo(output)
         }
     }
-    
+
     // Cleanup temp
     result.zipFile.delete()
     tempDir.deleteRecursively()
-    
+
     "✅ Backup saved to Downloads/ReVerseY/${finalFile.name}\n" +
-    "Recordings: ${result.recordingsExported}, Attempts: ${result.attemptsExported}"
+            "Recordings: ${result.recordingsExported}, Attempts: ${result.attemptsExported}"
 }
 
 /**
@@ -339,25 +341,25 @@ private suspend fun importBackup(
 ): String = withContext(Dispatchers.IO) {
     // Copy URI to temp file (required for BackupManager)
     val tempFile = File(context.cacheDir, "import_temp.zip")
-    
+
     context.contentResolver.openInputStream(uri)?.use { input ->
         FileOutputStream(tempFile).use { output ->
             input.copyTo(output)
         }
     } ?: throw Exception("Could not read backup file")
-    
+
     // Import
     val result = backupManager.importBackup(tempFile, strategy)
-    
+
     // Cleanup
     tempFile.delete()
-    
+
     if (!result.success) {
         throw Exception(result.error ?: "Import failed")
     }
-    
+
     "✅ Backup imported successfully\n" +
-    "Recordings: ${result.recordingsImported}, " +
-    "Attempts: ${result.attemptsImported}, " +
-    "Skipped: ${result.recordingsSkipped}"
+            "Recordings: ${result.recordingsImported}, " +
+            "Attempts: ${result.attemptsImported}, " +
+            "Skipped: ${result.recordingsSkipped}"
 }

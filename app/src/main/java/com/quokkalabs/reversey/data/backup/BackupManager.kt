@@ -175,12 +175,13 @@ class BackupManager @Inject constructor(
                         recording.reversedPath?.let { revPath ->
                             val reversedFile = File(revPath)
                             if (reversedFile.exists()) {
-                                reversedFilename = reversedFile.name
-                                if (reversedFilename !in addedFiles) {
-                                    zipOut.putNextEntry(ZipEntry("$RECORDINGS_PATH$reversedFilename"))
+                                val revName = reversedFile.name
+                                reversedFilename = revName
+                                if (revName !in addedFiles) {
+                                    zipOut.putNextEntry(ZipEntry("$RECORDINGS_PATH$revName"))
                                     FileInputStream(reversedFile).use { it.copyTo(zipOut) }
                                     zipOut.closeEntry()
-                                    addedFiles.add(reversedFilename!!)
+                                    addedFiles.add(revName)
                                     totalSizeBytes += reversedFile.length()
                                 }
                             }

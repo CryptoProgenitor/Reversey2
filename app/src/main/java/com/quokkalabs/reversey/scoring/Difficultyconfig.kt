@@ -76,7 +76,7 @@ object DifficultyConfig {
      * 🎛️ GET REVERSE SCORING CONFIG - For ReverseScoringEngine
      */
     fun getReverseScoringConfig(difficulty: DifficultyLevel): ReverseScoringConfig {
-        return reverseScoringConfigs[difficulty] ?: reverseScoringConfigs[DifficultyLevel.NORMAL]!!
+        return reverseScoringConfigs[difficulty] ?: reverseScoringConfigs.getValue(DifficultyLevel.NORMAL)
     }
 
     /**

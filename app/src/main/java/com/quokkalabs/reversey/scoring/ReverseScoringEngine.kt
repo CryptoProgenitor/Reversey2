@@ -86,7 +86,7 @@ object ReverseScoringEngine {
         difficulty: DifficultyLevel = DifficultyLevel.NORMAL
     ): PhonemeScoreResult {
 
-        val config = DIFFICULTY_CONFIGS[difficulty] ?: DIFFICULTY_CONFIGS[DifficultyLevel.NORMAL]!!
+        val config = DIFFICULTY_CONFIGS[difficulty] ?: DIFFICULTY_CONFIGS.getValue(DifficultyLevel.NORMAL)
 
         Log.d(TAG, "Scoring [$difficulty]: target='$targetText' attempt='$attemptText'")
         Log.d(TAG, "Durations: target=${targetDurationMs}ms attempt=${attemptDurationMs}ms")

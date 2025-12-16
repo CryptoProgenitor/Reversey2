@@ -251,7 +251,7 @@ class StrangePlanetComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
-onResetScore: (() -> Unit)?
+        onResetScore: (() -> Unit)?
     ) {
         StrangePlanetAttemptItem(
             attempt = attempt,
@@ -1389,8 +1389,8 @@ fun StrangePlanetAttemptItem(
                             else SPPlayGlyph(Color.White)
                         }
 
-                        if (attempt.reversedAttemptFilePath != null) {
-                            SPControlButton(buttonPrimary, "Rev", { onPlay(attempt.reversedAttemptFilePath!!) }) {
+                        attempt.reversedAttemptFilePath?.let { reversedPath ->
+                            SPControlButton(buttonPrimary, "Rev", { onPlay(reversedPath) }) {
                                 SPRewindGlyph(Color.White)
                             }
                         }

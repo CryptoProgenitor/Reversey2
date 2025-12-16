@@ -317,11 +317,11 @@ fun RecordingShareDialog(
                 }
 
                 // Share Reversed button (if reversed exists)
-                if (recording.reversedPath != null) {
+                recording.reversedPath?.let { reversedPath ->
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = {
-                            onShare(recording.reversedPath!!)
+                            onShare(reversedPath)
                             onDismiss()
                         },
                         modifier = Modifier.fillMaxWidth(),

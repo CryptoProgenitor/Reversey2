@@ -932,8 +932,8 @@ fun GuitarAttemptItem(
                             GuitarControlButton(onClick = { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }, color = peachOrange, label = if (isPlayingThis && !isPaused) "Pause" else "Play") {
                                 if (isPlayingThis && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(color = darkBrown)
                             }
-                            if (attempt.reversedAttemptFilePath != null) {
-                                GuitarControlButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, color = tealGreen, label = "Rev") { GuitarRewindIcon(darkBrown) }
+                            attempt.reversedAttemptFilePath?.let { reversedPath ->
+                                GuitarControlButton(onClick = { onPlay(reversedPath) }, color = tealGreen, label = "Rev") { GuitarRewindIcon(darkBrown) }
                             }
                             if (onDeleteAttempt != null) {
                                 GuitarControlButton(onClick = { showDeleteDialog = true }, color = peachOrange, label = "Del") { GuitarDeleteIcon(color = darkBrown) }

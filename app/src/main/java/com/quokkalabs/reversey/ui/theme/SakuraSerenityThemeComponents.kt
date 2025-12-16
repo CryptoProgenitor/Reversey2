@@ -364,8 +364,8 @@ class SakuraSerenityComponents : ThemeComponents {
                                 ) {
                                     if (isPlayingThis && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraPlayIcon(textDarkPink)
                                 }
-                                if (attempt.reversedAttemptFilePath != null) {
-                                    SakuraControlButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, color = buttonBg, label = "Rev", textColor = textDarkPink) {
+                                attempt.reversedAttemptFilePath?.let { reversedPath ->
+                                    SakuraControlButton(onClick = { onPlay(reversedPath) }, color = buttonBg, label = "Rev", textColor = textDarkPink) {
                                         SakuraRewindIcon(borderPink)
                                     }
                                 }

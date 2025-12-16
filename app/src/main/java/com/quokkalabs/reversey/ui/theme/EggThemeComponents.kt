@@ -628,9 +628,9 @@ fun EggAttemptItem(
                             Text("Play", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp), color = Color(0xFF2E2E2E))
                         }
 
-                        if (attempt.reversedAttemptFilePath != null) {
+                        attempt.reversedAttemptFilePath?.let { reversedPath ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                HandDrawnEggButton(onClick = { onPlay(attempt.reversedAttemptFilePath!!) }, backgroundColor = Color(0xFFFF8A65), size = 40.dp) { EggRewindIcon(Color(0xFF2E2E2E)) }
+                                HandDrawnEggButton(onClick = { onPlay(reversedPath) }, backgroundColor = Color(0xFFFF8A65), size = 40.dp) { EggRewindIcon(Color(0xFF2E2E2E)) }
                                 Text("Rev", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp), color = Color(0xFF2E2E2E))
                             }
                         }
