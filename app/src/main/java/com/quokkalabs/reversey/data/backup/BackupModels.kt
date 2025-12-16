@@ -5,15 +5,25 @@ import com.quokkalabs.reversey.scoring.DebuggingData
 import com.quokkalabs.reversey.scoring.DifficultyLevel
 import com.quokkalabs.reversey.scoring.PerformanceInsights
 import com.quokkalabs.reversey.scoring.VocalAnalysis
+import com.quokkalabs.reversey.scoring.WordPhonemes
 import java.io.File
 
 /**
- * BACKUP MANIFEST v2.1 - Path-Agnostic, Cross-Device Compatible Format
+ * BACKUP MANIFEST v2.2 - Path-Agnostic, Cross-Device Compatible Format
  *
  * CRITICAL DESIGN PRINCIPLE:
  * - Keys are FILENAMES, not absolute paths
  * - Paths are reconstructed on import using device's local directories
  * - This survives cross-device restore (different user IDs, storage paths)
+ *
+ * CHANGES FROM v2.1:
+ * - Added full scorecard data to AttemptMetadataBackup:
+ *   - finalScore (player override)
+ *   - attemptTranscription (ASR text)
+ *   - targetPhonemes, attemptPhonemes, phonemeMatches (phoneme comparison)
+ *   - targetWordPhonemes, attemptWordPhonemes (word-grouped for UI)
+ *   - durationRatio, wordAccuracy
+ * - Added WordPhonemesBackup data class
  *
  * CHANGES FROM v2.0:
  * - Added creationTimestampMs to RecordingBackupEntry (no more brittle filename parsing)
@@ -33,7 +43,7 @@ import java.io.File
  * - customNames: Map of FILENAME → display name
  */
 data class BackupManifestV2(
-    val version: String = "2.1",
+    val version: String = "2.2",
 
     /** When this backup was created (epoch milliseconds) */
     val exportTimestampMs: Long,
@@ -192,7 +202,24 @@ data class DebuggingDataBackup(
 )
 
 /**
+ * Word-grouped phonemes for scorecard UI visualization.
+ * NEW IN v2.2: Enables phoneme chip display on restored attempts.
+ */
+data class WordPhonemesBackup(
+    val word: String,
+    val phonemes: List<String>
+)
+
+/**
  * Attempt metadata for backup - matches ALL fields from PlayerAttempt.kt
+ *
+ * v2.2 ADDITIONS (Scorecard fields):
+ * - finalScore: Player-overridden score
+ * - attemptTranscription: ASR transcription text
+ * - targetPhonemes / attemptPhonemes / phonemeMatches: Phoneme comparison data
+ * - targetWordPhonemes / attemptWordPhonemes: Word-grouped for UI chips
+ * - durationRatio: Timing comparison
+ * - wordAccuracy: Content match score
  */
 data class AttemptMetadataBackup(
     val playerName: String,
@@ -208,7 +235,38 @@ data class AttemptMetadataBackup(
     val isGarbage: Boolean,
     val vocalAnalysis: VocalAnalysisBackup?,
     val performanceInsights: PerformanceInsightsBackup?,
-    val debuggingData: DebuggingDataBackup?
+    val debuggingData: DebuggingDataBackup?,
+
+    // ═══════════════════════════════════════════════════════════════
+    // v2.2: SCORECARD FIELDS - Full phoneme/transcription data
+    // ═══════════════════════════════════════════════════════════════
+
+    /** Player-overridden score (null = use algorithmic score) */
+    val finalScore: Int? = null,
+
+    /** ASR transcription of what player said */
+    val attemptTranscription: String? = null,
+
+    /** Flat list of target phonemes (for matching) */
+    val targetPhonemes: List<String> = emptyList(),
+
+    /** Flat list of attempt phonemes (for matching) */
+    val attemptPhonemes: List<String> = emptyList(),
+
+    /** Per-phoneme match results (true = match, false = miss) */
+    val phonemeMatches: List<Boolean> = emptyList(),
+
+    /** Word-grouped target phonemes for UI visualization */
+    val targetWordPhonemes: List<WordPhonemesBackup> = emptyList(),
+
+    /** Word-grouped attempt phonemes for UI visualization */
+    val attemptWordPhonemes: List<WordPhonemesBackup> = emptyList(),
+
+    /** Duration ratio (e.g., 1.1 = attempt was 10% longer than target) */
+    val durationRatio: Float? = null,
+
+    /** Word accuracy / content match (0.0-1.0) */
+    val wordAccuracy: Float? = null
 )
 
 /**
@@ -354,6 +412,26 @@ fun PerformanceInsights.toBackup(): PerformanceInsightsBackup =
 fun DebuggingData.toBackup(): DebuggingDataBackup =
     DebuggingDataBackup(
         debugInfo = this.debugInfo
+    )
+
+/**
+ * Convert WordPhonemes to backup format.
+ * NEW IN v2.2: For scorecard phoneme visualization.
+ */
+fun WordPhonemes.toBackup(): WordPhonemesBackup =
+    WordPhonemesBackup(
+        word = this.word,
+        phonemes = this.phonemes
+    )
+
+/**
+ * Convert WordPhonemesBackup back to WordPhonemes.
+ * NEW IN v2.2: For scorecard phoneme visualization restore.
+ */
+fun WordPhonemesBackup.toWordPhonemes(): WordPhonemes =
+    WordPhonemes(
+        word = this.word,
+        phonemes = this.phonemes
     )
 
 // ============================================================

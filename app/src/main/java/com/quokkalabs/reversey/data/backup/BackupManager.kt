@@ -508,6 +508,7 @@ class BackupManager @Inject constructor(
                                 val targetFile = File(attemptsDir, filename)
                                 val finalAttemptFile: File
                                 val finalAttemptFilename: String
+                                var fileWasRestored = false  // Track physical file restoration
 
                                 if (targetFile.exists()) {
                                     val localHash = calculateFileHash(targetFile)
@@ -525,6 +526,7 @@ class BackupManager @Inject constructor(
                                             finalAttemptFile = File(attemptsDir, uniqueName)
                                             FileOutputStream(finalAttemptFile).use { zipIn.copyTo(it) }
                                             finalAttemptFilename = uniqueName
+                                            fileWasRestored = true
                                             Log.d(TAG, "Renamed attempt: $filename -> $uniqueName")
 
                                             // Handle reversed attempt with matching rename
@@ -549,6 +551,7 @@ class BackupManager @Inject constructor(
                                     FileOutputStream(targetFile).use { zipIn.copyTo(it) }
                                     finalAttemptFile = targetFile
                                     finalAttemptFilename = filename
+                                    fileWasRestored = true
                                     Log.d(TAG, "Extracted new attempt: $filename")
                                 }
 
@@ -579,6 +582,10 @@ class BackupManager @Inject constructor(
                                     }
                                     importedAttempts++
                                     Log.d(TAG, "Added attempt to JSON: $finalAttemptFilename -> parent: $parentActualName")
+                                } else if (fileWasRestored) {
+                                    // FIX: Count file restoration even when JSON entry already existed
+                                    importedAttempts++
+                                    Log.d(TAG, "Restored missing file for existing JSON entry: $finalAttemptFilename")
                                 } else {
                                     Log.d(TAG, "Attempt already in JSON, skipped: $finalAttemptFilename")
                                 }
@@ -843,7 +850,17 @@ class BackupManager @Inject constructor(
             isGarbage = attempt.isGarbage,
             vocalAnalysis = attempt.vocalAnalysis?.toBackup(),
             performanceInsights = attempt.performanceInsights?.toBackup(),
-            debuggingData = attempt.debuggingData?.toBackup()
+            debuggingData = attempt.debuggingData?.toBackup(),
+            // v2.2: Scorecard fields
+            finalScore = attempt.finalScore,
+            attemptTranscription = attempt.attemptTranscription,
+            targetPhonemes = attempt.targetPhonemes,
+            attemptPhonemes = attempt.attemptPhonemes,
+            phonemeMatches = attempt.phonemeMatches,
+            targetWordPhonemes = attempt.targetWordPhonemes.map { it.toBackup() },
+            attemptWordPhonemes = attempt.attemptWordPhonemes.map { it.toBackup() },
+            durationRatio = attempt.durationRatio,
+            wordAccuracy = attempt.wordAccuracy
         )
 
     private fun metadataToPlayerAttempt(
@@ -865,6 +882,16 @@ class BackupManager @Inject constructor(
             isGarbage = metadata.isGarbage,
             vocalAnalysis = null, // TODO: Restore if needed
             performanceInsights = null,
-            debuggingData = null
+            debuggingData = null,
+            // v2.2: Scorecard fields restored
+            finalScore = metadata.finalScore,
+            attemptTranscription = metadata.attemptTranscription,
+            targetPhonemes = metadata.targetPhonemes,
+            attemptPhonemes = metadata.attemptPhonemes,
+            phonemeMatches = metadata.phonemeMatches,
+            targetWordPhonemes = metadata.targetWordPhonemes.map { it.toWordPhonemes() },
+            attemptWordPhonemes = metadata.attemptWordPhonemes.map { it.toWordPhonemes() },
+            durationRatio = metadata.durationRatio,
+            wordAccuracy = metadata.wordAccuracy
         )
 }
