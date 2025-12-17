@@ -1,16 +1,47 @@
 package com.quokkalabs.reversey.ui.theme
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,8 +63,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.R
 import com.quokkalabs.reversey.data.models.ChallengeType
@@ -156,6 +187,7 @@ class SakuraSerenityComponents : ThemeComponents {
         isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
+        currentlyPlayingPath: String?,
         onPlay: (String) -> Unit,
         onPause: () -> Unit,
         onStop: () -> Unit,
@@ -163,7 +195,7 @@ class SakuraSerenityComponents : ThemeComponents {
         onShare: (String) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
-        onStartAttempt: (Recording, ChallengeType) -> Unit
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
     ) {
         // 🌸 THEME COLORS
         val bgPink = Color(0xFFFFF0F5) // Lavender Blush
@@ -175,8 +207,14 @@ class SakuraSerenityComponents : ThemeComponents {
         var showDeleteDialog by remember { mutableStateOf(false) }
         var showShareDialog by remember { mutableStateOf(false) }
 
+        // 🔧 POLYMORPHIC: Track which button owns the current playback
+        val isPlayingForward = currentlyPlayingPath == recording.originalPath
+        val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+
         // LAYOUT: Adapted from Guitar Theme
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Box(modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -212,49 +250,86 @@ class SakuraSerenityComponents : ThemeComponents {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Progress Bar (Sakura Style)
+                // Progress Bar (Sakura Style) - 🔧 POLYMORPHIC
                 LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    progress = { if (isPlayingForward || isPlayingReversed) progress else 0f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
                     color = borderPink,
                     trackColor = Color(0xFFFFC0CB).copy(alpha = 0.3f)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 🌸 JAPANESE BUTTON ROW
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                // 🌸 JAPANESE BUTTON ROW - 🔧 POLYMORPHIC
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
                     // Share (Fan)
-                    SakuraControlButton(color = buttonBg, label = "Share", textColor = textDarkPink, onClick = { showShareDialog = true }) {
+                    SakuraControlButton(
+                        color = buttonBg,
+                        label = "Share",
+                        textColor = textDarkPink,
+                        onClick = { showShareDialog = true }) {
                         SakuraShareIcon(borderPink)
                     }
 
-                    // Play/Pause (Sakura Flower / Bamboo)
+                    // Play/Pause (Sakura Flower / Bamboo) - 🔧 POLYMORPHIC
                     SakuraControlButton(
                         color = Color(0xFFFFB6C1), // Slightly darker pink for main action
-                        label = if (isPlaying && !isPaused) "Pause" else "Play",
+                        label = when {
+                            isPlayingForward && !isPaused -> "Pause"
+                            isPlayingForward && isPaused -> "Resume"
+                            else -> "Play"
+                        },
                         textColor = textDarkPink,
                         onClick = {
-                            if (isPlaying && !isPaused) onPause()
+                            if (isPlayingForward) onPause()
                             else onPlay(recording.originalPath)
                         }
                     ) {
-                        if (isPlaying && !isPaused) {
+                        if (isPlayingForward && !isPaused) {
                             SakuraPauseIcon(textDarkPink) // Bamboo
                         } else {
                             SakuraPlayIcon(textDarkPink) // Spinning Flower
                         }
                     }
 
-                    // Reverse (Wind)
-                    SakuraControlButton(color = buttonBg, label = "Rev", textColor = textDarkPink, onClick = { recording.reversedPath?.let { onPlay(it) } }) {
+                    // Reverse (Wind) - 🔧 POLYMORPHIC
+                    SakuraControlButton(
+                        color = buttonBg,
+                        label = when {
+                            isPlayingReversed && !isPaused -> "Pause"
+                            isPlayingReversed && isPaused -> "Resume"
+                            else -> "Rev"
+                        },
+                        textColor = textDarkPink,
+                        onClick = {
+                            if (isPlayingReversed) onPause()
+                            else recording.reversedPath?.let { onPlay(it) }
+                        }
+                    ) {
                         SakuraRewindIcon(borderPink)
                     }
 
                     // Game Mode Controls
                     if (isGameModeEnabled && recording.reversedPath != null) {
-                        SakuraControlButton(color = buttonBg, label = "Try", textColor = textDarkPink, onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }) {
-                            Icon(Icons.Default.ArrowUpward, "Try", tint = textDarkPink, modifier = Modifier.size(20.dp).rotate(180f))
+                        SakuraControlButton(
+                            color = buttonBg,
+                            label = "Try",
+                            textColor = textDarkPink,
+                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }) {
+                            Icon(
+                                Icons.Default.ArrowUpward,
+                                "Try",
+                                tint = textDarkPink,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .rotate(180f)
+                            )
                         }
                     }
                     // 🌸 STYLED DELETE BUTTON (Consistent with control row)
@@ -270,9 +345,24 @@ class SakuraSerenityComponents : ThemeComponents {
             }
         }
 
-        if (showRenameDialog) RenameDialog(RenamableItemType.RECORDING, recording.name, aesthetic, { onRename(recording.originalPath, it) }, { showRenameDialog = false })
-        if (showDeleteDialog) DeleteDialog(DeletableItemType.RECORDING, recording, aesthetic, { onDelete(recording) }, { showDeleteDialog = false })
-        if (showShareDialog) ShareDialog(recording, null, aesthetic, onShare, { showShareDialog = false })
+        if (showRenameDialog) RenameDialog(
+            RenamableItemType.RECORDING,
+            recording.name,
+            aesthetic,
+            { onRename(recording.originalPath, it) },
+            { showRenameDialog = false })
+        if (showDeleteDialog) DeleteDialog(
+            DeletableItemType.RECORDING,
+            recording,
+            aesthetic,
+            { onDelete(recording) },
+            { showDeleteDialog = false })
+        if (showShareDialog) ShareDialog(
+            recording,
+            null,
+            aesthetic,
+            onShare,
+            { showShareDialog = false })
     }
 
     @Composable
@@ -290,7 +380,7 @@ class SakuraSerenityComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
-        onResetScore: (() -> Unit)?
+        onResetScore: (() -> Unit)?,
     ) {
         // 🌸 THEME COLORS
         val cardBg = Color(0xFFFFFAFC)
@@ -298,19 +388,27 @@ class SakuraSerenityComponents : ThemeComponents {
         val textDarkPink = Color(0xFFC71585)
         val buttonBg = Color(0xFFFFE4E1)
 
-        val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
+        val isPlayingThis =
+            currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
         var showShareDialog by remember { mutableStateOf(false) }
         var showScoreDialog by remember { mutableStateOf(false) }
 
         // LAYOUT: Adapted from Guitar Theme (Split View with Squircle)
-        Box(modifier = Modifier.fillMaxWidth().padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     // 🌸 TRANSPARENCY APPLIED HERE (0.85f)
-                    .background(color = cardBg.copy(alpha = 0.75f), shape = RoundedCornerShape(20.dp))
+                    .background(
+                        color = cardBg.copy(alpha = 0.75f),
+                        shape = RoundedCornerShape(20.dp)
+                    )
                     .border(width = 2.dp, color = borderPink, shape = RoundedCornerShape(20.dp))
                     .padding(12.dp)
             ) {
@@ -321,13 +419,25 @@ class SakuraSerenityComponents : ThemeComponents {
                             Spacer(modifier = Modifier.height(8.dp))
 
                             // Name Row
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
                                 if (onJumpToParent != null) {
-                                    Icon(imageVector = Icons.Default.ArrowUpward, contentDescription = "Jump", tint = borderPink, modifier = Modifier.size(20.dp).clickable { onJumpToParent() })
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowUpward,
+                                        contentDescription = "Jump",
+                                        tint = borderPink,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clickable { onJumpToParent() })
                                 }
                                 Box(
                                     modifier = Modifier
-                                        .background(Color(0xFFFFC0CB).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        .background(
+                                            Color(0xFFFFC0CB).copy(alpha = 0.2f),
+                                            RoundedCornerShape(8.dp)
+                                        )
                                         .clickable { showRenameDialog = true }
                                         .padding(horizontal = 10.dp, vertical = 4.dp)
                                 ) {
@@ -352,25 +462,46 @@ class SakuraSerenityComponents : ThemeComponents {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 if (onShareAttempt != null) {
-                                    SakuraControlButton(onClick = { showShareDialog = true }, color = buttonBg, label = "Share", textColor = textDarkPink) {
+                                    SakuraControlButton(
+                                        onClick = { showShareDialog = true },
+                                        color = buttonBg,
+                                        label = "Share",
+                                        textColor = textDarkPink
+                                    ) {
                                         SakuraShareIcon(borderPink)
                                     }
                                 }
                                 SakuraControlButton(
-                                    onClick = { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) },
+                                    onClick = {
+                                        if (isPlayingThis && !isPaused) onPause() else onPlay(
+                                            attempt.attemptFilePath
+                                        )
+                                    },
                                     color = Color(0xFFFFB6C1),
                                     label = if (isPlayingThis && !isPaused) "Pause" else "Play",
                                     textColor = textDarkPink
                                 ) {
-                                    if (isPlayingThis && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraPlayIcon(textDarkPink)
+                                    if (isPlayingThis && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraPlayIcon(
+                                        textDarkPink
+                                    )
                                 }
                                 attempt.reversedAttemptFilePath?.let { reversedPath ->
-                                    SakuraControlButton(onClick = { onPlay(reversedPath) }, color = buttonBg, label = "Rev", textColor = textDarkPink) {
+                                    SakuraControlButton(
+                                        onClick = { onPlay(reversedPath) },
+                                        color = buttonBg,
+                                        label = "Rev",
+                                        textColor = textDarkPink
+                                    ) {
                                         SakuraRewindIcon(borderPink)
                                     }
                                 }
                                 if (onDeleteAttempt != null) {
-                                    SakuraControlButton(onClick = { showDeleteDialog = true }, color = buttonBg, label = "Del", textColor = textDarkPink) {
+                                    SakuraControlButton(
+                                        onClick = { showDeleteDialog = true },
+                                        color = buttonBg,
+                                        label = "Del",
+                                        textColor = textDarkPink
+                                    ) {
                                         SakuraDeleteIcon(borderPink)
                                     }
                                 }
@@ -395,7 +526,10 @@ class SakuraSerenityComponents : ThemeComponents {
                         Spacer(modifier = Modifier.height(8.dp))
                         LinearProgressIndicator(
                             progress = { progress },
-                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
                             color = borderPink,
                             trackColor = Color(0xFFFFC0CB).copy(alpha = 0.3f)
                         )
@@ -404,10 +538,29 @@ class SakuraSerenityComponents : ThemeComponents {
             }
         }
 
-        if (showRenameDialog && onRenamePlayer != null) RenameDialog(RenamableItemType.PLAYER, attempt.playerName, aesthetic, { onRenamePlayer(attempt, it) }, { showRenameDialog = false })
-        if (showDeleteDialog && onDeleteAttempt != null) DeleteDialog(DeletableItemType.ATTEMPT, attempt, aesthetic, { onDeleteAttempt(attempt) }, { showDeleteDialog = false })
-        if (showShareDialog && onShareAttempt != null) ShareDialog(null, attempt, aesthetic, onShareAttempt, { showShareDialog = false })
-        if (showScoreDialog) ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
+        if (showRenameDialog && onRenamePlayer != null) RenameDialog(
+            RenamableItemType.PLAYER,
+            attempt.playerName,
+            aesthetic,
+            { onRenamePlayer(attempt, it) },
+            { showRenameDialog = false })
+        if (showDeleteDialog && onDeleteAttempt != null) DeleteDialog(
+            DeletableItemType.ATTEMPT,
+            attempt,
+            aesthetic,
+            { onDeleteAttempt(attempt) },
+            { showDeleteDialog = false })
+        if (showShareDialog && onShareAttempt != null) ShareDialog(
+            null,
+            attempt,
+            aesthetic,
+            onShareAttempt,
+            { showShareDialog = false })
+        if (showScoreDialog) ScoreCard(
+            attempt,
+            aesthetic,
+            { showScoreDialog = false },
+            onOverrideScore ?: { })
     }
 
     @Composable
@@ -417,7 +570,7 @@ class SakuraSerenityComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float  // 🎯 PHASE 3
+        countdownProgress: Float,  // 🎯 PHASE 3
     ) {
         Box(
             modifier = Modifier
@@ -471,8 +624,17 @@ class SakuraSerenityComponents : ThemeComponents {
     // --- HELPER COMPONENTS ---
 
     @Composable
-    fun SakuraControlButton(color: Color, label: String, textColor: Color, onClick: () -> Unit, icon: @Composable () -> Unit) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
+    fun SakuraControlButton(
+        color: Color,
+        label: String,
+        textColor: Color,
+        onClick: () -> Unit,
+        icon: @Composable () -> Unit,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable(onClick = onClick)
+        ) {
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -503,7 +665,7 @@ class SakuraSerenityComponents : ThemeComponents {
         isRecording: Boolean,
         baseColor: Color = Color(0xFFC71585), // Dark Pink (Medium Violet Red) from your theme
         recordingColor: Color = Color(0xFFFF69B4), // Hot Pink
-        iconSize: Dp = 48.dp
+        iconSize: Dp = 48.dp,
     ) {
         val currentTintColor = if (isRecording) recordingColor else baseColor
 
@@ -524,7 +686,8 @@ class SakuraSerenityComponents : ThemeComponents {
             val stroke = 3.6.dp.toPx() * (iconSize / 48.dp)  // 20% thicker strokes
 
             // Calculate THINNER crossbeam dimensions (no text inside)
-            val crossbeamInternalHeight = 2.sp.toPx() * (iconSize / 48.dp)  // Reduced from 10sp to 6sp
+            val crossbeamInternalHeight =
+                2.sp.toPx() * (iconSize / 48.dp)  // Reduced from 10sp to 6sp
             val crossbeamTotalHeight = crossbeamInternalHeight + (stroke * 2)
 
             // Position crossbeam
@@ -538,9 +701,18 @@ class SakuraSerenityComponents : ThemeComponents {
             // INVERTED CONCAVE Top Bar (Kasagi)
             val topPath = Path().apply {
                 moveTo(w * 0.00f, crossbeamTop - (stroke * 2))
-                quadraticBezierTo(w * 0.5f, crossbeamTop + (stroke * 1), w * 1.0f, crossbeamTop - (stroke * 2))
+                quadraticBezierTo(
+                    w * 0.5f,
+                    crossbeamTop + (stroke * 1),
+                    w * 1.0f,
+                    crossbeamTop - (stroke * 2)
+                )
             }
-            drawPath(topPath, currentTintColor, style = Stroke(stroke * 1.2f, cap = StrokeCap.Round))
+            drawPath(
+                topPath,
+                currentTintColor,
+                style = Stroke(stroke * 1.2f, cap = StrokeCap.Round)
+            )
 
             // THINNER Crossbeam (Nuki)
             drawRect(
@@ -552,12 +724,26 @@ class SakuraSerenityComponents : ThemeComponents {
 
             // TALLER SLANTED PILLARS (Hashira)
             val leftPillarTop = Offset(w * 0.12f, crossbeamTop - (stroke * 1f))
-            val leftPillarBottom = Offset(w * 0.02f, h * 1.2f)  // Shortened to make room for text below
+            val leftPillarBottom =
+                Offset(w * 0.02f, h * 1.2f)  // Shortened to make room for text below
             val rightPillarTop = Offset(w * 0.88f, crossbeamTop - (stroke * 1f))
-            val rightPillarBottom = Offset(w * 0.98f, h * 1.2f)  // Shortened to make room for text below
+            val rightPillarBottom =
+                Offset(w * 0.98f, h * 1.2f)  // Shortened to make room for text below
 
-            drawLine(currentTintColor, leftPillarTop, leftPillarBottom, stroke * 1.4f, StrokeCap.Round)
-            drawLine(currentTintColor, rightPillarTop, rightPillarBottom, stroke * 1.4f, StrokeCap.Round)
+            drawLine(
+                currentTintColor,
+                leftPillarTop,
+                leftPillarBottom,
+                stroke * 1.4f,
+                StrokeCap.Round
+            )
+            drawLine(
+                currentTintColor,
+                rightPillarTop,
+                rightPillarBottom,
+                stroke * 1.4f,
+                StrokeCap.Round
+            )
 
             // --- HANGING GONG SYMBOL ---
             val gongCenterX = w * 0.5f
@@ -625,7 +811,8 @@ class SakuraSerenityComponents : ThemeComponents {
                     val leftX = w * (-0.6f - i * 0.04f)  // NEW: -15%, -19%, -23%
                     val radius = 15.dp.toPx() * (1 + i * 0.5f) * (iconSize / 48.dp)
 
-                    val animatedAlpha = 0.5f + 0.3f * sin((waveOffset + i * 0.5f) * 2 * PI).toFloat()
+                    val animatedAlpha =
+                        0.5f + 0.3f * sin((waveOffset + i * 0.5f) * 2 * PI).toFloat()
 
                     drawArc(
                         color = waveColor.copy(alpha = animatedAlpha),
@@ -643,7 +830,8 @@ class SakuraSerenityComponents : ThemeComponents {
                     val rightX = w * (1.6f + i * 0.04f)  // NEW: 115%, 119%, 123%
                     val radius = 15.dp.toPx() * (1 + i * 0.5f) * (iconSize / 48.dp)
 
-                    val animatedAlpha = 0.5f + 0.3f * sin((waveOffset + i * 0.5f + 0.3f) * 2 * PI).toFloat()
+                    val animatedAlpha =
+                        0.5f + 0.3f * sin((waveOffset + i * 0.5f + 0.3f) * 2 * PI).toFloat()
 
                     drawArc(
                         color = waveColor.copy(alpha = animatedAlpha),
@@ -672,7 +860,9 @@ class SakuraSerenityComponents : ThemeComponents {
             label = "rotation"
         )
 
-        Canvas(modifier = Modifier.size(24.dp).rotate(angle)) {
+        Canvas(modifier = Modifier
+            .size(24.dp)
+            .rotate(angle)) {
             val center = Offset(size.width / 2, size.height / 2)
             val petalRadius = size.width / 4
 
@@ -699,9 +889,21 @@ class SakuraSerenityComponents : ThemeComponents {
             val stroke = 3.dp.toPx()
 
             // Left Stalk
-            drawLine(color, Offset(w * 0.35f, h * 0.2f), Offset(w * 0.35f, h * 0.8f), stroke, StrokeCap.Round)
+            drawLine(
+                color,
+                Offset(w * 0.35f, h * 0.2f),
+                Offset(w * 0.35f, h * 0.8f),
+                stroke,
+                StrokeCap.Round
+            )
             // Right Stalk
-            drawLine(color, Offset(w * 0.65f, h * 0.2f), Offset(w * 0.65f, h * 0.8f), stroke, StrokeCap.Round)
+            drawLine(
+                color,
+                Offset(w * 0.65f, h * 0.2f),
+                Offset(w * 0.65f, h * 0.8f),
+                stroke,
+                StrokeCap.Round
+            )
 
             // Bamboo Nodes (Horizontal lines)
             drawLine(color, Offset(w * 0.25f, h * 0.5f), Offset(w * 0.45f, h * 0.5f), 1.dp.toPx())
@@ -784,81 +986,159 @@ class SakuraSerenityComponents : ThemeComponents {
     // --- DIALOG INTERFACE IMPLEMENTATION ---
 
     @Composable
-    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) {
+    override fun ScoreCard(
+        attempt: PlayerAttempt,
+        aesthetic: AestheticThemeData,
+        onDismiss: () -> Unit,
+        onOverrideScore: ((Int) -> Unit),
+    ) {
         ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
     @Composable
-    override fun DeleteDialog(itemType: DeletableItemType, item: Any, aesthetic: AestheticThemeData, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    override fun DeleteDialog(
+        itemType: DeletableItemType,
+        item: Any,
+        aesthetic: AestheticThemeData,
+        onConfirm: () -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         val copy = aesthetic.dialogCopy
-        val name = if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
+        val name =
+            if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
 
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Color(0xFFFFF0F5),
-            title = { Text(copy.deleteTitle(itemType), color = Color(0xFFC71585), fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    copy.deleteTitle(itemType),
+                    color = Color(0xFFC71585),
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = { Text(copy.deleteMessage(itemType, name), color = Color(0xFF8B008B)) },
             confirmButton = {
-                Button(onClick = { onConfirm(); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1493))) {
+                Button(
+                    onClick = { onConfirm(); onDismiss() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1493))
+                ) {
                     Text(copy.deleteConfirmButton)
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text(copy.deleteCancelButton, color = Color(0xFFC71585)) }
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        copy.deleteCancelButton,
+                        color = Color(0xFFC71585)
+                    )
+                }
             }
         )
     }
 
     @Composable
-    override fun ShareDialog(recording: Recording?, attempt: PlayerAttempt?, aesthetic: AestheticThemeData, onShare: (String) -> Unit, onDismiss: () -> Unit) {
+    override fun ShareDialog(
+        recording: Recording?,
+        attempt: PlayerAttempt?,
+        aesthetic: AestheticThemeData,
+        onShare: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         val copy = aesthetic.dialogCopy
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Color(0xFFFFF0F5),
-            title = { Text(copy.shareTitle, color = Color(0xFFC71585), fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    copy.shareTitle,
+                    color = Color(0xFFC71585),
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 Column {
                     Text(copy.shareMessage, color = Color(0xFF8B008B))
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    Button(onClick = { onShare(path); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF69B4))) {
+                    Button(
+                        onClick = { onShare(path); onDismiss() },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF69B4))
+                    ) {
                         Text("Share Blossom 🌸▶️")
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { onShare(revPath); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDB7093))) {
+                        Button(
+                            onClick = { onShare(revPath); onDismiss() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDB7093))
+                        ) {
                             Text("Share Petals 🍃◀️")
                         }
                     }
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFFC71585)) } }
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "Cancel",
+                        color = Color(0xFFC71585)
+                    )
+                }
+            }
         )
     }
 
     @Composable
-    override fun RenameDialog(itemType: RenamableItemType, currentName: String, aesthetic: AestheticThemeData, onRename: (String) -> Unit, onDismiss: () -> Unit) {
+    override fun RenameDialog(
+        itemType: RenamableItemType,
+        currentName: String,
+        aesthetic: AestheticThemeData,
+        onRename: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         var name by remember { mutableStateOf(currentName) }
         val copy = aesthetic.dialogCopy
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Color(0xFFF0F5),
-            title = { Text(copy.renameTitle(itemType), color = Color(0xFFC71585), fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    copy.renameTitle(itemType),
+                    color = Color(0xFFC71585),
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
                     label = { Text(copy.renameHint) },
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFF69B4), focusedLabelColor = Color(0xFFFF69B4))
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFFF69B4),
+                        focusedLabelColor = Color(0xFFFF69B4)
+                    )
                 )
             },
             confirmButton = {
-                Button(onClick = { onRename(name); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF69B4))) {
+                Button(
+                    onClick = { onRename(name); onDismiss() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF69B4))
+                ) {
                     Text("Bloom")
                 }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFFC71585)) } }
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "Cancel",
+                        color = Color(0xFFC71585)
+                    )
+                }
+            }
         )
     }
 
@@ -866,14 +1146,36 @@ class SakuraSerenityComponents : ThemeComponents {
     @Composable
     private fun TwinklingStars() {
         val infiniteTransition = rememberInfiniteTransition(label = "starTwinkle")
-        val twinkle1 by infiniteTransition.animateFloat(0.3f, 1f, infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "twinkle1")
-        val twinkle2 by infiniteTransition.animateFloat(0.5f, 1f, infiniteRepeatable(tween(1500, 200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "twinkle2")
+        val twinkle1 by infiniteTransition.animateFloat(
+            0.3f,
+            1f,
+            infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "twinkle1"
+        )
+        val twinkle2 by infiniteTransition.animateFloat(
+            0.5f,
+            1f,
+            infiniteRepeatable(tween(1500, 200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "twinkle2"
+        )
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             val stars = listOf(
-                Triple(Offset(size.width * 0.15f, size.height * 0.08f), 12.dp.toPx(), Color(0xFFFFD700) to twinkle1),
-                Triple(Offset(size.width * 0.85f, size.height * 0.07f), 11.dp.toPx(), Color(0xFFFFFFFF) to twinkle2),
-                Triple(Offset(size.width * 0.50f, size.height * 0.20f), 10.dp.toPx(), Color(0xFFFFFFFF) to twinkle1)
+                Triple(
+                    Offset(size.width * 0.15f, size.height * 0.08f),
+                    12.dp.toPx(),
+                    Color(0xFFFFD700) to twinkle1
+                ),
+                Triple(
+                    Offset(size.width * 0.85f, size.height * 0.07f),
+                    11.dp.toPx(),
+                    Color(0xFFFFFFFF) to twinkle2
+                ),
+                Triple(
+                    Offset(size.width * 0.50f, size.height * 0.20f),
+                    10.dp.toPx(),
+                    Color(0xFFFFFFFF) to twinkle1
+                )
             )
             stars.forEach { (pos, baseSize, pair) ->
                 val (color, alpha) = pair
@@ -887,12 +1189,18 @@ class SakuraSerenityComponents : ThemeComponents {
     private fun CherryBlossomTrees() {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val trees = listOf(
-                Triple(0.12f, 0.25f, 40.dp.toPx()), Triple(0.88f, 0.28f, 38.dp.toPx()), Triple(0.48f, 0.52f, 41.dp.toPx())
+                Triple(0.12f, 0.25f, 40.dp.toPx()),
+                Triple(0.88f, 0.28f, 38.dp.toPx()),
+                Triple(0.48f, 0.52f, 41.dp.toPx())
             )
             trees.forEach { (xPct, yPct, size) ->
                 val x = this.size.width * xPct
                 val y = this.size.height * yPct
-                drawRect(Color(0xFF8B4513), topLeft = Offset(x - 8.dp.toPx(), y), size = Size(16.dp.toPx(), 70.dp.toPx()))
+                drawRect(
+                    Color(0xFF8B4513),
+                    topLeft = Offset(x - 8.dp.toPx(), y),
+                    size = Size(16.dp.toPx(), 70.dp.toPx())
+                )
                 drawCircle(Color(0xFFFFB6C1), size, Offset(x, y - size * 0.3f))
                 drawCircle(Color(0xFFFF69B4), size * 0.7f, Offset(x - size * 0.4f, y - size * 0.5f))
             }
@@ -907,7 +1215,7 @@ class SakuraSerenityComponents : ThemeComponents {
         val speed: Float,
         var angle: Float,
         val spinSpeed: Float,
-        val color: Color
+        val color: Color,
     )
 
     @Composable
@@ -1039,7 +1347,8 @@ private fun EnhancedFallingSakuraPetals() {
                 petals = petals.map { petal ->
                     var newY = petal.y + petal.speed
                     val windEffect = sin(windPhase + petal.y * 0.01f) * 2f
-                    var newX = petal.x + sin(newY * petal.swaySpeed) * petal.swayAmplitude * 0.1f + windEffect
+                    var newX =
+                        petal.x + sin(newY * petal.swaySpeed) * petal.swayAmplitude * 0.1f + windEffect
                     var newAngle = petal.angle + petal.spinSpeed
 
                     if (newY > height + petal.size) {
@@ -1095,7 +1404,7 @@ private data class EnhancedPetalData(
     val spinSpeed: Float,
     val color: Color,
     val swayAmplitude: Float,
-    val swaySpeed: Float
+    val swaySpeed: Float,
 )
 
 @Composable
@@ -1125,7 +1434,8 @@ private fun SakuraSparkles() {
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             sparkles.forEach { sparkle ->
-                val sparkleAlpha = sparkle.alpha * (0.5f + 0.5f * sin(shimmer * 2 * PI + sparkle.phase).toFloat())
+                val sparkleAlpha =
+                    sparkle.alpha * (0.5f + 0.5f * sin(shimmer * 2 * PI + sparkle.phase).toFloat())
 
                 // Draw sparkle as a star
                 repeat(8) { i ->
@@ -1153,7 +1463,7 @@ private data class SparkleData(
     val y: Float,
     val size: Float,
     val alpha: Float,
-    val phase: Float
+    val phase: Float,
 )
 
 @Composable
@@ -1233,20 +1543,20 @@ private data class CalmTreeData(
     val xPos: Float,
     val yPos: Float,
     val scale: Float,
-    val leanRight: Boolean
+    val leanRight: Boolean,
 )
 
 private data class CalmBranchData(
     val angle: Float,
     val length: Float,
-    val thickness: Float
+    val thickness: Float,
 )
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCalmSakuraTree(
     tree: CalmTreeData,
     pulse: Float,
     staticBlobPositions: List<Offset>,
-    treeIndex: Int
+    treeIndex: Int,
 ) {
     val baseX = size.width * tree.xPos
     val baseY = size.height * tree.yPos
@@ -1259,7 +1569,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCalmSakuraTree(
 
     drawRoundRect(
         color = Color(0xFF8B4513), // Saddle brown
-        topLeft = Offset(baseX - trunkWidth/2, baseY - trunkHeight),
+        topLeft = Offset(baseX - trunkWidth / 2, baseY - trunkHeight),
         size = Size(trunkWidth, trunkHeight),
         cornerRadius = CornerRadius(trunkWidth * 0.3f, trunkWidth * 0.3f)
     )
@@ -1267,7 +1577,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCalmSakuraTree(
     // Trunk shadow/depth - drunk Claude's technique
     drawRoundRect(
         color = Color(0xFF654321), // Darker brown for shadow
-        topLeft = Offset(baseX - trunkWidth/2 + 4.dp.toPx(), baseY - trunkHeight),
+        topLeft = Offset(baseX - trunkWidth / 2 + 4.dp.toPx(), baseY - trunkHeight),
         size = Size(trunkWidth * 0.3f, trunkHeight),
         cornerRadius = CornerRadius(trunkWidth * 0.3f, trunkWidth * 0.3f)
     )
@@ -1338,7 +1648,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCherryBlossomEm
     center: Offset,
     scale: Float,
     baseSize: Float,
-    colorPulse: Float
+    colorPulse: Float,
 ) {
     val emojiSize = baseSize * scale
 
@@ -1373,10 +1683,26 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCherryBlossomEm
             // Subtle color tint that pulses
             colorFilter = android.graphics.ColorMatrixColorFilter(
                 floatArrayOf(
-                    colorIntensity, 0f, 0.2f, 0f, 20f, // Red channel with pink tint
-                    0.1f, colorIntensity, 0.3f, 0f, 10f, // Green channel
-                    0.2f, 0.1f, colorIntensity * 0.8f, 0f, 30f, // Blue channel (less blue for warmer tone)
-                    0f, 0f, 0f, 1f, 0f // Alpha channel
+                    colorIntensity,
+                    0f,
+                    0.2f,
+                    0f,
+                    20f, // Red channel with pink tint
+                    0.1f,
+                    colorIntensity,
+                    0.3f,
+                    0f,
+                    10f, // Green channel
+                    0.2f,
+                    0.1f,
+                    colorIntensity * 0.8f,
+                    0f,
+                    30f, // Blue channel (less blue for warmer tone)
+                    0f,
+                    0f,
+                    0f,
+                    1f,
+                    0f // Alpha channel
                 )
             )
         }

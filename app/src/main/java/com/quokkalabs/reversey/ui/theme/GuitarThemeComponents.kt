@@ -180,6 +180,7 @@ class GuitarComponents : ThemeComponents {
         isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
+        currentlyPlayingPath: String?,
         onPlay: (String) -> Unit,
         onPause: () -> Unit,
         onStop: () -> Unit,
@@ -187,13 +188,14 @@ class GuitarComponents : ThemeComponents {
         onShare: (String) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
-        onStartAttempt: (Recording, ChallengeType) -> Unit
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
     ) {
         GuitarRecordingItem(
             recording = recording,
             isPlaying = isPlaying,
             isPaused = isPaused,
             progress = progress,
+            currentlyPlayingPath = currentlyPlayingPath,
             onPlay = onPlay,
             onPause = onPause,
             onStop = onStop,
@@ -220,7 +222,7 @@ class GuitarComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
-        onResetScore: (() -> Unit)?
+        onResetScore: (() -> Unit)?,
     ) {
         GuitarAttemptItem(
             attempt = attempt,
@@ -246,7 +248,7 @@ class GuitarComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float  // 🎯 PHASE 3
+        countdownProgress: Float,  // 🎯 PHASE 3
     ) {
         GuitarRecordButton(
             isRecording = isRecording,
@@ -264,7 +266,7 @@ class GuitarComponents : ThemeComponents {
     @Composable
     override fun AppBackground(
         aesthetic: AestheticThemeData,
-        content: @Composable () -> Unit
+        content: @Composable () -> Unit,
     ) {
         Box(
             modifier = Modifier
@@ -289,22 +291,41 @@ class GuitarComponents : ThemeComponents {
     // --- NEW INTERFACE METHODS ---
 
     @Composable
-    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) {
+    override fun ScoreCard(
+        attempt: PlayerAttempt,
+        aesthetic: AestheticThemeData,
+        onDismiss: () -> Unit,
+        onOverrideScore: ((Int) -> Unit),
+    ) {
         ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
     @Composable
-    override fun DeleteDialog(itemType: DeletableItemType, item: Any, aesthetic: AestheticThemeData, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    override fun DeleteDialog(
+        itemType: DeletableItemType,
+        item: Any,
+        aesthetic: AestheticThemeData,
+        onConfirm: () -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         val copy = aesthetic.dialogCopy
-        val name = if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
+        val name =
+            if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
         val darkBrown = Color(0xFF5d4a36)
         val peachOrange = Color(0xFFE8A87C)
-        val deleteRed =Color (color= 0xFFFF0000)
+        val deleteRed = Color(color = 0xFFFF0000)
 
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Color(0xFFC4B4A0),
-            title = { Text(copy.deleteTitle(itemType), fontFamily = FontFamily.Serif, color = darkBrown, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    copy.deleteTitle(itemType),
+                    fontFamily = FontFamily.Serif,
+                    color = darkBrown,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = { Text(copy.deleteMessage(itemType, name), color = darkBrown) },
             confirmButton = {
                 TextButton(onClick = { onConfirm(); onDismiss() }) {
@@ -320,7 +341,13 @@ class GuitarComponents : ThemeComponents {
     }
 
     @Composable
-    override fun ShareDialog(recording: Recording?, attempt: PlayerAttempt?, aesthetic: AestheticThemeData, onShare: (String) -> Unit, onDismiss: () -> Unit) {
+    override fun ShareDialog(
+        recording: Recording?,
+        attempt: PlayerAttempt?,
+        aesthetic: AestheticThemeData,
+        onShare: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         val copy = aesthetic.dialogCopy
         val darkBrown = Color(0xFF5d4a36)
         val tealGreen = Color(0xFF7DDDA8)
@@ -329,14 +356,25 @@ class GuitarComponents : ThemeComponents {
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Color(0xFFC4B4A0),
-            title = { Text(copy.shareTitle, fontFamily = FontFamily.Serif, color = darkBrown, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    copy.shareTitle,
+                    fontFamily = FontFamily.Serif,
+                    color = darkBrown,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 Column {
                     Text(copy.shareMessage, color = darkBrown)
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
                     TextButton(onClick = { onShare(path); onDismiss() }) {
-                        Text("Share Original (Forward)", color = darkBrown, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Share Original (Forward)",
+                            color = darkBrown,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
@@ -347,12 +385,25 @@ class GuitarComponents : ThemeComponents {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = darkBrown) } }
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "Cancel",
+                        color = darkBrown
+                    )
+                }
+            }
         )
     }
 
     @Composable
-    override fun RenameDialog(itemType: RenamableItemType, currentName: String, aesthetic: AestheticThemeData, onRename: (String) -> Unit, onDismiss: () -> Unit) {
+    override fun RenameDialog(
+        itemType: RenamableItemType,
+        currentName: String,
+        aesthetic: AestheticThemeData,
+        onRename: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         var name by remember { mutableStateOf(currentName) }
         val copy = aesthetic.dialogCopy
         val darkBrown = Color(0xFF5d4a36)
@@ -361,7 +412,14 @@ class GuitarComponents : ThemeComponents {
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Color(0xFFC4B4A0),
-            title = { Text(copy.renameTitle(itemType), fontFamily = FontFamily.Serif, color = darkBrown, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    copy.renameTitle(itemType),
+                    fontFamily = FontFamily.Serif,
+                    color = darkBrown,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 TextField(
                     value = name, onValueChange = { name = it },
@@ -384,7 +442,14 @@ class GuitarComponents : ThemeComponents {
                     Text("Save", color = darkBrown, fontWeight = FontWeight.Bold)
                 }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = darkBrown) } }
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "Cancel",
+                        color = darkBrown
+                    )
+                }
+            }
         )
     }
 }
@@ -399,7 +464,7 @@ fun FloatingMusicNote(
     position: Offset,
     delay: Float,
     isExcited: Boolean = false,
-    rainbowMode: Boolean = false
+    rainbowMode: Boolean = false,
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "float")
 
@@ -451,7 +516,7 @@ fun GuitarRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    countdownProgress: Float = 1f  // 🎯 PHASE 3
+    countdownProgress: Float = 1f,  // 🎯 PHASE 3
 ) {
     val context = LocalContext.current
     var isStrumming by remember { mutableStateOf(false) }
@@ -589,7 +654,9 @@ fun GuitarRecordButton(
 
         // 🎯 PHASE 3: Countdown arc for timed recording
         if (isRecording && countdownProgress < 1f) {
-            Canvas(modifier = Modifier.size(140.dp).align(Alignment.Center)) {
+            Canvas(modifier = Modifier
+                .size(140.dp)
+                .align(Alignment.Center)) {
                 // Gray background track
                 drawArc(
                     color = Color.Gray.copy(alpha = 0.3f),
@@ -647,7 +714,12 @@ fun GuitarRecordButton(
                 )
 
                 drawRect(color = woodBrown, topLeft = neckRect.topLeft, size = neckRect.size)
-                drawRect(color = darkBrown, topLeft = neckRect.topLeft, size = neckRect.size, style = Stroke(width = 2.dp.toPx()))
+                drawRect(
+                    color = darkBrown,
+                    topLeft = neckRect.topLeft,
+                    size = neckRect.size,
+                    style = Stroke(width = 2.dp.toPx())
+                )
 
                 val headstockPath = Path().apply {
                     moveTo(scaleX(335f), scaleY(200f))
@@ -659,8 +731,25 @@ fun GuitarRecordButton(
                 drawPath(headstockPath, color = woodBrown)
                 drawPath(headstockPath, color = darkBrown, style = Stroke(width = 2.dp.toPx()))
 
-                listOf(220f, 255f, 290f, 325f, 360f, 395f, 430f, 465f, 500f, 530f, 550f).forEach { y ->
-                    drawLine(color = darkBrown, start = scalePoint(335f, y), end = scalePoint(379f, y), strokeWidth = 1.5.dp.toPx())
+                listOf(
+                    220f,
+                    255f,
+                    290f,
+                    325f,
+                    360f,
+                    395f,
+                    430f,
+                    465f,
+                    500f,
+                    530f,
+                    550f
+                ).forEach { y ->
+                    drawLine(
+                        color = darkBrown,
+                        start = scalePoint(335f, y),
+                        end = scalePoint(379f, y),
+                        strokeWidth = 1.5.dp.toPx()
+                    )
                 }
 
                 listOf(
@@ -670,40 +759,241 @@ fun GuitarRecordButton(
                     drawCircle(color = goldenPegs, radius = 2.dp.toPx(), center = scalePoint(x, y))
                 }
 
-                listOf(345f,350f, 355f, 360f, 365f,370f).forEach { x ->
-                    drawLine(color = darkBrown.copy(alpha = 0.7f), start = scalePoint(x, 160f), end = scalePoint(x, 1030f), strokeWidth = 1.dp.toPx())
+                listOf(345f, 350f, 355f, 360f, 365f, 370f).forEach { x ->
+                    drawLine(
+                        color = darkBrown.copy(alpha = 0.7f),
+                        start = scalePoint(x, 160f),
+                        end = scalePoint(x, 1030f),
+                        strokeWidth = 1.dp.toPx()
+                    )
                 }
 
                 val guitarBodyPath = Path().apply {
                     moveTo(scaleX(351.936f), scaleY(553.04658f))
-                    cubicTo(scaleX(228.59838f), scaleY(554.76093f), scaleX(209.69151f), scaleY(578.67358f), scaleX(209.69151f), scaleY(620.67456f))
-                    cubicTo(scaleX(209.69149f), scaleY(681.43044f), scaleX(222.0788f), scaleY(677.13503f), scaleX(220.05686f), scaleY(726.85048f))
-                    cubicTo(scaleX(218.25094f), scaleY(771.25513f), scaleX(167.1142f), scaleY(842.64339f), scaleX(166.11718f), scaleY(910.19743f))
-                    cubicTo(scaleX(166.10737f), scaleY(910.86212f), scaleX(166.07731f), scaleY(911.52479f), scaleX(166.07731f), scaleY(912.1887f))
-                    cubicTo(scaleX(166.07731f), scaleY(912.37991f), scaleX(166.0767f), scaleY(912.56168f), scaleX(166.07731f), scaleY(912.75227f))
-                    cubicTo(scaleX(166.0761f), scaleY(912.96527f), scaleX(166.07731f), scaleY(913.17806f), scaleX(166.07731f), scaleY(913.39097f))
-                    cubicTo(scaleX(166.08697f), scaleY(914.80906f), scaleX(166.11398f), scaleY(916.21556f), scaleX(166.15705f), scaleY(917.59894f))
-                    cubicTo(scaleX(166.34207f), scaleY(924.64759f), scaleX(166.95918f), scaleY(931.25469f), scaleX(168.03078f), scaleY(937.43648f))
-                    cubicTo(scaleX(168.04993f), scaleY(937.55015f), scaleX(168.0911f), scaleY(937.66122f), scaleX(168.11051f), scaleY(937.77462f))
-                    cubicTo(scaleX(168.33277f), scaleY(939.03533f), scaleX(168.57095f), scaleY(940.2682f), scaleX(168.82812f), scaleY(941.49416f))
-                    cubicTo(scaleX(168.88861f), scaleY(941.7927f), scaleX(168.92519f), scaleY(942.09936f), scaleX(168.98758f), scaleY(942.39586f))
-                    cubicTo(scaleX(169.19522f), scaleY(943.34788f), scaleX(169.43683f), scaleY(944.28258f), scaleX(169.66532f), scaleY(945.21369f))
-                    cubicTo(scaleX(169.87126f), scaleY(946.0859f), scaleX(170.08048f), scaleY(946.95206f), scaleX(170.30318f), scaleY(947.8061f))
-                    cubicTo(scaleX(191.18154f), scaleY(1027.8721f), scaleX(285.02482f), scaleY(1028.55f), scaleX(348.18853f), scaleY(1028.5464f))
-                    cubicTo(scaleX(349.41853f), scaleY(1028.5463f), scaleX(350.73012f), scaleY(1028.5464f), scaleX(351.936f), scaleY(1028.5464f))
-                    cubicTo(scaleX(355.39903f), scaleY(1028.5484f), scaleX(358.88595f), scaleY(1028.5464f), scaleX(362.14188f), scaleY(1028.5464f))
-                    cubicTo(scaleX(363.41347f), scaleY(1028.5457f), scaleX(364.59299f), scaleY(1028.5495f), scaleX(365.88935f), scaleY(1028.5464f))
-                    cubicTo(scaleX(429.05306f), scaleY(1028.55f), scaleX(522.89635f), scaleY(1027.8721f), scaleX(543.77469f), scaleY(947.8061f))
-                    cubicTo(scaleX(544.15335f), scaleY(946.35404f), scaleX(544.52115f), scaleY(944.87747f), scaleX(544.8511f), scaleY(943.37271f))
-                    cubicTo(scaleX(545.03608f), scaleY(942.52906f), scaleX(545.19998f), scaleY(941.67832f), scaleX(545.36936f), scaleY(940.81788f))
-                    cubicTo(scaleX(546.82341f), scaleY(933.67372f), scaleX(547.70152f), scaleY(925.95355f), scaleX(547.92083f), scaleY(917.59894f))
-                    cubicTo(scaleX(547.97045f), scaleY(916.00565f), scaleX(547.99535f), scaleY(914.39165f), scaleX(548.00057f), scaleY(912.75227f))
-                    cubicTo(scaleX(547.99571f), scaleY(911.90008f), scaleX(547.98468f), scaleY(911.05122f), scaleX(547.9607f), scaleY(910.19743f))
-                    cubicTo(scaleX(546.96368f), scaleY(842.64339f), scaleX(495.93495f), scaleY(773.91053f), scaleX(494.02102f), scaleY(726.85048f))
-                    cubicTo(scaleX(492.10709f), scaleY(679.79043f), scaleX(513.09095f), scaleY(639.23367f), scaleX(500.04323f), scaleY(615.15984f))
-                    cubicTo(scaleX(486.407f), scaleY(590.0002f), scaleX(460.66471f), scaleY(587.59929f), scaleX(428.32564f), scaleY(612.6618f))
-                    cubicTo(scaleX(425.00447f), scaleY(615.23568f), scaleX(383.4949f), scaleY(640.06295f), scaleX(385.32321f), scaleY(560.89991f))
-                    cubicTo(scaleX(369.47384f), scaleY(558.74568f), scaleX(353.6854f), scaleY(553.07089f), scaleX(351.936f), scaleY(553.04658f))
+                    cubicTo(
+                        scaleX(228.59838f),
+                        scaleY(554.76093f),
+                        scaleX(209.69151f),
+                        scaleY(578.67358f),
+                        scaleX(209.69151f),
+                        scaleY(620.67456f)
+                    )
+                    cubicTo(
+                        scaleX(209.69149f),
+                        scaleY(681.43044f),
+                        scaleX(222.0788f),
+                        scaleY(677.13503f),
+                        scaleX(220.05686f),
+                        scaleY(726.85048f)
+                    )
+                    cubicTo(
+                        scaleX(218.25094f),
+                        scaleY(771.25513f),
+                        scaleX(167.1142f),
+                        scaleY(842.64339f),
+                        scaleX(166.11718f),
+                        scaleY(910.19743f)
+                    )
+                    cubicTo(
+                        scaleX(166.10737f),
+                        scaleY(910.86212f),
+                        scaleX(166.07731f),
+                        scaleY(911.52479f),
+                        scaleX(166.07731f),
+                        scaleY(912.1887f)
+                    )
+                    cubicTo(
+                        scaleX(166.07731f),
+                        scaleY(912.37991f),
+                        scaleX(166.0767f),
+                        scaleY(912.56168f),
+                        scaleX(166.07731f),
+                        scaleY(912.75227f)
+                    )
+                    cubicTo(
+                        scaleX(166.0761f),
+                        scaleY(912.96527f),
+                        scaleX(166.07731f),
+                        scaleY(913.17806f),
+                        scaleX(166.07731f),
+                        scaleY(913.39097f)
+                    )
+                    cubicTo(
+                        scaleX(166.08697f),
+                        scaleY(914.80906f),
+                        scaleX(166.11398f),
+                        scaleY(916.21556f),
+                        scaleX(166.15705f),
+                        scaleY(917.59894f)
+                    )
+                    cubicTo(
+                        scaleX(166.34207f),
+                        scaleY(924.64759f),
+                        scaleX(166.95918f),
+                        scaleY(931.25469f),
+                        scaleX(168.03078f),
+                        scaleY(937.43648f)
+                    )
+                    cubicTo(
+                        scaleX(168.04993f),
+                        scaleY(937.55015f),
+                        scaleX(168.0911f),
+                        scaleY(937.66122f),
+                        scaleX(168.11051f),
+                        scaleY(937.77462f)
+                    )
+                    cubicTo(
+                        scaleX(168.33277f),
+                        scaleY(939.03533f),
+                        scaleX(168.57095f),
+                        scaleY(940.2682f),
+                        scaleX(168.82812f),
+                        scaleY(941.49416f)
+                    )
+                    cubicTo(
+                        scaleX(168.88861f),
+                        scaleY(941.7927f),
+                        scaleX(168.92519f),
+                        scaleY(942.09936f),
+                        scaleX(168.98758f),
+                        scaleY(942.39586f)
+                    )
+                    cubicTo(
+                        scaleX(169.19522f),
+                        scaleY(943.34788f),
+                        scaleX(169.43683f),
+                        scaleY(944.28258f),
+                        scaleX(169.66532f),
+                        scaleY(945.21369f)
+                    )
+                    cubicTo(
+                        scaleX(169.87126f),
+                        scaleY(946.0859f),
+                        scaleX(170.08048f),
+                        scaleY(946.95206f),
+                        scaleX(170.30318f),
+                        scaleY(947.8061f)
+                    )
+                    cubicTo(
+                        scaleX(191.18154f),
+                        scaleY(1027.8721f),
+                        scaleX(285.02482f),
+                        scaleY(1028.55f),
+                        scaleX(348.18853f),
+                        scaleY(1028.5464f)
+                    )
+                    cubicTo(
+                        scaleX(349.41853f),
+                        scaleY(1028.5463f),
+                        scaleX(350.73012f),
+                        scaleY(1028.5464f),
+                        scaleX(351.936f),
+                        scaleY(1028.5464f)
+                    )
+                    cubicTo(
+                        scaleX(355.39903f),
+                        scaleY(1028.5484f),
+                        scaleX(358.88595f),
+                        scaleY(1028.5464f),
+                        scaleX(362.14188f),
+                        scaleY(1028.5464f)
+                    )
+                    cubicTo(
+                        scaleX(363.41347f),
+                        scaleY(1028.5457f),
+                        scaleX(364.59299f),
+                        scaleY(1028.5495f),
+                        scaleX(365.88935f),
+                        scaleY(1028.5464f)
+                    )
+                    cubicTo(
+                        scaleX(429.05306f),
+                        scaleY(1028.55f),
+                        scaleX(522.89635f),
+                        scaleY(1027.8721f),
+                        scaleX(543.77469f),
+                        scaleY(947.8061f)
+                    )
+                    cubicTo(
+                        scaleX(544.15335f),
+                        scaleY(946.35404f),
+                        scaleX(544.52115f),
+                        scaleY(944.87747f),
+                        scaleX(544.8511f),
+                        scaleY(943.37271f)
+                    )
+                    cubicTo(
+                        scaleX(545.03608f),
+                        scaleY(942.52906f),
+                        scaleX(545.19998f),
+                        scaleY(941.67832f),
+                        scaleX(545.36936f),
+                        scaleY(940.81788f)
+                    )
+                    cubicTo(
+                        scaleX(546.82341f),
+                        scaleY(933.67372f),
+                        scaleX(547.70152f),
+                        scaleY(925.95355f),
+                        scaleX(547.92083f),
+                        scaleY(917.59894f)
+                    )
+                    cubicTo(
+                        scaleX(547.97045f),
+                        scaleY(916.00565f),
+                        scaleX(547.99535f),
+                        scaleY(914.39165f),
+                        scaleX(548.00057f),
+                        scaleY(912.75227f)
+                    )
+                    cubicTo(
+                        scaleX(547.99571f),
+                        scaleY(911.90008f),
+                        scaleX(547.98468f),
+                        scaleY(911.05122f),
+                        scaleX(547.9607f),
+                        scaleY(910.19743f)
+                    )
+                    cubicTo(
+                        scaleX(546.96368f),
+                        scaleY(842.64339f),
+                        scaleX(495.93495f),
+                        scaleY(773.91053f),
+                        scaleX(494.02102f),
+                        scaleY(726.85048f)
+                    )
+                    cubicTo(
+                        scaleX(492.10709f),
+                        scaleY(679.79043f),
+                        scaleX(513.09095f),
+                        scaleY(639.23367f),
+                        scaleX(500.04323f),
+                        scaleY(615.15984f)
+                    )
+                    cubicTo(
+                        scaleX(486.407f),
+                        scaleY(590.0002f),
+                        scaleX(460.66471f),
+                        scaleY(587.59929f),
+                        scaleX(428.32564f),
+                        scaleY(612.6618f)
+                    )
+                    cubicTo(
+                        scaleX(425.00447f),
+                        scaleY(615.23568f),
+                        scaleX(383.4949f),
+                        scaleY(640.06295f),
+                        scaleX(385.32321f),
+                        scaleY(560.89991f)
+                    )
+                    cubicTo(
+                        scaleX(369.47384f),
+                        scaleY(558.74568f),
+                        scaleX(353.6854f),
+                        scaleY(553.07089f),
+                        scaleX(351.936f),
+                        scaleY(553.04658f)
+                    )
                     close()
                 }
 
@@ -716,7 +1006,10 @@ fun GuitarRecordButton(
                 drawContext.canvas.save()
                 drawContext.canvas.clipPath(guitarBodyPath)
                 val stripeRotation = 45f
-                drawContext.transform.rotate(stripeRotation, pivot = Offset(canvasWidth / 2, canvasHeight / 2))
+                drawContext.transform.rotate(
+                    stripeRotation,
+                    pivot = Offset(canvasWidth / 2, canvasHeight / 2)
+                )
 
                 var x = -canvasWidth * 2
                 var colorIndex = 0
@@ -724,7 +1017,11 @@ fun GuitarRecordButton(
                 val stripeWidth = 6.67.dp.toPx()
 
                 while (x < canvasWidth * 3) {
-                    drawRect(color = colors[colorIndex % 3], topLeft = Offset(x, -canvasHeight * 2), size = Size(stripeWidth, canvasHeight * 4))
+                    drawRect(
+                        color = colors[colorIndex % 3],
+                        topLeft = Offset(x, -canvasHeight * 2),
+                        size = Size(stripeWidth, canvasHeight * 4)
+                    )
                     x += stripeWidth
                     colorIndex++
                 }
@@ -769,11 +1066,25 @@ fun GuitarRecordButton(
 
                 val soundHoleCenter = scalePoint(357f, 720f)
                 val soundHoleRadius = 21.6.dp.toPx()
-                drawCircle(color = darkBrown, radius = soundHoleRadius, center = soundHoleCenter, style = Stroke(width = 2.dp.toPx()))
-                drawCircle(color = soundHoleCream.copy(alpha = 0.9f), radius = soundHoleRadius - 3.dp.toPx(), center = soundHoleCenter)
+                drawCircle(
+                    color = darkBrown,
+                    radius = soundHoleRadius,
+                    center = soundHoleCenter,
+                    style = Stroke(width = 2.dp.toPx())
+                )
+                drawCircle(
+                    color = soundHoleCream.copy(alpha = 0.9f),
+                    radius = soundHoleRadius - 3.dp.toPx(),
+                    center = soundHoleCenter
+                )
 
-                listOf(345f,350f, 355f, 360f, 365f,370f).forEach { x ->
-                    drawLine(color = darkBrown.copy(alpha = 0.7f), start = scalePoint(x, 100f), end = scalePoint(x, 920f), strokeWidth = 1.dp.toPx())
+                listOf(345f, 350f, 355f, 360f, 365f, 370f).forEach { x ->
+                    drawLine(
+                        color = darkBrown.copy(alpha = 0.7f),
+                        start = scalePoint(x, 100f),
+                        end = scalePoint(x, 920f),
+                        strokeWidth = 1.dp.toPx()
+                    )
                 }
 
                 val bridgePath = Path().apply {
@@ -806,25 +1117,41 @@ fun ExcitedRainbowNote(note: String, startPosition: Offset, colorIndex: Int) {
     val offsetX by infiniteTransition.animateFloat(
         initialValue = startPosition.x,
         targetValue = startPosition.x + Random.nextFloat() * 60f - 30f,
-        animationSpec = infiniteRepeatable(animation = tween(300, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse), label = "x"
+        animationSpec = infiniteRepeatable(
+            animation = tween(300, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = "x"
     )
     val offsetY by infiniteTransition.animateFloat(
         initialValue = startPosition.y,
         targetValue = startPosition.y + Random.nextFloat() * 60f - 30f,
-        animationSpec = infiniteRepeatable(animation = tween(400, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse), label = "y"
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = "y"
     )
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec = infiniteRepeatable(animation = tween(800, easing = LinearEasing)), label = "spin"
+        animationSpec = infiniteRepeatable(animation = tween(800, easing = LinearEasing)),
+        label = "spin"
     )
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue = 1.5f,
-        animationSpec = infiniteRepeatable(animation = tween(250), repeatMode = RepeatMode.Reverse), label = "pulse"
+        animationSpec = infiniteRepeatable(animation = tween(250), repeatMode = RepeatMode.Reverse),
+        label = "pulse"
     )
 
-    Text(text = note, fontSize = 20.sp, color = erasColors[colorIndex], modifier = Modifier.offset(x = offsetX.dp, y = offsetY.dp).rotate(rotation).scale(scale))
+    Text(
+        text = note,
+        fontSize = 20.sp,
+        color = erasColors[colorIndex],
+        modifier = Modifier
+            .offset(x = offsetX.dp, y = offsetY.dp)
+            .rotate(rotation)
+            .scale(scale)
+    )
 }
 
 @Composable
@@ -833,6 +1160,7 @@ fun GuitarRecordingItem(
     isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
+    currentlyPlayingPath: String?,
     onPlay: (String) -> Unit,
     onPause: () -> Unit,
     onStop: () -> Unit,
@@ -840,12 +1168,16 @@ fun GuitarRecordingItem(
     onShare: (String) -> Unit,
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
-    onStartAttempt: (Recording, ChallengeType) -> Unit
+    onStartAttempt: (Recording, ChallengeType) -> Unit,
 ) {
     val aesthetic = AestheticTheme() // Get access to dialogs
     var showRenameDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // 🔧 POLYMORPHIC: Track which button owns the current playback
+    val isPlayingForward = currentlyPlayingPath == recording.originalPath
+    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
 
     val beigeBg = Color(0xFFC4B4A0)
     val lavenderBox = Color(0xFFB8A8C8)
@@ -853,34 +1185,125 @@ fun GuitarRecordingItem(
     val tealGreen = Color(0xFF7DB9A8)
     val peachOrange = Color(0xFFE8A87C)
 
-    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().background(beigeBg.copy(alpha = 0.65f), RoundedCornerShape(15.dp)).border(4.dp, darkBrown, RoundedCornerShape(15.dp)).padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.weight(1f).background(lavenderBox.copy(alpha = 0.65f), RoundedCornerShape(10.dp)).border(3.dp, darkBrown, RoundedCornerShape(10.dp)).clickable { showRenameDialog = true }.padding(12.dp)) {
-                    Text(text = recording.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = darkBrown, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(beigeBg.copy(alpha = 0.65f), RoundedCornerShape(15.dp))
+                .border(4.dp, darkBrown, RoundedCornerShape(15.dp))
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(lavenderBox.copy(alpha = 0.65f), RoundedCornerShape(10.dp))
+                        .border(3.dp, darkBrown, RoundedCornerShape(10.dp))
+                        .clickable { showRenameDialog = true }
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = recording.name,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = darkBrown,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = tealGreen, trackColor = Color(0xFFE8DCC8))
+            LinearProgressIndicator(
+                progress = { if (isPlayingForward || isPlayingReversed) progress else 0f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = tealGreen,
+                trackColor = Color(0xFFE8DCC8)
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                GuitarControlButton(color = tealGreen, label = "Share", onClick = { showShareDialog = true }) { GuitarShareIcon(darkBrown) }
-                GuitarControlButton(color = peachOrange, label = if (isPlaying && !isPaused) "Pause" else "Play", onClick = { if (isPlaying && !isPaused) onPause() else onPlay(recording.originalPath) }) {
-                    if (isPlaying && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(color = darkBrown)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                GuitarControlButton(
+                    color = tealGreen,
+                    label = "Share",
+                    onClick = { showShareDialog = true }) { GuitarShareIcon(darkBrown) }
+                GuitarControlButton(
+                    color = peachOrange,
+                    label = when {
+                        isPlayingForward && !isPaused -> "Pause"
+                        isPlayingForward && isPaused -> "Resume"
+                        else -> "Play"
+                    },
+                    onClick = { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }
+                ) {
+                    if (isPlayingForward && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(
+                        color = darkBrown
+                    )
                 }
-                GuitarControlButton(color = tealGreen, label = "Rev", onClick = { recording.reversedPath?.let { onPlay(it) } }) { GuitarRewindIcon(darkBrown) }
+                GuitarControlButton(
+                    color = tealGreen,
+                    label = when {
+                        isPlayingReversed && !isPaused -> "Pause"
+                        isPlayingReversed && isPaused -> "Resume"
+                        else -> "Rev"
+                    },
+                    onClick = {
+                        if (isPlayingReversed) onPause() else recording.reversedPath?.let {
+                            onPlay(
+                                it
+                            )
+                        }
+                    }
+                ) { GuitarRewindIcon(darkBrown) }
                 if (isGameModeEnabled) {
                     // 🛡️ FIX: Check if reversedPath exists before starting
-                    GuitarControlButton(color = tealGreen, label = "Try", onClick = { if (recording.reversedPath != null) onStartAttempt(recording, ChallengeType.REVERSE) }) { GuitarMicIcon(darkBrown) }
+                    GuitarControlButton(
+                        color = tealGreen,
+                        label = "Try",
+                        onClick = {
+                            if (recording.reversedPath != null) onStartAttempt(
+                                recording,
+                                ChallengeType.REVERSE
+                            )
+                        }) { GuitarMicIcon(darkBrown) }
                 }
-                GuitarControlButton(onClick = { showDeleteDialog = true }, color = peachOrange, label = "Del") { GuitarDeleteIcon(darkBrown) }
+                GuitarControlButton(
+                    onClick = { showDeleteDialog = true },
+                    color = peachOrange,
+                    label = "Del"
+                ) { GuitarDeleteIcon(darkBrown) }
             }
         }
     }
 
-    if (showRenameDialog) aesthetic.components.RenameDialog(RenamableItemType.RECORDING, recording.name, aesthetic, { onRename(recording.originalPath, it) }, { showRenameDialog = false })
-    if (showDeleteDialog) aesthetic.components.DeleteDialog(DeletableItemType.RECORDING, recording, aesthetic, { onDelete(recording) }, { showDeleteDialog = false })
-    if (showShareDialog) aesthetic.components.ShareDialog(recording, null, aesthetic, onShare, { showShareDialog = false })
+    if (showRenameDialog) aesthetic.components.RenameDialog(
+        RenamableItemType.RECORDING,
+        recording.name,
+        aesthetic,
+        { onRename(recording.originalPath, it) },
+        { showRenameDialog = false })
+    if (showDeleteDialog) aesthetic.components.DeleteDialog(
+        DeletableItemType.RECORDING,
+        recording,
+        aesthetic,
+        { onDelete(recording) },
+        { showDeleteDialog = false })
+    if (showShareDialog) aesthetic.components.ShareDialog(
+        recording,
+        null,
+        aesthetic,
+        onShare,
+        { showShareDialog = false })
 }
 
 @Composable
@@ -897,73 +1320,194 @@ fun GuitarAttemptItem(
     onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
     onShareAttempt: ((String) -> Unit)?,
     onJumpToParent: (() -> Unit)?,
-    onOverrideScore: ((Int) -> Unit)? = null
+    onOverrideScore: ((Int) -> Unit)? = null,
 ) {
     val darkBrown = Color(0xFF5d4a36)
     val tealGreen = Color(0xFF7DB9A8)
     val peachOrange = Color(0xFFE8A87C)
     val lavenderPurple = Color(0xFFB8A8C8)
 
-    val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingThis =
+        currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxWidth().padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)) {
-        Box(modifier = Modifier.fillMaxWidth().background(color = lavenderPurple.copy(alpha = 0.65f), shape = RoundedCornerShape(15.dp)).border(width = 4.dp, color = darkBrown, shape = RoundedCornerShape(15.dp)).padding(12.dp)) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = lavenderPurple.copy(alpha = 0.65f),
+                    shape = RoundedCornerShape(15.dp)
+                )
+                .border(width = 4.dp, color = darkBrown, shape = RoundedCornerShape(15.dp))
+                .padding(12.dp)
+        ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                     Column(modifier = Modifier.weight(1f)) {
                         Spacer(modifier = Modifier.height(10.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             if (onJumpToParent != null) {
-                                Icon(imageVector = Icons.Default.ArrowUpward, contentDescription = "Jump to recording", tint = darkBrown, modifier = Modifier.size(20.dp).clickable { onJumpToParent() })
+                                Icon(
+                                    imageVector = Icons.Default.ArrowUpward,
+                                    contentDescription = "Jump to recording",
+                                    tint = darkBrown,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clickable { onJumpToParent() })
                             }
-                            Box(modifier = Modifier.background(peachOrange.copy(alpha = 0.3f), RoundedCornerShape(8.dp)).border(2.dp, darkBrown, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp).clickable { showRenameDialog = true }) {
-                                Text(text = attempt.playerName, style = TextStyle(fontFamily = FontFamily.Serif, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = darkBrown), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        peachOrange.copy(alpha = 0.3f),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .border(2.dp, darkBrown, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .clickable { showRenameDialog = true }) {
+                                Text(
+                                    text = attempt.playerName,
+                                    style = TextStyle(
+                                        fontFamily = FontFamily.Serif,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = darkBrown
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.height(22.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             if (onShareAttempt != null) {
-                                GuitarControlButton(onClick = { showShareDialog = true }, color = tealGreen, label = "Share") { GuitarShareIcon(color = darkBrown) }
+                                GuitarControlButton(
+                                    onClick = { showShareDialog = true },
+                                    color = tealGreen,
+                                    label = "Share"
+                                ) { GuitarShareIcon(color = darkBrown) }
                             }
-                            GuitarControlButton(onClick = { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }, color = peachOrange, label = if (isPlayingThis && !isPaused) "Pause" else "Play") {
-                                if (isPlayingThis && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(color = darkBrown)
+                            GuitarControlButton(
+                                onClick = {
+                                    if (isPlayingThis && !isPaused) onPause() else onPlay(
+                                        attempt.attemptFilePath
+                                    )
+                                },
+                                color = peachOrange,
+                                label = if (isPlayingThis && !isPaused) "Pause" else "Play"
+                            ) {
+                                if (isPlayingThis && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(
+                                    color = darkBrown
+                                )
                             }
                             attempt.reversedAttemptFilePath?.let { reversedPath ->
-                                GuitarControlButton(onClick = { onPlay(reversedPath) }, color = tealGreen, label = "Rev") { GuitarRewindIcon(darkBrown) }
+                                GuitarControlButton(
+                                    onClick = { onPlay(reversedPath) },
+                                    color = tealGreen,
+                                    label = "Rev"
+                                ) { GuitarRewindIcon(darkBrown) }
                             }
                             if (onDeleteAttempt != null) {
-                                GuitarControlButton(onClick = { showDeleteDialog = true }, color = peachOrange, label = "Del") { GuitarDeleteIcon(color = darkBrown) }
+                                GuitarControlButton(
+                                    onClick = { showDeleteDialog = true },
+                                    color = peachOrange,
+                                    label = "Del"
+                                ) { GuitarDeleteIcon(color = darkBrown) }
                             }
                         }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    DifficultySquircle(score = attempt.score.toInt(), difficulty = attempt.difficulty, challengeType = attempt.challengeType, emoji = "🎸", width = 100.dp, height = 130.dp, onClick = { showScoreDialog = true })
+                    DifficultySquircle(
+                        score = attempt.score.toInt(),
+                        difficulty = attempt.difficulty,
+                        challengeType = attempt.challengeType,
+                        emoji = "🎸",
+                        width = 100.dp,
+                        height = 130.dp,
+                        onClick = { showScoreDialog = true })
                 }
                 if (isPlayingThis) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = tealGreen, trackColor = peachOrange.copy(alpha = 0.3f))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = tealGreen,
+                        trackColor = peachOrange.copy(alpha = 0.3f)
+                    )
                 }
             }
         }
     }
 
-    if (showRenameDialog && onRenamePlayer != null) aesthetic.components.RenameDialog(RenamableItemType.PLAYER, attempt.playerName, aesthetic, { onRenamePlayer(attempt, it) }, { showRenameDialog = false })
-    if (showDeleteDialog && onDeleteAttempt != null) aesthetic.components.DeleteDialog(DeletableItemType.ATTEMPT, attempt, aesthetic, { onDeleteAttempt(attempt) }, { showDeleteDialog = false })
-    if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(null, attempt, aesthetic, onShareAttempt, { showShareDialog = false })
-    if (showScoreDialog) aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
+    if (showRenameDialog && onRenamePlayer != null) aesthetic.components.RenameDialog(
+        RenamableItemType.PLAYER,
+        attempt.playerName,
+        aesthetic,
+        { onRenamePlayer(attempt, it) },
+        { showRenameDialog = false })
+    if (showDeleteDialog && onDeleteAttempt != null) aesthetic.components.DeleteDialog(
+        DeletableItemType.ATTEMPT,
+        attempt,
+        aesthetic,
+        { onDeleteAttempt(attempt) },
+        { showDeleteDialog = false })
+    if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(
+        null,
+        attempt,
+        aesthetic,
+        onShareAttempt,
+        { showShareDialog = false })
+    if (showScoreDialog) aesthetic.components.ScoreCard(
+        attempt,
+        aesthetic,
+        { showScoreDialog = false },
+        onOverrideScore ?: { })
 }
 
 @Composable
-fun GuitarControlButton(color: Color, label: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
+fun GuitarControlButton(
+    color: Color,
+    label: String,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
     val darkBrown = Color(0xFF5d4a36)
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
-        Box(modifier = Modifier.size(40.dp).background(color, RoundedCornerShape(10.dp)).border(3.dp, darkBrown, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) { icon() }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(color, RoundedCornerShape(10.dp))
+                .border(3.dp, darkBrown, RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) { icon() }
         Spacer(modifier = Modifier.height(1.dp))
-        Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = darkBrown, textAlign = TextAlign.Center)
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = darkBrown,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -975,11 +1519,33 @@ fun GuitarControlButton(color: Color, label: String, onClick: () -> Unit, icon: 
 fun GuitarShareIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
         val radius = 4.dp.toPx()
-        drawCircle(color = color, radius = radius, center = Offset(size.width * 0.25f, size.height * 0.5f))
-        drawCircle(color = color, radius = radius, center = Offset(size.width * 0.75f, size.height * 0.25f))
-        drawCircle(color = color, radius = radius, center = Offset(size.width * 0.75f, size.height * 0.75f))
-        drawLine(color = color, start = Offset(size.width * 0.25f, size.height * 0.5f), end = Offset(size.width * 0.75f, size.height * 0.25f), strokeWidth = 2.dp.toPx())
-        drawLine(color = color, start = Offset(size.width * 0.25f, size.height * 0.5f), end = Offset(size.width * 0.75f, size.height * 0.75f), strokeWidth = 2.dp.toPx())
+        drawCircle(
+            color = color,
+            radius = radius,
+            center = Offset(size.width * 0.25f, size.height * 0.5f)
+        )
+        drawCircle(
+            color = color,
+            radius = radius,
+            center = Offset(size.width * 0.75f, size.height * 0.25f)
+        )
+        drawCircle(
+            color = color,
+            radius = radius,
+            center = Offset(size.width * 0.75f, size.height * 0.75f)
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.25f, size.height * 0.5f),
+            end = Offset(size.width * 0.75f, size.height * 0.25f),
+            strokeWidth = 2.dp.toPx()
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.25f, size.height * 0.5f),
+            end = Offset(size.width * 0.75f, size.height * 0.75f),
+            strokeWidth = 2.dp.toPx()
+        )
     }
 }
 
@@ -1044,37 +1610,89 @@ fun GuitarPauseIcon(color: Color) {
 @Composable
 fun GuitarMicIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
-        drawRoundRect(color = color, topLeft = Offset(size.width * 0.35f, size.height * 0.15f), size = Size(size.width * 0.3f, size.height * 0.35f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()), style = Stroke(width = 2.dp.toPx()))
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(size.width * 0.35f, size.height * 0.15f),
+            size = Size(size.width * 0.3f, size.height * 0.35f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+            style = Stroke(width = 2.dp.toPx())
+        )
         val path = Path().apply {
             moveTo(size.width * 0.25f, size.height * 0.5f)
-            quadraticBezierTo(size.width * 0.25f, size.height * 0.65f, size.width * 0.5f, size.height * 0.65f)
-            quadraticBezierTo(size.width * 0.75f, size.height * 0.65f, size.width * 0.75f, size.height * 0.5f)
+            quadraticBezierTo(
+                size.width * 0.25f,
+                size.height * 0.65f,
+                size.width * 0.5f,
+                size.height * 0.65f
+            )
+            quadraticBezierTo(
+                size.width * 0.75f,
+                size.height * 0.65f,
+                size.width * 0.75f,
+                size.height * 0.5f
+            )
         }
         drawPath(path = path, color = color, style = Stroke(width = 2.dp.toPx()))
-        drawLine(color = color, start = Offset(size.width * 0.5f, size.height * 0.65f), end = Offset(size.width * 0.5f, size.height * 0.8f), strokeWidth = 2.dp.toPx())
-        drawLine(color = color, start = Offset(size.width * 0.35f, size.height * 0.8f), end = Offset(size.width * 0.65f, size.height * 0.8f), strokeWidth = 2.dp.toPx())
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.5f, size.height * 0.65f),
+            end = Offset(size.width * 0.5f, size.height * 0.8f),
+            strokeWidth = 2.dp.toPx()
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.35f, size.height * 0.8f),
+            end = Offset(size.width * 0.65f, size.height * 0.8f),
+            strokeWidth = 2.dp.toPx()
+        )
     }
 }
 
 @Composable
 fun GuitarDeleteIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
-        drawLine(color = color, start = Offset(size.width * 0.2f, size.height * 0.25f), end = Offset(size.width * 0.8f, size.height * 0.25f), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.2f, size.height * 0.25f),
+            end = Offset(size.width * 0.8f, size.height * 0.25f),
+            strokeWidth = 2.dp.toPx(),
+            cap = StrokeCap.Round
+        )
         val lidPath = Path().apply {
             moveTo(size.width * 0.35f, size.height * 0.25f)
             lineTo(size.width * 0.35f, size.height * 0.15f)
-            quadraticBezierTo(size.width * 0.35f, size.height * 0.1f, size.width * 0.4f, size.height * 0.1f)
+            quadraticBezierTo(
+                size.width * 0.35f,
+                size.height * 0.1f,
+                size.width * 0.4f,
+                size.height * 0.1f
+            )
             lineTo(size.width * 0.6f, size.height * 0.1f)
-            quadraticBezierTo(size.width * 0.65f, size.height * 0.1f, size.width * 0.65f, size.height * 0.15f)
+            quadraticBezierTo(
+                size.width * 0.65f,
+                size.height * 0.1f,
+                size.width * 0.65f,
+                size.height * 0.15f
+            )
             lineTo(size.width * 0.65f, size.height * 0.25f)
         }
         drawPath(path = lidPath, color = color, style = Stroke(width = 2.dp.toPx()))
         val canPath = Path().apply {
             moveTo(size.width * 0.25f, size.height * 0.25f)
             lineTo(size.width * 0.25f, size.height * 0.75f)
-            quadraticBezierTo(size.width * 0.25f, size.height * 0.85f, size.width * 0.35f, size.height * 0.85f)
+            quadraticBezierTo(
+                size.width * 0.25f,
+                size.height * 0.85f,
+                size.width * 0.35f,
+                size.height * 0.85f
+            )
             lineTo(size.width * 0.65f, size.height * 0.85f)
-            quadraticBezierTo(size.width * 0.75f, size.height * 0.85f, size.width * 0.75f, size.height * 0.75f)
+            quadraticBezierTo(
+                size.width * 0.75f,
+                size.height * 0.85f,
+                size.width * 0.75f,
+                size.height * 0.75f
+            )
             lineTo(size.width * 0.75f, size.height * 0.25f)
         }
         drawPath(path = canPath, color = color, style = Stroke(width = 2.dp.toPx()))
@@ -1159,7 +1777,7 @@ fun ErasTourLightshow() {
                 )
 
                 // Add a slightly brighter core to the middle beam only
-                if (j == beamsPerLight/2) {
+                if (j == beamsPerLight / 2) {
                     drawLine(
                         color = spotColor.copy(alpha = beamAlpha * 1.5f),
                         start = Offset(startX, -50f),

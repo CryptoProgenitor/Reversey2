@@ -188,6 +188,7 @@ class SnowyOwlComponents : ThemeComponents {
         isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
+        currentlyPlayingPath: String?,
         onPlay: (String) -> Unit,
         onPause: () -> Unit,
         onStop: () -> Unit,
@@ -195,13 +196,14 @@ class SnowyOwlComponents : ThemeComponents {
         onShare: (String) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
-        onStartAttempt: (Recording, ChallengeType) -> Unit
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
     ) {
         SnowyOwlRecordingItem(
             recording = recording,
             isPlaying = isPlaying,
             isPaused = isPaused,
             progress = progress,
+            currentlyPlayingPath = currentlyPlayingPath,
             onPlay = onPlay,
             onPause = onPause,
             onStop = onStop,
@@ -228,7 +230,7 @@ class SnowyOwlComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
-        onResetScore: (() -> Unit)?
+        onResetScore: (() -> Unit)?,
     ) {
         SnowyOwlAttemptItem(
             attempt = attempt,
@@ -254,7 +256,7 @@ class SnowyOwlComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float  // 🎯 PHASE 3
+        countdownProgress: Float,  // 🎯 PHASE 3
     ) {
         SnowyOwlRecordButton(
             isRecording = isRecording,
@@ -272,7 +274,7 @@ class SnowyOwlComponents : ThemeComponents {
     @Composable
     override fun AppBackground(
         aesthetic: AestheticThemeData,
-        content: @Composable () -> Unit
+        content: @Composable () -> Unit,
     ) {
         Box(
             modifier = Modifier
@@ -290,14 +292,26 @@ class SnowyOwlComponents : ThemeComponents {
     // --- NEW INTERFACE METHODS ---
 
     @Composable
-    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) {
+    override fun ScoreCard(
+        attempt: PlayerAttempt,
+        aesthetic: AestheticThemeData,
+        onDismiss: () -> Unit,
+        onOverrideScore: ((Int) -> Unit),
+    ) {
         ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
     @Composable
-    override fun DeleteDialog(itemType: DeletableItemType, item: Any, aesthetic: AestheticThemeData, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    override fun DeleteDialog(
+        itemType: DeletableItemType,
+        item: Any,
+        aesthetic: AestheticThemeData,
+        onConfirm: () -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         val copy = aesthetic.dialogCopy
-        val name = if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
+        val name =
+            if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
         val darkBlue = Color(0xFF1c2541)
         val lightBlue = Color(0xFF3a4a6d)
         val mysticPurple = Color(0xFF9B4F96)
@@ -305,21 +319,46 @@ class SnowyOwlComponents : ThemeComponents {
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = darkBlue,
-            title = { Text(copy.deleteTitle(itemType), color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text(copy.deleteMessage(itemType, name), color = Color.White.copy(alpha = 0.8f)) },
+            title = {
+                Text(
+                    copy.deleteTitle(itemType),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    copy.deleteMessage(itemType, name),
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            },
             confirmButton = {
-                Button(onClick = { onConfirm(); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = mysticPurple)) {
+                Button(
+                    onClick = { onConfirm(); onDismiss() },
+                    colors = ButtonDefaults.buttonColors(containerColor = mysticPurple)
+                ) {
                     Text(copy.deleteConfirmButton)
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text(copy.deleteCancelButton, color = Color.White) }
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        copy.deleteCancelButton,
+                        color = Color.White
+                    )
+                }
             }
         )
     }
 
     @Composable
-    override fun ShareDialog(recording: Recording?, attempt: PlayerAttempt?, aesthetic: AestheticThemeData, onShare: (String) -> Unit, onDismiss: () -> Unit) {
+    override fun ShareDialog(
+        recording: Recording?,
+        attempt: PlayerAttempt?,
+        aesthetic: AestheticThemeData,
+        onShare: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         val copy = aesthetic.dialogCopy
         val darkBlue = Color(0xFF1c2541)
         val mysticPurple = Color(0xFF9B4F96)
@@ -334,25 +373,46 @@ class SnowyOwlComponents : ThemeComponents {
                     Text(copy.shareMessage, color = Color.White.copy(alpha = 0.8f))
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    Button(onClick = { onShare(path); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = mysticPurple)) {
+                    Button(
+                        onClick = { onShare(path); onDismiss() },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = mysticPurple)
+                    ) {
                         Text("Share Original")
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { onShare(revPath); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = deepSlate)) {
+                        Button(
+                            onClick = { onShare(revPath); onDismiss() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = deepSlate)
+                        ) {
                             Text("Share Reversed")
                         }
                     }
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Color.White) } }
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "Cancel",
+                        color = Color.White
+                    )
+                }
+            }
         )
     }
 
     @Composable
-    override fun RenameDialog(itemType: RenamableItemType, currentName: String, aesthetic: AestheticThemeData, onRename: (String) -> Unit, onDismiss: () -> Unit) {
+    override fun RenameDialog(
+        itemType: RenamableItemType,
+        currentName: String,
+        aesthetic: AestheticThemeData,
+        onRename: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
         var name by remember { mutableStateOf(currentName) }
         val copy = aesthetic.dialogCopy
         val darkBlue = Color(0xFF1c2541)
@@ -361,7 +421,13 @@ class SnowyOwlComponents : ThemeComponents {
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = darkBlue,
-            title = { Text(copy.renameTitle(itemType), color = Color.White, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    copy.renameTitle(itemType),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
@@ -377,11 +443,21 @@ class SnowyOwlComponents : ThemeComponents {
                 )
             },
             confirmButton = {
-                Button(onClick = { onRename(name); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = mysticPurple)) {
+                Button(
+                    onClick = { onRename(name); onDismiss() },
+                    colors = ButtonDefaults.buttonColors(containerColor = mysticPurple)
+                ) {
                     Text("Save")
                 }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Color.White) } }
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "Cancel",
+                        color = Color.White
+                    )
+                }
+            }
         )
     }
 }
@@ -395,15 +471,22 @@ fun SnowyOwlRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    countdownProgress: Float = 1f  // 🎯 PHASE 3
+    countdownProgress: Float = 1f,  // 🎯 PHASE 3
 ) {
     val moonColor = Color(0xFFe8e8e8)
     val eclipseColor = Color(0xFF1c2541)
-    val eclipseProgress by animateFloatAsState(if (isRecording) 1f else 0f, tween(600), label = "eclipse")
+    val eclipseProgress by animateFloatAsState(
+        if (isRecording) 1f else 0f,
+        tween(600),
+        label = "eclipse"
+    )
     val infiniteTransition = rememberInfiniteTransition(label = "moonGlow")
     val glowRadius by infiniteTransition.animateFloat(
         initialValue = 80f, targetValue = 120f,
-        animationSpec = infiniteRepeatable(tween(1500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(
+            tween(1500, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
         label = "glowRadius"
     )
 
@@ -432,19 +515,43 @@ fun SnowyOwlRecordButton(
 
         if (isRecording) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                drawCircle(brush = Brush.radialGradient(colors = listOf(Color(0xFF4a5568).copy(alpha = 0.6f), Color.Transparent), radius = glowRadius), radius = glowRadius, center = center)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF4a5568).copy(alpha = 0.6f),
+                            Color.Transparent
+                        ), radius = glowRadius
+                    ), radius = glowRadius, center = center
+                )
             }
         }
-        Canvas(modifier = Modifier.size(80.dp).clickable(onClick = onClick)) {
+        Canvas(
+            modifier = Modifier
+                .size(80.dp)
+                .clickable(onClick = onClick)
+        ) {
             val radius = size.minDimension / 2 * 0.9f
             drawCircle(color = moonColor, radius = radius, center = center, style = Fill)
             if (eclipseProgress > 0f) {
-                drawCircle(color = eclipseColor, radius = radius * eclipseProgress, center = Offset(center.x - radius * 0.2f, center.y), style = Fill)
+                drawCircle(
+                    color = eclipseColor,
+                    radius = radius * eclipseProgress,
+                    center = Offset(center.x - radius * 0.2f, center.y),
+                    style = Fill
+                )
             }
             if (eclipseProgress < 0.8f) {
                 val craterAlpha = (1f - eclipseProgress).coerceAtLeast(0f)
-                drawCircle(color = Color(0xFFd0d0d0).copy(alpha = craterAlpha), radius = radius * 0.15f, center = Offset(center.x + radius * 0.3f, center.y - radius * 0.4f))
-                drawCircle(color = Color(0xFFd0d0d0).copy(alpha = craterAlpha), radius = radius * 0.08f, center = Offset(center.x - radius * 0.2f, center.y + radius * 0.5f))
+                drawCircle(
+                    color = Color(0xFFd0d0d0).copy(alpha = craterAlpha),
+                    radius = radius * 0.15f,
+                    center = Offset(center.x + radius * 0.3f, center.y - radius * 0.4f)
+                )
+                drawCircle(
+                    color = Color(0xFFd0d0d0).copy(alpha = craterAlpha),
+                    radius = radius * 0.08f,
+                    center = Offset(center.x - radius * 0.2f, center.y + radius * 0.5f)
+                )
             }
         }
     }
@@ -460,7 +567,7 @@ data class SnowflakeData(
     val size: Float,
     val speed: Float,
     val drift: Float,
-    val emoji: String = listOf("❄️", "❅", "❆").random()
+    val emoji: String = listOf("❄️", "❅", "❆").random(),
 )
 
 data class StarData(
@@ -469,7 +576,7 @@ data class StarData(
     val size: Float,
     val baseAlpha: Float,
     val twinkleSpeed: Float,  // How fast it twinkles
-    val twinklePhase: Float   // Starting phase offset
+    val twinklePhase: Float,   // Starting phase offset
 )
 
 data class ShootingStarData(
@@ -479,7 +586,7 @@ data class ShootingStarData(
     val angle: Float,         // Direction in radians
     val speed: Float,
     val length: Float,
-    val createdAt: Long
+    val createdAt: Long,
 )
 
 // ============================================
@@ -748,7 +855,7 @@ fun SnowyOwlSnowflakes() {
             while (true) {
                 withFrameMillis {
                     snowflakes = snowflakes.map { snowflake ->
-                        var newY = snowflake.y + snowflake.speed *0.3f
+                        var newY = snowflake.y + snowflake.speed * 0.3f
                         var newX = snowflake.x + snowflake.drift
 
                         if (newY > screenHeight) {
@@ -809,19 +916,40 @@ class OwlHootManager(private val context: Context) {
         setOnLoadCompleteListener { _, _, status -> if (status == 0) isSoundLoaded = true }
     }
     private var hootSoundId = 0
+
     init {
-        try { hootSoundId = soundPool.load(context, context.resources.getIdentifier("hoot", "raw", context.packageName), 1) } catch (_: Exception) {}
+        try {
+            hootSoundId = soundPool.load(
+                context,
+                context.resources.getIdentifier("hoot", "raw", context.packageName),
+                1
+            )
+        } catch (_: Exception) {
+        }
     }
-    fun playHoot() { if (isSoundLoaded && hootSoundId != 0) soundPool.play(hootSoundId, 0.7f, 0.7f, 1, 0, 1f) }
-    fun release() { soundPool.release() }
+
+    fun playHoot() {
+        if (isSoundLoaded && hootSoundId != 0) soundPool.play(hootSoundId, 0.7f, 0.7f, 1, 0, 1f)
+    }
+
+    fun release() {
+        soundPool.release()
+    }
 }
 
-data class HeartBubble(val id: Int, val startX: Float, val startY: Float, val initialDriftX: Float, val createdAt: Long = System.currentTimeMillis())
+data class HeartBubble(
+    val id: Int,
+    val startX: Float,
+    val startY: Float,
+    val initialDriftX: Float,
+    val createdAt: Long = System.currentTimeMillis(),
+)
 
 @Composable
 fun SnowyOwlFlying() {
     val density = LocalDensity.current
-    val owlWidth = 150.dp; val owlHeight = 95.dp
+    val owlWidth = 150.dp;
+    val owlHeight = 95.dp
     var owlX by remember { mutableStateOf(100f) }
     var owlY by remember { mutableStateOf(250f) }
     var baseY by remember { mutableStateOf(250f) }
@@ -846,8 +974,13 @@ fun SnowyOwlFlying() {
                     phase += 0.02f
                     owlY = baseY + sin(phase) * 70f
                     owlX += velocityX
-                    if (owlX > width + 50f) { velocityX = -1.5f; facingRight = false; baseY = Random.nextFloat() * (height * 0.6f) + (height * 0.3f); phase = 0f }
-                    else if (owlX < -200f) { velocityX = 1.5f; facingRight = true; baseY = Random.nextFloat() * (height * 0.6f) + (height * 0.3f); phase = 0f }
+                    if (owlX > width + 50f) {
+                        velocityX = -1.5f; facingRight = false; baseY =
+                            Random.nextFloat() * (height * 0.6f) + (height * 0.3f); phase = 0f
+                    } else if (owlX < -200f) {
+                        velocityX = 1.5f; facingRight = true; baseY =
+                            Random.nextFloat() * (height * 0.6f) + (height * 0.3f); phase = 0f
+                    }
                 }
             }
         }
@@ -868,13 +1001,23 @@ fun SnowyOwlFlying() {
                     detectTapGestures {
                         hootManager.playHoot()
                         repeat(4) {
-                            hearts = hearts + HeartBubble(nextId++, owlX + 100f, owlY + 50f, Random.nextFloat() * 60f * (if (Random.nextBoolean()) 1f else -1f))
+                            hearts = hearts + HeartBubble(
+                                nextId++,
+                                owlX + 100f,
+                                owlY + 50f,
+                                Random.nextFloat() * 60f * (if (Random.nextBoolean()) 1f else -1f)
+                            )
                         }
                     }
                 }
         ) {
             Canvas(
-                modifier = Modifier.fillMaxSize().graphicsLayer(scaleX = if (facingRight) 1f else -1f, rotationZ = cos(phase) * 2f)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = if (facingRight) 1f else -1f,
+                        rotationZ = cos(phase) * 2f
+                    )
             ) {
                 drawOwl(
                     wingAngle = sin(phase * 2.5f) * 25f, // Slower, bigger flaps
@@ -895,10 +1038,12 @@ fun SnowyOwlFlying() {
             }
             Text(
                 "💖",
-                modifier = Modifier.offset(
-                    x = with(density) { heart.startX.toDp() + xAnim.value.dp },
-                    y = with(density) { heart.startY.toDp() + yAnim.value.dp }
-                ).graphicsLayer(alpha = alphaAnim.value),
+                modifier = Modifier
+                    .offset(
+                        x = with(density) { heart.startX.toDp() + xAnim.value.dp },
+                        y = with(density) { heart.startY.toDp() + yAnim.value.dp }
+                    )
+                    .graphicsLayer(alpha = alphaAnim.value),
                 fontSize = 24.sp
             )
         }
@@ -917,7 +1062,7 @@ fun SnowyOwlFlying() {
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
     wingAngle: Float,
     wingY: Float,
-    facingRight: Boolean = true
+    facingRight: Boolean = true,
 ) {
     val bodyColor = Color(0xFFf8f8f8)
     val wingColor = Color(0xFFf5f5f5)
@@ -965,7 +1110,7 @@ private fun DrawScope.drawArticulatedWing(
     state: WingState,
     isNearWing: Boolean,
     wingColor: Color,
-    spotColor: Color
+    spotColor: Color,
 ) {
     val shoulderX = 400f
     val shoulderY = 240f
@@ -1077,7 +1222,7 @@ private data class WingState(
     val shoulderAngle: Float,  // Main flap angle in radians
     val elbowAngle: Float,     // Secondary bend
     val wristAngle: Float,     // Minor adjustment
-    val featherSpread: Float   // 0 = folded, 1 = spread
+    val featherSpread: Float,   // 0 = folded, 1 = spread
 )
 
 /**
@@ -1128,9 +1273,27 @@ private fun DrawScope.drawBodyCore(bodyColor: Color, spotColor: Color) {
     drawCircle(color = spotColor, radius = 7f, center = Offset(370f, 270f))
 
     // Body markings
-    drawLine(color = spotColor, start = Offset(320f, 250f), end = Offset(370f, 252f), strokeWidth = 5f, cap = StrokeCap.Round)
-    drawLine(color = spotColor, start = Offset(430f, 270f), end = Offset(480f, 268f), strokeWidth = 5f, cap = StrokeCap.Round)
-    drawLine(color = spotColor, start = Offset(340f, 310f), end = Offset(390f, 312f), strokeWidth = 5f, cap = StrokeCap.Round)
+    drawLine(
+        color = spotColor,
+        start = Offset(320f, 250f),
+        end = Offset(370f, 252f),
+        strokeWidth = 5f,
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = spotColor,
+        start = Offset(430f, 270f),
+        end = Offset(480f, 268f),
+        strokeWidth = 5f,
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = spotColor,
+        start = Offset(340f, 310f),
+        end = Offset(390f, 312f),
+        strokeWidth = 5f,
+        cap = StrokeCap.Round
+    )
 }
 
 /**
@@ -1183,10 +1346,12 @@ private fun DrawScope.drawHead(eyeColor: Color, beakColor: Color, spotColor: Col
         lineTo(468f, 260f)
         close()
     }
-    drawPath(beakPath, brush = Brush.linearGradient(
-        colors = listOf(Color(0xFFffb84d), Color(0xFFffa033)),
-        start = Offset(460f, 248f), end = Offset(460f, 260f)
-    ))
+    drawPath(
+        beakPath, brush = Brush.linearGradient(
+            colors = listOf(Color(0xFFffb84d), Color(0xFFffa033)),
+            start = Offset(460f, 248f), end = Offset(460f, 260f)
+        )
+    )
 }
 
 /**
@@ -1207,6 +1372,7 @@ fun SnowyOwlRecordingItem(
     isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
+    currentlyPlayingPath: String?,
     onPlay: (String) -> Unit,
     onPause: () -> Unit,
     onStop: () -> Unit,
@@ -1214,12 +1380,16 @@ fun SnowyOwlRecordingItem(
     onShare: (String) -> Unit,
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
-    onStartAttempt: (Recording, ChallengeType) -> Unit
+    onStartAttempt: (Recording, ChallengeType) -> Unit,
 ) {
     val aesthetic = AestheticTheme()
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
+
+    // 🔧 POLYMORPHIC: Track which button owns the current playback
+    val isPlayingForward = currentlyPlayingPath == recording.originalPath
+    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
 
     val cardOuter = Color(0xFF282832).copy(alpha = 0.6f)
     val cardInner = Color(0xFF14141e).copy(alpha = 0.6f)
@@ -1227,33 +1397,116 @@ fun SnowyOwlRecordingItem(
     val mysticPurple = Color(0xFF9B4F96).copy(alpha = 0.85f)
     val deepSlate = Color(0xFF6B4C7C).copy(alpha = 0.85f)
 
-    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 4.dp).background(cardOuter, RoundedCornerShape(20.dp)).border(2.dp, borderColor, RoundedCornerShape(20.dp)).padding(6.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().background(cardInner, RoundedCornerShape(15.dp)).padding(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.weight(1f).background(Color(0xFF505064).copy(0.5f), RoundedCornerShape(12.dp)).clickable { showRenameDialog = true }.padding(12.dp)) {
-                    Text(recording.name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 4.dp)
+            .background(cardOuter, RoundedCornerShape(20.dp))
+            .border(2.dp, borderColor, RoundedCornerShape(20.dp))
+            .padding(6.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(cardInner, RoundedCornerShape(15.dp))
+                .padding(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color(0xFF505064).copy(0.5f), RoundedCornerShape(12.dp))
+                        .clickable { showRenameDialog = true }
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        recording.name,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = Color(0xFFADD8E6).copy(0.5f))
+            LinearProgressIndicator(
+                progress = { if (isPlayingForward || isPlayingReversed) progress else 0f },
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFADD8E6).copy(0.5f)
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                OwlControlButton(mysticPurple, "Share", { showShareDialog = true }) { OwlShareIcon(Color.White) }
-                OwlControlButton(deepSlate, if (isPlaying && !isPaused) "Pause" else "Play", { if (isPlaying && !isPaused) onPause() else onPlay(recording.originalPath) }) {
-                    if (isPlaying && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                OwlControlButton(mysticPurple, "Share", { showShareDialog = true }) {
+                    OwlShareIcon(
+                        Color.White
+                    )
                 }
-                OwlControlButton(mysticPurple, "Rev", { recording.reversedPath?.let { onPlay(it) } }) { OwlRewindIcon(Color.White) }
+                OwlControlButton(
+                    deepSlate,
+                    when {
+                        isPlayingForward && !isPaused -> "Pause"
+                        isPlayingForward && isPaused -> "Resume"
+                        else -> "Play"
+                    },
+                    { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }
+                ) {
+                    if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(
+                        Color.White
+                    )
+                }
+                OwlControlButton(
+                    mysticPurple,
+                    when {
+                        isPlayingReversed && !isPaused -> "Pause"
+                        isPlayingReversed && isPaused -> "Resume"
+                        else -> "Rev"
+                    },
+                    { if (isPlayingReversed) onPause() else recording.reversedPath?.let { onPlay(it) } }
+                ) { OwlRewindIcon(Color.White) }
                 if (isGameModeEnabled) {
-                    OwlControlButton(mysticPurple, "Try", { onStartAttempt(recording, ChallengeType.REVERSE) }) { OwlMicLeftArrowIcon(Color.White) }
+                    OwlControlButton(
+                        mysticPurple,
+                        "Try",
+                        { onStartAttempt(recording, ChallengeType.REVERSE) }) {
+                        OwlMicLeftArrowIcon(
+                            Color.White
+                        )
+                    }
                 }
-                OwlControlButton(deepSlate, "Del", { showDeleteDialog = true }) { OwlDeleteIcon(Color.White) }
+                OwlControlButton(deepSlate, "Del", { showDeleteDialog = true }) {
+                    OwlDeleteIcon(
+                        Color.White
+                    )
+                }
             }
         }
     }
 
-    if (showRenameDialog) aesthetic.components.RenameDialog(RenamableItemType.RECORDING, recording.name, aesthetic, { onRename(recording.originalPath, it) }, { showRenameDialog = false })
-    if (showDeleteDialog) aesthetic.components.DeleteDialog(DeletableItemType.RECORDING, recording, aesthetic, { onDelete(recording) }, { showDeleteDialog = false })
-    if (showShareDialog) aesthetic.components.ShareDialog(recording, null, aesthetic, onShare, { showShareDialog = false })
+    if (showRenameDialog) aesthetic.components.RenameDialog(
+        RenamableItemType.RECORDING,
+        recording.name,
+        aesthetic,
+        { onRename(recording.originalPath, it) },
+        { showRenameDialog = false })
+    if (showDeleteDialog) aesthetic.components.DeleteDialog(
+        DeletableItemType.RECORDING,
+        recording,
+        aesthetic,
+        { onDelete(recording) },
+        { showDeleteDialog = false })
+    if (showShareDialog) aesthetic.components.ShareDialog(
+        recording,
+        null,
+        aesthetic,
+        onShare,
+        { showShareDialog = false })
 }
 
 @Composable
@@ -1270,13 +1523,14 @@ fun SnowyOwlAttemptItem(
     onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
     onShareAttempt: ((String) -> Unit)?,
     onJumpToParent: (() -> Unit)?,
-    onOverrideScore: ((Int) -> Unit)?
+    onOverrideScore: ((Int) -> Unit)?,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
-    val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingThis =
+        currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
 
     val cardOuter = Color(0xFF282832).copy(alpha = 0.6f)
     val cardInner = Color(0xFF14141e).copy(alpha = 0.6f)
@@ -1284,24 +1538,71 @@ fun SnowyOwlAttemptItem(
     val mysticPurple = Color(0xFF9B4F96).copy(alpha = 0.85f)
     val deepSlate = Color(0xFF6B4C7C).copy(alpha = 0.85f)
 
-    Box(modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 6.dp, top = 8.dp, bottom = 8.dp).background(cardOuter, RoundedCornerShape(20.dp)).border(2.dp, borderColor, RoundedCornerShape(20.dp)).padding(6.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().background(cardInner, RoundedCornerShape(15.dp)).padding(12.dp)) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 6.dp, top = 8.dp, bottom = 8.dp)
+            .background(cardOuter, RoundedCornerShape(20.dp))
+            .border(2.dp, borderColor, RoundedCornerShape(20.dp))
+            .padding(6.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(cardInner, RoundedCornerShape(15.dp))
+                .padding(12.dp)
+        ) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (onJumpToParent != null) Box(modifier = Modifier.size(20.dp).clickable { onJumpToParent() }) { OwlHomeIcon(Color.White.copy(0.9f)) }
-                        Box(modifier = Modifier.background(Color(0xFF505064).copy(0.5f), RoundedCornerShape(8.dp)).clickable { showRenameDialog = true }.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                            Text(attempt.playerName, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (onJumpToParent != null) Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clickable { onJumpToParent() }) { OwlHomeIcon(Color.White.copy(0.9f)) }
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    Color(0xFF505064).copy(0.5f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable { showRenameDialog = true }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                attempt.playerName,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (onShareAttempt != null) OwlControlButton(mysticPurple, "Share", { showShareDialog = true }) { OwlShareIcon(Color.White) }
-                        OwlControlButton(deepSlate, if (isPlayingThis && !isPaused) "Pause" else "Play", { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }) {
-                            if (isPlayingThis && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
+                        if (onShareAttempt != null) OwlControlButton(
+                            mysticPurple,
+                            "Share",
+                            { showShareDialog = true }) { OwlShareIcon(Color.White) }
+                        OwlControlButton(
+                            deepSlate,
+                            if (isPlayingThis && !isPaused) "Pause" else "Play",
+                            { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }) {
+                            if (isPlayingThis && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(
+                                Color.White
+                            )
                         }
-                        attempt.reversedAttemptFilePath?.let { reversedPath -> OwlControlButton(mysticPurple, "Rev", { onPlay(reversedPath) }) { OwlRewindIcon(Color.White) } }
-                        if (onDeleteAttempt != null) OwlControlButton(deepSlate, "Del", { showDeleteDialog = true }) { OwlDeleteIcon(Color.White) }
+                        attempt.reversedAttemptFilePath?.let { reversedPath ->
+                            OwlControlButton(
+                                mysticPurple,
+                                "Rev",
+                                { onPlay(reversedPath) }) { OwlRewindIcon(Color.White) }
+                        }
+                        if (onDeleteAttempt != null) OwlControlButton(
+                            deepSlate,
+                            "Del",
+                            { showDeleteDialog = true }) { OwlDeleteIcon(Color.White) }
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
@@ -1318,14 +1619,39 @@ fun SnowyOwlAttemptItem(
                     { showScoreDialog = true }
                 )
             }
-            if (isPlayingThis) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = Color(0xFFADD8E6).copy(0.5f))
+            if (isPlayingThis) LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                color = Color(0xFFADD8E6).copy(0.5f)
+            )
         }
     }
 
-    if (showRenameDialog && onRenamePlayer != null) aesthetic.components.RenameDialog(RenamableItemType.PLAYER, attempt.playerName, aesthetic, { onRenamePlayer(attempt, it) }, { showRenameDialog = false })
-    if (showDeleteDialog && onDeleteAttempt != null) aesthetic.components.DeleteDialog(DeletableItemType.ATTEMPT, attempt, aesthetic, { onDeleteAttempt(attempt) }, { showDeleteDialog = false })
-    if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(null, attempt, aesthetic, onShareAttempt, { showShareDialog = false })
-    if (showScoreDialog) aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
+    if (showRenameDialog && onRenamePlayer != null) aesthetic.components.RenameDialog(
+        RenamableItemType.PLAYER,
+        attempt.playerName,
+        aesthetic,
+        { onRenamePlayer(attempt, it) },
+        { showRenameDialog = false })
+    if (showDeleteDialog && onDeleteAttempt != null) aesthetic.components.DeleteDialog(
+        DeletableItemType.ATTEMPT,
+        attempt,
+        aesthetic,
+        { onDeleteAttempt(attempt) },
+        { showDeleteDialog = false })
+    if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(
+        null,
+        attempt,
+        aesthetic,
+        onShareAttempt,
+        { showShareDialog = false })
+    if (showScoreDialog) aesthetic.components.ScoreCard(
+        attempt,
+        aesthetic,
+        { showScoreDialog = false },
+        onOverrideScore ?: { })
 }
 
 // ============================================
@@ -1333,9 +1659,23 @@ fun SnowyOwlAttemptItem(
 // ============================================
 
 @Composable
-fun OwlControlButton(color: Color, label: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
-        Box(modifier = Modifier.size(44.dp).background(color, RoundedCornerShape(10.dp)).border(2.dp, Color(0xFFC8508C).copy(0.6f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) { icon() }
+fun OwlControlButton(
+    color: Color,
+    label: String,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(color, RoundedCornerShape(10.dp))
+                .border(2.dp, Color(0xFFC8508C).copy(0.6f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) { icon() }
         Text(label, fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -1343,15 +1683,33 @@ fun OwlControlButton(color: Color, label: String, onClick: () -> Unit, icon: @Co
 @Composable
 fun OwlPlayIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
-        drawPath(Path().apply { moveTo(size.width * 0.29f, size.height * 0.17f); lineTo(size.width * 0.29f, size.height * 0.83f); lineTo(size.width * 0.79f, size.height * 0.5f); close() }, color, style = Stroke(width = 2.dp.toPx()))
+        drawPath(Path().apply {
+            moveTo(
+                size.width * 0.29f,
+                size.height * 0.17f
+            ); lineTo(size.width * 0.29f, size.height * 0.83f); lineTo(
+            size.width * 0.79f,
+            size.height * 0.5f
+        ); close()
+        }, color, style = Stroke(width = 2.dp.toPx()))
     }
 }
 
 @Composable
 fun OwlPauseIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
-        drawRect(color, topLeft = Offset(size.width * 0.3f, size.height * 0.2f), size = Size(size.width * 0.12f, size.height * 0.6f), style = Stroke(width = 2.dp.toPx()))
-        drawRect(color, topLeft = Offset(size.width * 0.58f, size.height * 0.2f), size = Size(size.width * 0.12f, size.height * 0.6f), style = Stroke(width = 2.dp.toPx()))
+        drawRect(
+            color,
+            topLeft = Offset(size.width * 0.3f, size.height * 0.2f),
+            size = Size(size.width * 0.12f, size.height * 0.6f),
+            style = Stroke(width = 2.dp.toPx())
+        )
+        drawRect(
+            color,
+            topLeft = Offset(size.width * 0.58f, size.height * 0.2f),
+            size = Size(size.width * 0.12f, size.height * 0.6f),
+            style = Stroke(width = 2.dp.toPx())
+        )
     }
 }
 
@@ -1359,11 +1717,36 @@ fun OwlPauseIcon(color: Color) {
 fun OwlShareIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
         val r = size.width * 0.083f
-        drawCircle(color, r, Offset(size.width * 0.25f, size.height * 0.5f), style = Stroke(2.dp.toPx()))
-        drawCircle(color, r, Offset(size.width * 0.75f, size.height * 0.25f), style = Stroke(2.dp.toPx()))
-        drawCircle(color, r, Offset(size.width * 0.75f, size.height * 0.75f), style = Stroke(2.dp.toPx()))
-        drawLine(color, Offset(size.width * 0.33f, size.height * 0.5f), Offset(size.width * 0.67f, size.height * 0.29f), strokeWidth = 2.dp.toPx())
-        drawLine(color, Offset(size.width * 0.33f, size.height * 0.5f), Offset(size.width * 0.67f, size.height * 0.71f), strokeWidth = 2.dp.toPx())
+        drawCircle(
+            color,
+            r,
+            Offset(size.width * 0.25f, size.height * 0.5f),
+            style = Stroke(2.dp.toPx())
+        )
+        drawCircle(
+            color,
+            r,
+            Offset(size.width * 0.75f, size.height * 0.25f),
+            style = Stroke(2.dp.toPx())
+        )
+        drawCircle(
+            color,
+            r,
+            Offset(size.width * 0.75f, size.height * 0.75f),
+            style = Stroke(2.dp.toPx())
+        )
+        drawLine(
+            color,
+            Offset(size.width * 0.33f, size.height * 0.5f),
+            Offset(size.width * 0.67f, size.height * 0.29f),
+            strokeWidth = 2.dp.toPx()
+        )
+        drawLine(
+            color,
+            Offset(size.width * 0.33f, size.height * 0.5f),
+            Offset(size.width * 0.67f, size.height * 0.71f),
+            strokeWidth = 2.dp.toPx()
+        )
     }
 }
 
@@ -1371,40 +1754,118 @@ fun OwlShareIcon(color: Color) {
 fun OwlRewindIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
         val stroke = 2.dp.toPx()
-        drawPath(Path().apply { moveTo(size.width * 0.54f, size.height * 0.71f); lineTo(size.width * 0.29f, size.height * 0.5f); lineTo(size.width * 0.54f, size.height * 0.29f) }, color, style = Stroke(stroke))
-        drawPath(Path().apply { moveTo(size.width * 0.83f, size.height * 0.71f); lineTo(size.width * 0.58f, size.height * 0.5f); lineTo(size.width * 0.83f, size.height * 0.29f) }, color, style = Stroke(stroke))
+        drawPath(Path().apply {
+            moveTo(
+                size.width * 0.54f,
+                size.height * 0.71f
+            ); lineTo(size.width * 0.29f, size.height * 0.5f); lineTo(
+            size.width * 0.54f,
+            size.height * 0.29f
+        )
+        }, color, style = Stroke(stroke))
+        drawPath(Path().apply {
+            moveTo(
+                size.width * 0.83f,
+                size.height * 0.71f
+            ); lineTo(size.width * 0.58f, size.height * 0.5f); lineTo(
+            size.width * 0.83f,
+            size.height * 0.29f
+        )
+        }, color, style = Stroke(stroke))
     }
 }
 
 @Composable
 fun OwlDeleteIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
-        drawLine(color, Offset(size.width * 0.33f, size.height * 0.33f), Offset(size.width * 0.67f, size.height * 0.67f), strokeWidth = 2.5.dp.toPx())
-        drawLine(color, Offset(size.width * 0.67f, size.height * 0.33f), Offset(size.width * 0.33f, size.height * 0.67f), strokeWidth = 2.5.dp.toPx())
-        drawPath(Path().apply { moveTo(size.width * 0.25f, size.height * 0.75f); lineTo(size.width * 0.75f, size.height * 0.75f); lineTo(size.width * 0.79f, size.height * 0.83f); lineTo(size.width * 0.21f, size.height * 0.83f); close() }, color, style = Stroke(2.dp.toPx()))
+        drawLine(
+            color,
+            Offset(size.width * 0.33f, size.height * 0.33f),
+            Offset(size.width * 0.67f, size.height * 0.67f),
+            strokeWidth = 2.5.dp.toPx()
+        )
+        drawLine(
+            color,
+            Offset(size.width * 0.67f, size.height * 0.33f),
+            Offset(size.width * 0.33f, size.height * 0.67f),
+            strokeWidth = 2.5.dp.toPx()
+        )
+        drawPath(Path().apply {
+            moveTo(
+                size.width * 0.25f,
+                size.height * 0.75f
+            ); lineTo(size.width * 0.75f, size.height * 0.75f); lineTo(
+            size.width * 0.79f,
+            size.height * 0.83f
+        ); lineTo(size.width * 0.21f, size.height * 0.83f); close()
+        }, color, style = Stroke(2.dp.toPx()))
     }
 }
 
 @Composable
 fun OwlHomeIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
-        drawPath(Path().apply { moveTo(size.width * 0.125f, size.height * 0.5f); lineTo(size.width * 0.5f, size.height * 0.125f); lineTo(size.width * 0.875f, size.height * 0.5f) }, color, style = Stroke(2.dp.toPx()))
-        drawPath(Path().apply { moveTo(size.width * 0.21f, size.height * 0.42f); lineTo(size.width * 0.21f, size.height * 0.83f); lineTo(size.width * 0.79f, size.height * 0.83f); lineTo(size.width * 0.79f, size.height * 0.42f) }, color, style = Stroke(2.dp.toPx()))
+        drawPath(Path().apply {
+            moveTo(
+                size.width * 0.125f,
+                size.height * 0.5f
+            ); lineTo(size.width * 0.5f, size.height * 0.125f); lineTo(
+            size.width * 0.875f,
+            size.height * 0.5f
+        )
+        }, color, style = Stroke(2.dp.toPx()))
+        drawPath(Path().apply {
+            moveTo(
+                size.width * 0.21f,
+                size.height * 0.42f
+            ); lineTo(size.width * 0.21f, size.height * 0.83f); lineTo(
+            size.width * 0.79f,
+            size.height * 0.83f
+        ); lineTo(size.width * 0.79f, size.height * 0.42f)
+        }, color, style = Stroke(2.dp.toPx()))
     }
 }
 
 @Composable
 fun OwlMicRightArrowIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
-        drawRoundRect(color, topLeft = Offset(size.width * 0.1f, size.height * 0.15f), size = Size(size.width * 0.22f, size.height * 0.45f), cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()), style = Stroke(2.5.dp.toPx()))
-        drawPath(Path().apply { moveTo(size.width * 0.48f, size.height * 0.15f); lineTo(size.width * 0.68f, size.height * 0.375f); lineTo(size.width * 0.48f, size.height * 0.60f) }, color, style = Stroke(2.5.dp.toPx()))
+        drawRoundRect(
+            color,
+            topLeft = Offset(size.width * 0.1f, size.height * 0.15f),
+            size = Size(size.width * 0.22f, size.height * 0.45f),
+            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+            style = Stroke(2.5.dp.toPx())
+        )
+        drawPath(Path().apply {
+            moveTo(
+                size.width * 0.48f,
+                size.height * 0.15f
+            ); lineTo(size.width * 0.68f, size.height * 0.375f); lineTo(
+            size.width * 0.48f,
+            size.height * 0.60f
+        )
+        }, color, style = Stroke(2.5.dp.toPx()))
     }
 }
 
 @Composable
 fun OwlMicLeftArrowIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
-        drawRoundRect(color, topLeft = Offset(size.width * 0.68f, size.height * 0.15f), size = Size(size.width * 0.22f, size.height * 0.45f), cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()), style = Stroke(2.5.dp.toPx()))
-        drawPath(Path().apply { moveTo(size.width * 0.52f, size.height * 0.15f); lineTo(size.width * 0.32f, size.height * 0.375f); lineTo(size.width * 0.52f, size.height * 0.60f) }, color, style = Stroke(2.5.dp.toPx()))
+        drawRoundRect(
+            color,
+            topLeft = Offset(size.width * 0.68f, size.height * 0.15f),
+            size = Size(size.width * 0.22f, size.height * 0.45f),
+            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+            style = Stroke(2.5.dp.toPx())
+        )
+        drawPath(Path().apply {
+            moveTo(
+                size.width * 0.52f,
+                size.height * 0.15f
+            ); lineTo(size.width * 0.32f, size.height * 0.375f); lineTo(
+            size.width * 0.52f,
+            size.height * 0.60f
+        )
+        }, color, style = Stroke(2.5.dp.toPx()))
     }
 }

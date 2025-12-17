@@ -157,6 +157,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
+        currentlyPlayingPath: String?,
         onPlay: (String) -> Unit,
         onPause: () -> Unit,
         onStop: () -> Unit,
@@ -164,7 +165,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         onShare: (String) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
-        onStartAttempt: (Recording, ChallengeType) -> Unit
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
@@ -182,15 +183,28 @@ class ScrapbookThemeComponents : ThemeComponents {
 
         val isReady = recording.reversedPath != null
 
+        // 🔧 POLYMORPHIC: Track which button owns the current playback
+        val isPlayingForward = currentlyPlayingPath == recording.originalPath
+        val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
         ) {
-            Box(modifier = Modifier.matchParentSize().offset(y = 4.dp).rotate(rotation).background(Color.Black.copy(alpha = 0.15f), tornShape))
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .offset(y = 4.dp)
+                    .rotate(rotation)
+                    .background(Color.Black.copy(alpha = 0.15f), tornShape)
+            )
 
             Card(
-                modifier = Modifier.fillMaxWidth().rotate(rotation).border(1.dp, Color.White.copy(alpha = 0.6f), tornShape),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .rotate(rotation)
+                    .border(1.dp, Color.White.copy(alpha = 0.6f), tornShape),
                 colors = CardDefaults.cardColors(containerColor = stickyNoteColor),
                 shape = tornShape,
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -198,35 +212,89 @@ class ScrapbookThemeComponents : ThemeComponents {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "🎤 ${recording.name}",
-                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = dancingScriptFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        ),
                         color = contentColor,
-                        modifier = Modifier.fillMaxWidth().clickable { showRenameDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showRenameDialog = true },
                         maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-                        ScrapbookButton(onClick = { showShareDialog = true }, icon = Icons.Default.Share, label = "Share", iconColor = Color(0xFF607D8B))
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        ScrapbookButton(
+                            onClick = { showShareDialog = true },
+                            icon = Icons.Default.Share,
+                            label = "Share",
+                            iconColor = Color(0xFF607D8B)
+                        )
 
-                        if (isPlaying && !isPaused) {
-                            ScrapbookButton(onClick = onPause, icon = Icons.Default.Pause, label = "Pause", iconColor = Color(0xFF4CAF50))
-                        } else {
-                            ScrapbookButton(onClick = { onPlay(recording.originalPath) }, icon = Icons.Default.PlayArrow, label = "Play", iconColor = Color(0xFF2196F3))
-                        }
+                        // 🔧 POLYMORPHIC Play button
+                        ScrapbookButton(
+                            onClick = { if (isPlayingForward) onPause() else onPlay(recording.originalPath) },
+                            icon = if (isPlayingForward && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            label = when {
+                                isPlayingForward && !isPaused -> "Pause"
+                                isPlayingForward && isPaused -> "Resume"
+                                else -> "Play"
+                            },
+                            iconColor = if (isPlayingForward) Color(0xFF4CAF50) else Color(
+                                0xFF2196F3
+                            )
+                        )
 
-                        ScrapbookButton(onClick = { recording.reversedPath?.let { onPlay(it) } }, icon = Icons.Default.FastForward, label = "Rev", iconColor = Color(0xFFFF9800), enabled = isReady)
+                        // 🔧 POLYMORPHIC Rev button
+                        ScrapbookButton(
+                            onClick = {
+                                if (isPlayingReversed) onPause() else recording.reversedPath?.let {
+                                    onPlay(
+                                        it
+                                    )
+                                }
+                            },
+                            icon = if (isPlayingReversed && !isPaused) Icons.Default.Pause else Icons.Default.FastRewind,
+                            label = when {
+                                isPlayingReversed && !isPaused -> "Pause"
+                                isPlayingReversed && isPaused -> "Resume"
+                                else -> "Rev"
+                            },
+                            iconColor = Color(0xFFFF9800),
+                            enabled = isReady
+                        )
 
                         if (isGameModeEnabled) {
-                            ScrapbookButton(onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }, icon = Icons.Default.Mic, label = "Try", iconColor = Color(0xFFE91E63), enabled = isReady)
+                            ScrapbookButton(
+                                onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
+                                icon = Icons.Default.Mic,
+                                label = "Try",
+                                iconColor = Color(0xFFE91E63),
+                                enabled = isReady
+                            )
                         }
 
-                        ScrapbookButton(onClick = { showDeleteDialog = true }, icon = Icons.Default.Delete, label = "Del", iconColor = Color(0xFFFF1744))
+                        ScrapbookButton(
+                            onClick = { showDeleteDialog = true },
+                            icon = Icons.Default.Delete,
+                            label = "Del",
+                            iconColor = Color(0xFFFF1744)
+                        )
                     }
 
-                    if (isPlaying) {
+                    if (isPlayingForward || isPlayingReversed) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = Color(0xFF4CAF50))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFF4CAF50)
+                        )
                     }
                 }
             }
@@ -234,9 +302,24 @@ class ScrapbookThemeComponents : ThemeComponents {
             TapeCorner(Modifier.align(Alignment.TopEnd), 8.dp, (-8).dp, tapeRotation2)
         }
 
-        if (showRenameDialog) RenameDialog(RenamableItemType.RECORDING, recording.name, aesthetic, { onRename(recording.originalPath, it) }, { showRenameDialog = false })
-        if (showDeleteDialog) DeleteDialog(DeletableItemType.RECORDING, recording, aesthetic, { onDelete(recording) }, { showDeleteDialog = false })
-        if (showShareDialog) ShareDialog(recording, null, aesthetic, onShare, { showShareDialog = false })
+        if (showRenameDialog) RenameDialog(
+            RenamableItemType.RECORDING,
+            recording.name,
+            aesthetic,
+            { onRename(recording.originalPath, it) },
+            { showRenameDialog = false })
+        if (showDeleteDialog) DeleteDialog(
+            DeletableItemType.RECORDING,
+            recording,
+            aesthetic,
+            { onDelete(recording) },
+            { showDeleteDialog = false })
+        if (showShareDialog) ShareDialog(
+            recording,
+            null,
+            aesthetic,
+            onShare,
+            { showShareDialog = false })
     }
 
     @Composable
@@ -254,17 +337,27 @@ class ScrapbookThemeComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
-        onResetScore: (() -> Unit)?
+        onResetScore: (() -> Unit)?,
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
         var showShareDialog by remember { mutableStateOf(false) }
         var showScoreDialog by remember { mutableStateOf(false) }
 
-        val isPlayingThis = currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
+        // 🔧 POLYMORPHIC: Track which specific file is playing
+        val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
+        val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+
         val stableId = attempt.attemptFilePath.hashCode()
         val stickyNoteColor = remember(stableId) {
-            listOf(Color(0xFFFFF59D), Color(0xFFF8BBD9), Color(0xFFC8E6C9), Color(0xFFBBDEFB), Color(0xFFE1BEE7), Color(0xFFFFCCBC))[stableId.mod(6)]
+            listOf(
+                Color(0xFFFFF59D),
+                Color(0xFFF8BBD9),
+                Color(0xFFC8E6C9),
+                Color(0xFFBBDEFB),
+                Color(0xFFE1BEE7),
+                Color(0xFFFFCCBC)
+            )[stableId.mod(6)]
         }
         val contentColor = Color.Black.copy(alpha = 0.8f)
         val rotation = remember(stableId) { (stableId % 7 - 3).toFloat() }
@@ -272,50 +365,173 @@ class ScrapbookThemeComponents : ThemeComponents {
         val tapeRotation2 = remember(stableId) { ((stableId * 17) % 31 - 15).toFloat() }
         val tornShape = remember(stableId) { TornPaperShape(stableId + 100) }
 
-        Box(modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
-            Box(modifier = Modifier.matchParentSize().offset(y = 3.dp).rotate(rotation).background(Color.Black.copy(alpha = 0.15f), tornShape))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 32.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .offset(y = 3.dp)
+                    .rotate(rotation)
+                    .background(Color.Black.copy(alpha = 0.15f), tornShape)
+            )
 
             Card(
-                modifier = Modifier.fillMaxWidth().rotate(rotation).border(1.dp, Color.White.copy(alpha = 0.5f), tornShape),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .rotate(rotation)
+                    .border(1.dp, Color.White.copy(alpha = 0.5f), tornShape),
                 colors = CardDefaults.cardColors(containerColor = stickyNoteColor),
                 shape = tornShape,
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = attempt.playerName, style = MaterialTheme.typography.bodyLarge.copy(fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold), color = contentColor, modifier = Modifier.weight(1f).clickable { showRenameDialog = true })
-                        Row(modifier = Modifier.clickable { showScoreDialog = true }, verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = attempt.playerName,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontFamily = dancingScriptFontFamily,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = contentColor,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showRenameDialog = true })
+                        Row(
+                            modifier = Modifier.clickable { showScoreDialog = true },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             val fullStars = attempt.score.toInt() / 20
-                            repeat(5) { index -> Icon(if (index < fullStars) Icons.Filled.Star else Icons.Outlined.StarBorder, null, tint = if (index < fullStars) Color(0xFFFFD700) else Color.Gray, modifier = Modifier.size(16.dp)) }
+                            repeat(5) { index ->
+                                Icon(
+                                    if (index < fullStars) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                    null,
+                                    tint = if (index < fullStars) Color(0xFFFFD700) else Color.Gray,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("${attempt.score}%", style = MaterialTheme.typography.bodySmall.copy(fontFamily = dancingScriptFontFamily), color = Color.Black.copy(0.7f))
+                            Text(
+                                "${attempt.score}%",
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = dancingScriptFontFamily),
+                                color = Color.Black.copy(0.7f)
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(6.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        Text(if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️", fontSize = 12.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Text(
+                            if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️",
+                            fontSize = 12.sp
+                        )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(attempt.difficulty.displayName.uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold), color = DifficultyConfig.getColorForDifficulty(attempt.difficulty), modifier = Modifier.background(Color.Black.copy(0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+                        Text(
+                            attempt.difficulty.displayName.uppercase(),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = dancingScriptFontFamily,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = DifficultyConfig.getColorForDifficulty(attempt.difficulty),
+                            modifier = Modifier
+                                .background(
+                                    Color.Black.copy(0.1f),
+                                    RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
+
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (onJumpToParent != null) ScrapbookButton(onClick = onJumpToParent, icon = Icons.Default.Home, label = "Original", iconColor = Color(0xFF607D8B))
-                        if (onShareAttempt != null) ScrapbookButton(onClick = { showShareDialog = true }, icon = Icons.Default.Share, label = "Share", iconColor = Color(0xFF9C27B0))
-                        ScrapbookButton(onClick = { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }, icon = if (isPlayingThis && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow, label = if (isPlayingThis && !isPaused) "Pause" else "Play", iconColor = if (isPlayingThis && !isPaused) Color(0xFF4CAF50) else Color(0xFF2196F3))
-                        if (attempt.reversedAttemptFilePath != null) ScrapbookButton(onClick = { onPlay(attempt.reversedAttemptFilePath) }, icon = Icons.Default.FastForward, label = "Rev", iconColor = Color(0xFFFF9800))
-                        if (onDeleteAttempt != null) ScrapbookButton(onClick = { showDeleteDialog = true }, icon = Icons.Default.Delete, label = "Del", iconColor = Color(0xFFFF1744))
+                        if (onJumpToParent != null) ScrapbookButton(
+                            onClick = onJumpToParent,
+                            icon = Icons.Default.Home,
+                            label = "Original",
+                            iconColor = Color(0xFF607D8B)
+                        )
+                        if (onShareAttempt != null) ScrapbookButton(
+                            onClick = { showShareDialog = true },
+                            icon = Icons.Default.Share,
+                            label = "Share",
+                            iconColor = Color(0xFF9C27B0)
+                        )
+
+                        // 🔧 POLYMORPHIC Play button
+                        ScrapbookButton(
+                            onClick = { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) },
+                            icon = if (isPlayingForward && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            label = when {
+                                isPlayingForward && !isPaused -> "Pause"
+                                isPlayingForward && isPaused -> "Resume"
+                                else -> "Play"
+                            },
+                            iconColor = if (isPlayingForward) Color(0xFF4CAF50) else Color(
+                                0xFF2196F3
+                            )
+                        )
+
+                        // 🔧 POLYMORPHIC Rev button
+                        if (attempt.reversedAttemptFilePath != null) ScrapbookButton(
+                            onClick = { if (isPlayingReversed) onPause() else onPlay(attempt.reversedAttemptFilePath) },
+                            icon = if (isPlayingReversed && !isPaused) Icons.Default.Pause else Icons.Default.FastRewind,
+                            label = when {
+                                isPlayingReversed && !isPaused -> "Pause"
+                                isPlayingReversed && isPaused -> "Resume"
+                                else -> "Rev"
+                            },
+                            iconColor = Color(0xFFFF9800)
+                        )
+
+                        if (onDeleteAttempt != null) ScrapbookButton(
+                            onClick = { showDeleteDialog = true },
+                            icon = Icons.Default.Delete,
+                            label = "Del",
+                            iconColor = Color(0xFFFF1744)
+                        )
                     }
-                    if (isPlayingThis) { Spacer(modifier = Modifier.height(8.dp)); LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = Color(0xFF4CAF50)) }
+
+                    if (isPlayingForward || isPlayingReversed) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFF4CAF50)
+                        )
+                    }
                 }
             }
             TapeCorner(Modifier.align(Alignment.TopStart), (-8).dp, (-8).dp, tapeRotation1)
             TapeCorner(Modifier.align(Alignment.TopEnd), 8.dp, (-8).dp, tapeRotation2)
         }
 
-        if (showRenameDialog && onRenamePlayer != null) RenameDialog(RenamableItemType.PLAYER, attempt.playerName, aesthetic, { onRenamePlayer(attempt, it) }, { showRenameDialog = false })
-        if (showDeleteDialog && onDeleteAttempt != null) DeleteDialog(DeletableItemType.ATTEMPT, attempt, aesthetic, { onDeleteAttempt(attempt) }, { showDeleteDialog = false })
-        if (showShareDialog && onShareAttempt != null) ShareDialog(null, attempt, aesthetic, onShareAttempt, { showShareDialog = false })
-        if (showScoreDialog) ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
+        if (showRenameDialog && onRenamePlayer != null) RenameDialog(
+            RenamableItemType.PLAYER,
+            attempt.playerName,
+            aesthetic,
+            { onRenamePlayer(attempt, it) },
+            { showRenameDialog = false })
+        if (showDeleteDialog && onDeleteAttempt != null) DeleteDialog(
+            DeletableItemType.ATTEMPT,
+            attempt,
+            aesthetic,
+            { onDeleteAttempt(attempt) },
+            { showDeleteDialog = false })
+        if (showShareDialog && onShareAttempt != null) ShareDialog(
+            null,
+            attempt,
+            aesthetic,
+            onShareAttempt,
+            { showShareDialog = false })
+        if (showScoreDialog) ScoreCard(
+            attempt,
+            aesthetic,
+            { showScoreDialog = false },
+            onOverrideScore ?: { })
     }
 
     /*@Composable
@@ -333,7 +549,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float  // 🎯 PHASE 3
+        countdownProgress: Float,  // 🎯 PHASE 3
     ) {
         // SVG booklet as the base
         val notebookPainter = painterResource(id = R.drawable.spiral_notebook)
@@ -415,7 +631,6 @@ class ScrapbookThemeComponents : ThemeComponents {
     }
 
 
-
     @Composable
     override fun AppBackground(aesthetic: AestheticThemeData, content: @Composable () -> Unit) {
         val audioViewModel: AudioViewModel = hiltViewModel()
@@ -449,36 +664,218 @@ class ScrapbookThemeComponents : ThemeComponents {
     }
 
     // --- DIALOGS ---
-    @Composable override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) { ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore) }
-    @Composable override fun DeleteDialog(itemType: DeletableItemType, item: Any, aesthetic: AestheticThemeData, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-        val copy = aesthetic.dialogCopy; val name = if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
-        AlertDialog(onDismissRequest = onDismiss, containerColor = Color(0xFFFFF3E0), title = { Text(copy.deleteTitle(itemType), fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Color(0xFF3E2723)) }, text = { Text(copy.deleteMessage(itemType, name), fontFamily = dancingScriptFontFamily, fontSize = 18.sp, color = Color(0xFF5D4037)) }, confirmButton = { Button(onClick = { onConfirm(); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))) { Text(copy.deleteConfirmButton, fontFamily = dancingScriptFontFamily) } }, dismissButton = { TextButton(onClick = onDismiss) { Text(copy.deleteCancelButton, fontFamily = dancingScriptFontFamily, color = Color(0xFF795548)) } })
-    }
-    @Composable override fun ShareDialog(recording: Recording?, attempt: PlayerAttempt?, aesthetic: AestheticThemeData, onShare: (String) -> Unit, onDismiss: () -> Unit) {
-        val copy = aesthetic.dialogCopy
-        AlertDialog(onDismissRequest = onDismiss, containerColor = Color(0xFFFFF3E0), title = { Text(copy.shareTitle, fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Color(0xFF3E2723)) }, text = { Column { Text(copy.shareMessage, fontFamily = dancingScriptFontFamily, fontSize = 18.sp, color = Color(0xFF5D4037)); Spacer(modifier = Modifier.height(16.dp)); val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""; Button(onClick = { onShare(path); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))) { Text("Share Original 🎤", fontFamily = dancingScriptFontFamily) }; val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath; if (revPath != null) { Spacer(modifier = Modifier.height(8.dp)); Button(onClick = { onShare(revPath); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D))) { Text("Share Reversed 🔁", fontFamily = dancingScriptFontFamily) } } } }, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = dancingScriptFontFamily, color = Color(0xFF795548)) } })
-    }
-    @Composable override fun RenameDialog(itemType: RenamableItemType, currentName: String, aesthetic: AestheticThemeData, onRename: (String) -> Unit, onDismiss: () -> Unit) {
-        var name by remember { mutableStateOf(currentName) }; val copy = aesthetic.dialogCopy
-        AlertDialog(onDismissRequest = onDismiss, containerColor = Color(0xFFFFF3E0), title = { Text(copy.renameTitle(itemType), fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Color(0xFF3E2723)) }, text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text(copy.renameHint, fontFamily = dancingScriptFontFamily) }, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF8D6E63), focusedLabelColor = Color(0xFF8D6E63))) }, confirmButton = { Button(onClick = { onRename(name); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))) { Text("Save 💾", fontFamily = dancingScriptFontFamily) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", fontFamily = dancingScriptFontFamily, color = Color(0xFF795548)) } })
+    @Composable
+    override fun ScoreCard(
+        attempt: PlayerAttempt,
+        aesthetic: AestheticThemeData,
+        onDismiss: () -> Unit,
+        onOverrideScore: ((Int) -> Unit),
+    ) {
+        ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
     @Composable
-    private fun ScrapbookButton(onClick: () -> Unit, icon: ImageVector, label: String, iconColor: Color, enabled: Boolean = true) {
+    override fun DeleteDialog(
+        itemType: DeletableItemType,
+        item: Any,
+        aesthetic: AestheticThemeData,
+        onConfirm: () -> Unit,
+        onDismiss: () -> Unit,
+    ) {
+        val copy = aesthetic.dialogCopy;
+        val name =
+            if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFFFFF3E0),
+            title = {
+                Text(
+                    copy.deleteTitle(itemType),
+                    fontFamily = dancingScriptFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    color = Color(0xFF3E2723)
+                )
+            },
+            text = {
+                Text(
+                    copy.deleteMessage(itemType, name),
+                    fontFamily = dancingScriptFontFamily,
+                    fontSize = 18.sp,
+                    color = Color(0xFF5D4037)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { onConfirm(); onDismiss() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+                ) { Text(copy.deleteConfirmButton, fontFamily = dancingScriptFontFamily) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        copy.deleteCancelButton,
+                        fontFamily = dancingScriptFontFamily,
+                        color = Color(0xFF795548)
+                    )
+                }
+            })
+    }
+
+    @Composable
+    override fun ShareDialog(
+        recording: Recording?,
+        attempt: PlayerAttempt?,
+        aesthetic: AestheticThemeData,
+        onShare: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
+        val copy = aesthetic.dialogCopy
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFFFFF3E0),
+            title = {
+                Text(
+                    copy.shareTitle,
+                    fontFamily = dancingScriptFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    color = Color(0xFF3E2723)
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        copy.shareMessage,
+                        fontFamily = dancingScriptFontFamily,
+                        fontSize = 18.sp,
+                        color = Color(0xFF5D4037)
+                    ); Spacer(modifier = Modifier.height(16.dp));
+                    val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""; Button(
+                    onClick = { onShare(path); onDismiss() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))
+                ) { Text("Share Original 🎤", fontFamily = dancingScriptFontFamily) };
+                    val revPath = recording?.reversedPath
+                        ?: attempt?.reversedAttemptFilePath; if (revPath != null) {
+                    Spacer(modifier = Modifier.height(8.dp)); Button(
+                        onClick = { onShare(revPath); onDismiss() },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D))
+                    ) { Text("Share Reversed 🔁", fontFamily = dancingScriptFontFamily) }
+                }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "Cancel",
+                        fontFamily = dancingScriptFontFamily,
+                        color = Color(0xFF795548)
+                    )
+                }
+            })
+    }
+
+    @Composable
+    override fun RenameDialog(
+        itemType: RenamableItemType,
+        currentName: String,
+        aesthetic: AestheticThemeData,
+        onRename: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
+        var name by remember { mutableStateOf(currentName) };
+        val copy = aesthetic.dialogCopy
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFFFFF3E0),
+            title = {
+                Text(
+                    copy.renameTitle(itemType),
+                    fontFamily = dancingScriptFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    color = Color(0xFF3E2723)
+                )
+            },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    label = { Text(copy.renameHint, fontFamily = dancingScriptFontFamily) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF8D6E63),
+                        focusedLabelColor = Color(0xFF8D6E63)
+                    )
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { onRename(name); onDismiss() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))
+                ) { Text("Save 💾", fontFamily = dancingScriptFontFamily) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "Cancel",
+                        fontFamily = dancingScriptFontFamily,
+                        color = Color(0xFF795548)
+                    )
+                }
+            })
+    }
+
+    @Composable
+    private fun ScrapbookButton(
+        onClick: () -> Unit,
+        icon: ImageVector,
+        label: String,
+        iconColor: Color,
+        enabled: Boolean = true,
+    ) {
         val alpha = if (enabled) 1f else 0.4f
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(enabled = enabled) { onClick() }.padding(4.dp).alpha(alpha)) {
-            Box(modifier = Modifier.size(40.dp).background(Color.White, RoundedCornerShape(4.dp)).border(2.dp, Color.Gray.copy(0.6f), RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) { Icon(icon, label, tint = iconColor, modifier = Modifier.size(24.dp)) }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .clickable(enabled = enabled) { onClick() }
+                .padding(4.dp)
+                .alpha(alpha)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color.White, RoundedCornerShape(4.dp))
+                    .border(2.dp, Color.Gray.copy(0.6f), RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) { Icon(icon, label, tint = iconColor, modifier = Modifier.size(24.dp)) }
             Spacer(modifier = Modifier.height(3.dp))
-            Text(text = label, style = MaterialTheme.typography.labelSmall.copy(fontFamily = dancingScriptFontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp), color = Color.Black.copy(0.8f))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = dancingScriptFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp
+                ),
+                color = Color.Black.copy(0.8f)
+            )
         }
     }
 
     @Composable
     private fun TapeCorner(modifier: Modifier, offsetX: Dp, offsetY: Dp, rotation: Float) {
-        Box(modifier = modifier.offset(offsetX, offsetY).rotate(rotation).size(24.dp, 16.dp).background(Color.Gray.copy(0.5f), RoundedCornerShape(2.dp)))
+        Box(
+            modifier = modifier
+                .offset(offsetX, offsetY)
+                .rotate(rotation)
+                .size(24.dp, 16.dp)
+                .background(Color.Gray.copy(0.5f), RoundedCornerShape(2.dp))
+        )
     }
 }
-
 
 
 // --- 🌀 SWIRLING BACKGROUND ENGINE (FIXED LOOP & Z-INDEX) ---
@@ -487,7 +884,7 @@ class ScrapbookThemeComponents : ThemeComponents {
 private fun SwirlingPastelBackground(
     audioLevel: Float,
     isRecording: Boolean,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
     val config = LocalConfiguration.current
@@ -538,7 +935,6 @@ private fun SwirlingPastelBackground(
     val targetSaturation = maxOf(recordingSaturation, boostedScroll)
 
 
-
     // Instant animation for scroll pop, smooth for recording changes
     val isScrollActive = scrollSaturationAnimated.value > 0f
     val saturation by animateFloatAsState(
@@ -558,7 +954,9 @@ private fun SwirlingPastelBackground(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFFFF3E0))) {
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(Color(0xFFFFF3E0))) {
 
         // Layer 1: Blobs (Interpolated Colors)
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -616,18 +1014,33 @@ private fun SwirlingPastelBackground(
             val seed = (time / 5).toInt()
             val random = Random(seed)
 
-            Canvas(modifier = Modifier.fillMaxSize().zIndex(10f)) {
+            Canvas(modifier = Modifier
+                .fillMaxSize()
+                .zIndex(10f)) {
                 repeat(sparkleCount) {
                     val sx = random.nextFloat() * screenWidth
                     val sy = random.nextFloat() * screenHeight
                     val size = 20f + random.nextFloat() * 30f
 
                     // High contrast colors
-                    val sparkleColor = if (random.nextBoolean()) Color(0xFFFFD700) else Color(0xFFFF00FF) // Gold or Neon Pink
+                    val sparkleColor =
+                        if (random.nextBoolean()) Color(0xFFFFD700) else Color(0xFFFF00FF) // Gold or Neon Pink
 
                     // Thick strokes for visibility
-                    drawLine(sparkleColor, Offset(sx - size, sy), Offset(sx + size, sy), strokeWidth = 8f, cap = StrokeCap.Round)
-                    drawLine(sparkleColor, Offset(sx, sy - size), Offset(sx, sy + size), strokeWidth = 8f, cap = StrokeCap.Round)
+                    drawLine(
+                        sparkleColor,
+                        Offset(sx - size, sy),
+                        Offset(sx + size, sy),
+                        strokeWidth = 8f,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        sparkleColor,
+                        Offset(sx, sy - size),
+                        Offset(sx, sy + size),
+                        strokeWidth = 8f,
+                        cap = StrokeCap.Round
+                    )
                     drawCircle(Color.White, radius = size * 0.4f, center = Offset(sx, sy))
                 }
             }
@@ -636,13 +1049,28 @@ private fun SwirlingPastelBackground(
 }
 
 class TornPaperShape(private val seed: Int) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val path = Path(); val random = Random(seed); val roughness = 4f; val frequency = 10f
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val path = Path();
+        val random = Random(seed);
+        val roughness = 4f;
+        val frequency = 10f
         path.moveTo(0f, 0f)
-        var x = 0f; while (x < size.width) { x += frequency; path.lineTo(x, (random.nextFloat() - 0.5f) * roughness) }
-        var y = 0f; while (y < size.height) { y += frequency; path.lineTo(size.width + (random.nextFloat() - 0.5f) * roughness, y) }
-        x = size.width; while (x > 0) { x -= frequency; path.lineTo(x, size.height + (random.nextFloat() - 0.5f) * roughness) }
-        y = size.height; while (y > 0) { y -= frequency; path.lineTo((random.nextFloat() - 0.5f) * roughness, y) }
+        var x = 0f; while (x < size.width) {
+            x += frequency; path.lineTo(x, (random.nextFloat() - 0.5f) * roughness)
+        }
+        var y = 0f; while (y < size.height) {
+            y += frequency; path.lineTo(size.width + (random.nextFloat() - 0.5f) * roughness, y)
+        }
+        x = size.width; while (x > 0) {
+            x -= frequency; path.lineTo(x, size.height + (random.nextFloat() - 0.5f) * roughness)
+        }
+        y = size.height; while (y > 0) {
+            y -= frequency; path.lineTo((random.nextFloat() - 0.5f) * roughness, y)
+        }
         path.close()
         return Outline.Generic(path)
     }

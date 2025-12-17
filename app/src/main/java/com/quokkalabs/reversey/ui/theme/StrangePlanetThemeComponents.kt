@@ -210,6 +210,7 @@ class StrangePlanetComponents : ThemeComponents {
         isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
+        currentlyPlayingPath: String?,
         onPlay: (String) -> Unit,
         onPause: () -> Unit,
         onStop: () -> Unit,
@@ -217,7 +218,7 @@ class StrangePlanetComponents : ThemeComponents {
         onShare: (String) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
-        onStartAttempt: (Recording, ChallengeType) -> Unit
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
     ) {
         StrangePlanetRecordingItem(
             recording = recording,
@@ -225,6 +226,7 @@ class StrangePlanetComponents : ThemeComponents {
             isPlaying = isPlaying,
             isPaused = isPaused,
             progress = progress,
+            currentlyPlayingPath = currentlyPlayingPath,
             onPlay = onPlay,
             onPause = onPause,
             onStop = onStop,
@@ -251,7 +253,7 @@ class StrangePlanetComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
-        onResetScore: (() -> Unit)?
+        onResetScore: (() -> Unit)?,
     ) {
         StrangePlanetAttemptItem(
             attempt = attempt,
@@ -277,7 +279,7 @@ class StrangePlanetComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float  // 🎯 PHASE 3
+        countdownProgress: Float,  // 🎯 PHASE 3
     ) {
         StrangePlanetRecordButton(
             isRecording = isRecording,
@@ -291,7 +293,7 @@ class StrangePlanetComponents : ThemeComponents {
     @Composable
     override fun AppBackground(
         aesthetic: AestheticThemeData,
-        content: @Composable () -> Unit
+        content: @Composable () -> Unit,
     ) {
         val context = LocalContext.current
         val soundManager = remember { CreatureSoundManager(context) }
@@ -349,7 +351,12 @@ class StrangePlanetComponents : ThemeComponents {
     // --- DIALOG IMPLEMENTATIONS ---
 
     @Composable
-    override fun ScoreCard(attempt: PlayerAttempt, aesthetic: AestheticThemeData, onDismiss: () -> Unit, onOverrideScore: ((Int) -> Unit)) {
+    override fun ScoreCard(
+        attempt: PlayerAttempt,
+        aesthetic: AestheticThemeData,
+        onDismiss: () -> Unit,
+        onOverrideScore: ((Int) -> Unit),
+    ) {
         ScoreExplanationDialog(attempt, onDismiss, onOverrideScore = onOverrideScore)
     }
 
@@ -359,7 +366,7 @@ class StrangePlanetComponents : ThemeComponents {
         item: Any,
         aesthetic: AestheticThemeData,
         onConfirm: () -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
         val name = when (item) {
@@ -409,7 +416,7 @@ class StrangePlanetComponents : ThemeComponents {
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
         onShare: (String) -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
         val cardPink = Color(0xFFE8B4C8)
@@ -465,7 +472,7 @@ class StrangePlanetComponents : ThemeComponents {
         currentName: String,
         aesthetic: AestheticThemeData,
         onRename: (String) -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         var name by remember { mutableStateOf(currentName) }
         val copy = aesthetic.dialogCopy
@@ -522,7 +529,7 @@ fun StrangePlanetRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    countdownProgress: Float = 1f  // 🎯 PHASE 3
+    countdownProgress: Float = 1f,  // 🎯 PHASE 3
 ) {
     // Sync to shared state so floating creatures can see it
     LaunchedEffect(isRecording) {
@@ -664,7 +671,10 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - outerRingWidth, centerY - outerRingHeight),
-                    size = androidx.compose.ui.geometry.Size(outerRingWidth * 2, outerRingHeight * 2),
+                    size = androidx.compose.ui.geometry.Size(
+                        outerRingWidth * 2,
+                        outerRingHeight * 2
+                    ),
                     style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
                 )
                 drawArc(
@@ -673,7 +683,10 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - middleRingWidth, centerY - middleRingHeight),
-                    size = androidx.compose.ui.geometry.Size(middleRingWidth * 2, middleRingHeight * 2),
+                    size = androidx.compose.ui.geometry.Size(
+                        middleRingWidth * 2,
+                        middleRingHeight * 2
+                    ),
                     style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
                 )
                 drawArc(
@@ -682,7 +695,10 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - innerRingWidth, centerY - innerRingHeight),
-                    size = androidx.compose.ui.geometry.Size(innerRingWidth * 2, innerRingHeight * 2),
+                    size = androidx.compose.ui.geometry.Size(
+                        innerRingWidth * 2,
+                        innerRingHeight * 2
+                    ),
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
@@ -710,7 +726,10 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - outerRingWidth, centerY - outerRingHeight),
-                    size = androidx.compose.ui.geometry.Size(outerRingWidth * 2, outerRingHeight * 2),
+                    size = androidx.compose.ui.geometry.Size(
+                        outerRingWidth * 2,
+                        outerRingHeight * 2
+                    ),
                     style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
                 )
                 drawArc(
@@ -719,7 +738,10 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - middleRingWidth, centerY - middleRingHeight),
-                    size = androidx.compose.ui.geometry.Size(middleRingWidth * 2, middleRingHeight * 2),
+                    size = androidx.compose.ui.geometry.Size(
+                        middleRingWidth * 2,
+                        middleRingHeight * 2
+                    ),
                     style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
                 )
                 drawArc(
@@ -728,7 +750,10 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - innerRingWidth, centerY - innerRingHeight),
-                    size = androidx.compose.ui.geometry.Size(innerRingWidth * 2, innerRingHeight * 2),
+                    size = androidx.compose.ui.geometry.Size(
+                        innerRingWidth * 2,
+                        innerRingHeight * 2
+                    ),
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
@@ -795,7 +820,8 @@ fun StrangePlanetStars() {
 
         starPositions.forEachIndexed { index, offset ->
             val phase = (twinkle + index * 0.1f) % 1f
-            val pulse = (kotlin.math.sin(phase * 2f * kotlin.math.PI.toFloat()) + 1f) / 2f * 0.7f + 0.3f
+            val pulse =
+                (kotlin.math.sin(phase * 2f * kotlin.math.PI.toFloat()) + 1f) / 2f * 0.7f + 0.3f
             val starScale = 0.8f + (pulse * 0.4f)      // Pulsing size
             val auraScale = 1.2f + (pulse * 0.6f)      // Aura pulses bigger
             val auraAlpha = 0.5f + (pulse * 0.4f)      // Strong aura
@@ -855,7 +881,7 @@ data class FloatingCreature(
     val mass: Float,            // For momentum transfer
     val size: Float,            // Display size (dp)
     var rotation: Float,        // Current angle (degrees)
-    var angularVelocity: Float  // Spin speed (degrees/frame)
+    var angularVelocity: Float,  // Spin speed (degrees/frame)
 )
 
 class CreatureSoundManager(private val context: Context) {
@@ -877,7 +903,8 @@ class CreatureSoundManager(private val context: Context) {
             meowId = soundPool.load(context, res.getIdentifier("sp_meow", "raw", pkg), 1)
             woofId = soundPool.load(context, res.getIdentifier("sp_woof", "raw", pkg), 1)
             neighId = soundPool.load(context, res.getIdentifier("sp_neigh", "raw", pkg), 1)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
     fun playSound(type: CreatureType) {
@@ -940,13 +967,90 @@ fun StrangePlanetFloatingCreatures() {
 
             creatures = listOf(
                 // type, x, y, vx, vy, radius, mass, size, rotation, angularVelocity
-                FloatingCreature(CreatureType.ALIEN_MUM, screenWidth * 0.15f, screenHeight * 0.35f, randomVelocity(), randomVelocity(), 45f, 1.2f, 90f, 0f, randomSpin()),
-                FloatingCreature(CreatureType.ALIEN_DAD, screenWidth * 0.25f, screenHeight * 0.40f, randomVelocity(), randomVelocity(), 48f, 1.3f, 98f, 0f, randomSpin()),
-                FloatingCreature(CreatureType.ALIEN_KID, screenWidth * 0.20f, screenHeight * 0.50f, randomVelocity(), randomVelocity(), 33f, 0.8f, 68f, 0f, randomSpin() * 1.5f),
-                FloatingCreature(CreatureType.CAT, screenWidth * 0.70f, screenHeight * 0.30f, randomVelocity(), randomVelocity(), 25f, 0.9f, 50f, 0f, randomSpin()),
-                FloatingCreature(CreatureType.DOG, screenWidth * 0.80f, screenHeight * 0.55f, randomVelocity(), randomVelocity(), 28f, 1.0f, 55f, 0f, randomSpin()),
-                FloatingCreature(CreatureType.SOCKS, screenWidth * 0.50f, screenHeight * 0.20f, randomVelocity(), randomVelocity(), 20f, 0.5f, 40f, 0f, randomSpin() * 2f),
-                FloatingCreature(CreatureType.UNICORN, screenWidth * 0.60f, screenHeight * 0.65f, randomVelocity(), randomVelocity(), 35f, 1.4f, 70f, 0f, randomSpin() * 0.7f)
+                FloatingCreature(
+                    CreatureType.ALIEN_MUM,
+                    screenWidth * 0.15f,
+                    screenHeight * 0.35f,
+                    randomVelocity(),
+                    randomVelocity(),
+                    45f,
+                    1.2f,
+                    90f,
+                    0f,
+                    randomSpin()
+                ),
+                FloatingCreature(
+                    CreatureType.ALIEN_DAD,
+                    screenWidth * 0.25f,
+                    screenHeight * 0.40f,
+                    randomVelocity(),
+                    randomVelocity(),
+                    48f,
+                    1.3f,
+                    98f,
+                    0f,
+                    randomSpin()
+                ),
+                FloatingCreature(
+                    CreatureType.ALIEN_KID,
+                    screenWidth * 0.20f,
+                    screenHeight * 0.50f,
+                    randomVelocity(),
+                    randomVelocity(),
+                    33f,
+                    0.8f,
+                    68f,
+                    0f,
+                    randomSpin() * 1.5f
+                ),
+                FloatingCreature(
+                    CreatureType.CAT,
+                    screenWidth * 0.70f,
+                    screenHeight * 0.30f,
+                    randomVelocity(),
+                    randomVelocity(),
+                    25f,
+                    0.9f,
+                    50f,
+                    0f,
+                    randomSpin()
+                ),
+                FloatingCreature(
+                    CreatureType.DOG,
+                    screenWidth * 0.80f,
+                    screenHeight * 0.55f,
+                    randomVelocity(),
+                    randomVelocity(),
+                    28f,
+                    1.0f,
+                    55f,
+                    0f,
+                    randomSpin()
+                ),
+                FloatingCreature(
+                    CreatureType.SOCKS,
+                    screenWidth * 0.50f,
+                    screenHeight * 0.20f,
+                    randomVelocity(),
+                    randomVelocity(),
+                    20f,
+                    0.5f,
+                    40f,
+                    0f,
+                    randomSpin() * 2f
+                ),
+                FloatingCreature(
+                    CreatureType.UNICORN,
+                    screenWidth * 0.60f,
+                    screenHeight * 0.65f,
+                    randomVelocity(),
+                    randomVelocity(),
+                    35f,
+                    1.4f,
+                    70f,
+                    0f,
+                    randomSpin() * 0.7f
+                )
             )
         }
 
@@ -954,7 +1058,8 @@ fun StrangePlanetFloatingCreatures() {
         LaunchedEffect(Unit) {
             while (isActive) {
                 withFrameMillis {
-                    val currentRestitution = if (strangePlanetRecordingState.value) restitutionExcited else restitutionNormal
+                    val currentRestitution =
+                        if (strangePlanetRecordingState.value) restitutionExcited else restitutionNormal
                     val currentSpeedMult = if (strangePlanetRecordingState.value) 2.5f else 1f
 
                     // Create mutable copy for physics updates
@@ -999,7 +1104,13 @@ fun StrangePlanetFloatingCreatures() {
                             newAngVel = -c.angularVelocity * 0.8f + c.vx * 0.1f
                         }
 
-                        updated[i] = c.copy(x = newX, y = newY, vx = newVx, vy = newVy, angularVelocity = newAngVel)
+                        updated[i] = c.copy(
+                            x = newX,
+                            y = newY,
+                            vx = newVx,
+                            vy = newVy,
+                            angularVelocity = newAngVel
+                        )
                     }
 
                     // Creature-creature collisions
@@ -1037,8 +1148,10 @@ fun StrangePlanetFloatingCreatures() {
 
                                 // Angular momentum transfer (lighter spins more)
                                 val tangentImpulse = dvx * (-ny) + dvy * nx  // Tangent component
-                                val newAangVel = a.angularVelocity + tangentImpulse * (b.mass / (a.mass + b.mass)) * 0.5f
-                                val newBangVel = b.angularVelocity - tangentImpulse * (a.mass / (a.mass + b.mass)) * 0.5f
+                                val newAangVel =
+                                    a.angularVelocity + tangentImpulse * (b.mass / (a.mass + b.mass)) * 0.5f
+                                val newBangVel =
+                                    b.angularVelocity - tangentImpulse * (a.mass / (a.mass + b.mass)) * 0.5f
 
                                 // Separate overlapping creatures
                                 val overlap = minDist - dist
@@ -1130,6 +1243,7 @@ fun StrangePlanetRecordingItem(
     isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
+    currentlyPlayingPath: String?,
     onPlay: (String) -> Unit,
     onPause: () -> Unit,
     onStop: () -> Unit,
@@ -1137,11 +1251,15 @@ fun StrangePlanetRecordingItem(
     onShare: (String) -> Unit,
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
-    onStartAttempt: (Recording, ChallengeType) -> Unit
+    onStartAttempt: (Recording, ChallengeType) -> Unit,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
+
+    // 🔧 POLYMORPHIC: Track which button owns the current playback
+    val isPlayingForward = currentlyPlayingPath == recording.originalPath
+    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
 
     // Card colors - semi-transparent pink
     val cardOuter = Color(0xFFE8B4C8).copy(alpha = 0.7f)
@@ -1190,9 +1308,9 @@ fun StrangePlanetRecordingItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Progress bar - ALWAYS visible (like Owl)
+            // Progress bar - 🔧 POLYMORPHIC
             LinearProgressIndicator(
-                progress = { progress },
+                progress = { if (isPlayingForward || isPlayingReversed) progress else 0f },
                 modifier = Modifier.fillMaxWidth(),
                 color = buttonPrimary,
                 trackColor = Color.White.copy(alpha = 0.3f)
@@ -1214,24 +1332,35 @@ fun StrangePlanetRecordingItem(
                     SPShareGlyph(Color.White)
                 }
 
-                // Play/Pause
+                // Play/Pause - 🔧 POLYMORPHIC
                 SPControlButton(
                     color = buttonSecondary,
-                    label = if (isPlaying && !isPaused) "Pause" else "Play",
+                    label = when {
+                        isPlayingForward && !isPaused -> "Pause"
+                        isPlayingForward && isPaused -> "Resume"
+                        else -> "Play"
+                    },
                     onClick = {
-                        if (isPlaying && !isPaused) onPause()
+                        if (isPlayingForward) onPause()
                         else onPlay(recording.originalPath)
                     }
                 ) {
-                    if (isPlaying && !isPaused) SPPauseGlyph(Color.White)
+                    if (isPlayingForward && !isPaused) SPPauseGlyph(Color.White)
                     else SPPlayGlyph(Color.White)
                 }
 
-                // Reversed playback
+                // Reversed playback - 🔧 POLYMORPHIC
                 SPControlButton(
                     color = buttonPrimary,
-                    label = "Rev",
-                    onClick = { recording.reversedPath?.let { onPlay(it) } }
+                    label = when {
+                        isPlayingReversed && !isPaused -> "Pause"
+                        isPlayingReversed && isPaused -> "Resume"
+                        else -> "Rev"
+                    },
+                    onClick = {
+                        if (isPlayingReversed) onPause()
+                        else recording.reversedPath?.let { onPlay(it) }
+                    }
                 ) {
                     SPRewindGlyph(Color.White)
                 }
@@ -1306,7 +1435,7 @@ fun StrangePlanetAttemptItem(
     onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
     onShareAttempt: ((String) -> Unit)?,
     onJumpToParent: (() -> Unit)?,
-    onOverrideScore: ((Int) -> Unit)?
+    onOverrideScore: ((Int) -> Unit)?,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1357,7 +1486,10 @@ fun StrangePlanetAttemptItem(
 
                         Box(
                             modifier = Modifier
-                                .background(Color.White.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                .background(
+                                    Color.White.copy(alpha = 0.4f),
+                                    RoundedCornerShape(8.dp)
+                                )
                                 .clickable { showRenameDialog = true }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
@@ -1461,7 +1593,11 @@ fun StrangePlanetAttemptItem(
         )
     }
     if (showScoreDialog) {
-        aesthetic.components.ScoreCard(attempt, aesthetic, { showScoreDialog = false }, onOverrideScore ?: { })
+        aesthetic.components.ScoreCard(
+            attempt,
+            aesthetic,
+            { showScoreDialog = false },
+            onOverrideScore ?: { })
     }
 }
 
@@ -1474,7 +1610,7 @@ fun SPControlButton(
     color: Color,
     label: String,
     onClick: () -> Unit,
-    icon: @Composable () -> Unit
+    icon: @Composable () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1532,8 +1668,18 @@ fun SPPauseGlyph(color: Color) {
         val nodeRadius = 2.dp.toPx()
 
         // Two vertical bars
-        drawLine(color, Offset(size.width * 0.3f, size.height * 0.15f), Offset(size.width * 0.3f, size.height * 0.85f), strokeWidth = strokeWidth)
-        drawLine(color, Offset(size.width * 0.7f, size.height * 0.15f), Offset(size.width * 0.7f, size.height * 0.85f), strokeWidth = strokeWidth)
+        drawLine(
+            color,
+            Offset(size.width * 0.3f, size.height * 0.15f),
+            Offset(size.width * 0.3f, size.height * 0.85f),
+            strokeWidth = strokeWidth
+        )
+        drawLine(
+            color,
+            Offset(size.width * 0.7f, size.height * 0.15f),
+            Offset(size.width * 0.7f, size.height * 0.85f),
+            strokeWidth = strokeWidth
+        )
 
         // Terminal dots at all 4 ends
         drawCircle(color, nodeRadius, Offset(size.width * 0.3f, size.height * 0.15f))
@@ -1551,13 +1697,38 @@ fun SPShareGlyph(color: Color) {
         val innerRadius = 2.dp.toPx()
 
         // Network node circles
-        drawCircle(color, outerRadius, Offset(size.width * 0.22f, size.height * 0.5f), style = Stroke(strokeWidth))
-        drawCircle(color, outerRadius, Offset(size.width * 0.78f, size.height * 0.22f), style = Stroke(strokeWidth))
-        drawCircle(color, outerRadius, Offset(size.width * 0.78f, size.height * 0.78f), style = Stroke(strokeWidth))
+        drawCircle(
+            color,
+            outerRadius,
+            Offset(size.width * 0.22f, size.height * 0.5f),
+            style = Stroke(strokeWidth)
+        )
+        drawCircle(
+            color,
+            outerRadius,
+            Offset(size.width * 0.78f, size.height * 0.22f),
+            style = Stroke(strokeWidth)
+        )
+        drawCircle(
+            color,
+            outerRadius,
+            Offset(size.width * 0.78f, size.height * 0.78f),
+            style = Stroke(strokeWidth)
+        )
 
         // Connecting lines
-        drawLine(color, Offset(size.width * 0.32f, size.height * 0.42f), Offset(size.width * 0.68f, size.height * 0.27f), strokeWidth = strokeWidth)
-        drawLine(color, Offset(size.width * 0.32f, size.height * 0.58f), Offset(size.width * 0.68f, size.height * 0.73f), strokeWidth = strokeWidth)
+        drawLine(
+            color,
+            Offset(size.width * 0.32f, size.height * 0.42f),
+            Offset(size.width * 0.68f, size.height * 0.27f),
+            strokeWidth = strokeWidth
+        )
+        drawLine(
+            color,
+            Offset(size.width * 0.32f, size.height * 0.58f),
+            Offset(size.width * 0.68f, size.height * 0.73f),
+            strokeWidth = strokeWidth
+        )
 
         // Center dots (filled nodes)
         drawCircle(color, innerRadius, Offset(size.width * 0.22f, size.height * 0.5f))
@@ -1603,8 +1774,18 @@ fun SPDeleteGlyph(color: Color) {
         val centerRadius = 3.dp.toPx()
 
         // X mark
-        drawLine(color, Offset(size.width * 0.2f, size.height * 0.2f), Offset(size.width * 0.8f, size.height * 0.8f), strokeWidth = strokeWidth)
-        drawLine(color, Offset(size.width * 0.8f, size.height * 0.2f), Offset(size.width * 0.2f, size.height * 0.8f), strokeWidth = strokeWidth)
+        drawLine(
+            color,
+            Offset(size.width * 0.2f, size.height * 0.2f),
+            Offset(size.width * 0.8f, size.height * 0.8f),
+            strokeWidth = strokeWidth
+        )
+        drawLine(
+            color,
+            Offset(size.width * 0.8f, size.height * 0.2f),
+            Offset(size.width * 0.2f, size.height * 0.8f),
+            strokeWidth = strokeWidth
+        )
 
         // Terminal dots at 4 corners
         drawCircle(color, cornerRadius, Offset(size.width * 0.2f, size.height * 0.2f))
@@ -1667,13 +1848,28 @@ fun SPMicGlyph(color: Color) {
         // Stand arc
         val arcPath = Path().apply {
             moveTo(size.width * 0.22f, size.height * 0.42f)
-            quadraticTo(size.width * 0.22f, size.height * 0.68f, size.width * 0.5f, size.height * 0.68f)
-            quadraticTo(size.width * 0.78f, size.height * 0.68f, size.width * 0.78f, size.height * 0.42f)
+            quadraticTo(
+                size.width * 0.22f,
+                size.height * 0.68f,
+                size.width * 0.5f,
+                size.height * 0.68f
+            )
+            quadraticTo(
+                size.width * 0.78f,
+                size.height * 0.68f,
+                size.width * 0.78f,
+                size.height * 0.42f
+            )
         }
         drawPath(arcPath, color, style = Stroke(width = strokeWidth))
 
         // Stand line
-        drawLine(color, Offset(size.width * 0.5f, size.height * 0.68f), Offset(size.width * 0.5f, size.height * 0.92f), strokeWidth = strokeWidth)
+        drawLine(
+            color,
+            Offset(size.width * 0.5f, size.height * 0.68f),
+            Offset(size.width * 0.5f, size.height * 0.92f),
+            strokeWidth = strokeWidth
+        )
 
         // Terminal dots
         drawCircle(color, nodeRadius, Offset(size.width * 0.5f, size.height * 0.08f))

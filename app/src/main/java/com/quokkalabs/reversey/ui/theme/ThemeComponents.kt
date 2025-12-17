@@ -12,6 +12,10 @@ import com.quokkalabs.reversey.data.models.Recording
  * Each theme provides its own implementation of these components.
  *
  * GLUTE Principle: Themes compose their own UI without central routing logic.
+ *
+ * Implementation options:
+ * - Vanilla themes: Use DefaultThemeComponents() for zero-boilerplate delegation
+ * - Pro themes: Implement this interface directly with custom UI
  */
 interface ThemeComponents {
 
@@ -20,6 +24,10 @@ interface ThemeComponents {
     /**
      * Recording Item Component
      * Displays a single recording with playback controls
+     *
+     * 🔧 POLYMORPHIC BUTTONS: currentlyPlayingPath enables each button
+     * (Play/Rewind) to independently track if IT is the one playing,
+     * allowing proper Pause/Resume state per button.
      */
     @Composable
     fun RecordingItem(
@@ -28,6 +36,7 @@ interface ThemeComponents {
         isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
+        currentlyPlayingPath: String?,  // 🔧 Which specific file is playing
         onPlay: (String) -> Unit,
         onPause: () -> Unit,
         onStop: () -> Unit,
@@ -56,14 +65,13 @@ interface ThemeComponents {
         onDeleteAttempt: ((PlayerAttempt) -> Unit)? = null,
         onShareAttempt: ((String) -> Unit)? = null,
         onJumpToParent: (() -> Unit)? = null,
-        onOverrideScore: ((Int) -> Unit)? = null,  // Phase 4: Score override callback
-        onResetScore: (() -> Unit)? = null  // Phase 4: Score reset callback
+        onOverrideScore: ((Int) -> Unit)? = null,
+        onResetScore: (() -> Unit)? = null
     )
 
     /**
      * Record Button Component
      * Main recording button with theme-specific styling
-     * 🎯 PHASE 3: Added countdownProgress for timed recording arc
      */
     @Composable
     fun RecordButton(
@@ -72,7 +80,7 @@ interface ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float = 1f  // 🎯 PHASE 3: 1.0 → 0.0 for arc timer
+        countdownProgress: Float = 1f
     )
 
     /**
@@ -85,7 +93,7 @@ interface ThemeComponents {
         content: @Composable () -> Unit
     )
 
-    // --- NEW: DIALOG & INTERACTION COMPONENTS ---
+    // --- DIALOG & INTERACTION COMPONENTS ---
 
     /**
      * Score Card Component
@@ -105,7 +113,7 @@ interface ThemeComponents {
     @Composable
     fun DeleteDialog(
         itemType: DeletableItemType,
-        item: Any, // Recording or PlayerAttempt
+        item: Any,
         aesthetic: AestheticThemeData,
         onConfirm: () -> Unit,
         onDismiss: () -> Unit
@@ -116,8 +124,8 @@ interface ThemeComponents {
      */
     @Composable
     fun ShareDialog(
-        recording: Recording?, // Null if sharing attempt
-        attempt: PlayerAttempt?, // Null if sharing recording
+        recording: Recording?,
+        attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
         onShare: (String) -> Unit,
         onDismiss: () -> Unit

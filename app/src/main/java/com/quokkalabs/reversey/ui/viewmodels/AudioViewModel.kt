@@ -770,7 +770,7 @@ class AudioViewModel @Inject constructor(
     }
 
     fun play(path: String) {
-        _uiState.update { it.copy(isPaused = false) }
+        _uiState.update { it.copy(isPaused = false, currentlyPlayingPath = path) }  // ADD: currentlyPlayingPath = path
 
         audioPlayerHelper.play(path) {
             _uiState.update {
@@ -784,7 +784,13 @@ class AudioViewModel @Inject constructor(
     }
 
     fun pause() {
-        if (_uiState.value.isPaused) audioPlayerHelper.resume() else audioPlayerHelper.pause()
+        if (_uiState.value.isPaused) {
+            audioPlayerHelper.resume()
+            _uiState.update { it.copy(isPaused = false) }
+        } else {
+            audioPlayerHelper.pause()
+            _uiState.update { it.copy(isPaused = true) }
+        }
     }
 
     fun stopPlayback() {
@@ -991,6 +997,7 @@ class AudioViewModel @Inject constructor(
     }
 
     fun renameRecording(recordingPath: String, newName: String) {
+        Log.d("RENAME_DEBUG", "renameRecording called: path=$recordingPath, name=$newName")  // ADD THIS
         viewModelScope.launch {
             // 🎯 FIX: Use correct method name
             recordingNamesRepository.setCustomName(recordingPath, newName)

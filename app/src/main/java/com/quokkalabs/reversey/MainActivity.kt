@@ -494,9 +494,8 @@ fun AudioReverserApp(
                     ) {
                         uiState.recordings.forEach { recording ->
                             item(key = "parent_${recording.originalPath}") {
-                                // 🎯 POLYMORPHIC CALL 1: Recording Item
                                 aesthetic.components.RecordingItem(
-                                    recording = recording,
+                                    recording = recording,  // <-- back to original
                                     aesthetic = aesthetic,
                                     isPlaying = uiState.currentlyPlayingPath != null &&
                                             (uiState.currentlyPlayingPath == recording.originalPath ||
@@ -504,6 +503,7 @@ fun AudioReverserApp(
                                     isPaused = uiState.isPaused,
                                     progress = if (uiState.currentlyPlayingPath == recording.originalPath ||
                                         uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
+                                    currentlyPlayingPath = uiState.currentlyPlayingPath,
                                     onPlay = { path: String -> viewModel.play(path) },
                                     onPause = { viewModel.pause() },
                                     onStop = { viewModel.stopPlayback() },
