@@ -50,11 +50,14 @@ object PhonemeUtils {
         setOf("L", "R"),        // liquids (often confused)
     )
 
-    // Build lookup: phoneme -> canonical phoneme (first in its group)
+    // Build lookup: phoneme -> canonical phoneme (first in its group alphabetically)
+    // CRITICAL FIX: Use sorted().first() for deterministic ordering
+    // Previous implementation used Set.first() which has undefined ordering,
+    // causing scores to vary between app restarts
     private val fuzzyPhonemeMap: Map<String, String> by lazy {
         val map = mutableMapOf<String, String>()
         for (group in similarPhonemeGroups) {
-            val canonical = group.first()
+            val canonical = group.sorted().first()  // Deterministic: alphabetically first
             for (phoneme in group) {
                 map[phoneme] = canonical
             }
@@ -380,9 +383,11 @@ object PhonemeUtils {
         }
 
         val matchedCount = targetMatches.count { it }
-        // For sequence, overlap is LCS length / max length
-        val overlapScore = if (maxOf(n, m) > 0) {
-            dp[n][m].toFloat() / maxOf(n, m)
+        // CRITICAL FIX: Use target length (n) as denominator, not max(n, m)
+        // Previous implementation penalized users for saying extra words even if
+        // they correctly matched all target phonemes in sequence
+        val overlapScore = if (n > 0) {
+            dp[n][m].toFloat() / n
         } else 1f
 
         return PhonemeMatchResult(

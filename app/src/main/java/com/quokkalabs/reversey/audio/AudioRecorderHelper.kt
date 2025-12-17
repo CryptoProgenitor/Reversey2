@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -232,26 +233,91 @@ class AudioRecorderHelper @Inject constructor(
         }
     }
 
+    /**
+     * CRITICAL FIX: Use streaming to add WAV header
+     * Previous implementation loaded entire file into memory (up to 10MB)
+     * which doubled memory usage during recording finalization
+     */
     private fun addWavHeader(file: File) {
         if (!file.exists()) return
-        val rawData = file.readBytes()
+
+        val rawDataSize = file.length().toInt()
         val tempFile = File(file.parent, "${file.name}.tmp")
 
         try {
             FileOutputStream(tempFile).use { fos ->
-                // Ensure 1 channel (Mono) and 16 bits matches configuration above
-                writeWavHeader(fos, rawData, 1, AudioConstants.SAMPLE_RATE, 16)
+                // Write WAV header (44 bytes) with correct data size
+                writeWavHeaderStreaming(fos, rawDataSize, 1, AudioConstants.SAMPLE_RATE, 16)
+
+                // Stream copy raw PCM data in chunks (no full-file load)
+                FileInputStream(file).use { fis ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    while (fis.read(buffer).also { bytesRead = it } != -1) {
+                        fos.write(buffer, 0, bytesRead)
+                    }
+                }
             }
             file.delete()
             tempFile.renameTo(file)
+            Log.d("AudioRecorder", "✅ WAV header added via streaming")
         } catch (e: Exception) {
             Log.e("AudioRecorder", "Header write failed", e)
+            if (tempFile.exists()) tempFile.delete()
         }
     }
 
-    fun cleanup() {
-        // 🎤 REMOVED: liveTranscriptionHelper.cancel()
+    /**
+     * Write WAV header without requiring full data in memory
+     */
+    private fun writeWavHeaderStreaming(
+        out: FileOutputStream,
+        dataSize: Int,
+        channels: Int,
+        sampleRate: Int,
+        bitsPerSample: Int
+    ) {
+        val byteRate = sampleRate * channels * bitsPerSample / 8
+        val blockAlign = channels * bitsPerSample / 8
+        val totalSize = dataSize + 36
 
+        // RIFF header
+        out.write("RIFF".toByteArray())
+        out.write(intToLittleEndian(totalSize))
+        out.write("WAVE".toByteArray())
+
+        // fmt chunk
+        out.write("fmt ".toByteArray())
+        out.write(intToLittleEndian(16)) // chunk size
+        out.write(shortToLittleEndian(1)) // audio format (PCM)
+        out.write(shortToLittleEndian(channels.toShort()))
+        out.write(intToLittleEndian(sampleRate))
+        out.write(intToLittleEndian(byteRate))
+        out.write(shortToLittleEndian(blockAlign.toShort()))
+        out.write(shortToLittleEndian(bitsPerSample.toShort()))
+
+        // data chunk
+        out.write("data".toByteArray())
+        out.write(intToLittleEndian(dataSize))
+    }
+
+    private fun intToLittleEndian(value: Int): ByteArray {
+        return byteArrayOf(
+            (value and 0xFF).toByte(),
+            ((value shr 8) and 0xFF).toByte(),
+            ((value shr 16) and 0xFF).toByte(),
+            ((value shr 24) and 0xFF).toByte()
+        )
+    }
+
+    private fun shortToLittleEndian(value: Short): ByteArray {
+        return byteArrayOf(
+            (value.toInt() and 0xFF).toByte(),
+            ((value.toInt() shr 8) and 0xFF).toByte()
+        )
+    }
+
+    fun cleanup() {
         // 🎯 PHASE 2: Cancel countdown job
         countdownJob?.cancel()
         countdownJob = null
@@ -263,5 +329,16 @@ class AudioRecorderHelper @Inject constructor(
         _isRecording.value = false
         _amplitude.value = 0f
         currentFile = null
+    }
+
+    /**
+     * CRITICAL FIX: Cancel the helperScope to prevent coroutine leaks
+     * Call this when the helper is being destroyed (e.g., app termination)
+     * Previous implementation never canceled the scope, causing memory leaks
+     */
+    fun destroy() {
+        cleanup()
+        helperScope.cancel()
+        Log.d("AudioRecorder", "✅ AudioRecorderHelper destroyed, scope cancelled")
     }
 }

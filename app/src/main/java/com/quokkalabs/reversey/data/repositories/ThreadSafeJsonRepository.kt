@@ -5,6 +5,8 @@ import android.util.Log
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -86,18 +88,28 @@ class ThreadSafeJsonRepository @Inject constructor(
                 // Execute block on temp file
                 val result = block(tempFile)
 
-                // Atomic rename: either succeeds completely or fails completely
-                if (actualFile.exists()) {
-                    if (!actualFile.delete()) {
-                        throw Exception("Failed to delete old attempts.json")
-                    }
+                // CRITICAL FIX: Use atomic move to prevent data loss
+                // Previous implementation deleted first, then renamed - if rename failed, data was lost!
+                // Files.move with ATOMIC_MOVE ensures either complete success or no change
+                try {
+                    Files.move(
+                        tempFile.toPath(),
+                        actualFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE
+                    )
+                    Log.d(TAG, "Successfully wrote attempts.json atomically")
+                } catch (atomicError: java.nio.file.AtomicMoveNotSupportedException) {
+                    // Fallback for filesystems that don't support atomic move
+                    Log.w(TAG, "Atomic move not supported, using fallback with REPLACE_EXISTING")
+                    Files.move(
+                        tempFile.toPath(),
+                        actualFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                    Log.d(TAG, "Successfully wrote attempts.json with fallback")
                 }
 
-                if (!tempFile.renameTo(actualFile)) {
-                    throw Exception("Failed to rename temp file to attempts.json")
-                }
-
-                Log.d(TAG, "Successfully wrote attempts.json atomically")
                 result
 
             } catch (e: Exception) {
@@ -157,18 +169,26 @@ class ThreadSafeJsonRepository @Inject constructor(
                 // Execute block on temp file
                 val result = block(tempFile)
 
-                // Atomic rename
-                if (actualFile.exists()) {
-                    if (!actualFile.delete()) {
-                        throw Exception("Failed to delete old recording_names.json")
-                    }
+                // CRITICAL FIX: Use atomic move to prevent data loss
+                try {
+                    Files.move(
+                        tempFile.toPath(),
+                        actualFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE
+                    )
+                    Log.d(TAG, "Successfully wrote recording_names.json atomically")
+                } catch (atomicError: java.nio.file.AtomicMoveNotSupportedException) {
+                    // Fallback for filesystems that don't support atomic move
+                    Log.w(TAG, "Atomic move not supported, using fallback with REPLACE_EXISTING")
+                    Files.move(
+                        tempFile.toPath(),
+                        actualFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                    Log.d(TAG, "Successfully wrote recording_names.json with fallback")
                 }
 
-                if (!tempFile.renameTo(actualFile)) {
-                    throw Exception("Failed to rename temp file to recording_names.json")
-                }
-
-                Log.d(TAG, "Successfully wrote recording_names.json atomically")
                 result
 
             } catch (e: Exception) {
