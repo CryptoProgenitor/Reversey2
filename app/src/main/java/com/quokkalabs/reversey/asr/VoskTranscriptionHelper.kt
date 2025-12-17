@@ -60,13 +60,7 @@ class VoskTranscriptionHelper @Inject constructor(
                 }
             )
             
-            // Wait for async unpack (simple polling for POC)
-            var attempts = 0
-            while (!isInitialized && attempts < 30) {
-                kotlinx.coroutines.delay(500)
-                attempts++
-            }
-            
+
             isInitialized
         } catch (e: Exception) {
             Log.e(TAG, "❌ Initialize failed: ${e.message}")

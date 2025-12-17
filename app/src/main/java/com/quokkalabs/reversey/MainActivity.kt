@@ -153,11 +153,8 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        // Initialize phoneme dictionary for scoring
-        lifecycleScope.launch {
-            val success = PhonemeUtils.initialize(applicationContext)
-            Log.d("PhonemeUtils", "CMU dictionary loaded: $success (${PhonemeUtils.dictionarySize()} words)")
-        }
+        // Initialize phoneme dictionary for scoring (async - fires and forgets)
+        PhonemeUtils.initialize(applicationContext)
     }
 
     override fun onNewIntent(intent: Intent) {
