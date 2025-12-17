@@ -39,10 +39,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -157,6 +160,18 @@ fun AboutContent(
     val context = LocalContext.current
     val uiState by audioViewModel.uiState.collectAsState()
 
+    // CRITICAL FIX: Track MediaPlayer for proper lifecycle management
+    // Previous implementation created MediaPlayer in click handler without cleanup,
+    // causing leaks if composable was removed while audio was playing
+    var activeMediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            activeMediaPlayer?.release()
+            activeMediaPlayer = null
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -195,9 +210,17 @@ fun AboutContent(
                     color = StaticMenuColors.textOnCard.copy(alpha = 0.85f),
                     modifier = Modifier.clickable {
                         if (uiState.cpdTaps + 1 == 5) {
+                            // Release any existing player before creating new one
+                            activeMediaPlayer?.release()
                             val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
+                            activeMediaPlayer = mediaPlayer
                             mediaPlayer?.start()
-                            mediaPlayer?.setOnCompletionListener { mp -> mp.release() }
+                            mediaPlayer?.setOnCompletionListener { mp ->
+                                mp.release()
+                                if (activeMediaPlayer == mp) {
+                                    activeMediaPlayer = null
+                                }
+                            }
                         }
                         audioViewModel.onCpdTapped()
                     }

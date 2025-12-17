@@ -84,6 +84,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.quokkalabs.reversey.data.backup.BackupManager
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.Recording
+import com.quokkalabs.reversey.scoring.PhonemeUtils
 import com.quokkalabs.reversey.ui.components.AnalysisToast
 import com.quokkalabs.reversey.ui.components.DifficultyIndicator
 import com.quokkalabs.reversey.ui.components.ThemedMenuModal
@@ -98,6 +99,7 @@ import com.quokkalabs.reversey.ui.theme.ScrapbookThemeComponents
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -108,7 +110,6 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
-import com.quokkalabs.reversey.scoring.PhonemeUtils
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -153,8 +154,11 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        // Initialize phoneme dictionary for scoring (async - fires and forgets)
-        PhonemeUtils.initialize(applicationContext)
+        // Initialize phoneme dictionary for scoring (background thread - avoids 10s main thread block)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val success = PhonemeUtils.initialize(applicationContext)
+            Log.d("PhonemeUtils", "CMU dictionary loaded: $success (${PhonemeUtils.dictionarySize()} words)")
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

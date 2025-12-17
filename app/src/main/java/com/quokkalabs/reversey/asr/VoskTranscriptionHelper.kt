@@ -16,7 +16,7 @@ import javax.inject.Singleton
 
 /**
  * 🎤 VOSK TRANSCRIPTION HELPER - Proof of Concept
- * 
+ *
  * Transcribes WAV files AFTER recording completes.
  * Includes resampling from 44100Hz → 16000Hz.
  * No mic conflicts - reads from file!
@@ -48,7 +48,7 @@ class VoskTranscriptionHelper @Inject constructor(
 
         try {
             Log.d(TAG, "📦 Loading Vosk model...")
-            
+
             StorageService.unpack(context, MODEL_PATH, "model",
                 { loadedModel ->
                     model = loadedModel
@@ -59,7 +59,13 @@ class VoskTranscriptionHelper @Inject constructor(
                     Log.e(TAG, "❌ Model load failed: ${error.message}")
                 }
             )
-            
+
+            // Wait for async unpack (simple polling for POC)
+            var attempts = 0
+            while (!isInitialized && attempts < 30) {
+                kotlinx.coroutines.delay(500)
+                attempts++
+            }
 
             isInitialized
         } catch (e: Exception) {
@@ -70,7 +76,7 @@ class VoskTranscriptionHelper @Inject constructor(
 
     /**
      * Transcribe a WAV file to text
-     * 
+     *
      * @param wavFile The recorded WAV file (44100Hz mono 16-bit PCM)
      * @return TranscriptionResult with text or error
      */
@@ -90,16 +96,16 @@ class VoskTranscriptionHelper @Inject constructor(
         try {
             // Read and resample audio
             val resampledBytes = resampleWavTo16k(wavFile)
-            
+
             if (resampledBytes.isEmpty()) {
                 return@withContext TranscriptionResult.error("Failed to resample audio")
             }
-            
+
             Log.d(TAG, "🔄 Resampled: ${resampledBytes.size} bytes at 16kHz")
 
             // Create recognizer for 16kHz audio
             val recognizer = Recognizer(model, VOSK_SAMPLE_RATE.toFloat())
-            
+
             // Feed resampled audio in chunks
             var offset = 0
             val chunkSize = 4096
@@ -109,22 +115,22 @@ class VoskTranscriptionHelper @Inject constructor(
                 recognizer.acceptWaveForm(chunk, chunk.size)
                 offset = end
             }
-            
+
             // Get final result
             val resultJson = recognizer.finalResult
             recognizer.close()
-            
+
             // Parse JSON: {"text": "hello world"}
             val text = parseVoskResult(resultJson)
-            
+
             Log.d(TAG, "✅ Result: '$text'")
-            
+
             if (text.isBlank()) {
                 TranscriptionResult.error("No speech detected")
             } else {
                 TranscriptionResult.success(text, 0.9f)
             }
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "❌ Transcription failed: ${e.message}", e)
             TranscriptionResult.error(e.message ?: "Transcription failed")
@@ -133,60 +139,102 @@ class VoskTranscriptionHelper @Inject constructor(
 
     /**
      * Resample WAV from 44100Hz to 16000Hz
-     * Uses linear interpolation for decent quality
+     * CRITICAL FIX: Uses streaming to avoid OOM on large files
+     * Previous implementation loaded entire file (up to 40MB) into memory at once
      */
     private fun resampleWavTo16k(wavFile: File): ByteArray {
         try {
-            val inputBytes = wavFile.readBytes()
-            
-            if (inputBytes.size <= WAV_HEADER_SIZE) {
+            val fileSize = wavFile.length()
+            if (fileSize <= WAV_HEADER_SIZE) {
                 Log.e(TAG, "❌ WAV file too small")
                 return ByteArray(0)
             }
-            
-            // Skip WAV header, get raw PCM
-            val pcmBytes = inputBytes.copyOfRange(WAV_HEADER_SIZE, inputBytes.size)
-            
-            // Convert bytes to shorts (16-bit samples)
-            val inputSamples = ShortArray(pcmBytes.size / 2)
-            ByteBuffer.wrap(pcmBytes)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .asShortBuffer()
-                .get(inputSamples)
-            
-            // Calculate output size
+
+            val pcmSize = fileSize - WAV_HEADER_SIZE
+            val inputSampleCount = pcmSize / 2
             val ratio = INPUT_SAMPLE_RATE.toDouble() / VOSK_SAMPLE_RATE
-            val outputLength = (inputSamples.size / ratio).toInt()
-            val outputSamples = ShortArray(outputLength)
-            
-            Log.d(TAG, "🔄 Resampling: ${inputSamples.size} samples → $outputLength samples")
-            
-            // Linear interpolation resampling
-            for (i in 0 until outputLength) {
-                val srcPos = i * ratio
-                val srcIndex = srcPos.toInt()
-                val fraction = srcPos - srcIndex
-                
-                val sample1 = inputSamples[srcIndex]
-                val sample2 = if (srcIndex + 1 < inputSamples.size) {
-                    inputSamples[srcIndex + 1]
-                } else {
-                    sample1
+            val outputSampleCount = (inputSampleCount / ratio).toInt()
+
+            Log.d(TAG, "🔄 Streaming resample: $inputSampleCount samples → $outputSampleCount samples")
+
+            // Process in chunks to limit memory usage
+            // Each chunk: 8KB input buffer = 4K samples
+            val inputChunkBytes = 8192
+            val inputChunkSamples = inputChunkBytes / 2
+
+            // Output buffer - we still need to collect output but it's smaller (36% of input)
+            val outputStream = java.io.ByteArrayOutputStream(outputSampleCount * 2)
+
+            wavFile.inputStream().use { input ->
+                // Skip WAV header
+                input.skip(WAV_HEADER_SIZE.toLong())
+
+                val inputBuffer = ByteArray(inputChunkBytes)
+                var totalInputSamples = 0L
+                var totalOutputSamples = 0
+                var prevSample: Short = 0
+
+                while (true) {
+                    val bytesRead = input.read(inputBuffer)
+                    if (bytesRead <= 0) break
+
+                    val samplesInChunk = bytesRead / 2
+                    val chunkSamples = ShortArray(samplesInChunk)
+
+                    ByteBuffer.wrap(inputBuffer, 0, bytesRead)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .asShortBuffer()
+                        .get(chunkSamples)
+
+                    // Process this chunk - determine output samples that fall within this input range
+                    val chunkStartInput = totalInputSamples
+                    val chunkEndInput = totalInputSamples + samplesInChunk
+
+                    while (totalOutputSamples < outputSampleCount) {
+                        val srcPos = totalOutputSamples * ratio
+
+                        // Check if this output sample's source is within current chunk
+                        if (srcPos >= chunkEndInput) break
+
+                        val srcIndex = srcPos.toInt()
+                        val localIndex = (srcIndex - chunkStartInput).toInt()
+                        val fraction = srcPos - srcIndex
+
+                        if (localIndex >= 0 && localIndex < samplesInChunk) {
+                            val sample1 = if (localIndex == 0 && chunkStartInput > 0) {
+                                prevSample
+                            } else if (localIndex > 0) {
+                                chunkSamples[localIndex - 1]
+                            } else {
+                                chunkSamples[0]
+                            }
+
+                            val sample2 = chunkSamples[localIndex]
+
+                            val interpolated = (sample1 + fraction * (sample2 - sample1)).toInt()
+                                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                                .toShort()
+
+                            // Write as little-endian bytes
+                            outputStream.write(interpolated.toInt() and 0xFF)
+                            outputStream.write((interpolated.toInt() shr 8) and 0xFF)
+                            totalOutputSamples++
+                        } else {
+                            totalOutputSamples++
+                        }
+                    }
+
+                    // Save last sample for interpolation across chunks
+                    if (samplesInChunk > 0) {
+                        prevSample = chunkSamples[samplesInChunk - 1]
+                    }
+                    totalInputSamples += samplesInChunk
                 }
-                
-                // Interpolate
-                outputSamples[i] = (sample1 + fraction * (sample2 - sample1)).toInt().toShort()
             }
-            
-            // Convert shorts back to bytes
-            val outputBytes = ByteArray(outputSamples.size * 2)
-            ByteBuffer.wrap(outputBytes)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .asShortBuffer()
-                .put(outputSamples)
-            
-            return outputBytes
-            
+
+            Log.d(TAG, "✅ Resampled to ${outputStream.size()} bytes")
+            return outputStream.toByteArray()
+
         } catch (e: Exception) {
             Log.e(TAG, "❌ Resample failed: ${e.message}", e)
             return ByteArray(0)
@@ -204,4 +252,21 @@ class VoskTranscriptionHelper @Inject constructor(
     }
 
     fun isReady(): Boolean = isInitialized && model != null
+
+    /**
+     * CRITICAL FIX: Release native Vosk model resources
+     * Call this when the helper is no longer needed (e.g., in ViewModel.onCleared())
+     * Previous implementation never released the model, causing native memory leaks
+     */
+    fun cleanup() {
+        try {
+            model?.close()
+            Log.d(TAG, "✅ Vosk model released")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing Vosk model", e)
+        } finally {
+            model = null
+            isInitialized = false
+        }
+    }
 }

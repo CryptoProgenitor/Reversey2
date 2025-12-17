@@ -2,28 +2,22 @@ package com.quokkalabs.reversey.scoring
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import java.io.DataInputStream
+import java.io.BufferedInputStream
 
 /**
  * Phoneme utilities using CMU Pronouncing Dictionary
  * Converts words to phonemes for bag-of-phonemes scoring
  *
- * Updated Dec 2025: Added fuzzy matching and alignment for difficulty modes
- * Updated Dec 2025: Async initialization to prevent blocking main thread
+ * Updated Dec 2025: Binary dictionary format for fast loading (~200ms vs ~9000ms)
  */
 object PhonemeUtils {
 
     private const val TAG = "PhonemeUtils"
-    private const val CMU_DICT_ASSET = "cmudict.txt"
+    private const val CMU_DICT_BINARY = "cmudict.bin"
 
     // Word -> Phonemes map (e.g., "HELLO" -> ["HH", "AH", "L", "OW"])
-    // @Volatile ensures visibility across threads; nullable for atomic swap
-    @Volatile
-    private var dictionary: Map<String, List<String>>? = null
-
-    @Volatile
+    private val dictionary = mutableMapOf<String, List<String>>()
     private var isLoaded = false
 
     /**
@@ -58,11 +52,12 @@ object PhonemeUtils {
         setOf("L", "R"),        // liquids (often confused)
     )
 
-    // Build lookup: phoneme -> canonical phoneme (first in its group)
+    // Build lookup: phoneme -> canonical phoneme (first in its group alphabetically)
+    // Using sorted().first() for deterministic ordering across app restarts
     private val fuzzyPhonemeMap: Map<String, String> by lazy {
         val map = mutableMapOf<String, String>()
         for (group in similarPhonemeGroups) {
-            val canonical = group.first()
+            val canonical = group.sorted().first()  // Deterministic: alphabetically first
             for (phoneme in group) {
                 map[phoneme] = canonical
             }
@@ -71,69 +66,60 @@ object PhonemeUtils {
     }
 
     /**
-     * Load CMU dictionary from assets ASYNC
-     * Call once at app startup from Application.onCreate()
-     * Non-blocking - returns immediately, loads in background
+     * Load CMU dictionary from binary asset
+     * Binary format loads ~40x faster than text parsing
+     * Call once at app startup
      */
-    fun initialize(context: Context) {
-        if (isLoaded) return
+    fun initialize(context: Context): Boolean {
+        if (isLoaded) return true
 
-        // Use applicationContext to prevent Activity leaks
-        val appContext = context.applicationContext
+        return try {
+            val startTime = System.currentTimeMillis()
 
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val startTime = System.currentTimeMillis()
+            context.assets.open(CMU_DICT_BINARY).use { raw ->
+                DataInputStream(BufferedInputStream(raw, 65536)).use { input ->
+                    // Read phoneme table
+                    val phonemeCount = input.readUnsignedShort()
+                    val phonemes = Array(phonemeCount) { "" }
 
-                // Build into local temp map first (atomic swap pattern)
-                val tempMap = mutableMapOf<String, List<String>>()
+                    for (i in 0 until phonemeCount) {
+                        val len = input.readUnsignedByte()
+                        val bytes = ByteArray(len)
+                        input.readFully(bytes)
+                        phonemes[i] = String(bytes, Charsets.US_ASCII)
+                    }
 
-                appContext.assets.open(CMU_DICT_ASSET).bufferedReader().useLines { lines ->
-                    lines.forEach { line ->
-                        parseDictLineToMap(line, tempMap)
+                    // Read word count
+                    val wordCount = input.readInt()
+
+                    // Read each word
+                    for (w in 0 until wordCount) {
+                        val wordLen = input.readUnsignedByte()
+                        val wordBytes = ByteArray(wordLen)
+                        input.readFully(wordBytes)
+                        val word = String(wordBytes, Charsets.US_ASCII)
+
+                        val phonemeCountForWord = input.readUnsignedByte()
+                        val wordPhonemes = ArrayList<String>(phonemeCountForWord)
+
+                        for (p in 0 until phonemeCountForWord) {
+                            val idx = input.readUnsignedByte()
+                            wordPhonemes.add(phonemes[idx])
+                        }
+
+                        dictionary[word] = wordPhonemes
                     }
                 }
-
-                // Atomic assignment - dictionary "appears" all at once
-                dictionary = tempMap
-                isLoaded = true
-
-                val elapsed = System.currentTimeMillis() - startTime
-                Log.d(TAG, "✅ Loaded ${tempMap.size} words in ${elapsed}ms")
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load CMU dictionary", e)
-                // Set empty map so we don't crash on null checks
-                dictionary = emptyMap()
-                isLoaded = true
             }
-        }
-    }
 
-    /**
-     * Parse a single dictionary line into the provided map
-     * Used by async loader to build temp map
-     */
-    private fun parseDictLineToMap(line: String, map: MutableMap<String, List<String>>) {
-        // Skip comments and empty lines
-        if (line.isBlank() || line.startsWith(";;;")) return
+            isLoaded = true
+            val elapsed = System.currentTimeMillis() - startTime
+            Log.d(TAG, "Loaded ${dictionary.size} words in ${elapsed}ms (binary)")
+            true
 
-        // Format: WORD  P1 P2 P3 (two spaces between word and phonemes)
-        // Or: WORD(1)  P1 P2 P3 (alternate pronunciations)
-        val parts = line.split(" ", limit = 2)
-        if (parts.size != 2) return
-
-        // Remove variant number like HELLO(2)
-        val word = parts[0].replace(Regex("\\(\\d+\\)$"), "").uppercase()
-
-        // Strip stress markers (0,1,2) from vowels: AH0 -> AH
-        val phonemes = parts[1].trim()
-            .split(" ")
-            .map { it.replace(Regex("[012]$"), "") }
-
-        // Keep first pronunciation only
-        if (!map.containsKey(word)) {
-            map[word] = phonemes
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load CMU dictionary", e)
+            false
         }
     }
 
@@ -142,15 +128,6 @@ object PhonemeUtils {
      * Returns flat list of all phonemes
      */
     fun textToPhonemes(text: String): List<String> {
-        // Safe local reference for thread safety
-        val currentDict = dictionary
-
-        // If not loaded yet, use fallback
-        if (currentDict == null) {
-            Log.w(TAG, "Dictionary not ready yet, using fallback")
-            return text.uppercase().filter { it.isLetter() }.map { "?$it" }
-        }
-
         val words = text.uppercase()
             .replace(Regex("[^A-Z' ]"), "") // Keep letters, apostrophes, spaces
             .split(Regex("\\s+"))
@@ -159,7 +136,7 @@ object PhonemeUtils {
         val phonemes = mutableListOf<String>()
 
         for (word in words) {
-            val wordPhonemes = currentDict[word]
+            val wordPhonemes = dictionary[word]
             if (wordPhonemes != null) {
                 phonemes.addAll(wordPhonemes)
             } else {
@@ -177,16 +154,13 @@ object PhonemeUtils {
      * Returns list of WordPhonemes for UI visualization
      */
     fun textToWordPhonemes(text: String): List<WordPhonemes> {
-        // Safe local reference for thread safety
-        val currentDict = dictionary
-
         val words = text.uppercase()
             .replace(Regex("[^A-Z' ]"), "")
             .split(Regex("\\s+"))
             .filter { it.isNotBlank() }
 
         return words.map { word ->
-            val phonemes = currentDict?.get(word)
+            val phonemes = dictionary[word]
             if (phonemes != null) {
                 WordPhonemes(word.lowercase(), phonemes)
             } else {
@@ -417,7 +391,11 @@ object PhonemeUtils {
         }
 
         val matchedCount = targetMatches.count { it }
-        // For sequence, overlap is LCS length / max length
+        // For sequence matching, overlap is LCS length / max length
+        // Using maxOf(n, m) intentionally penalizes verbosity to prevent gaming:
+        // - Target: "hello" (5 phonemes), Attempt: "hello blah blah" (15 phonemes)
+        // - LCS = 5, Score = 5/15 = 33% (not 100%)
+        // This prevents users from padding attempts with extra words
         val overlapScore = if (maxOf(n, m) > 0) {
             dp[n][m].toFloat() / maxOf(n, m)
         } else 1f
@@ -439,7 +417,7 @@ object PhonemeUtils {
     /**
      * Get dictionary size (for debugging)
      */
-    fun dictionarySize(): Int = dictionary?.size ?: 0
+    fun dictionarySize(): Int = dictionary.size
 }
 
 /**

@@ -8,6 +8,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Thread-safe audio player helper.
+ * CRITICAL FIX: Added @Synchronized to prevent race conditions when multiple
+ * threads call play/pause/resume/stop simultaneously. Previous implementation
+ * could crash if two threads accessed mediaPlayer at the same time.
+ */
 @Singleton
 class AudioPlayerHelper @Inject constructor() {
 
@@ -25,6 +31,7 @@ class AudioPlayerHelper @Inject constructor() {
     private val _currentPath = MutableStateFlow<String?>(null)
     val currentPath = _currentPath.asStateFlow()
 
+    @Synchronized
     fun play(path: String, onCompletion: () -> Unit = {}) {
         stop() // Clean up previous
 
@@ -50,26 +57,37 @@ class AudioPlayerHelper @Inject constructor() {
         }
     }
 
+    @Synchronized
     fun pause() {
-        mediaPlayer?.let { mp ->
-            if (mp.isPlaying) {
-                mp.pause()
-                _isPlaying.value = false
-                progressJob?.cancel()
+        try {
+            mediaPlayer?.let { mp ->
+                if (mp.isPlaying) {
+                    mp.pause()
+                    _isPlaying.value = false
+                    progressJob?.cancel()
+                }
             }
+        } catch (e: Exception) {
+            Log.e("AudioPlayerHelper", "Error pausing player", e)
         }
     }
 
+    @Synchronized
     fun resume() {
-        mediaPlayer?.let { mp ->
-            if (!mp.isPlaying) {
-                mp.start()
-                _isPlaying.value = true
-                startProgressPolling()
+        try {
+            mediaPlayer?.let { mp ->
+                if (!mp.isPlaying) {
+                    mp.start()
+                    _isPlaying.value = true
+                    startProgressPolling()
+                }
             }
+        } catch (e: Exception) {
+            Log.e("AudioPlayerHelper", "Error resuming player", e)
         }
     }
 
+    @Synchronized
     fun stop() {
         try {
             if (mediaPlayer?.isPlaying == true) {
