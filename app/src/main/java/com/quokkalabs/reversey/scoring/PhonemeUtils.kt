@@ -383,11 +383,13 @@ object PhonemeUtils {
         }
 
         val matchedCount = targetMatches.count { it }
-        // CRITICAL FIX: Use target length (n) as denominator, not max(n, m)
-        // Previous implementation penalized users for saying extra words even if
-        // they correctly matched all target phonemes in sequence
-        val overlapScore = if (n > 0) {
-            dp[n][m].toFloat() / n
+        // For sequence mode: LCS length / max(target, attempt) length
+        // Using max() is intentional anti-gaming protection:
+        // - Prevents users from gaming by saying target + extra garbage words
+        // - Example: "hello" (5 phonemes) vs "hello blah blah blah" (20 phonemes)
+        //   LCS=5, score = 5/20 = 25% (penalizes verbosity)
+        val overlapScore = if (maxOf(n, m) > 0) {
+            dp[n][m].toFloat() / maxOf(n, m)
         } else 1f
 
         return PhonemeMatchResult(
