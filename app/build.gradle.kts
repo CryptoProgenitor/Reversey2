@@ -19,8 +19,8 @@ android {
         applicationId = "com.quokkalabs.reversey"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.18alpha"
+        versionCode = 19
+        versionName = "0.19alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -97,5 +97,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     // VOSS speech recognition
-    implementation("com.alphacephei:vosk-android:0.3.47")
+    // https://central.sonatype.com/artifact/com.alphacephei/vosk-android/0.3.75
+    implementation("com.alphacephei:vosk-android:0.3.75")
 }
