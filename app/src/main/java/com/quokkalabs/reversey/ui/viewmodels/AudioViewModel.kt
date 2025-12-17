@@ -220,6 +220,12 @@ class AudioViewModel @Inject constructor(
     }
 
     fun startRecording() {
+        // 🎤 Check if Vosk is ready - show toast if still loading
+        if (!voskTranscriptionHelper.isReady()) {
+            showUserMessage("Voice transcription engine still loading, please wait...")
+            return
+        }
+
         val context = getApplication<Application>()
 
         if (ActivityCompat.checkSelfPermission(
@@ -415,6 +421,12 @@ class AudioViewModel @Inject constructor(
     }
 
     fun startAttempt(recordingPath: String) {
+        // 🎤 Check if Vosk is ready - show toast if still loading
+        if (!voskTranscriptionHelper.isReady()) {
+            showUserMessage("Voice transcription engine still loading, please wait...")
+            return
+        }
+
         val context = getApplication<Application>()
 
         if (ActivityCompat.checkSelfPermission(

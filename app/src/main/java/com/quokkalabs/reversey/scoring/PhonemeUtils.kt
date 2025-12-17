@@ -2,12 +2,16 @@ package com.quokkalabs.reversey.scoring
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Phoneme utilities using CMU Pronouncing Dictionary
  * Converts words to phonemes for bag-of-phonemes scoring
  *
  * Updated Dec 2025: Added fuzzy matching and alignment for difficulty modes
+ * Updated Dec 2025: Async initialization to prevent blocking main thread
  */
 object PhonemeUtils {
 
@@ -15,7 +19,11 @@ object PhonemeUtils {
     private const val CMU_DICT_ASSET = "cmudict.txt"
 
     // Word -> Phonemes map (e.g., "HELLO" -> ["HH", "AH", "L", "OW"])
-    private val dictionary = mutableMapOf<String, List<String>>()
+    // @Volatile ensures visibility across threads; nullable for atomic swap
+    @Volatile
+    private var dictionary: Map<String, List<String>>? = null
+
+    @Volatile
     private var isLoaded = false
 
     /**
@@ -63,33 +71,50 @@ object PhonemeUtils {
     }
 
     /**
-     * Load CMU dictionary from assets
-     * Call once at app startup
+     * Load CMU dictionary from assets ASYNC
+     * Call once at app startup from Application.onCreate()
+     * Non-blocking - returns immediately, loads in background
      */
-    fun initialize(context: Context): Boolean {
-        if (isLoaded) return true
+    fun initialize(context: Context) {
+        if (isLoaded) return
 
-        return try {
-            val startTime = System.currentTimeMillis()
+        // Use applicationContext to prevent Activity leaks
+        val appContext = context.applicationContext
 
-            context.assets.open(CMU_DICT_ASSET).bufferedReader().useLines { lines ->
-                lines.forEach { line ->
-                    parseDictLine(line)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val startTime = System.currentTimeMillis()
+
+                // Build into local temp map first (atomic swap pattern)
+                val tempMap = mutableMapOf<String, List<String>>()
+
+                appContext.assets.open(CMU_DICT_ASSET).bufferedReader().useLines { lines ->
+                    lines.forEach { line ->
+                        parseDictLineToMap(line, tempMap)
+                    }
                 }
+
+                // Atomic assignment - dictionary "appears" all at once
+                dictionary = tempMap
+                isLoaded = true
+
+                val elapsed = System.currentTimeMillis() - startTime
+                Log.d(TAG, "✅ Loaded ${tempMap.size} words in ${elapsed}ms")
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load CMU dictionary", e)
+                // Set empty map so we don't crash on null checks
+                dictionary = emptyMap()
+                isLoaded = true
             }
-
-            isLoaded = true
-            val elapsed = System.currentTimeMillis() - startTime
-            Log.d(TAG, "Loaded ${dictionary.size} words in ${elapsed}ms")
-            true
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load CMU dictionary", e)
-            false
         }
     }
 
-    private fun parseDictLine(line: String) {
+    /**
+     * Parse a single dictionary line into the provided map
+     * Used by async loader to build temp map
+     */
+    private fun parseDictLineToMap(line: String, map: MutableMap<String, List<String>>) {
         // Skip comments and empty lines
         if (line.isBlank() || line.startsWith(";;;")) return
 
@@ -107,8 +132,8 @@ object PhonemeUtils {
             .map { it.replace(Regex("[012]$"), "") }
 
         // Keep first pronunciation only
-        if (!dictionary.containsKey(word)) {
-            dictionary[word] = phonemes
+        if (!map.containsKey(word)) {
+            map[word] = phonemes
         }
     }
 
@@ -117,6 +142,15 @@ object PhonemeUtils {
      * Returns flat list of all phonemes
      */
     fun textToPhonemes(text: String): List<String> {
+        // Safe local reference for thread safety
+        val currentDict = dictionary
+
+        // If not loaded yet, use fallback
+        if (currentDict == null) {
+            Log.w(TAG, "Dictionary not ready yet, using fallback")
+            return text.uppercase().filter { it.isLetter() }.map { "?$it" }
+        }
+
         val words = text.uppercase()
             .replace(Regex("[^A-Z' ]"), "") // Keep letters, apostrophes, spaces
             .split(Regex("\\s+"))
@@ -125,7 +159,7 @@ object PhonemeUtils {
         val phonemes = mutableListOf<String>()
 
         for (word in words) {
-            val wordPhonemes = dictionary[word]
+            val wordPhonemes = currentDict[word]
             if (wordPhonemes != null) {
                 phonemes.addAll(wordPhonemes)
             } else {
@@ -143,13 +177,16 @@ object PhonemeUtils {
      * Returns list of WordPhonemes for UI visualization
      */
     fun textToWordPhonemes(text: String): List<WordPhonemes> {
+        // Safe local reference for thread safety
+        val currentDict = dictionary
+
         val words = text.uppercase()
             .replace(Regex("[^A-Z' ]"), "")
             .split(Regex("\\s+"))
             .filter { it.isNotBlank() }
 
         return words.map { word ->
-            val phonemes = dictionary[word]
+            val phonemes = currentDict?.get(word)
             if (phonemes != null) {
                 WordPhonemes(word.lowercase(), phonemes)
             } else {
@@ -402,7 +439,7 @@ object PhonemeUtils {
     /**
      * Get dictionary size (for debugging)
      */
-    fun dictionarySize(): Int = dictionary.size
+    fun dictionarySize(): Int = dictionary?.size ?: 0
 }
 
 /**
