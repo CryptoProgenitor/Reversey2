@@ -2,6 +2,7 @@ package com.quokkalabs.reversey.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -80,6 +81,9 @@ fun DifficultySquircle(
     val scoreFontSize = if (scaledScoreSize > 28.sp) 28.sp else scaledScoreSize
     val difficultyFontSize = with(density) { (width * 0.11f).toSp() }
 
+    // Density-aware spacing (Bug 17 fix - prevents text cutoff on physical devices)
+    val verticalPadding = height * 0.07f
+
     Box(
         modifier = modifier
             .width(width)
@@ -149,7 +153,10 @@ fun DifficultySquircle(
         // Content: 3 rows
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(8.dp)
+            verticalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = verticalPadding, vertical = verticalPadding * 0.5f)
         ) {
             // ROW 1: Challenge type icon + emoji (side by side)
             Row(
@@ -167,9 +174,6 @@ fun DifficultySquircle(
                     fontSize = emojiFontSize
                 )
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
             // ROW 2: Score with %
             // ROW 2: Score with %
             val textColor = if (difficultyColor.isDark()) Color.White else Color.Black
@@ -188,9 +192,6 @@ fun DifficultySquircle(
                     )
                 )
             )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
             // ROW 3: Difficulty text
             // ROW 3: Difficulty text
             Text(

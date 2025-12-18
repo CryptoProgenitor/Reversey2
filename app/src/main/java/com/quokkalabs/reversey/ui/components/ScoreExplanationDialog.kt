@@ -333,26 +333,27 @@ private fun ScoreDisplay(
 }
 
 /**
- * Dismissable toast showing the mathematical formula calculation
+ * Dismissable toast showing the mathematical formula calculation.
+ * Uses the same algorithm as the scoring engine for each difficulty level.
  */
 @Composable
 private fun FormulaToast(
     attempt: PlayerAttempt,
     onDismiss: () -> Unit
 ) {
-    val matchedCount = attempt.phonemeMatches.count { it }
-    val totalCount = attempt.targetPhonemes.size
-    val phonemeOverlap = if (totalCount > 0) matchedCount.toFloat() / totalCount else 0f
-    val phonemeBase = kotlin.math.sqrt(phonemeOverlap) * 0.85f
+    // Get breakdown from scoring engine (uses correct algorithm per difficulty)
+    val breakdown = com.quokkalabs.reversey.scoring.ReverseScoringEngine.calculateFormulaBreakdown(
+        targetPhonemes = attempt.targetPhonemes,
+        attemptPhonemes = attempt.attemptPhonemes,
+        difficulty = attempt.difficulty,
+        durationRatio = attempt.durationRatio ?: 1f
+    )
 
-    val durationRatio = attempt.durationRatio ?: 1f
-    val gaussianWidth = when (attempt.difficulty) {
-        com.quokkalabs.reversey.scoring.DifficultyLevel.EASY -> 0.3f
-        com.quokkalabs.reversey.scoring.DifficultyLevel.NORMAL -> 0.2f
-        com.quokkalabs.reversey.scoring.DifficultyLevel.HARD -> 0.1f
+    val difficultyLabel = when (attempt.difficulty) {
+        com.quokkalabs.reversey.scoring.DifficultyLevel.EASY -> "Easy"
+        com.quokkalabs.reversey.scoring.DifficultyLevel.NORMAL -> "Normal"
+        com.quokkalabs.reversey.scoring.DifficultyLevel.HARD -> "Hard"
     }
-    val durationBonus = 0.15f * kotlin.math.exp(-(durationRatio - 1f).let { it * it } / gaussianWidth).toFloat()
-    val calculatedScore = ((phonemeBase + durationBonus) * 100).toInt().coerceIn(0, 100)
 
     Box(
         modifier = Modifier
@@ -364,8 +365,9 @@ private fun FormulaToast(
             .padding(12.dp)
     ) {
         Column {
+            // Header with leniency mode
             Text(
-                text = "📐 PHONEME_PRIMARY Formula",
+                text = "📐 ${breakdown.leniencyMode} Formula ($difficultyLabel)",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF89B4FA)
@@ -373,31 +375,112 @@ private fun FormulaToast(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Phoneme base calculation
+            // Phoneme overlap calculation - varies by mode
+            when (breakdown.leniencyMode) {
+                "FUZZY" -> {
+                    Text(
+                        text = "matchScore = exact + partial credit",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFA6E3A1)
+                    )
+                    Text(
+                        text = "           = ${String.format("%.1f", breakdown.matchScore ?: 0f)}",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFCDD6F4)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "phonemeOverlap = matchScore / target",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFA6E3A1)
+                    )
+                    Text(
+                        text = "              = ${String.format("%.1f", breakdown.matchScore ?: 0f)} / ${breakdown.targetCount} = ${String.format("%.3f", breakdown.phonemeOverlap)}",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFCDD6F4)
+                    )
+                }
+                "EXACT" -> {
+                    Text(
+                        text = "intersection = ${breakdown.intersection} matched",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFA6E3A1)
+                    )
+                    Text(
+                        text = "union = target + attempt - intersection",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFA6E3A1)
+                    )
+                    Text(
+                        text = "      = ${breakdown.targetCount} + ${breakdown.attemptCount} - ${breakdown.intersection} = ${breakdown.union}",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFCDD6F4)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "phonemeOverlap = intersection / union",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFA6E3A1)
+                    )
+                    Text(
+                        text = "              = ${breakdown.intersection} / ${breakdown.union} = ${String.format("%.3f", breakdown.phonemeOverlap)}",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFCDD6F4)
+                    )
+                }
+                "ORDERED" -> {
+                    Text(
+                        text = "lcs = ${breakdown.lcs} (longest common subsequence)",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFA6E3A1)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "phonemeOverlap = lcs / target",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFA6E3A1)
+                    )
+                    Text(
+                        text = "              = ${breakdown.lcs} / ${breakdown.targetCount} = ${String.format("%.3f", breakdown.phonemeOverlap)}",
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFFCDD6F4)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Phoneme base (common to all)
             Text(
-                text = "phonemeBase = √($matchedCount/$totalCount) × 0.85",
+                text = "phonemeBase = √(${String.format("%.3f", breakdown.phonemeOverlap)}) × 0.85 = ${String.format("%.3f", breakdown.phonemeBase)}",
                 fontSize = 10.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                color = Color(0xFFA6E3A1)
-            )
-            Text(
-                text = "           = √(${String.format("%.2f", phonemeOverlap)}) × 0.85 = ${String.format("%.3f", phonemeBase)}",
-                fontSize = 10.sp,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                color = Color(0xFFCDD6F4)
+                color = Color(0xFFF9E2AF)
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             // Duration bonus calculation
             Text(
-                text = "durationBonus = 0.15 × e^(-(${String.format("%.2f", durationRatio)}-1)²/$gaussianWidth)",
+                text = "durationBonus = 0.15 × e^(-(${String.format("%.2f", breakdown.durationRatio)}-1)²/${breakdown.gaussianWidth})",
                 fontSize = 10.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 color = Color(0xFFF9E2AF)
             )
             Text(
-                text = "             = ${String.format("%.3f", durationBonus)}",
+                text = "             = ${String.format("%.3f", breakdown.durationBonus)}",
                 fontSize = 10.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 color = Color(0xFFCDD6F4)
@@ -407,13 +490,13 @@ private fun FormulaToast(
 
             // Final score
             Text(
-                text = "score = (${String.format("%.3f", phonemeBase)} + ${String.format("%.3f", durationBonus)}) × 100",
+                text = "score = (${String.format("%.3f", breakdown.phonemeBase)} + ${String.format("%.3f", breakdown.durationBonus)}) × 100",
                 fontSize = 10.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 color = Color(0xFFF38BA8)
             )
             Text(
-                text = "      = $calculatedScore%",
+                text = "      = ${breakdown.finalScore}%",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,

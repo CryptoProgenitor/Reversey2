@@ -473,7 +473,69 @@ object ReverseScoringEngine {
     }
 
     fun getActiveModel(): String = ACTIVE_MODEL.name
+
+    // ═══════════════════════════════════════════════════════════════
+    //  FORMULA BREAKDOWN FOR UI
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Calculate formula breakdown for display in ScoreExplanationDialog.
+     * Recalculates using the same algorithm as the scoring engine.
+     */
+    fun calculateFormulaBreakdown(
+        targetPhonemes: List<String>,
+        attemptPhonemes: List<String>,
+        difficulty: DifficultyLevel,
+        durationRatio: Float
+    ): FormulaBreakdown {
+        val config = DIFFICULTY_CONFIGS[difficulty] ?: DIFFICULTY_CONFIGS.getValue(DifficultyLevel.NORMAL)
+
+        // Calculate phoneme match using the correct algorithm for this difficulty
+        val matchDetail = calculatePhonemeScore(targetPhonemes, attemptPhonemes, config.phonemeLeniency)
+
+        // Calculate components
+        val phonemeBase = sqrt(matchDetail.overlap) * PHONEME_WEIGHT
+        val durationBonus = DURATION_BONUS_MAX * exp(-(durationRatio - 1f).pow(2) / config.gaussianWidth)
+        val finalScore = ((phonemeBase + durationBonus) * 100).toInt().coerceIn(0, 100)
+
+        return FormulaBreakdown(
+            leniencyMode = config.phonemeLeniency.name,
+            matchedCount = matchDetail.matchedCount,
+            targetCount = targetPhonemes.size,
+            attemptCount = attemptPhonemes.size,
+            intersection = if (config.phonemeLeniency == PhonemeMatch.EXACT) matchDetail.matchedCount else null,
+            union = if (config.phonemeLeniency == PhonemeMatch.EXACT) targetPhonemes.size + attemptPhonemes.size - matchDetail.matchedCount else null,
+            lcs = if (config.phonemeLeniency == PhonemeMatch.ORDERED) matchDetail.matchedCount else null,
+            matchScore = if (config.phonemeLeniency == PhonemeMatch.FUZZY) matchDetail.overlap * targetPhonemes.size else null,
+            phonemeOverlap = matchDetail.overlap,
+            phonemeBase = phonemeBase,
+            durationRatio = durationRatio,
+            gaussianWidth = config.gaussianWidth,
+            durationBonus = durationBonus,
+            finalScore = finalScore
+        )
+    }
 }
+
+/**
+ * Detailed formula breakdown for UI display
+ */
+data class FormulaBreakdown(
+    val leniencyMode: String,           // "FUZZY", "EXACT", "ORDERED"
+    val matchedCount: Int,              // Phonemes matched
+    val targetCount: Int,               // Target phoneme count
+    val attemptCount: Int,              // Attempt phoneme count
+    val intersection: Int?,             // For EXACT (Jaccard)
+    val union: Int?,                    // For EXACT (Jaccard)
+    val lcs: Int?,                      // For ORDERED (LCS)
+    val matchScore: Float?,             // For FUZZY (with partial credit)
+    val phonemeOverlap: Float,          // Final overlap value
+    val phonemeBase: Float,             // √overlap × 0.85
+    val durationRatio: Float,           // e.g., 1.10
+    val gaussianWidth: Float,           // 0.3/0.2/0.1 by difficulty
+    val durationBonus: Float,           // 0.15 × e^(...)
+    val finalScore: Int                 // Final percentage
+)
 
 /**
  * Intermediate result from phoneme matching functions
