@@ -1391,7 +1391,7 @@ fun GuitarAttemptItem(
                         Spacer(modifier = Modifier.height(22.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (onShareAttempt != null) {
@@ -1436,8 +1436,8 @@ fun GuitarAttemptItem(
                         difficulty = attempt.difficulty,
                         challengeType = attempt.challengeType,
                         emoji = "🎸",
-                        width = 100.dp,
-                        height = 130.dp,
+                        width = 85.dp,
+                        height = 110.dp,
                         onClick = { showScoreDialog = true })
                 }
                 if (isPlayingThis) {

@@ -458,7 +458,7 @@ class SakuraSerenityComponents : ThemeComponents {
                             // Controls Row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 if (onShareAttempt != null) {
@@ -516,8 +516,8 @@ class SakuraSerenityComponents : ThemeComponents {
                             difficulty = attempt.difficulty,
                             challengeType = attempt.challengeType,
                             emoji = "🌸", // Theme specific emoji
-                            width = 100.dp,
-                            height = 125.dp,
+                            width = 85.dp,
+                            height = 110.dp,
                             onClick = { showScoreDialog = true }
                         )
                     }

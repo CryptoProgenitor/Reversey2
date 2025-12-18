@@ -723,7 +723,7 @@ fun EggAttemptItem(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (onShareAttempt != null) {
@@ -802,12 +802,14 @@ fun EggAttemptItem(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                EggScoreCircle(
-                    score = "${attempt.score.toInt()}%",
+                DifficultySquircle(
+                    score = attempt.score.toInt(),
                     difficulty = attempt.difficulty,
                     challengeType = attempt.challengeType,
-                    eggEmoji = eggEmoji,
-                    size = 100.dp,
+                    emoji = eggEmoji,
+                    isOverridden = attempt.finalScore != null,
+                    width = 85.dp,
+                    height = 110.dp,
                     onClick = { showScoreDialog = true }
                 )
             }
@@ -862,31 +864,6 @@ fun EggAttemptItem(
 // ============================================
 // HELPERS & ICONS
 // ============================================
-
-@Composable
-fun EggScoreCircle(
-    score: String,
-    difficulty: com.quokkalabs.reversey.scoring.DifficultyLevel,
-    eggEmoji: String,
-    challengeType: ChallengeType,
-    size: Dp,
-    onClick: () -> Unit = {},
-    modifier: Modifier = Modifier,
-) {
-    val scoreValue = score.replace("%", "").toIntOrNull() ?: 0
-
-    DifficultySquircle(
-        score = scoreValue,
-        difficulty = difficulty,
-        emoji = eggEmoji,
-        challengeType = challengeType,
-        width = size,
-        height = (size.value * 1.3f).dp,
-        onClick = onClick,
-        modifier = modifier
-    )
-}
-
 
 @Composable
 fun FriedEggDecoration(size: Dp, rotation: Float = 0f) {

@@ -159,6 +159,14 @@ class AudioViewModel @Inject constructor(
                 }
             }
         }
+
+        // Collect playback progress for progress bars
+        viewModelScope.launch {
+            audioPlayerHelper.progress.collect { progress ->
+                _uiState.update { it.copy(playbackProgress = progress) }
+            }
+        }
+
         loadRecordings()
     }
 

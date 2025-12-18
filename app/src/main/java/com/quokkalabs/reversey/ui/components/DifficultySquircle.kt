@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.scoring.DifficultyConfig
@@ -63,14 +64,21 @@ fun DifficultySquircle(
     challengeType: ChallengeType,
     emoji: String,
     isOverridden: Boolean = false,
-    width: Dp = 100.dp,
-    height: Dp = 130.dp,
+    width: Dp = 85.dp,
+    height: Dp = 110.dp,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Difficulty colors
     val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
 
+    // 🔧 Density-aware font sizing - scales with squircle width
+    val density = LocalDensity.current
+    val iconFontSize = with(density) { (width * 0.18f).toSp() }
+    val emojiFontSize = with(density) { (width * 0.22f).toSp() }
+    val scaledScoreSize = with(density) { (width * 0.26f).toSp() }
+    val scoreFontSize = if (scaledScoreSize > 28.sp) 28.sp else scaledScoreSize
+    val difficultyFontSize = with(density) { (width * 0.11f).toSp() }
 
     Box(
         modifier = modifier
@@ -150,13 +158,13 @@ fun DifficultySquircle(
                 Text(
                     text = if (isOverridden) "✋" else "⚙️",
                     style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 18.sp
+                    fontSize = iconFontSize
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = emoji,
                     style = MaterialTheme.typography.titleLarge,
-                    fontSize = 22.sp
+                    fontSize = emojiFontSize
                 )
             }
 
@@ -171,7 +179,7 @@ fun DifficultySquircle(
                 text = "$score%",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
+                    fontSize = scoreFontSize,
                     color = textColor,
                     shadow = androidx.compose.ui.graphics.Shadow(
                         color = shadowColor.copy(alpha = 0.6f),
@@ -189,7 +197,7 @@ fun DifficultySquircle(
                 text = difficulty.displayName.uppercase(),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 11.sp,
+                    fontSize = difficultyFontSize,
                     color = textColor,
                     letterSpacing = 0.5.sp,
                     shadow = androidx.compose.ui.graphics.Shadow(

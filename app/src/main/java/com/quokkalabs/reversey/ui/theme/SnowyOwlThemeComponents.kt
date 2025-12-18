@@ -1580,7 +1580,10 @@ fun SnowyOwlAttemptItem(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
                         if (onShareAttempt != null) OwlControlButton(
                             mysticPurple,
                             "Share",
@@ -1614,8 +1617,8 @@ fun SnowyOwlAttemptItem(
                     attempt.challengeType,
                     "🦉",
                     attempt.finalScore != null,
-                    100.dp,
-                    130.dp,
+                    85.dp,
+                    110.dp,
                     { showScoreDialog = true }
                 )
             }

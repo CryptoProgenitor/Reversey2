@@ -479,8 +479,8 @@ class ScrapbookThemeComponents : ThemeComponents {
                             challengeType = attempt.challengeType,
                             emoji = scoreEmoji,
                             isOverridden = attempt.finalScore != null,
-                            width = 80.dp,
-                            height = 120.dp,
+                            width = 85.dp,
+                            height = 110.dp,
                             onClick = { showScoreDialog = true }
                         )
                     }

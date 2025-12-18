@@ -294,7 +294,7 @@ object SharedDefaultComponents {
                         // Controls Row - 🔧 POLYMORPHIC: Each button tracks its own path
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
                             // 1. Share
                             if (onShareAttempt != null) {
@@ -374,8 +374,8 @@ object SharedDefaultComponents {
                         challengeType = attempt.challengeType,
                         emoji = aesthetic.scoreEmojis.entries.firstOrNull { displayScore >= it.key }?.value ?: "🎤",
                         isOverridden = attempt.finalScore != null,
-                        width = 100.dp,
-                        height = 130.dp,
+                        width = 85.dp,
+                        height = 110.dp,
                         onClick = { showScoreDialog = true }
                     )
                 }

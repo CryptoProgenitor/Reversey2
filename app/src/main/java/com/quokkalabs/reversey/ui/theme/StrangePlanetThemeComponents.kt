@@ -1505,7 +1505,10 @@ fun StrangePlanetAttemptItem(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Control buttons
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
                         if (onShareAttempt != null) {
                             SPControlButton(buttonPrimary, "Share", { showShareDialog = true }) {
                                 SPShareGlyph(Color.White)
@@ -1544,8 +1547,8 @@ fun StrangePlanetAttemptItem(
                     attempt.challengeType,
                     "🛸",
                     attempt.finalScore != null,
-                    100.dp,
-                    130.dp,
+                    85.dp,
+                    110.dp,
                     { showScoreDialog = true }
                 )
             }
