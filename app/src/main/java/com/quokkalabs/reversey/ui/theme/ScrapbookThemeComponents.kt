@@ -45,6 +45,7 @@ import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
 import com.quokkalabs.reversey.scoring.DifficultyConfig
+import com.quokkalabs.reversey.ui.components.DifficultySquircle
 import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import kotlinx.coroutines.delay
@@ -388,110 +389,99 @@ class ScrapbookThemeComponents : ThemeComponents {
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = attempt.playerName,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontFamily = dancingScriptFontFamily,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = contentColor,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { showRenameDialog = true })
-                        Row(
-                            modifier = Modifier.clickable { showScoreDialog = true },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val fullStars = attempt.score.toInt() / 20
-                            repeat(5) { index ->
-                                Icon(
-                                    if (index < fullStars) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                    null,
-                                    tint = if (index < fullStars) Color(0xFFFFD700) else Color.Gray,
-                                    modifier = Modifier.size(16.dp)
+                    val displayScore = attempt.finalScore ?: attempt.score
+                    val scoreEmoji = aesthetic.scoreEmojis.entries
+                        .sortedByDescending { it.key }
+                        .first { displayScore >= it.key }.value
+
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                        // LEFT COLUMN: Name & Controls
+                        Column(modifier = Modifier.weight(1f)) {
+                            // Name Row
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (onJumpToParent != null) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowUpward,
+                                        contentDescription = "Jump",
+                                        tint = contentColor,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clickable { onJumpToParent() }
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text(
+                                    text = attempt.playerName,
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontFamily = dancingScriptFontFamily,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = contentColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.clickable { showRenameDialog = true }
                                 )
                             }
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                "${attempt.score}%",
-                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = dancingScriptFontFamily),
-                                color = Color.Black.copy(0.7f)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Text(
-                            if (attempt.challengeType == ChallengeType.REVERSE) "🔄" else "▶️",
-                            fontSize = 12.sp
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            attempt.difficulty.displayName.uppercase(),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontFamily = dancingScriptFontFamily,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = DifficultyConfig.getColorForDifficulty(attempt.difficulty),
-                            modifier = Modifier
-                                .background(
-                                    Color.Black.copy(0.1f),
-                                    RoundedCornerShape(4.dp)
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Controls Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                if (onShareAttempt != null) ScrapbookButton(
+                                    onClick = { showShareDialog = true },
+                                    icon = Icons.Default.Share,
+                                    label = "Share",
+                                    iconColor = Color(0xFF9C27B0)
                                 )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (onJumpToParent != null) ScrapbookButton(
-                            onClick = onJumpToParent,
-                            icon = Icons.Default.Home,
-                            label = "Original",
-                            iconColor = Color(0xFF607D8B)
-                        )
-                        if (onShareAttempt != null) ScrapbookButton(
-                            onClick = { showShareDialog = true },
-                            icon = Icons.Default.Share,
-                            label = "Share",
-                            iconColor = Color(0xFF9C27B0)
-                        )
+                                // 🔧 POLYMORPHIC Play button
+                                ScrapbookButton(
+                                    onClick = { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) },
+                                    icon = if (isPlayingForward && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    label = when {
+                                        isPlayingForward && !isPaused -> "Pause"
+                                        isPlayingForward && isPaused -> "Resume"
+                                        else -> "Play"
+                                    },
+                                    iconColor = if (isPlayingForward) Color(0xFF4CAF50) else Color(0xFF2196F3)
+                                )
 
-                        // 🔧 POLYMORPHIC Play button
-                        ScrapbookButton(
-                            onClick = { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) },
-                            icon = if (isPlayingForward && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            label = when {
-                                isPlayingForward && !isPaused -> "Pause"
-                                isPlayingForward && isPaused -> "Resume"
-                                else -> "Play"
-                            },
-                            iconColor = if (isPlayingForward) Color(0xFF4CAF50) else Color(
-                                0xFF2196F3
-                            )
-                        )
+                                // 🔧 POLYMORPHIC Rev button
+                                if (attempt.reversedAttemptFilePath != null) ScrapbookButton(
+                                    onClick = { if (isPlayingReversed) onPause() else onPlay(attempt.reversedAttemptFilePath) },
+                                    icon = if (isPlayingReversed && !isPaused) Icons.Default.Pause else Icons.Default.FastRewind,
+                                    label = when {
+                                        isPlayingReversed && !isPaused -> "Pause"
+                                        isPlayingReversed && isPaused -> "Resume"
+                                        else -> "Rev"
+                                    },
+                                    iconColor = Color(0xFFFF9800)
+                                )
 
-                        // 🔧 POLYMORPHIC Rev button
-                        if (attempt.reversedAttemptFilePath != null) ScrapbookButton(
-                            onClick = { if (isPlayingReversed) onPause() else onPlay(attempt.reversedAttemptFilePath) },
-                            icon = if (isPlayingReversed && !isPaused) Icons.Default.Pause else Icons.Default.FastRewind,
-                            label = when {
-                                isPlayingReversed && !isPaused -> "Pause"
-                                isPlayingReversed && isPaused -> "Resume"
-                                else -> "Rev"
-                            },
-                            iconColor = Color(0xFFFF9800)
-                        )
+                                if (onDeleteAttempt != null) ScrapbookButton(
+                                    onClick = { showDeleteDialog = true },
+                                    icon = Icons.Default.Delete,
+                                    label = "Del",
+                                    iconColor = Color(0xFFFF1744)
+                                )
+                            }
+                        }
 
-                        if (onDeleteAttempt != null) ScrapbookButton(
-                            onClick = { showDeleteDialog = true },
-                            icon = Icons.Default.Delete,
-                            label = "Del",
-                            iconColor = Color(0xFFFF1744)
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // RIGHT COLUMN: The Difficulty Squircle
+                        DifficultySquircle(
+                            score = displayScore,
+                            difficulty = attempt.difficulty,
+                            challengeType = attempt.challengeType,
+                            emoji = scoreEmoji,
+                            isOverridden = attempt.finalScore != null,
+                            width = 80.dp,
+                            height = 120.dp,
+                            onClick = { showScoreDialog = true }
                         )
                     }
 
@@ -527,11 +517,11 @@ class ScrapbookThemeComponents : ThemeComponents {
             aesthetic,
             onShareAttempt,
             { showShareDialog = false })
-        if (showScoreDialog) ScoreCard(
+        if (showScoreDialog) ScoreExplanationDialog(
             attempt,
-            aesthetic,
             { showScoreDialog = false },
-            onOverrideScore ?: { })
+            onOverrideScore = onOverrideScore ?: { },
+            onResetScore = onResetScore ?: { })
     }
 
     /*@Composable
@@ -808,7 +798,11 @@ class ScrapbookThemeComponents : ThemeComponents {
                     label = { Text(copy.renameHint, fontFamily = dancingScriptFontFamily) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF8D6E63),
-                        focusedLabelColor = Color(0xFF8D6E63)
+                        focusedLabelColor = Color(0xFF8D6E63),
+                        unfocusedBorderColor = Color(0xFF8D6E63),
+                        unfocusedLabelColor = Color(0xFF8D6E63),
+                        focusedTextColor = Color(0xFF5D4037),
+                        unfocusedTextColor = Color(0xFF5D4037)
                     )
                 )
             },

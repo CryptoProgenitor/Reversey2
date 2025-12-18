@@ -196,7 +196,11 @@ class AudioViewModel @Inject constructor(
 
                 val recordingsWithAttempts = recordings.map { recording ->
                     val attempts = savedAttempts[recording.originalPath] ?: emptyList()
-                    recording.copy(attempts = attempts)
+                    val customName = savedNames[recording.originalPath]
+                    recording.copy(
+                        name = customName ?: recording.name,
+                        attempts = attempts
+                    )
                 }
 
                 _uiState.update {
@@ -997,15 +1001,21 @@ class AudioViewModel @Inject constructor(
     }
 
     fun renameRecording(recordingPath: String, newName: String) {
-        Log.d("RENAME_DEBUG", "renameRecording called: path=$recordingPath, name=$newName")  // ADD THIS
+        Log.d("RENAME_DEBUG", "renameRecording called: path=$recordingPath, name=$newName")
         viewModelScope.launch {
-            // 🎯 FIX: Use correct method name
             recordingNamesRepository.setCustomName(recordingPath, newName)
 
-            val updatedNames = _uiState.value.customNames.toMutableMap()
-            updatedNames[recordingPath] = newName
+            _uiState.update { state ->
+                val updatedRecordings = state.recordings.map { recording ->
+                    if (recording.originalPath == recordingPath) {
+                        recording.copy(name = newName)
+                    } else recording
+                }
+                val updatedNames = state.customNames.toMutableMap()
+                updatedNames[recordingPath] = newName
 
-            _uiState.update { it.copy(customNames = updatedNames) }
+                state.copy(recordings = updatedRecordings, customNames = updatedNames)
+            }
         }
     }
 
