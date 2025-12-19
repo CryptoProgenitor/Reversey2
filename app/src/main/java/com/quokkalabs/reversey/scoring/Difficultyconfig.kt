@@ -137,11 +137,14 @@ data class ReverseScoringConfig(
 
     /**
      * Calculate duration penalty (0 = no penalty, 1 = max penalty)
+     * Guarded against division by zero for safety
      */
     fun durationPenalty(ratio: Float): Float {
         return when {
-            ratio < minDurationRatio -> (minDurationRatio - ratio) / minDurationRatio
-            ratio > maxDurationRatio -> (ratio - maxDurationRatio) / maxDurationRatio
+            minDurationRatio > 0 && ratio < minDurationRatio ->
+                (minDurationRatio - ratio) / minDurationRatio
+            maxDurationRatio > 0 && ratio > maxDurationRatio ->
+                (ratio - maxDurationRatio) / maxDurationRatio
             else -> 0f
         }.coerceIn(0f, 1f)
     }

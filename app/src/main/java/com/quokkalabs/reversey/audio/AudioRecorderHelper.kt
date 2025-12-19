@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -65,90 +67,103 @@ class AudioRecorderHelper @Inject constructor(
     // Timestamp for throttling checks
     private var lastCheckTime = 0L
 
+    // Thread safety for start/stop operations
+    private val recordingMutex = Mutex()
+
     // Scope tied to the Singleton (survives rotation, prevents leaks)
     private val helperScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Starts recording to the specified file.
+     * Thread-safe: uses same mutex as stop() to prevent race conditions.
+     * Fire-and-forget: returns immediately, recording starts async.
+     */
     @SuppressLint("MissingPermission")
     fun start(outputFile: File, maxDurationMs: Long? = null) {
-        if (_isRecording.value) return
+        helperScope.launch {
+            recordingMutex.withLock {
+                if (_isRecording.value) return@withLock
 
-        // Reset warning flag for new recording
-        hasShownSizeWarning = false
-        lastCheckTime = 0L
+                // Reset warning flag for new recording
+                hasShownSizeWarning = false
+                lastCheckTime = 0L
 
-        // 🎯 PHASE 2: Reset countdown progress
-        _countdownProgress.value = 1f
+                // 🎯 PHASE 2: Reset countdown progress
+                _countdownProgress.value = 1f
 
-        // Use standard AudioFormat constants to ensure compatibility
-        val channelConfig = AudioFormat.CHANNEL_IN_MONO
-        val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-        val sampleRate = AudioConstants.SAMPLE_RATE
+                // Use standard AudioFormat constants to ensure compatibility
+                val channelConfig = AudioFormat.CHANNEL_IN_MONO
+                val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+                val sampleRate = AudioConstants.SAMPLE_RATE
 
-        val bufferSize = AudioRecord.getMinBufferSize(
-            sampleRate,
-            channelConfig,
-            audioFormat
-        )
+                val bufferSize = AudioRecord.getMinBufferSize(
+                    sampleRate,
+                    channelConfig,
+                    audioFormat
+                )
 
-        try {
-            // Use VOICE_RECOGNITION source for cleaner audio
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_RECOGNITION,
-                sampleRate,
-                channelConfig,
-                audioFormat,
-                bufferSize
-            )
+                try {
+                    // Use VOICE_RECOGNITION source for cleaner audio
+                    audioRecord = AudioRecord(
+                        MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                        sampleRate,
+                        channelConfig,
+                        audioFormat,
+                        bufferSize
+                    )
 
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e("AudioRecorder", "Microphone failed to initialize")
-                return
-            }
-
-            // Start AudioRecord
-            audioRecord?.startRecording()
-            _isRecording.value = true
-            currentFile = outputFile
-            Log.d("AudioRecorder", "🎙️ AudioRecord STARTED (maxDurationMs=$maxDurationMs)")
-
-            // 🎤 REMOVED: LiveTranscriptionHelper.startListening() - caused beep and didn't work
-
-            // Launch the write loop in the helper's scope
-            recorderJob = helperScope.launch {
-                writeAudioDataToFile(outputFile, bufferSize)
-            }
-
-            // 🎯 PHASE 2: Start countdown timer if maxDurationMs is specified
-            if (maxDurationMs != null && maxDurationMs > 0) {
-                countdownJob = helperScope.launch {
-                    val intervalMs = 50L
-                    var elapsed = 0L
-                    while (elapsed < maxDurationMs && _isRecording.value) {
-                        delay(intervalMs)
-                        elapsed += intervalMs
-                        _countdownProgress.value = 1f - (elapsed.toFloat() / maxDurationMs)
+                    if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+                        Log.e("AudioRecorder", "Microphone failed to initialize")
+                        return@withLock
                     }
-                    // Auto-stop when countdown reaches zero
-                    if (_isRecording.value) {
-                        Log.d("AudioRecorder", "🎯 Countdown complete - auto-stopping")
-                        _events.emit(RecorderEvent.Stop)
+
+                    // Start AudioRecord
+                    audioRecord?.startRecording()
+                    _isRecording.value = true
+                    currentFile = outputFile
+                    Log.d("AudioRecorder", "🎙️ AudioRecord STARTED (maxDurationMs=$maxDurationMs)")
+
+                    // 🎤 REMOVED: LiveTranscriptionHelper.startListening() - caused beep and didn't work
+
+                    // Launch the write loop in the helper's scope (outside mutex to avoid blocking)
+                    recorderJob = helperScope.launch {
+                        writeAudioDataToFile(outputFile, bufferSize)
                     }
+
+                    // 🎯 PHASE 2: Start countdown timer if maxDurationMs is specified
+                    if (maxDurationMs != null && maxDurationMs > 0) {
+                        countdownJob = helperScope.launch {
+                            val intervalMs = 50L
+                            var elapsed = 0L
+                            while (elapsed < maxDurationMs && _isRecording.value) {
+                                delay(intervalMs)
+                                elapsed += intervalMs
+                                _countdownProgress.value = 1f - (elapsed.toFloat() / maxDurationMs)
+                            }
+                            // Auto-stop when countdown reaches zero
+                            if (_isRecording.value) {
+                                Log.d("AudioRecorder", "🎯 Countdown complete - auto-stopping")
+                                _events.emit(RecorderEvent.Stop)
+                            }
+                        }
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("AudioRecorder", "Start failed", e)
+                    cleanup()
                 }
             }
-
-        } catch (e: Exception) {
-            Log.e("AudioRecorder", "Start failed", e)
-            cleanup()
         }
     }
 
     /**
      * Stops recording and waits for the file to be fully written.
      * Returns RecordingResult with file only (transcription handled by Vosk in AudioViewModel)
+     * Thread-safe: uses mutex to prevent race conditions with start()
      */
-    suspend fun stop(): RecordingResult {
+    suspend fun stop(): RecordingResult = recordingMutex.withLock {
         if (!_isRecording.value) {
-            return RecordingResult(null, null)
+            return@withLock RecordingResult(null, null)
         }
 
         try {
@@ -163,7 +178,7 @@ class AudioRecorderHelper @Inject constructor(
         // 🎤 REMOVED: LiveTranscriptionHelper.stopAndGetResult() - Vosk handles transcription now
 
         // Perform final file operations and cleanup on the IO thread
-        return withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             val file = currentFile
 
             if (file != null && file.exists() && file.length() > AudioConstants.WAV_HEADER_SIZE) {

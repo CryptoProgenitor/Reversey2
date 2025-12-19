@@ -259,7 +259,7 @@ class AudioViewModel @Inject constructor(
                 )
             }
 
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date())
             val recordingFile = File(context.filesDir, "recordings/REC_$timestamp.wav")
             recordingFile.parentFile?.mkdirs()
             currentRecordingFile = recordingFile
@@ -453,7 +453,7 @@ class AudioViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d("RECORD_BUG", "🎯 startAttempt() | recordingPath=$recordingPath")
 
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault()).format(Date())
             val attemptFile = File(context.filesDir, "recordings/attempts/ATTEMPT_$timestamp.wav")
             attemptFile.parentFile?.mkdirs()
             currentAttemptFile = attemptFile

@@ -28,9 +28,11 @@ class LiveTranscriptionHelper @Inject constructor(
     }
 
     private var speechRecognizer: SpeechRecognizer? = null
+    @Volatile
     private var isListening = false
 
     // ðŸŽ¤ Store result when it arrives (non-blocking)
+    @Volatile
     private var lastResult: TranscriptionResult? = null
 
     fun isAvailable(): Boolean = SpeechRecognizer.isRecognitionAvailable(context)
