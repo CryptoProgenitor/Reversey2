@@ -76,6 +76,124 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+
+/**
+ * 🌸 PetalShape - Scalloped edges like cherry blossom petals
+ * Creates soft, rounded indentations along each edge
+ */
+class PetalShape(
+    private val petalDepth: Dp,
+    private val petalsPerEdge: Int = 5,
+    private val cornerRadius: Dp = 12.dp,
+    private val seed: Int = 0
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val path = Path()
+        val depthPx = with(density) { petalDepth.toPx() }
+        val cornerPx = with(density) { cornerRadius.toPx() }
+        val w = size.width
+        val h = size.height
+
+        // Slight randomness for organic feel
+        val random = Random(seed)
+        val variance = 0.15f
+
+        // Start top-left after corner
+        path.moveTo(cornerPx, 0f)
+
+        // Top edge - petals bulging UP (negative Y)
+        val topPetalWidth = (w - 2 * cornerPx) / petalsPerEdge
+        for (i in 0 until petalsPerEdge) {
+            val startX = cornerPx + i * topPetalWidth
+            val midX = startX + topPetalWidth / 2
+            val endX = startX + topPetalWidth
+            val depth = depthPx * (1f + (random.nextFloat() - 0.5f) * variance)
+            path.quadraticBezierTo(midX, -depth, endX, 0f)
+        }
+
+        // Top-right corner
+        path.quadraticBezierTo(w, 0f, w, cornerPx)
+
+        // Right edge - petals bulging RIGHT (beyond w)
+        val rightPetalHeight = (h - 2 * cornerPx) / petalsPerEdge
+        for (i in 0 until petalsPerEdge) {
+            val startY = cornerPx + i * rightPetalHeight
+            val midY = startY + rightPetalHeight / 2
+            val endY = startY + rightPetalHeight
+            val depth = depthPx * (1f + (random.nextFloat() - 0.5f) * variance)
+            path.quadraticBezierTo(w + depth, midY, w, endY)
+        }
+
+        // Bottom-right corner
+        path.quadraticBezierTo(w, h, w - cornerPx, h)
+
+        // Bottom edge - petals bulging DOWN (beyond h)
+        val bottomPetalWidth = (w - 2 * cornerPx) / petalsPerEdge
+        for (i in 0 until petalsPerEdge) {
+            val startX = w - cornerPx - i * bottomPetalWidth
+            val midX = startX - bottomPetalWidth / 2
+            val endX = startX - bottomPetalWidth
+            val depth = depthPx * (1f + (random.nextFloat() - 0.5f) * variance)
+            path.quadraticBezierTo(midX, h + depth, endX, h)
+        }
+
+        // Bottom-left corner
+        path.quadraticBezierTo(0f, h, 0f, h - cornerPx)
+
+        // Left edge - petals bulging LEFT (negative X)
+        val leftPetalHeight = (h - 2 * cornerPx) / petalsPerEdge
+        for (i in 0 until petalsPerEdge) {
+            val startY = h - cornerPx - i * leftPetalHeight
+            val midY = startY - leftPetalHeight / 2
+            val endY = startY - leftPetalHeight
+            val depth = depthPx * (1f + (random.nextFloat() - 0.5f) * variance)
+            path.quadraticBezierTo(-depth, midY, 0f, endY)
+        }
+
+        // Top-left corner (close)
+        path.quadraticBezierTo(0f, 0f, cornerPx, 0f)
+        path.close()
+
+        return Outline.Generic(path)
+    }
+}
+
+/** Helper to create PetalShape with remembered instance */
+@Composable
+fun rememberPetalShape(
+    petalDepth: Dp = 4.dp,
+    petalsPerEdge: Int = 5,
+    cornerRadius: Dp = 12.dp,
+    seed: Int = 0
+): PetalShape {
+    return remember(petalDepth, petalsPerEdge, cornerRadius, seed) {
+        PetalShape(petalDepth, petalsPerEdge, cornerRadius, seed)
+    }
+}
+
+/** Variegated sakura border brush */
+@Composable
+fun sakuraBorderBrush(): Brush {
+    return Brush.sweepGradient(
+        colors = listOf(
+            Color(0xFFFFB7C5),  // Light sakura
+            Color(0xFFFF8FA3),  // Medium pink
+            Color(0xFFFFB7C5),  // Light sakura
+            Color(0xFFE75480),  // Dark sakura
+            Color(0xFFFFB7C5),  // Light sakura
+            Color(0xFFFF8FA3),  // Medium pink
+            Color(0xFFFFB7C5),  // Light sakura
+        )
+    )
+}
 
 /**
  * 🌸 SAKURA SERENITY THEME
@@ -212,15 +330,25 @@ class SakuraSerenityComponents : ThemeComponents {
         val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
 
         // LAYOUT: Adapted from Guitar Theme
+        // 🌸 Petal-edged card with variegated border
+        val stableId = recording.originalPath.hashCode()
+        val petalShape = rememberPetalShape(
+            petalDepth = 8.dp,
+            petalsPerEdge = 9,
+            cornerRadius = 16.dp,
+            seed = stableId
+        )
+        val borderBrush = sakuraBorderBrush()
+
         Box(modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 🌸 TRANSPARENCY APPLIED HERE (0.85f)
-                    .background(bgPink.copy(alpha = 0.75f), RoundedCornerShape(24.dp))
-                    .border(3.dp, borderPink, RoundedCornerShape(24.dp))
+                    // 🌸 Petal shape with variegated gradient border
+                    .background(bgPink.copy(alpha = 0.75f), petalShape)
+                    .border(3.dp, borderBrush, petalShape)
                     .padding(16.dp)
             ) {
                 // Header Row
@@ -405,6 +533,16 @@ class SakuraSerenityComponents : ThemeComponents {
             .sortedByDescending { it.key }
             .firstOrNull { displayScore >= it.key }?.value ?: "🌸"
 
+        // 🌸 Petal-edged card with variegated border
+        val stableId = attempt.attemptFilePath.hashCode()
+        val petalShape = rememberPetalShape(
+            petalDepth = 6.dp,
+            petalsPerEdge = 8,
+            cornerRadius = 14.dp,
+            seed = stableId
+        )
+        val borderBrush = sakuraBorderBrush()
+
         // LAYOUT: Adapted from Guitar Theme (Split View with Squircle)
         Box(
             modifier = Modifier
@@ -414,12 +552,12 @@ class SakuraSerenityComponents : ThemeComponents {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 🌸 TRANSPARENCY APPLIED HERE (0.85f)
+                    // 🌸 Petal shape with variegated gradient border
                     .background(
                         color = cardBg.copy(alpha = 0.75f),
-                        shape = RoundedCornerShape(20.dp)
+                        shape = petalShape
                     )
-                    .border(width = 2.dp, color = borderPink, shape = RoundedCornerShape(20.dp))
+                    .border(width = 2.dp, brush = borderBrush, shape = petalShape)
                     .padding(12.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
