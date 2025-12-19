@@ -14,6 +14,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import kotlin.math.sin
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,6 +65,106 @@ import com.quokkalabs.reversey.R
 // Shared recording state for bouncing eggs
 internal var eggRecordingState = mutableStateOf(false)
 
+/**
+ * 🖍️ WobblyShape - Hand-drawn wobbly rectangle with rounded corners
+ * Creates a sketch-like appearance by adding sine-wave wobble to all edges
+ */
+class WobblyShape(
+    private val cornerRadius: Dp,
+    private val amplitude: Dp,
+    private val seed: Int
+) : Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val path = Path()
+        val cornerPx = with(density) { cornerRadius.toPx() }
+        val ampPx = with(density) { amplitude.toPx() }
+
+        // Use seed to generate consistent random wavelengths per edge
+        val random = Random(seed)
+        val topWavelength = 20f + random.nextFloat() * 15f
+        val rightWavelength = 20f + random.nextFloat() * 15f
+        val bottomWavelength = 20f + random.nextFloat() * 15f
+        val leftWavelength = 20f + random.nextFloat() * 15f
+
+        // Phase offsets for variety
+        val topPhase = random.nextFloat() * 6.28f
+        val rightPhase = random.nextFloat() * 6.28f
+        val bottomPhase = random.nextFloat() * 6.28f
+        val leftPhase = random.nextFloat() * 6.28f
+
+        val w = size.width
+        val h = size.height
+        val steps = 30 // Points per edge
+
+        // Start at top-left corner (after corner radius)
+        path.moveTo(cornerPx, wobble(0f, topWavelength, topPhase, ampPx))
+
+        // Top edge (left to right)
+        for (i in 1..steps) {
+            val t = i.toFloat() / steps
+            val x = cornerPx + t * (w - 2 * cornerPx)
+            val y = wobble(x, topWavelength, topPhase, ampPx)
+            path.lineTo(x, y)
+        }
+
+        // Top-right corner
+        path.lineTo(w - cornerPx, wobble(w - cornerPx, topWavelength, topPhase, ampPx))
+        path.quadraticBezierTo(w, 0f, w + wobble(0f, rightWavelength, rightPhase, ampPx), cornerPx)
+
+        // Right edge (top to bottom)
+        for (i in 1..steps) {
+            val t = i.toFloat() / steps
+            val y = cornerPx + t * (h - 2 * cornerPx)
+            val x = w + wobble(y, rightWavelength, rightPhase, ampPx)
+            path.lineTo(x, y)
+        }
+
+        // Bottom-right corner
+        path.quadraticBezierTo(w, h, w - cornerPx, h + wobble(0f, bottomWavelength, bottomPhase, ampPx))
+
+        // Bottom edge (right to left)
+        for (i in 1..steps) {
+            val t = i.toFloat() / steps
+            val x = w - cornerPx - t * (w - 2 * cornerPx)
+            val y = h + wobble(x, bottomWavelength, bottomPhase, ampPx)
+            path.lineTo(x, y)
+        }
+
+        // Bottom-left corner
+        path.quadraticBezierTo(0f, h, wobble(h, leftWavelength, leftPhase, ampPx), h - cornerPx)
+
+        // Left edge (bottom to top)
+        for (i in 1..steps) {
+            val t = i.toFloat() / steps
+            val y = h - cornerPx - t * (h - 2 * cornerPx)
+            val x = wobble(y, leftWavelength, leftPhase, ampPx)
+            path.lineTo(x, y)
+        }
+
+        // Top-left corner (close path)
+        path.quadraticBezierTo(0f, 0f, cornerPx, wobble(0f, topWavelength, topPhase, ampPx))
+        path.close()
+
+        return Outline.Generic(path)
+    }
+
+    private fun wobble(position: Float, wavelength: Float, phase: Float, amplitude: Float): Float {
+        return sin(position / wavelength + phase) * amplitude
+    }
+}
+
+/** Helper to create WobblyShape with dp values */
+@Composable
+fun rememberWobblyShape(cornerRadius: Dp, amplitude: Dp, seed: Int): WobblyShape {
+    return remember(cornerRadius, amplitude, seed) {
+        WobblyShape(cornerRadius, amplitude, seed)
+    }
+}
+
 object EggTheme {
     const val THEME_ID = "egg"
 
@@ -77,8 +182,8 @@ object EggTheme {
                 Color(0xFFFFE0B2)  // Light orange
             )
         ),
-        cardBorder = Color(0xFF2E2E2E),
-        primaryTextColor = Color(0xFF2E2E2E),
+        cardBorder = Color(0xFF6B5344),
+        primaryTextColor = Color(0xFF6B5344),
         secondaryTextColor = Color(0xFF424242),
         useGlassmorphism = false,
         glowIntensity = 0f,
@@ -140,9 +245,9 @@ object EggTheme {
             }
         ),
         menuColors = MenuColors.fromColors(
-            primaryText = Color(0xFF2E2E2E),
+            primaryText = Color(0xFF6B5344),
             secondaryText = Color(0xFF424242),
-            border = Color(0xFF2E2E2E),
+            border = Color(0xFF6B5344),
             gradient = Brush.verticalGradient(
                 colors = listOf(
                     Color(0xFFFFF8E1),
@@ -221,7 +326,8 @@ class EggThemeComponents : ThemeComponents {
             onDeleteAttempt = onDeleteAttempt,
             onShareAttempt = onShareAttempt,
             onJumpToParent = onJumpToParent,
-            onOverrideScore = onOverrideScore
+            onOverrideScore = onOverrideScore,
+            onResetScore = onResetScore
         )
     }
 
@@ -303,11 +409,11 @@ class EggThemeComponents : ThemeComponents {
             title = {
                 Text(
                     copy.deleteTitle(itemType),
-                    color = Color(0xFF2E2E2E),
+                    color = Color(0xFF6B5344),
                     fontWeight = FontWeight.Bold
                 )
             },
-            text = { Text(copy.deleteMessage(itemType, name), color = Color(0xFF2E2E2E)) },
+            text = { Text(copy.deleteMessage(itemType, name), color = Color(0xFF6B5344)) },
             confirmButton = {
                 Button(
                     onClick = { onConfirm(); onDismiss() },
@@ -320,7 +426,7 @@ class EggThemeComponents : ThemeComponents {
                 TextButton(onClick = onDismiss) {
                     Text(
                         copy.deleteCancelButton,
-                        color = Color(0xFF2E2E2E)
+                        color = Color(0xFF6B5344)
                     )
                 }
             }
@@ -342,13 +448,13 @@ class EggThemeComponents : ThemeComponents {
             title = {
                 Text(
                     copy.shareTitle,
-                    color = Color(0xFF2E2E2E),
+                    color = Color(0xFF6B5344),
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Column {
-                    Text(copy.shareMessage, color = Color(0xFF2E2E2E))
+                    Text(copy.shareMessage, color = Color(0xFF6B5344))
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
                     Button(
@@ -376,7 +482,7 @@ class EggThemeComponents : ThemeComponents {
                 TextButton(onClick = onDismiss) {
                     Text(
                         "Cancel",
-                        color = Color(0xFF2E2E2E)
+                        color = Color(0xFF6B5344)
                     )
                 }
             }
@@ -399,17 +505,17 @@ class EggThemeComponents : ThemeComponents {
             title = {
                 Text(
                     copy.renameTitle(itemType),
-                    color = Color(0xFF2E2E2E),
+                    color = Color(0xFF6B5344),
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
-                    label = { Text(copy.renameHint, color = Color(0xFF2E2E2E)) },
+                    label = { Text(copy.renameHint, color = Color(0xFF6B5344)) },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color(0xFF2E2E2E),
-                        unfocusedTextColor = Color(0xFF2E2E2E)
+                        focusedTextColor = Color(0xFF6B5344),
+                        unfocusedTextColor = Color(0xFF6B5344)
                     )
                 )
             },
@@ -425,7 +531,7 @@ class EggThemeComponents : ThemeComponents {
                 TextButton(onClick = onDismiss) {
                     Text(
                         "Cancel",
-                        color = Color(0xFF2E2E2E)
+                        color = Color(0xFF6B5344)
                     )
                 }
             }
@@ -464,15 +570,20 @@ fun EggRecordingItem(
     // 🔧 POLYMORPHIC: Track which button owns the current playback
     val isPlayingForward = currentlyPlayingPath == recording.originalPath
     val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+    val isPlayingThis = isPlayingForward || isPlayingReversed
+
+    // 🖍️ WOBBLY: Stable ID for consistent wobble per card
+    val stableId = recording.originalPath.hashCode()
+    val cardShape = rememberWobblyShape(cornerRadius = 16.dp, amplitude = 3.dp, seed = stableId)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .shadow(elevation = 0.dp, shape = RoundedCornerShape(16.dp))
-            .border(width = 4.dp, color = Color(0xFF2E2E2E), shape = RoundedCornerShape(16.dp)),
+            .shadow(elevation = 0.dp, shape = cardShape)
+            .border(width = 4.dp, color = Color(0xFF6B5344), shape = cardShape),
         colors = CardDefaults.cardColors(containerColor = Color(0xBBFFFBF0)),
-        shape = RoundedCornerShape(16.dp)
+        shape = cardShape
     ) {
         Column(modifier = Modifier
             .fillMaxWidth()
@@ -491,7 +602,7 @@ fun EggRecordingItem(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         ),
-                        color = Color(0xFF2E2E2E),
+                        color = Color(0xFF6B5344),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.clickable { showRenameDialog = true }
@@ -499,26 +610,28 @@ fun EggRecordingItem(
                     Text(
                         text = "Fresh from the nest! 🍳",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF2E2E2E).copy(alpha = 0.7f)
+                        color = Color(0xFF6B5344).copy(alpha = 0.7f)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp))
-                    .padding(2.dp)
-            ) {
-                EggTravelProgressBar(
-                    progress = if (isPlayingForward || isPlayingReversed) progress else 0f,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            // 🔧 FIX: Only show progress when playing
+            if (isPlayingThis) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(2.dp, Color(0xFF6B5344), RoundedCornerShape(4.dp))
+                        .padding(2.dp)
+                ) {
+                    EggTravelProgressBar(
+                        progress = progress,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -530,11 +643,11 @@ fun EggRecordingItem(
                         onClick = { showShareDialog = true },
                         backgroundColor = Color(0xFF9C27B0),
                         size = 50.dp
-                    ) { EggShareIcon(Color(0xFF2E2E2E)) }
+                    ) { EggShareIcon(Color(0xFF6B5344)) }
                     Text(
                         "Share",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF2E2E2E)
+                        color = Color(0xFF6B5344)
                     )
                 }
 
@@ -547,8 +660,8 @@ fun EggRecordingItem(
                         backgroundColor = Color(0xFFFF8A65),
                         size = 50.dp
                     ) {
-                        if (isPlayingForward && !isPaused) EggPauseIcon(Color(0xFF2E2E2E)) else EggPlayIcon(
-                            Color(0xFF2E2E2E)
+                        if (isPlayingForward && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggPlayIcon(
+                            Color(0xFF6B5344)
                         )
                     }
                     Text(
@@ -558,7 +671,7 @@ fun EggRecordingItem(
                             else -> "Play"
                         },
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF2E2E2E)
+                        color = Color(0xFF6B5344)
                     )
                 }
 
@@ -571,7 +684,9 @@ fun EggRecordingItem(
                         backgroundColor = Color(0xFFFF8A65),
                         enabled = isReady,
                         size = 50.dp
-                    ) { EggRewindIcon(Color(0xFF2E2E2E)) }
+                    ) {
+                        if (isPlayingReversed && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggRewindIcon(Color(0xFF6B5344))
+                    }
                     Text(
                         when {
                             isPlayingReversed && !isPaused -> "Pause"
@@ -579,7 +694,7 @@ fun EggRecordingItem(
                             else -> "Rewind"
                         },
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF2E2E2E)
+                        color = Color(0xFF6B5344)
                     )
                 }
 
@@ -590,11 +705,11 @@ fun EggRecordingItem(
                             backgroundColor = Color(0xFFFF8A65),
                             enabled = isReady,
                             size = 50.dp
-                        ) { EggMicLeftArrowIcon(Color(0xFF2E2E2E)) }
+                        ) { EggMicLeftArrowIcon(Color(0xFF6B5344)) }
                         Text(
                             "Try",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF2E2E2E)
+                            color = Color(0xFF6B5344)
                         )
                     }
                 }
@@ -608,7 +723,7 @@ fun EggRecordingItem(
                     Text(
                         "Del",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF2E2E2E)
+                        color = Color(0xFF6B5344)
                     )
                 }
             }
@@ -654,25 +769,37 @@ fun EggAttemptItem(
     onShareAttempt: ((String) -> Unit)?,
     onJumpToParent: (() -> Unit)?,
     onOverrideScore: ((Int) -> Unit)?,
+    onResetScore: (() -> Unit)?,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
-    val isPlayingThis =
-        currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
+    // 🔧 POLYMORPHIC: Track which specific file is playing
+    val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingThis = isPlayingForward || isPlayingReversed
+
+    // 🔧 FIX: Use finalScore override if present
+    val displayScore = (attempt.finalScore ?: attempt.score).toInt()
     val eggEmoji = aesthetic.scoreEmojis.entries.sortedByDescending { it.key }
-        .firstOrNull { attempt.score.toInt() >= it.key }?.value ?: "🥚"
+        .firstOrNull { displayScore >= it.key }?.value ?: "🥚"
+
+    // 🖍️ WOBBLY: Stable ID for consistent wobble per card
+    val stableId = attempt.attemptFilePath.hashCode()
+    val cardShape = rememberWobblyShape(cornerRadius = 16.dp, amplitude = 3.dp, seed = stableId)
+    val nameBoxShape = rememberWobblyShape(cornerRadius = 4.dp, amplitude = 0.5.dp, seed = stableId + 1000)
+    val nameRotation = remember(stableId) { (stableId % 17 - 8).toFloat() }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-            .shadow(elevation = 0.dp, shape = RoundedCornerShape(16.dp))
-            .border(width = 4.dp, color = Color(0xFF2E2E2E), shape = RoundedCornerShape(16.dp)),
+            .shadow(elevation = 0.dp, shape = cardShape)
+            .border(width = 4.dp, color = Color(0xFF6B5344), shape = cardShape),
         colors = CardDefaults.cardColors(containerColor = Color(0xBBFFFBF0)),//attempt card transparency set to 88
-        shape = RoundedCornerShape(16.dp)
+        shape = cardShape
     ) {
         Column(modifier = Modifier
             .fillMaxWidth()
@@ -699,9 +826,9 @@ fun EggAttemptItem(
 
                         Box(
                             modifier = Modifier
-                                .rotate(-8f)
-                                .background(Color(0xFFFFF176), RoundedCornerShape(4.dp))
-                                .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp))
+                                .rotate(nameRotation)
+                                .background(Color(0xFFFFF176), nameBoxShape)
+                                .border(2.dp, Color(0xFF6B5344), nameBoxShape)
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                                 .clickable { showRenameDialog = true }
                         ) {
@@ -711,7 +838,7 @@ fun EggAttemptItem(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 ),
-                                color = Color(0xFF2E2E2E),
+                                color = Color(0xFF6B5344),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.widthIn(max = 120.dp)
@@ -732,50 +859,66 @@ fun EggAttemptItem(
                                     onClick = { showShareDialog = true },
                                     backgroundColor = Color(0xFF9C27B0),
                                     size = 40.dp
-                                ) { EggShareIcon(Color(0xFF2E2E2E)) }
+                                ) { EggShareIcon(Color(0xFF6B5344)) }
                                 Text(
                                     "Share",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 9.sp
                                     ),
-                                    color = Color(0xFF2E2E2E)
+                                    color = Color(0xFF6B5344)
                                 )
                             }
                         }
 
+                        // 🔧 POLYMORPHIC Play button
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             HandDrawnEggButton(
                                 onClick = {
-                                    if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath)
+                                    if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
                                 },
                                 backgroundColor = Color(0xFFFF8A65),
                                 size = 40.dp
-                            ) { EggPlayIcon(Color(0xFF2E2E2E)) }
+                            ) {
+                                if (isPlayingForward && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggPlayIcon(Color(0xFF6B5344))
+                            }
                             Text(
-                                "Play",
+                                when {
+                                    isPlayingForward && !isPaused -> "Pause"
+                                    isPlayingForward && isPaused -> "Resume"
+                                    else -> "Play"
+                                },
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 9.sp
                                 ),
-                                color = Color(0xFF2E2E2E)
+                                color = Color(0xFF6B5344)
                             )
                         }
 
+                        // 🔧 POLYMORPHIC Rev button
                         attempt.reversedAttemptFilePath?.let { reversedPath ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 HandDrawnEggButton(
-                                    onClick = { onPlay(reversedPath) },
+                                    onClick = {
+                                        if (isPlayingReversed) onPause() else onPlay(reversedPath)
+                                    },
                                     backgroundColor = Color(0xFFFF8A65),
                                     size = 40.dp
-                                ) { EggRewindIcon(Color(0xFF2E2E2E)) }
+                                ) {
+                                    if (isPlayingReversed && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggRewindIcon(Color(0xFF6B5344))
+                                }
                                 Text(
-                                    "Rev",
+                                    when {
+                                        isPlayingReversed && !isPaused -> "Pause"
+                                        isPlayingReversed && isPaused -> "Resume"
+                                        else -> "Rev"
+                                    },
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 9.sp
                                     ),
-                                    color = Color(0xFF2E2E2E)
+                                    color = Color(0xFF6B5344)
                                 )
                             }
                         }
@@ -793,7 +936,7 @@ fun EggAttemptItem(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 9.sp
                                     ),
-                                    color = Color(0xFF2E2E2E)
+                                    color = Color(0xFF6B5344)
                                 )
                             }
                         }
@@ -803,7 +946,7 @@ fun EggAttemptItem(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 DifficultySquircle(
-                    score = attempt.score.toInt(),
+                    score = displayScore,
                     difficulty = attempt.difficulty,
                     challengeType = attempt.challengeType,
                     emoji = eggEmoji,
@@ -822,7 +965,7 @@ fun EggAttemptItem(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .border(2.dp, Color(0xFF2E2E2E), RoundedCornerShape(4.dp))
+                            .border(2.dp, Color(0xFF6B5344), RoundedCornerShape(4.dp))
                             .padding(2.dp)
                     ) {
                         EggTravelProgressBar(
@@ -854,11 +997,11 @@ fun EggAttemptItem(
         aesthetic,
         onShareAttempt,
         { showShareDialog = false })
-    if (showScoreDialog) aesthetic.components.ScoreCard(
+    if (showScoreDialog) ScoreExplanationDialog(
         attempt,
-        aesthetic,
         { showScoreDialog = false },
-        onOverrideScore ?: { })
+        onOverrideScore = onOverrideScore ?: { },
+        onResetScore = onResetScore ?: { })
 }
 
 // ============================================
@@ -874,14 +1017,14 @@ fun FriedEggDecoration(size: Dp, rotation: Float = 0f) {
         val radius = this.size.minDimension / 2
         drawCircle(color = Color(0xFFFFF8E1), radius = radius * 0.9f, center = center)
         drawCircle(
-            color = Color(0xFF2E2E2E),
+            color = Color(0xFF6B5344),
             radius = radius * 0.9f,
             center = center,
             style = Stroke(2.dp.toPx())
         )
         drawCircle(color = Color(0xFFFFD700), radius = radius * 0.4f, center = center)
         drawCircle(
-            color = Color(0xFF2E2E2E),
+            color = Color(0xFF6B5344),
             radius = radius * 0.4f,
             center = center,
             style = Stroke(1.dp.toPx())
@@ -922,14 +1065,14 @@ fun EggTravelProgressBar(progress: Float, modifier: Modifier = Modifier, height:
                         size = androidx.compose.ui.geometry.Size(radius * 1.4f, radius * 1.8f)
                     )
                     drawOval(
-                        color = Color(0xFF2E2E2E),
+                        color = Color(0xFF6B5344),
                         topLeft = Offset(center.x - radius * 0.7f, center.y - radius * 0.9f),
                         size = androidx.compose.ui.geometry.Size(radius * 1.4f, radius * 1.8f),
                         style = Stroke(2.dp.toPx())
                     )
                     drawCircle(color = Color(0xFFFFD700), radius = radius * 0.4f, center = center)
                     drawCircle(
-                        color = Color(0xFF2E2E2E),
+                        color = Color(0xFF6B5344),
                         radius = radius * 0.4f,
                         center = center,
                         style = Stroke(1.dp.toPx())
@@ -955,7 +1098,7 @@ fun HandDrawnEggButton(
                 if (enabled) backgroundColor else backgroundColor.copy(alpha = 0.4f),
                 CircleShape
             )
-            .border(3.dp, Color(0xFF2E2E2E), CircleShape)
+            .border(3.dp, Color(0xFF6B5344), CircleShape)
             .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center
     ) { content() }
@@ -1254,9 +1397,9 @@ fun CrackedEggIcon() {
             lineTo(size.width * 0.5f, size.height * 0.1f)
         }
         drawPath(leftPath, color)
-        drawPath(leftPath, Color(0xFF2E2E2E), style = Stroke(strokeWidth))
+        drawPath(leftPath, Color(0xFF6B5344), style = Stroke(strokeWidth))
         drawPath(rightPath, color)
-        drawPath(rightPath, Color(0xFF2E2E2E), style = Stroke(strokeWidth))
+        drawPath(rightPath, Color(0xFF6B5344), style = Stroke(strokeWidth))
         val crackPath = Path().apply {
             moveTo(size.width * 0.45f, size.height * 0.2f)
             lineTo(size.width * 0.55f, size.height * 0.35f)
@@ -1264,7 +1407,7 @@ fun CrackedEggIcon() {
             lineTo(size.width * 0.6f, size.height * 0.65f)
             lineTo(size.width * 0.45f, size.height * 0.8f)
         }
-        drawPath(crackPath, Color(0xFF2E2E2E), style = Stroke(strokeWidth))
+        drawPath(crackPath, Color(0xFF6B5344), style = Stroke(strokeWidth))
     }
 }
 
@@ -1273,7 +1416,7 @@ fun CrackedEggIcon() {
 fun HandDrawnHouseIcon(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val strokeWidth = 2.dp.toPx()
-        val color = Color(0xFF2E2E2E)
+        val color = Color(0xFF6B5344)
         val roofPath = Path().apply {
             moveTo(size.width * 0.5f, size.height * 0.1f)
             lineTo(size.width * 0.1f, size.height * 0.5f)
@@ -1744,7 +1887,7 @@ fun EggRecordButton(
             )
             drawPath(
                 path = eggWhitePath,
-                color = Color(0xFF2E2E2E),
+                color = Color(0xFF6B5344),
                 style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
             )
 
@@ -1782,7 +1925,7 @@ fun EggRecordButton(
                 size = Size(yolkRadiusX * 2, yolkRadiusY * 2)
             )
             drawOval(
-                color = Color(0xFF2E2E2E),
+                color = Color(0xFF6B5344),
                 topLeft = Offset(eggOffsetX - yolkRadiusX, yolkCenterY - yolkRadiusY),
                 size = Size(yolkRadiusX * 2, yolkRadiusY * 2),
                 style = Stroke(width = 2.dp.toPx())
@@ -1807,7 +1950,7 @@ fun EggRecordButton(
                 eggOffsetX,
                 eggOffsetY + h * 0.22f * eggScale,
                 Paint().apply {
-                    color = Color(0xFF2E2E2E).toArgb()
+                    color = Color(0xFF6B5344).toArgb()
                     textSize = 14.sp.toPx()
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
                     textAlign = Paint.Align.CENTER

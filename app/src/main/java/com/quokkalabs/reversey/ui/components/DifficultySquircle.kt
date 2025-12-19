@@ -75,11 +75,11 @@ fun DifficultySquircle(
 
     // 🔧 Density-aware font sizing - scales with squircle width
     val density = LocalDensity.current
-    val iconFontSize = with(density) { (width * 0.18f).toSp() }
-    val emojiFontSize = with(density) { (width * 0.22f).toSp() }
-    val scaledScoreSize = with(density) { (width * 0.26f).toSp() }
+    val iconFontSize = with(density) { (width * 0.22f).toSp() }
+    val emojiFontSize = with(density) { (width * 0.26f).toSp() }
+    val scaledScoreSize = with(density) { (width * 0.3f).toSp() }
     val scoreFontSize = if (scaledScoreSize > 28.sp) 28.sp else scaledScoreSize
-    val difficultyFontSize = with(density) { (width * 0.11f).toSp() }
+    val difficultyFontSize = with(density) { (width * 0.16f).toSp() }
 
     // Density-aware spacing (Bug 17 fix - prevents text cutoff on physical devices)
     val verticalPadding = height * 0.07f
@@ -153,7 +153,7 @@ fun DifficultySquircle(
         // Content: 3 rows
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceEvenly,
+            verticalArrangement = Arrangement.Center,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = verticalPadding, vertical = verticalPadding * 0.5f)

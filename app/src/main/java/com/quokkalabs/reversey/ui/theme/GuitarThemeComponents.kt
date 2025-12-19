@@ -237,7 +237,8 @@ class GuitarComponents : ThemeComponents {
             onDeleteAttempt = onDeleteAttempt,
             onShareAttempt = onShareAttempt,
             onJumpToParent = onJumpToParent,
-            onOverrideScore = onOverrideScore
+            onOverrideScore = onOverrideScore,
+            onResetScore = onResetScore
         )
     }
 
@@ -1218,16 +1219,18 @@ fun GuitarRecordingItem(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            LinearProgressIndicator(
-                progress = { if (isPlayingForward || isPlayingReversed) progress else 0f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = tealGreen,
-                trackColor = Color(0xFFE8DCC8)
-            )
+            if (isPlayingForward || isPlayingReversed) {
+                Spacer(modifier = Modifier.height(12.dp))
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = tealGreen,
+                    trackColor = Color(0xFFE8DCC8)
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1264,7 +1267,9 @@ fun GuitarRecordingItem(
                             )
                         }
                     }
-                ) { GuitarRewindIcon(darkBrown) }
+                ) {
+                    if (isPlayingReversed && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarRewindIcon(darkBrown)
+                }
                 if (isGameModeEnabled) {
                     // 🛡️ FIX: Check if reversedPath exists before starting
                     GuitarControlButton(
@@ -1321,18 +1326,28 @@ fun GuitarAttemptItem(
     onShareAttempt: ((String) -> Unit)?,
     onJumpToParent: (() -> Unit)?,
     onOverrideScore: ((Int) -> Unit)? = null,
+    onResetScore: (() -> Unit)? = null,
 ) {
     val darkBrown = Color(0xFF5d4a36)
     val tealGreen = Color(0xFF7DB9A8)
     val peachOrange = Color(0xFFE8A87C)
     val lavenderPurple = Color(0xFFB8A8C8)
 
-    val isPlayingThis =
-        currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
+    // 🔧 POLYMORPHIC: Track which specific file is playing
+    val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingThis = isPlayingForward || isPlayingReversed
+
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
+
+    // 🔧 FIX: Use finalScore override if present
+    val displayScore = (attempt.finalScore ?: attempt.score).toInt()
+    val scoreEmoji = aesthetic.scoreEmojis.entries
+        .sortedByDescending { it.key }
+        .firstOrNull { displayScore >= it.key }?.value ?: "🎸"
 
     Box(
         modifier = Modifier
@@ -1401,25 +1416,35 @@ fun GuitarAttemptItem(
                                     label = "Share"
                                 ) { GuitarShareIcon(color = darkBrown) }
                             }
+                            // 🔧 POLYMORPHIC Play button
                             GuitarControlButton(
                                 onClick = {
-                                    if (isPlayingThis && !isPaused) onPause() else onPlay(
-                                        attempt.attemptFilePath
-                                    )
+                                    if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
                                 },
                                 color = peachOrange,
-                                label = if (isPlayingThis && !isPaused) "Pause" else "Play"
+                                label = when {
+                                    isPlayingForward && !isPaused -> "Pause"
+                                    isPlayingForward && isPaused -> "Resume"
+                                    else -> "Play"
+                                }
                             ) {
-                                if (isPlayingThis && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(
-                                    color = darkBrown
-                                )
+                                if (isPlayingForward && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(color = darkBrown)
                             }
+                            // 🔧 POLYMORPHIC Rev button
                             attempt.reversedAttemptFilePath?.let { reversedPath ->
                                 GuitarControlButton(
-                                    onClick = { onPlay(reversedPath) },
+                                    onClick = {
+                                        if (isPlayingReversed) onPause() else onPlay(reversedPath)
+                                    },
                                     color = tealGreen,
-                                    label = "Rev"
-                                ) { GuitarRewindIcon(darkBrown) }
+                                    label = when {
+                                        isPlayingReversed && !isPaused -> "Pause"
+                                        isPlayingReversed && isPaused -> "Resume"
+                                        else -> "Rev"
+                                    }
+                                ) {
+                                    if (isPlayingReversed && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarRewindIcon(darkBrown)
+                                }
                             }
                             if (onDeleteAttempt != null) {
                                 GuitarControlButton(
@@ -1432,10 +1457,11 @@ fun GuitarAttemptItem(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     DifficultySquircle(
-                        score = attempt.score.toInt(),
+                        score = displayScore,
                         difficulty = attempt.difficulty,
                         challengeType = attempt.challengeType,
-                        emoji = "🎸",
+                        emoji = scoreEmoji,
+                        isOverridden = attempt.finalScore != null,
                         width = 85.dp,
                         height = 110.dp,
                         onClick = { showScoreDialog = true })
@@ -1474,11 +1500,11 @@ fun GuitarAttemptItem(
         aesthetic,
         onShareAttempt,
         { showShareDialog = false })
-    if (showScoreDialog) aesthetic.components.ScoreCard(
+    if (showScoreDialog) ScoreExplanationDialog(
         attempt,
-        aesthetic,
         { showScoreDialog = false },
-        onOverrideScore ?: { })
+        onOverrideScore = onOverrideScore ?: { },
+        onResetScore = onResetScore ?: { })
 }
 
 @Composable

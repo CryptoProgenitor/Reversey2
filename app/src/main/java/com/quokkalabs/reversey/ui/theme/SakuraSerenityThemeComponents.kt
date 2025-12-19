@@ -248,18 +248,19 @@ class SakuraSerenityComponents : ThemeComponents {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Progress Bar (Sakura Style) - 🔧 POLYMORPHIC
-                LinearProgressIndicator(
-                    progress = { if (isPlayingForward || isPlayingReversed) progress else 0f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = borderPink,
-                    trackColor = Color(0xFFFFC0CB).copy(alpha = 0.3f)
-                )
+                // Progress Bar (Sakura Style) - 🔧 POLYMORPHIC (only show when playing)
+                if (isPlayingForward || isPlayingReversed) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = borderPink,
+                        trackColor = Color(0xFFFFC0CB).copy(alpha = 0.3f)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -388,12 +389,21 @@ class SakuraSerenityComponents : ThemeComponents {
         val textDarkPink = Color(0xFFC71585)
         val buttonBg = Color(0xFFFFE4E1)
 
-        val isPlayingThis =
-            currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
+        // 🔧 POLYMORPHIC: Track which specific file is playing
+        val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
+        val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+        val isPlayingThis = isPlayingForward || isPlayingReversed
+
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
         var showShareDialog by remember { mutableStateOf(false) }
         var showScoreDialog by remember { mutableStateOf(false) }
+
+        // 🔧 FIX: Use finalScore override if present
+        val displayScore = (attempt.finalScore ?: attempt.score).toInt()
+        val scoreEmoji = aesthetic.scoreEmojis.entries
+            .sortedByDescending { it.key }
+            .firstOrNull { displayScore >= it.key }?.value ?: "🌸"
 
         // LAYOUT: Adapted from Guitar Theme (Split View with Squircle)
         Box(
@@ -471,28 +481,36 @@ class SakuraSerenityComponents : ThemeComponents {
                                         SakuraShareIcon(borderPink)
                                     }
                                 }
+                                // 🔧 POLYMORPHIC Play button
                                 SakuraControlButton(
                                     onClick = {
-                                        if (isPlayingThis && !isPaused) onPause() else onPlay(
-                                            attempt.attemptFilePath
-                                        )
+                                        if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
                                     },
                                     color = Color(0xFFFFB6C1),
-                                    label = if (isPlayingThis && !isPaused) "Pause" else "Play",
+                                    label = when {
+                                        isPlayingForward && !isPaused -> "Pause"
+                                        isPlayingForward && isPaused -> "Resume"
+                                        else -> "Play"
+                                    },
                                     textColor = textDarkPink
                                 ) {
-                                    if (isPlayingThis && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraPlayIcon(
-                                        textDarkPink
-                                    )
+                                    if (isPlayingForward && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraPlayIcon(textDarkPink)
                                 }
+                                // 🔧 POLYMORPHIC Rev button
                                 attempt.reversedAttemptFilePath?.let { reversedPath ->
                                     SakuraControlButton(
-                                        onClick = { onPlay(reversedPath) },
+                                        onClick = {
+                                            if (isPlayingReversed) onPause() else onPlay(reversedPath)
+                                        },
                                         color = buttonBg,
-                                        label = "Rev",
+                                        label = when {
+                                            isPlayingReversed && !isPaused -> "Pause"
+                                            isPlayingReversed && isPaused -> "Resume"
+                                            else -> "Rev"
+                                        },
                                         textColor = textDarkPink
                                     ) {
-                                        SakuraRewindIcon(borderPink)
+                                        if (isPlayingReversed && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraRewindIcon(borderPink)
                                     }
                                 }
                                 if (onDeleteAttempt != null) {
@@ -512,10 +530,11 @@ class SakuraSerenityComponents : ThemeComponents {
 
                         // RIGHT COLUMN: The Difficulty Squircle
                         DifficultySquircle(
-                            score = attempt.score.toInt(),
+                            score = displayScore,
                             difficulty = attempt.difficulty,
                             challengeType = attempt.challengeType,
-                            emoji = "🌸", // Theme specific emoji
+                            emoji = scoreEmoji,
+                            isOverridden = attempt.finalScore != null,
                             width = 85.dp,
                             height = 110.dp,
                             onClick = { showScoreDialog = true }
@@ -556,11 +575,11 @@ class SakuraSerenityComponents : ThemeComponents {
             aesthetic,
             onShareAttempt,
             { showShareDialog = false })
-        if (showScoreDialog) ScoreCard(
+        if (showScoreDialog) ScoreExplanationDialog(
             attempt,
-            aesthetic,
             { showScoreDialog = false },
-            onOverrideScore ?: { })
+            onOverrideScore = onOverrideScore ?: { },
+            onResetScore = onResetScore ?: { })
     }
 
     @Composable

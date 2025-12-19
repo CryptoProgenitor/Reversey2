@@ -245,7 +245,8 @@ class SnowyOwlComponents : ThemeComponents {
             onDeleteAttempt = onDeleteAttempt,
             onShareAttempt = onShareAttempt,
             onJumpToParent = onJumpToParent,
-            onOverrideScore = onOverrideScore
+            onOverrideScore = onOverrideScore,
+            onResetScore = onResetScore
         )
     }
 
@@ -1432,12 +1433,14 @@ fun SnowyOwlRecordingItem(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { if (isPlayingForward || isPlayingReversed) progress else 0f },
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFFADD8E6).copy(0.5f)
-            )
+            if (isPlayingForward || isPlayingReversed) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFADD8E6).copy(0.5f)
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1469,7 +1472,9 @@ fun SnowyOwlRecordingItem(
                         else -> "Rev"
                     },
                     { if (isPlayingReversed) onPause() else recording.reversedPath?.let { onPlay(it) } }
-                ) { OwlRewindIcon(Color.White) }
+                ) {
+                    if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(Color.White)
+                }
                 if (isGameModeEnabled) {
                     OwlControlButton(
                         mysticPurple,
@@ -1524,13 +1529,23 @@ fun SnowyOwlAttemptItem(
     onShareAttempt: ((String) -> Unit)?,
     onJumpToParent: (() -> Unit)?,
     onOverrideScore: ((Int) -> Unit)?,
+    onResetScore: (() -> Unit)? = null,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
-    val isPlayingThis =
-        currentlyPlayingPath == attempt.attemptFilePath || currentlyPlayingPath == attempt.reversedAttemptFilePath
+
+    // 🔧 POLYMORPHIC: Track which specific file is playing
+    val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingThis = isPlayingForward || isPlayingReversed
+
+    // 🔧 FIX: Use finalScore override if present
+    val displayScore = (attempt.finalScore ?: attempt.score).toInt()
+    val scoreEmoji = aesthetic.scoreEmojis.entries
+        .sortedByDescending { it.key }
+        .firstOrNull { displayScore >= it.key }?.value ?: "🦉"
 
     val cardOuter = Color(0xFF282832).copy(alpha = 0.6f)
     val cardInner = Color(0xFF14141e).copy(alpha = 0.6f)
@@ -1588,19 +1603,29 @@ fun SnowyOwlAttemptItem(
                             mysticPurple,
                             "Share",
                             { showShareDialog = true }) { OwlShareIcon(Color.White) }
+                        // 🔧 POLYMORPHIC Play button
                         OwlControlButton(
                             deepSlate,
-                            if (isPlayingThis && !isPaused) "Pause" else "Play",
-                            { if (isPlayingThis && !isPaused) onPause() else onPlay(attempt.attemptFilePath) }) {
-                            if (isPlayingThis && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(
-                                Color.White
-                            )
+                            when {
+                                isPlayingForward && !isPaused -> "Pause"
+                                isPlayingForward && isPaused -> "Resume"
+                                else -> "Play"
+                            },
+                            { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) }) {
+                            if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
                         }
+                        // 🔧 POLYMORPHIC Rev button
                         attempt.reversedAttemptFilePath?.let { reversedPath ->
                             OwlControlButton(
                                 mysticPurple,
-                                "Rev",
-                                { onPlay(reversedPath) }) { OwlRewindIcon(Color.White) }
+                                when {
+                                    isPlayingReversed && !isPaused -> "Pause"
+                                    isPlayingReversed && isPaused -> "Resume"
+                                    else -> "Rev"
+                                },
+                                { if (isPlayingReversed) onPause() else onPlay(reversedPath) }) {
+                                if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(Color.White)
+                            }
                         }
                         if (onDeleteAttempt != null) OwlControlButton(
                             deepSlate,
@@ -1612,10 +1637,10 @@ fun SnowyOwlAttemptItem(
 
 
                 DifficultySquircle(
-                    attempt.score,
+                    displayScore,
                     attempt.difficulty,
                     attempt.challengeType,
-                    "🦉",
+                    scoreEmoji,
                     attempt.finalScore != null,
                     85.dp,
                     110.dp,
@@ -1650,11 +1675,11 @@ fun SnowyOwlAttemptItem(
         aesthetic,
         onShareAttempt,
         { showShareDialog = false })
-    if (showScoreDialog) aesthetic.components.ScoreCard(
+    if (showScoreDialog) ScoreExplanationDialog(
         attempt,
-        aesthetic,
         { showScoreDialog = false },
-        onOverrideScore ?: { })
+        onOverrideScore = onOverrideScore ?: { },
+        onResetScore = onResetScore ?: { })
 }
 
 // ============================================
