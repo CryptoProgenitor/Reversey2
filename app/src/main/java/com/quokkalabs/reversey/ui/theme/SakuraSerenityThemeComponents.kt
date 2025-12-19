@@ -1668,14 +1668,18 @@ private fun EnhancedCalmSakuraTrees() {
     // FIXED: Generate random blob positions ONCE and store them
     val staticBlobPositions = remember {
         listOf(
-            // Left tree blobs
-            Offset(-80f, -30f), Offset(-60f, -50f), Offset(-40f, -35f),
-            // Right tree blobs
-            Offset(70f, -25f), Offset(85f, -45f), Offset(95f, -30f),
-            // Center tree blobs
-            Offset(-10f, -20f), Offset(15f, -40f), Offset(0f, -55f),
-            // Background tree blobs
-            Offset(40f, -15f), Offset(-25f, -60f), Offset(30f, -50f)
+            // Tree 0 blobs (8)
+            Offset(-80f, -30f), Offset(-60f, -50f), Offset(-40f, -35f), Offset(-70f, -60f),
+            Offset(-55f, -25f), Offset(-85f, -45f), Offset(-45f, -55f), Offset(-65f, -40f),
+            // Tree 1 blobs (8)
+            Offset(70f, -25f), Offset(85f, -45f), Offset(95f, -30f), Offset(75f, -55f),
+            Offset(60f, -40f), Offset(90f, -35f), Offset(80f, -60f), Offset(65f, -50f),
+            // Tree 2 blobs (8)
+            Offset(-10f, -20f), Offset(15f, -40f), Offset(0f, -55f), Offset(-20f, -45f),
+            Offset(25f, -30f), Offset(5f, -35f), Offset(-15f, -60f), Offset(10f, -50f),
+            // Tree 3 blobs (8)
+            Offset(40f, -15f), Offset(-25f, -60f), Offset(30f, -50f), Offset(45f, -40f),
+            Offset(35f, -55f), Offset(50f, -30f), Offset(25f, -45f), Offset(55f, -35f)
         )
     }
 
@@ -1765,38 +1769,59 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCalmSakuraTree(
             cap = StrokeCap.Round
         )
 
-        // CANDY FLOSS BLOBS instead of detailed blossoms
+        // 🌸 PETAL CLOUDS - performance optimized
         val blobCount = (branch.length / 50.dp.toPx()).toInt().coerceIn(2, 4)
+        val random = Random(treeIndex * 100 + branch.angle.toInt())
+
         repeat(blobCount) { i ->
             val t = (i + 1).toFloat() / blobCount
             val blobX = startX + (endX - startX) * t
             val blobY = startY + (endY - startY) * t
 
-            drawCherryBlossomEmoji(
-                center = Offset(blobX, blobY),
-                scale = scale * pulse, // ONLY GENTLE PULSING - no position changes
-                baseSize = 35.dp.toPx(),
-                colorPulse = pulse
-            )
+            // Draw small cluster of big petals
+            val clusterSize = random.nextInt(2, 4)
+            repeat(clusterSize) { j ->
+                val scatter = 30.dp.toPx() * scale
+                val offsetX = (random.nextFloat() - 0.5f) * scatter * 2
+                val offsetY = (random.nextFloat() - 0.5f) * scatter * 2
+                val petalScale = 0.9f + random.nextFloat() * 0.6f // Big: 0.9-1.5
+
+                drawCherryBlossomEmoji(
+                    center = Offset(blobX + offsetX, blobY + offsetY),
+                    scale = scale * pulse * petalScale,
+                    baseSize = 40.dp.toPx(), // Double size
+                    colorPulse = pulse
+                )
+            }
         }
     }
-
-    // FIXED: Use static blob positions instead of random every frame
+    // 🌸 CANOPY CLUSTERS - performance optimized
     val blobsPerTree = 3
     val startIdx = treeIndex * blobsPerTree
+    val canopyRandom = Random(treeIndex * 999)
+
     repeat(blobsPerTree) { i ->
         val blobIdx = startIdx + i
         if (blobIdx < staticBlobPositions.size) {
             val staticOffset = staticBlobPositions[blobIdx]
-            drawCherryBlossomEmoji(
-                center = Offset(
-                    baseX + staticOffset.x * scale,
-                    baseY - trunkHeight * 0.6f + staticOffset.y * scale
-                ),
-                scale = scale * pulse * 0.8f, // ONLY GENTLE PULSING
-                baseSize = 25.dp.toPx(),
-                colorPulse = pulse
-            )
+            val centerX = baseX + staticOffset.x * scale
+            val centerY = baseY - trunkHeight * 0.6f + staticOffset.y * scale
+
+            // Draw small cluster of big petals
+            val clusterSize = canopyRandom.nextInt(1, 3)
+            repeat(clusterSize) { j ->
+                val scatter = 25.dp.toPx() * scale
+                val offsetX = (canopyRandom.nextFloat() - 0.5f) * scatter * 2
+                val offsetY = (canopyRandom.nextFloat() - 0.5f) * scatter * 2
+                val petalScale = 0.8f + canopyRandom.nextFloat() * 0.8f // Big: 0.8-1.6
+
+                drawCherryBlossomEmoji(
+                    center = Offset(centerX + offsetX, centerY + offsetY),
+                    scale = scale * pulse * petalScale,
+                    baseSize = 35.dp.toPx(), // Double size
+                    colorPulse = pulse
+                )
+            }
         }
     }
 }
