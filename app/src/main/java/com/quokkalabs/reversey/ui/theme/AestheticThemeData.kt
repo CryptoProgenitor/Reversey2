@@ -185,7 +185,10 @@ object AestheticThemes {
         SakuraSerenityTheme.THEME_ID to SakuraSerenityTheme.data,
         GuitarTheme.THEME_ID to GuitarTheme.data,
         SnowyOwlTheme.THEME_ID to SnowyOwlTheme.data,
-        StrangePlanetTheme.THEME_ID to StrangePlanetTheme.data
+        StrangePlanetTheme.THEME_ID to StrangePlanetTheme.data,
+
+        // 🎄 Seasonal Themes
+        ChristmasTheme.THEME_ID to ChristmasTheme.data
 
     )
 
