@@ -15,12 +15,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.indicatorColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,10 +44,10 @@ fun DifficultyIndicator(
     Card(
         modifier = modifier
             .clickable { onClick() } // 🔧 ADD THIS - make it clickable
-            .border(width = 1.dp, color = indicatorColor, shape = RoundedCornerShape(16.dp))
-            .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = indicatorColor.copy(alpha = 0.3f)),
+            .border(width = 1.dp, color = difficultyColor, shape = RoundedCornerShape(16.dp))
+            .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = difficultyColor.copy(alpha = 0.55f)),
         colors = CardDefaults.cardColors(
-            containerColor = indicatorColor.copy(alpha = 0.15f)
+            containerColor = difficultyColor.copy(alpha = 0.55f)
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -57,94 +57,14 @@ fun DifficultyIndicator(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = difficulty.emoji,
+                text = DifficultyConfig.getEmojiForDifficulty(difficulty),
                 fontSize = 16.sp
             )
             Text(
                 text = difficulty.displayName,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = indicatorColor
-            )
-        }
-    }
-}
-
-/**
- * Compact difficulty indicator for smaller spaces
- * Now also clickable! 🔧
- */
-@Composable
-fun CompactDifficultyIndicator(
-    difficulty: DifficultyLevel,
-    onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler
-    modifier: Modifier = Modifier
-) {
-    val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
-
-
-    Box(
-        modifier = modifier
-            .size(32.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick() } // 🔧 ADD THIS - make it clickable
-            .background(indicatorColor.copy(alpha = 0.2f))
-            .border(width = 1.dp, color = indicatorColor, shape = RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = difficulty.emoji,
-            fontSize = 16.sp
-        )
-    }
-}
-
-/**
- * Detailed difficulty card for settings or info screens
- * Also clickable for consistency! 🔧
- */
-@Composable
-fun DetailedDifficultyCard(
-    difficulty: DifficultyLevel,
-    onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler
-    modifier: Modifier = Modifier
-) {
-    val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
-
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() } // 🔧 ADD THIS - make it clickable
-            .border(width = 2.dp, color = indicatorColor, shape = RoundedCornerShape(12.dp))
-            .shadow(6.dp, RoundedCornerShape(12.dp), ambientColor = indicatorColor.copy(alpha = 0.3f)),
-        colors = CardDefaults.cardColors(
-            containerColor = indicatorColor.copy(alpha = 0.1f)
-        ),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = difficulty.emoji,
-                fontSize = 32.sp,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            Text(
-                text = difficulty.displayName,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = indicatorColor
-            )
-            Text(
-                text = difficulty.description,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
+                color = Color.Black.copy(alpha = 0.8f)
             )
         }
     }

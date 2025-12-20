@@ -1,6 +1,7 @@
 package com.quokkalabs.reversey.ui.components
 
 import android.os.Build.VERSION.SDK_INT
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -14,6 +15,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +37,10 @@ import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.delay
 import com.quokkalabs.reversey.data.backup.BackupManager
 
+// 🔧 Constants for animation timing
+private const val ANIM_DURATION = 200
+private const val EXIT_BUFFER = 50
+
 @Composable
 fun ThemedMenuModal(
     visible: Boolean,
@@ -48,18 +55,62 @@ fun ThemedMenuModal(
     backupManager: BackupManager,
     initialScreen: ModalScreen = ModalScreen.Menu
 ) {
-    var currentScreen by remember(visible, initialScreen) {
-        mutableStateOf(if (visible) initialScreen else ModalScreen.Menu)
+    // 🔧 SAFETY: Custom Saver to handle Sealed Class serialization
+    // This maps the objects to strings and back, avoiding .name/.entries calls
+    val stackSaver = remember {
+        listSaver<List<ModalScreen>, String>(
+            save = { stack -> stack.map { it.toScreenId() } },
+            restore = { savedList ->
+                savedList.map { it.toModalScreen() }
+            }
+        )
     }
 
+    // 🔧 Stack-based navigation
+    var screenStack by rememberSaveable(visible, initialScreen, stateSaver = stackSaver) {
+        mutableStateOf(
+            if (visible) {
+                if (initialScreen != ModalScreen.Menu)
+                    listOf(ModalScreen.Menu, initialScreen)
+                else
+                    listOf(ModalScreen.Menu)
+            } else {
+                listOf(ModalScreen.Menu)
+            }
+        )
+    }
+
+    // Safe access to current screen (default to Menu if stack somehow empties)
+    val currentScreen = screenStack.lastOrNull() ?: ModalScreen.Menu
+
+    // Reset stack AFTER exit animation completes
     LaunchedEffect(visible) {
-        if (!visible) currentScreen = ModalScreen.Menu
+        if (!visible) {
+            delay((ANIM_DURATION + EXIT_BUFFER).toLong())
+            screenStack = listOf(ModalScreen.Menu)
+        }
+    }
+
+    // 🔧 Back button handler
+    BackHandler(enabled = visible) {
+        if (screenStack.size > 1) {
+            screenStack = screenStack.dropLast(1)
+        } else {
+            onDismiss()
+        }
+    }
+
+    // Helper to navigate (prevents duplicates, caps stack size)
+    fun navigateTo(screen: ModalScreen) {
+        if (screenStack.lastOrNull() != screen && screenStack.size < 10) {
+            screenStack = screenStack + screen
+        }
     }
 
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(animationSpec = tween(300)),
-        exit = fadeOut(animationSpec = tween(200))
+        exit = fadeOut(animationSpec = tween(ANIM_DURATION))
     ) {
         Box(
             modifier = Modifier
@@ -94,7 +145,11 @@ fun ThemedMenuModal(
                     // Glassmorphism Header
                     GlassHeader(
                         currentScreen = currentScreen,
-                        onBack = { currentScreen = ModalScreen.Menu },
+                        onBack = {
+                            if (screenStack.size > 1) {
+                                screenStack = screenStack.dropLast(1)
+                            }
+                        },
                         onClose = onDismiss
                     )
 
@@ -106,10 +161,10 @@ fun ThemedMenuModal(
                             ModalScreen.Menu -> MenuContent(
                                 currentRoute = currentRoute,
                                 onNavigateHome = { onNavigateHome(); onDismiss() },
-                                onNavigateAbout = { currentScreen = ModalScreen.About },
-                                onNavigateSettings = { currentScreen = ModalScreen.Settings },
-                                onNavigateThemes = { currentScreen = ModalScreen.Themes },
-                                onNavigateHelp = { currentScreen = ModalScreen.Help },
+                                onNavigateAbout = { navigateTo(ModalScreen.About) },
+                                onNavigateSettings = { navigateTo(ModalScreen.Settings) },
+                                onNavigateThemes = { navigateTo(ModalScreen.Themes) },
+                                onNavigateHelp = { navigateTo(ModalScreen.Help) },
                                 onNavigateToFiles = { onNavigateToFiles(); onDismiss() },
                                 onShowTutorial = { onShowTutorial(); onDismiss() },
                                 onClearAll = { onClearAll(); onDismiss() }
@@ -183,6 +238,7 @@ private fun GlassHeader(
         ModalScreen.Settings -> "SETTINGS"
         ModalScreen.Themes -> "THEMES"
         ModalScreen.Help -> "HELP"
+        else -> "MENU"
     }
 
     val showBackButton = currentScreen != ModalScreen.Menu
@@ -244,4 +300,26 @@ private fun GlassHeader(
             }
         }
     }
+}
+
+// -----------------------------------------------------------
+// 🔧 HELPERS: Sealed Class Serialization
+// -----------------------------------------------------------
+
+private fun ModalScreen.toScreenId(): String = when (this) {
+    ModalScreen.Menu -> "Menu"
+    ModalScreen.About -> "About"
+    ModalScreen.Settings -> "Settings"
+    ModalScreen.Themes -> "Themes"
+    ModalScreen.Help -> "Help"
+    else -> "Menu"
+}
+
+private fun String.toModalScreen(): ModalScreen = when (this) {
+    "Menu" -> ModalScreen.Menu
+    "About" -> ModalScreen.About
+    "Settings" -> ModalScreen.Settings
+    "Themes" -> ModalScreen.Themes
+    "Help" -> ModalScreen.Help
+    else -> ModalScreen.Menu
 }

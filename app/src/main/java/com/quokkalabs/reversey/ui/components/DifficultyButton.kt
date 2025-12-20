@@ -39,7 +39,6 @@ fun DifficultyButton(
 
     Card(
         modifier = modifier
-            .height(100.dp)
             .then(
                 if (isSelected) {
                     Modifier
