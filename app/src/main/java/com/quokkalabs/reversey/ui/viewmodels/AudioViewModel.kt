@@ -352,7 +352,8 @@ class AudioViewModel @Inject constructor(
                         recordings = updatedRecordings,
                         isRecording = false,
                         statusText = if (referenceTranscription != null) "Saved! Reference: \"$referenceTranscription\"" else "Saved!",
-                        amplitudes = emptyList()
+                        amplitudes = emptyList(),
+                        scrollToIndex = 0  // New recording is at top of list
                     )
                 }
             } else {
@@ -686,6 +687,16 @@ class AudioViewModel @Inject constructor(
 
                 // 7. Update UI
                 withContext(Dispatchers.Main) {
+                    // Calculate flat index for new attempt
+                    val parentIndex = updatedRecordings.indexOfFirst { it.originalPath == originalRecordingPath }
+                    val scrollTarget = if (parentIndex >= 0) {
+                        var flatIndex = 0
+                        for (i in 0 until parentIndex) {
+                            flatIndex += 1 + updatedRecordings[i].attempts.size
+                        }
+                        flatIndex + updatedRecordings[parentIndex].attempts.size  // Points to new attempt (last one)
+                    } else null
+
                     _uiState.update {
                         it.copy(
                             recordings = updatedRecordings,
@@ -696,7 +707,8 @@ class AudioViewModel @Inject constructor(
                             attemptToRename = if (scoringOutput.score > 70) Pair(
                                 originalRecordingPath,
                                 attempt
-                            ) else null
+                            ) else null,
+                            scrollToIndex = scrollTarget
                         )
                     }
                 }
