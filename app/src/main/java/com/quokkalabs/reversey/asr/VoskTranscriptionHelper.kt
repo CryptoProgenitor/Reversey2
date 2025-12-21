@@ -160,7 +160,7 @@ class VoskTranscriptionHelper @Inject constructor(
             // Process in chunks to limit memory usage
             // Each chunk: 8KB input buffer = 4K samples
             val inputChunkBytes = 8192
-            val inputChunkSamples = inputChunkBytes / 2
+            inputChunkBytes / 2
 
             // Output buffer - we still need to collect output but it's smaller (36% of input)
             val outputStream = java.io.ByteArrayOutputStream(outputSampleCount * 2)

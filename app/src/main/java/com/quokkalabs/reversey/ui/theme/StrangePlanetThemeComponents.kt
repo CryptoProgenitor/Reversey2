@@ -208,7 +208,6 @@ class StrangePlanetComponents : ThemeComponents {
     override fun RecordingItem(
         recording: Recording,
         aesthetic: AestheticThemeData,
-        isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
         currentlyPlayingPath: String?,
@@ -224,7 +223,7 @@ class StrangePlanetComponents : ThemeComponents {
         StrangePlanetRecordingItem(
             recording = recording,
             aesthetic = aesthetic,
-            isPlaying = isPlaying,
+
             isPaused = isPaused,
             progress = progress,
             currentlyPlayingPath = currentlyPlayingPath,
@@ -281,11 +280,11 @@ class StrangePlanetComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float,  // 🎯 PHASE 3
+          // 🎯 PHASE 3
     ) {
         StrangePlanetRecordButton(
             isRecording = isRecording,
-            countdownProgress = countdownProgress,  // 🎯 PHASE 3
+              // 🎯 PHASE 3
             onClick = {
                 if (isRecording) onStopRecording() else onStartRecording()
             }
@@ -530,8 +529,7 @@ class StrangePlanetComponents : ThemeComponents {
 fun StrangePlanetRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    countdownProgress: Float = 1f,  // 🎯 PHASE 3
+    modifier: Modifier = Modifier
 ) {
     // Sync to shared state so floating creatures can see it
     LaunchedEffect(isRecording) {
@@ -651,7 +649,7 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - outerRingWidth, centerY - outerRingHeight),
-                    size = androidx.compose.ui.geometry.Size(
+                    size = Size(
                         outerRingWidth * 2,
                         outerRingHeight * 2
                     ),
@@ -663,7 +661,7 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - middleRingWidth, centerY - middleRingHeight),
-                    size = androidx.compose.ui.geometry.Size(
+                    size = Size(
                         middleRingWidth * 2,
                         middleRingHeight * 2
                     ),
@@ -675,7 +673,7 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - innerRingWidth, centerY - innerRingHeight),
-                    size = androidx.compose.ui.geometry.Size(
+                    size = Size(
                         innerRingWidth * 2,
                         innerRingHeight * 2
                     ),
@@ -706,7 +704,7 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - outerRingWidth, centerY - outerRingHeight),
-                    size = androidx.compose.ui.geometry.Size(
+                    size = Size(
                         outerRingWidth * 2,
                         outerRingHeight * 2
                     ),
@@ -718,7 +716,7 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - middleRingWidth, centerY - middleRingHeight),
-                    size = androidx.compose.ui.geometry.Size(
+                    size = Size(
                         middleRingWidth * 2,
                         middleRingHeight * 2
                     ),
@@ -730,7 +728,7 @@ fun StrangePlanetRecordButton(
                     sweepAngle = 180f,
                     useCenter = false,
                     topLeft = Offset(centerX - innerRingWidth, centerY - innerRingHeight),
-                    size = androidx.compose.ui.geometry.Size(
+                    size = Size(
                         innerRingWidth * 2,
                         innerRingHeight * 2
                     ),
@@ -929,8 +927,8 @@ fun StrangePlanetFloatingCreatures() {
 
     // Read recording state - affects restitution and speed
     val isExcited = strangePlanetRecordingState.value
-    val restitution = if (isExcited) restitutionExcited else restitutionNormal
-    val speedMultiplier = if (isExcited) 2.5f else 1f
+    if (isExcited) restitutionExcited else restitutionNormal
+    if (isExcited) 2.5f else 1f
 
     DisposableEffect(Unit) {
         onDispose { soundManager.release() }
@@ -1220,7 +1218,6 @@ fun StrangePlanetFloatingCreatures() {
 fun StrangePlanetRecordingItem(
     recording: Recording,
     aesthetic: AestheticThemeData,
-    isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
     currentlyPlayingPath: String?,
@@ -1909,7 +1906,7 @@ fun SPMicGlyph(color: Color) {
         drawRoundRect(
             color,
             topLeft = Offset(size.width * 0.35f, size.height * 0.08f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.3f, size.height * 0.42f),
+            size = Size(size.width * 0.3f, size.height * 0.42f),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
             style = Stroke(width = strokeWidth)
         )
@@ -1958,7 +1955,7 @@ fun SPMicReverseGlyph(color: Color) {
         drawRoundRect(
             color,
             topLeft = Offset(size.width * 0.05f, size.height * 0.12f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.25f, size.height * 0.35f),
+            size = Size(size.width * 0.25f, size.height * 0.35f),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
             style = Stroke(width = strokeWidth)
         )

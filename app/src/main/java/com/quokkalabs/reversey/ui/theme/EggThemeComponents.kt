@@ -118,7 +118,7 @@ class WobblyShape(
     private val seed: Int,
 ) : Shape {
     override fun createOutline(
-        size: androidx.compose.ui.geometry.Size,
+        size: Size,
         layoutDirection: LayoutDirection,
         density: Density,
     ): Outline {
@@ -313,7 +313,6 @@ class EggThemeComponents : ThemeComponents {
     override fun RecordingItem(
         recording: Recording,
         aesthetic: AestheticThemeData,
-        isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
         currentlyPlayingPath: String?,
@@ -329,7 +328,7 @@ class EggThemeComponents : ThemeComponents {
         EggRecordingItem(
             recording = recording,
             aesthetic = aesthetic,
-            isPlaying = isPlaying,
+
             isPaused = isPaused,
             progress = progress,
             currentlyPlayingPath = currentlyPlayingPath,
@@ -386,11 +385,11 @@ class EggThemeComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float,  // 🎯 PHASE 3
+          // 🎯 PHASE 3
     ) {
         EggRecordButton(
             isRecording = isRecording,
-            countdownProgress = countdownProgress,  // 🎯 PHASE 3
+              // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -595,7 +594,6 @@ class EggThemeComponents : ThemeComponents {
 fun EggRecordingItem(
     recording: Recording,
     aesthetic: AestheticThemeData,
-    isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
     currentlyPlayingPath: String?,
@@ -1187,12 +1185,12 @@ fun EggTravelProgressBar(progress: Float, modifier: Modifier = Modifier, height:
                     drawOval(
                         color = Color(0xFFFFF8E1),
                         topLeft = Offset(center.x - radius * 0.7f, center.y - radius * 0.9f),
-                        size = androidx.compose.ui.geometry.Size(radius * 1.4f, radius * 1.8f)
+                        size = Size(radius * 1.4f, radius * 1.8f)
                     )
                     drawOval(
                         color = Color(0xFF6B5344),
                         topLeft = Offset(center.x - radius * 0.7f, center.y - radius * 0.9f),
-                        size = androidx.compose.ui.geometry.Size(radius * 1.4f, radius * 1.8f),
+                        size = Size(radius * 1.4f, radius * 1.8f),
                         style = Stroke(2.dp.toPx())
                     )
                     drawCircle(color = Color(0xFFFFD700), radius = radius * 0.4f, center = center)
@@ -1682,14 +1680,14 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
                         orbitAngles[index] = (orbitAngles[index] + orbitSpeed * deltaTime) % 360f
 
                         val angle = Math.toRadians(orbitAngles[index].toDouble())
-                        val wobbleAmount = 15f * kotlin.math.sin(frameCount * 0.15f + index)
+                        val wobbleAmount = 15f * sin(frameCount * 0.15f + index)
                         val currentRadius = plateRimRadius + wobbleAmount
 
                         // Center the emoji on the orbit path (not top-left)
                         val targetX =
                             plateCenterX + (currentRadius * kotlin.math.cos(angle)).toFloat() - egg.size / 2f
                         val targetY =
-                            plateCenterY + (currentRadius * 0.8f * kotlin.math.sin(angle)).toFloat() - egg.size / 2f
+                            plateCenterY + (currentRadius * 0.8f * sin(angle)).toFloat() - egg.size / 2f
 
                         egg.x += (targetX - egg.x) * 0.15f
                         egg.y += (targetY - egg.y) * 0.15f
@@ -1780,8 +1778,7 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
 fun EggRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    countdownProgress: Float = 1f,  // 🎯 PHASE 3
+    modifier: Modifier = Modifier
 ) {
 
     // Sync to shared state so BouncingEggs can see it
@@ -1803,27 +1800,6 @@ fun EggRecordButton(
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        // 🎯 PHASE 3: Countdown arc timer (only during timed recording)
-        if (isRecording && countdownProgress < 1f) {
-            Canvas(modifier = Modifier.size(230.dp, 200.dp)) {
-                // Gray background track
-                drawArc(
-                    color = Color.Gray.copy(alpha = 0.3f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-                // Red countdown arc
-                drawArc(
-                    color = Color.Red,
-                    startAngle = -90f,
-                    sweepAngle = 360f * countdownProgress,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-        }
 
         // Recording pulse glow
         if (isRecording) {
@@ -1890,7 +1866,7 @@ fun EggRecordButton(
 
             // === FARMHOUSE BLUE DASH PATTERN ===
             val dashColor = Color(0xFF7B9CB8).copy(alpha = 0.6f)
-            val dashStroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
 
             // Draw dashes around rim
             val rimRadiusX = w * 0.40f
@@ -1901,9 +1877,9 @@ fun EggRecordButton(
                 val rad = Math.toRadians(angle.toDouble())
                 val rad2 = Math.toRadians((angle + 25).toDouble())
                 val x1 = centerX + (rimRadiusX * kotlin.math.cos(rad)).toFloat()
-                val y1 = centerY + (rimRadiusY * kotlin.math.sin(rad)).toFloat()
+                val y1 = centerY + (rimRadiusY * sin(rad)).toFloat()
                 val x2 = centerX + (rimRadiusX * kotlin.math.cos(rad2)).toFloat()
-                val y2 = centerY + (rimRadiusY * kotlin.math.sin(rad2)).toFloat()
+                val y2 = centerY + (rimRadiusY * sin(rad2)).toFloat()
                 drawLine(
                     dashColor,
                     Offset(x1, y1),

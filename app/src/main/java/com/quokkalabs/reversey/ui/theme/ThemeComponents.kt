@@ -33,7 +33,6 @@ interface ThemeComponents {
     fun RecordingItem(
         recording: Recording,
         aesthetic: AestheticThemeData,
-        isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
         currentlyPlayingPath: String?,  // 🔧 Which specific file is playing
@@ -79,8 +78,7 @@ interface ThemeComponents {
         isProcessing: Boolean,
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
-        onStopRecording: () -> Unit,
-        countdownProgress: Float = 1f
+        onStopRecording: () -> Unit
     )
 
     /**

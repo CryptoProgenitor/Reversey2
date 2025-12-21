@@ -198,7 +198,6 @@ class ChristmasComponents : ThemeComponents {
     override fun RecordingItem(
         recording: Recording,
         aesthetic: AestheticThemeData,
-        isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
         currentlyPlayingPath: String?,
@@ -212,7 +211,7 @@ class ChristmasComponents : ThemeComponents {
         onStartAttempt: (Recording, ChallengeType) -> Unit,
     ) {
         ChristmasRecordingItem(
-            recording, aesthetic, isPlaying, isPaused, progress, currentlyPlayingPath,
+            recording, aesthetic, isPaused, progress, currentlyPlayingPath,
             onPlay, onPause, onStop, onDelete, onShare, onRename, isGameModeEnabled, onStartAttempt
         )
     }
@@ -248,9 +247,9 @@ class ChristmasComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float,
+
     ) {
-        ChristmasRecordButton(isRecording, countdownProgress) {
+        ChristmasRecordButton(isRecording) {
             if (isRecording) onStopRecording() else onStartRecording()
         }
     }
@@ -701,7 +700,7 @@ fun ChristmasSantaFlight() {
                 modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit
             )
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val noseX = size.width * 0.85f;
+                val noseX = size.width * 0.85f
                 val noseY = size.height * 0.32f
                 drawCircle(
                     Color.Red.copy(alpha = noseGlow * 0.5f),
@@ -881,7 +880,7 @@ fun ChristmasLandscape() {
         val houseWidthPx = with(density) { houseWidth.toPx() }
         val houseHeightPx = with(density) { houseHeight.toPx() }
         val snowdriftHeightPx = with(density) { SNOWDRIFT_HEIGHT.dp.toPx() }
-        val snowdriftWidth = houseWidthPx * SNOWDRIFT_WIDTH_FACTOR
+        houseWidthPx * SNOWDRIFT_WIDTH_FACTOR
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             // Back hill - shifted down, peaks at ~0.62
@@ -1216,9 +1215,9 @@ fun ChristmasShootingStars() {
                 val alpha = when {
                     progress < 0.2f -> progress / 0.2f; progress > 0.7f -> (1f - progress) / 0.3f; else -> 1f
                 }
-                val headX = s.startX + cos(s.angle) * distance;
+                val headX = s.startX + cos(s.angle) * distance
                 val headY = s.startY + sin(s.angle) * distance
-                val tailX = headX - cos(s.angle) * s.length;
+                val tailX = headX - cos(s.angle) * s.length
                 val tailY = headY - sin(s.angle) * s.length
                 val starColors = listOf(
                     listOf(
@@ -1274,7 +1273,7 @@ data class ChristmasSnowflakeData(
 fun ChristmasSnowflakes() {
     var snowflakes by remember { mutableStateOf(listOf<ChristmasSnowflakeData>()) }
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val screenWidth = constraints.maxWidth.toFloat();
+        val screenWidth = constraints.maxWidth.toFloat()
         val screenHeight = constraints.maxHeight.toFloat()
         LaunchedEffect(screenWidth, screenHeight) {
             snowflakes = List(35) {
@@ -1291,7 +1290,7 @@ fun ChristmasSnowflakes() {
             while (isActive) {
                 withFrameMillis {
                     snowflakes = snowflakes.map { f ->
-                        var newY = f.y + f.speed * 0.5f;
+                        var newY = f.y + f.speed * 0.5f
                         var newX = f.x + f.drift
                         if (newY > screenHeight) {
                             newY = -20f; newX = Random.nextFloat() * screenWidth
@@ -1330,7 +1329,7 @@ fun ChristmasStars() {
     var stars by remember { mutableStateOf(listOf<ChristmasStarData>()) }
     var time by remember { mutableFloatStateOf(0f) }
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val screenWidth = constraints.maxWidth.toFloat();
+        val screenWidth = constraints.maxWidth.toFloat()
         val screenHeight = constraints.maxHeight.toFloat()
         LaunchedEffect(screenWidth, screenHeight) {
             stars = List(50) {
@@ -1376,7 +1375,6 @@ fun ChristmasStars() {
 @Composable
 fun ChristmasRecordButton(
     isRecording: Boolean,
-    countdownProgress: Float = 1f,
     onClick: () -> Unit,
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "ornamentGlow")
@@ -1514,7 +1512,7 @@ fun DrawScope.drawStar(
     color: Color,
     points: Int = 5,
 ) {
-    val path = Path();
+    val path = Path()
     val angleStep = PI.toFloat() / points
     for (i in 0 until points * 2) {
         val radius = if (i % 2 == 0) outerRadius else innerRadius
@@ -1533,7 +1531,6 @@ fun DrawScope.drawStar(
 fun ChristmasRecordingItem(
     recording: Recording,
     aesthetic: AestheticThemeData,
-    isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
     currentlyPlayingPath: String?,

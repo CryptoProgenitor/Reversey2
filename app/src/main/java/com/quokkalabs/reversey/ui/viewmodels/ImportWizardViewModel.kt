@@ -5,7 +5,11 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.quokkalabs.reversey.data.backup.*
+import com.quokkalabs.reversey.data.backup.BackupManager
+import com.quokkalabs.reversey.data.backup.BackupProgress
+import com.quokkalabs.reversey.data.backup.ConflictStrategy
+import com.quokkalabs.reversey.data.backup.ImportAnalysis
+import com.quokkalabs.reversey.data.backup.RestoreResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +21,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 /**

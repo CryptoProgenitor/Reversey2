@@ -13,7 +13,11 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.app.ActivityCompat
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Quick test: Can AudioRecord and SpeechRecognizer run simultaneously?
@@ -42,8 +46,8 @@ class DualMicTest(private val context: Context) {
         Log.d(TAG, "========== STARTING DUAL MIC TEST ==========")
 
         // Start both simultaneously
-        val audioRecordJob = startAudioRecord()
-        val speechRecognizerJob = startSpeechRecognizer()
+        startAudioRecord()
+        startSpeechRecognizer()
 
         // Run for 5 seconds then stop
         CoroutineScope(Dispatchers.Main).launch {

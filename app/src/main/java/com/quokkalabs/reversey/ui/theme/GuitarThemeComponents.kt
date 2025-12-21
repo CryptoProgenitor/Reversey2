@@ -2,19 +2,49 @@ package com.quokkalabs.reversey.ui.theme
 
 import android.media.MediaPlayer
 import android.util.Log
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,8 +74,8 @@ import com.quokkalabs.reversey.data.models.Recording
 import com.quokkalabs.reversey.ui.components.DifficultySquircle
 import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import kotlinx.coroutines.delay
-import kotlin.random.Random
 import kotlin.math.sin
+import kotlin.random.Random
 
 // Rainbow colors for excited notes
 private val rainbowColors = listOf(
@@ -177,7 +207,6 @@ class GuitarComponents : ThemeComponents {
     override fun RecordingItem(
         recording: Recording,
         aesthetic: AestheticThemeData,
-        isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
         currentlyPlayingPath: String?,
@@ -192,7 +221,6 @@ class GuitarComponents : ThemeComponents {
     ) {
         GuitarRecordingItem(
             recording = recording,
-            isPlaying = isPlaying,
             isPaused = isPaused,
             progress = progress,
             currentlyPlayingPath = currentlyPlayingPath,
@@ -249,11 +277,11 @@ class GuitarComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float,  // 🎯 PHASE 3
+          // 🎯 PHASE 3
     ) {
         GuitarRecordButton(
             isRecording = isRecording,
-            countdownProgress = countdownProgress,  // 🎯 PHASE 3
+              // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -313,7 +341,7 @@ class GuitarComponents : ThemeComponents {
         val name =
             if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
         val darkBrown = Color(0xFF5d4a36)
-        val peachOrange = Color(0xFFE8A87C)
+        Color(0xFFE8A87C)
         val deleteRed = Color(color = 0xFFFF0000)
 
         AlertDialog(
@@ -351,8 +379,8 @@ class GuitarComponents : ThemeComponents {
     ) {
         val copy = aesthetic.dialogCopy
         val darkBrown = Color(0xFF5d4a36)
-        val tealGreen = Color(0xFF7DDDA8)
-        val peachOrange = Color(0xFFE8A87C)
+        Color(0xFF7DDDA8)
+        Color(0xFFE8A87C)
 
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -516,8 +544,7 @@ fun FloatingMusicNote(
 fun GuitarRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    countdownProgress: Float = 1f,  // 🎯 PHASE 3
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var isStrumming by remember { mutableStateOf(false) }
@@ -555,15 +582,6 @@ fun GuitarRecordButton(
         targetValue = if (isRecording) 1.05f else 1f,
         animationSpec = tween(200),
         label = "scale"
-    )
-
-    val pulseAlpha by animateFloatAsState(
-        targetValue = if (isRecording) 0.6f else 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
     )
 
     Box(
@@ -642,7 +660,7 @@ fun GuitarRecordButton(
             repeat(strummedNotesCount) { index ->
                 val randomX = Random.nextFloat() * 340f - 300f
                 val randomY = Random.nextFloat() * 340f - 0f
-                val randomDelay = Random.nextFloat() * 2f
+                Random.nextFloat() * 2f
                 val randomNote = listOf("♪", "♬", "♫").random()
 
                 ExcitedRainbowNote(
@@ -1134,7 +1152,6 @@ fun ExcitedRainbowNote(note: String, startPosition: Offset, colorIndex: Int) {
 @Composable
 fun GuitarRecordingItem(
     recording: Recording,
-    isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
     currentlyPlayingPath: String?,

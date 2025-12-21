@@ -51,7 +51,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -63,7 +65,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.R
@@ -76,10 +80,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 
 /**
  * 🌸 PetalShape - Scalloped edges like cherry blossom petals
@@ -302,7 +302,6 @@ class SakuraSerenityComponents : ThemeComponents {
     override fun RecordingItem(
         recording: Recording,
         aesthetic: AestheticThemeData,
-        isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
         currentlyPlayingPath: String?,
@@ -781,7 +780,7 @@ class SakuraSerenityComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float,
+
     ) {
         Box(
             modifier = Modifier
@@ -1953,7 +1952,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCherryBlossomEm
     val sparkleAlpha = (colorPulse - 0.8f) * 2f // More intense pulsing for sparkles
     if (sparkleAlpha > 0f) {
         repeat(3) { i ->
-            val sparkleAngle = i * 120f * (kotlin.math.PI / 180f)
+            val sparkleAngle = i * 120f * (PI / 180f)
             val sparkleDistance = emojiSize * 0.6f
             val sparklePos = Offset(
                 center.x + cos(sparkleAngle).toFloat() * sparkleDistance,

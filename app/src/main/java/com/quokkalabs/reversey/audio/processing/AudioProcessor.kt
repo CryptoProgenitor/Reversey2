@@ -1,7 +1,9 @@
 package com.quokkalabs.reversey.audio.processing
 
-import org.jtransforms.fft.FloatFFT_1D
+import com.quokkalabs.reversey.scoring.GarbageDetectionParameters
+import com.quokkalabs.reversey.scoring.PitchContourAnalysis
 import org.jtransforms.dct.FloatDCT_1D
+import org.jtransforms.fft.FloatFFT_1D
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -9,8 +11,6 @@ import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.sqrt
-import com.quokkalabs.reversey.scoring.GarbageDetectionParameters
-import com.quokkalabs.reversey.scoring.PitchContourAnalysis
 
 
 class AudioProcessor {

@@ -2,8 +2,8 @@ package com.quokkalabs.reversey.scoring
 
 import android.content.Context
 import android.util.Log
-import java.io.DataInputStream
 import java.io.BufferedInputStream
+import java.io.DataInputStream
 
 /**
  * Phoneme utilities using CMU Pronouncing Dictionary

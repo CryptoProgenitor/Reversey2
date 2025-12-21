@@ -3,6 +3,8 @@ package com.quokkalabs.reversey.data.backup
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.util.Log
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
@@ -10,10 +12,8 @@ import com.quokkalabs.reversey.data.repositories.AttemptsRepository
 import com.quokkalabs.reversey.data.repositories.RecordingNamesRepository
 import com.quokkalabs.reversey.data.repositories.RecordingRepository
 import com.quokkalabs.reversey.data.repositories.ThreadSafeJsonRepository
-import com.quokkalabs.reversey.security.SecurityUtils
 import com.quokkalabs.reversey.scoring.DifficultyLevel
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
+import com.quokkalabs.reversey.security.SecurityUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +22,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.util.*
+import java.util.Date
+import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -382,7 +383,7 @@ class BackupManager @Inject constructor(
                     val targetRoot = if (entryName.startsWith(ATTEMPTS_PATH)) attemptsDir else recordingsDir
                     try { securityUtils.validateZipEntryStrict(entry, targetRoot) }
                     catch (e: Exception) {
-                        Log.w(TAG, "Skipping suspicious entry: $entryName");
+                        Log.w(TAG, "Skipping suspicious entry: $entryName")
                         zipIn.closeEntry(); entry = zipIn.nextEntry; continue
                     }
 

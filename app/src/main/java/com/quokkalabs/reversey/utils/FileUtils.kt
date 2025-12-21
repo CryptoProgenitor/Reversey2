@@ -1,10 +1,10 @@
 package com.quokkalabs.reversey.utils
 
 import android.content.Context
+import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import android.util.Log
 
 // Utility functions
 fun getRecordingsDir(context: Context): File {
@@ -32,7 +32,7 @@ fun formatFileName(fileName: String): String {
         return nameWithoutExt
     }
 
-    val (year, month, day, hour24, minute, second) = match.destructured
+    val (year, month, day, hour24, minute, _) = match.destructured
 
     // Convert to 12-hour format
     val hourInt = hour24.toInt()

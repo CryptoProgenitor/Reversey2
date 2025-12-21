@@ -1,7 +1,7 @@
 package com.quokkalabs.reversey.ui.menu
 
+
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,13 +23,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -41,7 +38,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -60,20 +56,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.BuildConfig
-import com.quokkalabs.reversey.audio.processing.AudioProcessor
+import com.quokkalabs.reversey.asr.DualMicTest
+import com.quokkalabs.reversey.asr.VoskTranscriptionHelper
 import com.quokkalabs.reversey.data.backup.BackupManager
 import com.quokkalabs.reversey.scoring.DifficultyConfig
-
-
 import com.quokkalabs.reversey.ui.components.DifficultyButton
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import androidx.compose.material.icons.filled.BugReport
-import com.quokkalabs.reversey.asr.DualMicTest
-import com.quokkalabs.reversey.asr.VoskTranscriptionHelper
 import java.io.File
 
 @Composable
@@ -83,7 +73,7 @@ fun SettingsContent(
     backupManager: BackupManager,
     onBackupComplete: () -> Unit = {},
 ) {
-    val context = LocalContext.current
+    LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
 

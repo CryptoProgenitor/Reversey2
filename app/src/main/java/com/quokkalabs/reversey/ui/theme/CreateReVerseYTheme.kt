@@ -1,8 +1,14 @@
 package com.quokkalabs.reversey.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -79,7 +85,7 @@ private fun createDynamicColorScheme(
     darkTheme: Boolean
 ): ColorScheme {
     // Generate variants of the accent color
-    val primaryVariant = if (darkTheme) {
+    if (darkTheme) {
         accentColor.lighten(0.2f)
     } else {
         accentColor.darken(0.1f)

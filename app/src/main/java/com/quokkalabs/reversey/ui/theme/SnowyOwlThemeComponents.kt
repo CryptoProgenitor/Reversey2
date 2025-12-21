@@ -185,7 +185,6 @@ class SnowyOwlComponents : ThemeComponents {
     override fun RecordingItem(
         recording: Recording,
         aesthetic: AestheticThemeData,
-        isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
         currentlyPlayingPath: String?,
@@ -200,7 +199,7 @@ class SnowyOwlComponents : ThemeComponents {
     ) {
         SnowyOwlRecordingItem(
             recording = recording,
-            isPlaying = isPlaying,
+
             isPaused = isPaused,
             progress = progress,
             currentlyPlayingPath = currentlyPlayingPath,
@@ -257,11 +256,11 @@ class SnowyOwlComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float,  // 🎯 PHASE 3
+          // 🎯 PHASE 3
     ) {
         SnowyOwlRecordButton(
             isRecording = isRecording,
-            countdownProgress = countdownProgress,  // 🎯 PHASE 3
+              // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -314,7 +313,7 @@ class SnowyOwlComponents : ThemeComponents {
         val name =
             if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
         val darkBlue = Color(0xFF1c2541)
-        val lightBlue = Color(0xFF3a4a6d)
+        Color(0xFF3a4a6d)
         val mysticPurple = Color(0xFF9B4F96)
 
         AlertDialog(
@@ -471,8 +470,7 @@ class SnowyOwlComponents : ThemeComponents {
 fun SnowyOwlRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    countdownProgress: Float = 1f,  // 🎯 PHASE 3
+    modifier: Modifier = Modifier
 ) {
     val moonColor = Color(0xFFe8e8e8)
     val eclipseColor = Color(0xFF1c2541)
@@ -927,7 +925,7 @@ data class HeartBubble(
 @Composable
 fun SnowyOwlFlying() {
     val density = LocalDensity.current
-    val owlWidth = 150.dp;
+    val owlWidth = 150.dp
     val owlHeight = 95.dp
     var owlX by remember { mutableStateOf(100f) }
     var owlY by remember { mutableStateOf(250f) }
@@ -939,7 +937,7 @@ fun SnowyOwlFlying() {
     var nextId by remember { mutableStateOf(0) }
     val context = LocalContext.current
     val hootManager = remember { OwlHootManager(context) }
-    val scope = rememberCoroutineScope()
+    rememberCoroutineScope()
 
     DisposableEffect(Unit) { onDispose { hootManager.release() } }
 
@@ -1038,7 +1036,7 @@ fun SnowyOwlFlying() {
  * NEW: Uses articulated wings with natural flapping motion
  * FIXED: Proper depth logic for mirrored canvas
  */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOwl(
+private fun DrawScope.drawOwl(
     wingAngle: Float,
     wingY: Float,
     facingRight: Boolean = true,
@@ -1133,7 +1131,7 @@ private fun DrawScope.drawArticulatedWing(
 
         // Wing tip with finger feathers
         val featherCount = 5
-        val featherStep = handLength / featherCount
+        handLength / featherCount
         for (i in 0..featherCount) {
             val t = i.toFloat() / featherCount
             val curveX = wristX + (tipX - wristX) * t
@@ -1348,7 +1346,6 @@ private fun DrawScope.drawHead(eyeColor: Color, beakColor: Color, spotColor: Col
 @Composable
 fun SnowyOwlRecordingItem(
     recording: Recording,
-    isPlaying: Boolean,
     isPaused: Boolean,
     progress: Float,
     currentlyPlayingPath: String?,

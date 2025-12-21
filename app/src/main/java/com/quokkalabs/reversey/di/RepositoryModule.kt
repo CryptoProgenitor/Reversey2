@@ -1,11 +1,8 @@
 package com.quokkalabs.reversey.di
 
 import android.content.Context
-import com.quokkalabs.reversey.data.repositories.AttemptsRepository
-import com.quokkalabs.reversey.data.repositories.RecordingNamesRepository
 import com.quokkalabs.reversey.data.repositories.RecordingRepository
 import com.quokkalabs.reversey.data.repositories.SettingsDataStore
-import com.quokkalabs.reversey.data.repositories.ThreadSafeJsonRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

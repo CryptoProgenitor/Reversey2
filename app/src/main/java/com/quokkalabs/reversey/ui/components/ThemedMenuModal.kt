@@ -2,21 +2,43 @@ package com.quokkalabs.reversey.ui.components
 
 import android.os.Build.VERSION.SDK_INT
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,11 +53,17 @@ import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import com.quokkalabs.reversey.R
-import com.quokkalabs.reversey.ui.menu.*
+import com.quokkalabs.reversey.data.backup.BackupManager
+import com.quokkalabs.reversey.ui.menu.AboutContent
+import com.quokkalabs.reversey.ui.menu.HelpContent
+import com.quokkalabs.reversey.ui.menu.MenuContent
+import com.quokkalabs.reversey.ui.menu.ModalScreen
+import com.quokkalabs.reversey.ui.menu.SettingsContent
+import com.quokkalabs.reversey.ui.menu.StaticMenuColors
+import com.quokkalabs.reversey.ui.menu.ThemesContent
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.delay
-import com.quokkalabs.reversey.data.backup.BackupManager
 
 // 🔧 Constants for animation timing
 private const val ANIM_DURATION = 200

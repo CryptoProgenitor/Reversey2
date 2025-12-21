@@ -69,7 +69,6 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -203,7 +202,6 @@ class ScrapbookThemeComponents : ThemeComponents {
     override fun RecordingItem(
         recording: Recording,
         aesthetic: AestheticThemeData,
-        isPlaying: Boolean,
         isPaused: Boolean,
         progress: Float,
         currentlyPlayingPath: String?,
@@ -633,7 +631,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float,  // 🎯 PHASE 3
+          // 🎯 PHASE 3
     ) {
         // SVG booklet as the base
         val notebookPainter = painterResource(id = R.drawable.spiral_notebook)
@@ -744,7 +742,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         onConfirm: () -> Unit,
         onDismiss: () -> Unit,
     ) {
-        val copy = aesthetic.dialogCopy;
+        val copy = aesthetic.dialogCopy
         val name =
             if (item is Recording) item.name else if (item is PlayerAttempt) item.playerName else "Item"
         AlertDialog(
@@ -812,12 +810,12 @@ class ScrapbookThemeComponents : ThemeComponents {
                         fontFamily = dancingScriptFontFamily,
                         fontSize = 18.sp,
                         color = Color(0xFF5D4037)
-                    ); Spacer(modifier = Modifier.height(16.dp));
+                    ); Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""; Button(
                     onClick = { onShare(path); onDismiss() },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))
-                ) { Text("Share Original 🎤", fontFamily = dancingScriptFontFamily) };
+                ) { Text("Share Original 🎤", fontFamily = dancingScriptFontFamily) }
                     val revPath = recording?.reversedPath
                         ?: attempt?.reversedAttemptFilePath; if (revPath != null) {
                     Spacer(modifier = Modifier.height(8.dp)); Button(
@@ -848,7 +846,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         onRename: (String) -> Unit,
         onDismiss: () -> Unit,
     ) {
-        var name by remember { mutableStateOf(currentName) };
+        var name by remember { mutableStateOf(currentName) }
         val copy = aesthetic.dialogCopy
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -1124,9 +1122,9 @@ class TornPaperShape(private val seed: Int) : Shape {
         layoutDirection: LayoutDirection,
         density: Density,
     ): Outline {
-        val path = Path();
-        val random = Random(seed);
-        val roughness = 4f;
+        val path = Path()
+        val random = Random(seed)
+        val roughness = 4f
         val frequency = 10f
         path.moveTo(0f, 0f)
         var x = 0f; while (x < size.width) {
