@@ -89,12 +89,12 @@ class PetalShape(
     private val petalDepth: Dp,
     private val petalsPerEdge: Int = 5,
     private val cornerRadius: Dp = 12.dp,
-    private val seed: Int = 0
+    private val seed: Int = 0,
 ) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
-        density: Density
+        density: Density,
     ): Outline {
         val path = Path()
         val depthPx = with(density) { petalDepth.toPx() }
@@ -116,11 +116,11 @@ class PetalShape(
             val midX = startX + topPetalWidth / 2
             val endX = startX + topPetalWidth
             val depth = depthPx * (1f + (random.nextFloat() - 0.5f) * variance)
-            path.quadraticBezierTo(midX, -depth, endX, 0f)
+            path.quadraticTo(midX, -depth, endX, 0f)
         }
 
         // Top-right corner
-        path.quadraticBezierTo(w, 0f, w, cornerPx)
+        path.quadraticTo(w, 0f, w, cornerPx)
 
         // Right edge - petals bulging RIGHT (beyond w)
         val rightPetalHeight = (h - 2 * cornerPx) / petalsPerEdge
@@ -129,11 +129,11 @@ class PetalShape(
             val midY = startY + rightPetalHeight / 2
             val endY = startY + rightPetalHeight
             val depth = depthPx * (1f + (random.nextFloat() - 0.5f) * variance)
-            path.quadraticBezierTo(w + depth, midY, w, endY)
+            path.quadraticTo(w + depth, midY, w, endY)
         }
 
         // Bottom-right corner
-        path.quadraticBezierTo(w, h, w - cornerPx, h)
+        path.quadraticTo(w, h, w - cornerPx, h)
 
         // Bottom edge - petals bulging DOWN (beyond h)
         val bottomPetalWidth = (w - 2 * cornerPx) / petalsPerEdge
@@ -142,11 +142,11 @@ class PetalShape(
             val midX = startX - bottomPetalWidth / 2
             val endX = startX - bottomPetalWidth
             val depth = depthPx * (1f + (random.nextFloat() - 0.5f) * variance)
-            path.quadraticBezierTo(midX, h + depth, endX, h)
+            path.quadraticTo(midX, h + depth, endX, h)
         }
 
         // Bottom-left corner
-        path.quadraticBezierTo(0f, h, 0f, h - cornerPx)
+        path.quadraticTo(0f, h, 0f, h - cornerPx)
 
         // Left edge - petals bulging LEFT (negative X)
         val leftPetalHeight = (h - 2 * cornerPx) / petalsPerEdge
@@ -155,11 +155,11 @@ class PetalShape(
             val midY = startY - leftPetalHeight / 2
             val endY = startY - leftPetalHeight
             val depth = depthPx * (1f + (random.nextFloat() - 0.5f) * variance)
-            path.quadraticBezierTo(-depth, midY, 0f, endY)
+            path.quadraticTo(-depth, midY, 0f, endY)
         }
 
         // Top-left corner (close)
-        path.quadraticBezierTo(0f, 0f, cornerPx, 0f)
+        path.quadraticTo(0f, 0f, cornerPx, 0f)
         path.close()
 
         return Outline.Generic(path)
@@ -172,7 +172,7 @@ fun rememberPetalShape(
     petalDepth: Dp = 4.dp,
     petalsPerEdge: Int = 5,
     cornerRadius: Dp = 12.dp,
-    seed: Int = 0
+    seed: Int = 0,
 ): PetalShape {
     return remember(petalDepth, petalsPerEdge, cornerRadius, seed) {
         PetalShape(petalDepth, petalsPerEdge, cornerRadius, seed)
@@ -340,9 +340,11 @@ class SakuraSerenityComponents : ThemeComponents {
         )
         val borderBrush = sakuraBorderBrush()
 
-        Box(modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -392,7 +394,7 @@ class SakuraSerenityComponents : ThemeComponents {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 🌸 JAPANESE BUTTON ROW - 🔧 POLYMORPHIC
+                // 🌸 JAPANESE BUTTON ROW
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -406,42 +408,66 @@ class SakuraSerenityComponents : ThemeComponents {
                         SakuraShareIcon(borderPink)
                     }
 
-                    // Play/Pause (Sakura Flower / Bamboo) - 🔧 POLYMORPHIC
-                    SakuraControlButton(
-                        color = Color(0xFFFFB6C1), // Slightly darker pink for main action
-                        label = when {
-                            isPlayingForward && !isPaused -> "Pause"
-                            isPlayingForward && isPaused -> "Resume"
-                            else -> "Play"
-                        },
-                        textColor = textDarkPink,
-                        onClick = {
-                            if (isPlayingForward) onPause()
-                            else onPlay(recording.originalPath)
+                    // Play OR Stop (when Reversed is playing)
+                    if (isPlayingReversed) {
+                        SakuraControlButton(
+                            color = buttonBg,
+                            label = "Stop",
+                            textColor = textDarkPink,
+                            onClick = onStop
+                        ) {
+                            SakuraStopIcon(textDarkPink)
                         }
-                    ) {
-                        if (isPlayingForward && !isPaused) {
-                            SakuraPauseIcon(textDarkPink) // Bamboo
-                        } else {
-                            SakuraPlayIcon(textDarkPink) // Spinning Flower
+                    } else {
+                        SakuraControlButton(
+                            color = Color(0xFFFFB6C1),
+                            label = when {
+                                isPlayingForward && !isPaused -> "Pause"
+                                isPlayingForward && isPaused -> "Resume"
+                                else -> "Play"
+                            },
+                            textColor = textDarkPink,
+                            onClick = {
+                                if (isPlayingForward) onPause()
+                                else onPlay(recording.originalPath)
+                            }
+                        ) {
+                            if (isPlayingForward && !isPaused) {
+                                SakuraPauseIcon(textDarkPink)
+                            } else {
+                                SakuraPlayIcon(textDarkPink)
+                            }
                         }
                     }
 
-                    // Reverse (Wind) - 🔧 POLYMORPHIC
-                    SakuraControlButton(
-                        color = buttonBg,
-                        label = when {
-                            isPlayingReversed && !isPaused -> "Pause"
-                            isPlayingReversed && isPaused -> "Resume"
-                            else -> "Rev"
-                        },
-                        textColor = textDarkPink,
-                        onClick = {
-                            if (isPlayingReversed) onPause()
-                            else recording.reversedPath?.let { onPlay(it) }
+                    // Rev OR Stop (when Forward is playing)
+                    if (isPlayingForward) {
+                        SakuraControlButton(
+                            color = buttonBg,
+                            label = "Stop",
+                            textColor = textDarkPink,
+                            onClick = onStop
+                        ) {
+                            SakuraStopIcon(textDarkPink)
                         }
-                    ) {
-                        SakuraRewindIcon(borderPink)
+                    } else {
+                        SakuraControlButton(
+                            color = buttonBg,
+                            label = when {
+                                isPlayingReversed && !isPaused -> "Pause"
+                                isPlayingReversed && isPaused -> "Resume"
+                                else -> "Rev"
+                            },
+                            textColor = textDarkPink,
+                            onClick = {
+                                if (isPlayingReversed) onPause()
+                                else recording.reversedPath?.let { onPlay(it) }
+                            }
+                        ) {
+                            if (isPlayingReversed && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraRewindIcon(
+                                borderPink
+                            )
+                        }
                     }
 
                     // Game Mode Controls
@@ -619,36 +645,64 @@ class SakuraSerenityComponents : ThemeComponents {
                                         SakuraShareIcon(borderPink)
                                     }
                                 }
-                                // 🔧 POLYMORPHIC Play button
-                                SakuraControlButton(
-                                    onClick = {
-                                        if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
-                                    },
-                                    color = Color(0xFFFFB6C1),
-                                    label = when {
-                                        isPlayingForward && !isPaused -> "Pause"
-                                        isPlayingForward && isPaused -> "Resume"
-                                        else -> "Play"
-                                    },
-                                    textColor = textDarkPink
-                                ) {
-                                    if (isPlayingForward && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraPlayIcon(textDarkPink)
-                                }
-                                // 🔧 POLYMORPHIC Rev button
-                                attempt.reversedAttemptFilePath?.let { reversedPath ->
+                                // Play OR Stop (when Reversed is playing)
+                                if (isPlayingReversed) {
+                                    SakuraControlButton(
+                                        onClick = onStop,
+                                        color = buttonBg,
+                                        label = "Stop",
+                                        textColor = textDarkPink
+                                    ) {
+                                        SakuraStopIcon(textDarkPink)
+                                    }
+                                } else {
                                     SakuraControlButton(
                                         onClick = {
-                                            if (isPlayingReversed) onPause() else onPlay(reversedPath)
+                                            if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
                                         },
-                                        color = buttonBg,
+                                        color = Color(0xFFFFB6C1),
                                         label = when {
-                                            isPlayingReversed && !isPaused -> "Pause"
-                                            isPlayingReversed && isPaused -> "Resume"
-                                            else -> "Rev"
+                                            isPlayingForward && !isPaused -> "Pause"
+                                            isPlayingForward && isPaused -> "Resume"
+                                            else -> "Play"
                                         },
                                         textColor = textDarkPink
                                     ) {
-                                        if (isPlayingReversed && !isPaused) SakuraPauseIcon(textDarkPink) else SakuraRewindIcon(borderPink)
+                                        if (isPlayingForward && !isPaused) SakuraPauseIcon(
+                                            textDarkPink
+                                        ) else SakuraPlayIcon(textDarkPink)
+                                    }
+                                }
+                                // Rev OR Stop (when Forward is playing)
+                                attempt.reversedAttemptFilePath?.let { reversedPath ->
+                                    if (isPlayingForward) {
+                                        SakuraControlButton(
+                                            onClick = onStop,
+                                            color = buttonBg,
+                                            label = "Stop",
+                                            textColor = textDarkPink
+                                        ) {
+                                            SakuraStopIcon(textDarkPink)
+                                        }
+                                    } else {
+                                        SakuraControlButton(
+                                            onClick = {
+                                                if (isPlayingReversed) onPause() else onPlay(
+                                                    reversedPath
+                                                )
+                                            },
+                                            color = buttonBg,
+                                            label = when {
+                                                isPlayingReversed && !isPaused -> "Pause"
+                                                isPlayingReversed && isPaused -> "Resume"
+                                                else -> "Rev"
+                                            },
+                                            textColor = textDarkPink
+                                        ) {
+                                            if (isPlayingReversed && !isPaused) SakuraPauseIcon(
+                                                textDarkPink
+                                            ) else SakuraRewindIcon(borderPink)
+                                        }
                                     }
                                 }
                                 if (onDeleteAttempt != null) {
@@ -727,7 +781,7 @@ class SakuraSerenityComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float,  // 🎯 PHASE 3
+        countdownProgress: Float,
     ) {
         Box(
             modifier = Modifier
@@ -735,33 +789,11 @@ class SakuraSerenityComponents : ThemeComponents {
                 .clickable { if (isRecording) onStopRecording() else onStartRecording() },
             contentAlignment = Alignment.Center
         ) {
-            // 🎯 PHASE 3: Countdown arc (gray background)
-            Canvas(modifier = Modifier.size(80.dp)) {
-                drawArc(
-                    color = Color.Gray.copy(alpha = 0.3f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-            // 🎯 PHASE 3: Countdown arc (red progress)
-            if (isRecording && countdownProgress < 1f) {
-                Canvas(modifier = Modifier.size(80.dp)) {
-                    drawArc(
-                        color = Color.Red,
-                        startAngle = -90f,
-                        sweepAngle = 360f * countdownProgress,
-                        useCenter = false,
-                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                }
-            }
             ToriiRecordIcon(
                 isRecording = isRecording,
                 baseColor = Color(0xFFC71585),
                 recordingColor = Color(0xFFFF69B4),
-                iconSize = 56.dp  // 🎯 Slightly smaller to fit inside arc
+                iconSize = 64.dp
             )
         }
     }
@@ -858,7 +890,7 @@ class SakuraSerenityComponents : ThemeComponents {
             // INVERTED CONCAVE Top Bar (Kasagi)
             val topPath = Path().apply {
                 moveTo(w * 0.00f, crossbeamTop - (stroke * 2))
-                quadraticBezierTo(
+                quadraticTo(
                     w * 0.5f,
                     crossbeamTop + (stroke * 1),
                     w * 1.0f,
@@ -1017,9 +1049,11 @@ class SakuraSerenityComponents : ThemeComponents {
             label = "rotation"
         )
 
-        Canvas(modifier = Modifier
-            .size(24.dp)
-            .rotate(angle)) {
+        Canvas(
+            modifier = Modifier
+                .size(24.dp)
+                .rotate(angle)
+        ) {
             val center = Offset(size.width / 2, size.height / 2)
             val petalRadius = size.width / 4
 
@@ -1068,6 +1102,23 @@ class SakuraSerenityComponents : ThemeComponents {
         }
     }
 
+    // ⭕ STOP: Ensō (Zen Circle of Enlightenment)
+    @Composable
+    fun SakuraStopIcon(color: Color) {
+        Canvas(modifier = Modifier.size(24.dp)) {
+            val w = size.width
+            val h = size.height
+            val stroke = 3.dp.toPx()
+            val radius = w * 0.35f
+            drawCircle(
+                color = color,
+                radius = radius,
+                center = Offset(w * 0.5f, h * 0.5f),
+                style = Stroke(width = stroke, cap = StrokeCap.Round)
+            )
+        }
+    }
+
     // 🪭 SHARE: Japanese Folding Fan (Sensu)
     @Composable
     fun SakuraShareIcon(color: Color) {
@@ -1078,7 +1129,7 @@ class SakuraSerenityComponents : ThemeComponents {
             val fanPath = Path().apply {
                 moveTo(w * 0.5f, h * 0.8f) // Pivot point
                 lineTo(w * 0.1f, h * 0.3f) // Top Left
-                quadraticBezierTo(w * 0.5f, h * 0.1f, w * 0.9f, h * 0.3f) // Arc top
+                quadraticTo(w * 0.5f, h * 0.1f, w * 0.9f, h * 0.3f) // Arc top
                 lineTo(w * 0.5f, h * 0.8f) // Back to pivot
                 close()
             }
@@ -1102,7 +1153,7 @@ class SakuraSerenityComponents : ThemeComponents {
             // Top Bar (Kasagi) - Curved
             val topPath = Path().apply {
                 moveTo(w * 0.1f, h * 0.2f)
-                quadraticBezierTo(w * 0.5f, h * 0.1f, w * 0.9f, h * 0.2f)
+                quadraticTo(w * 0.5f, h * 0.1f, w * 0.9f, h * 0.2f)
             }
             drawPath(topPath, color, style = Stroke(stroke, cap = StrokeCap.Round))
 
@@ -1125,8 +1176,8 @@ class SakuraSerenityComponents : ThemeComponents {
 
             val windPath = Path().apply {
                 moveTo(w * 0.8f, h * 0.3f)
-                quadraticBezierTo(w * 0.4f, h * 0.3f, w * 0.3f, h * 0.5f)
-                quadraticBezierTo(w * 0.2f, h * 0.7f, w * 0.5f, h * 0.7f)
+                quadraticTo(w * 0.4f, h * 0.3f, w * 0.3f, h * 0.5f)
+                quadraticTo(w * 0.2f, h * 0.7f, w * 0.5f, h * 0.7f)
             }
             drawPath(windPath, color, style = Stroke(stroke, cap = StrokeCap.Round))
 
@@ -1527,19 +1578,19 @@ private fun EnhancedFallingSakuraPetals() {
                     // Draw more realistic petal shape
                     val path = Path().apply {
                         moveTo(petal.x, petal.y)
-                        quadraticBezierTo(
+                        quadraticTo(
                             petal.x + petal.size * 0.3f, petal.y - petal.size * 0.2f,
                             petal.x + petal.size * 0.5f, petal.y
                         )
-                        quadraticBezierTo(
+                        quadraticTo(
                             petal.x + petal.size * 0.3f, petal.y + petal.size * 0.4f,
                             petal.x, petal.y + petal.size * 0.3f
                         )
-                        quadraticBezierTo(
+                        quadraticTo(
                             petal.x - petal.size * 0.3f, petal.y + petal.size * 0.4f,
                             petal.x - petal.size * 0.5f, petal.y
                         )
-                        quadraticBezierTo(
+                        quadraticTo(
                             petal.x - petal.size * 0.3f, petal.y - petal.size * 0.2f,
                             petal.x, petal.y
                         )

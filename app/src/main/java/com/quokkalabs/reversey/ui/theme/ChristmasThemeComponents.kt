@@ -2,7 +2,6 @@ package com.quokkalabs.reversey.ui.theme
 
 import android.content.Context
 import android.media.SoundPool
-import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -10,20 +9,47 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -31,6 +57,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -42,6 +69,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,9 +77,6 @@ import com.quokkalabs.reversey.R
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.text.style.TextAlign
 import com.quokkalabs.reversey.ui.components.DifficultySquircle
 import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import kotlinx.coroutines.delay
@@ -232,9 +257,11 @@ class ChristmasComponents : ThemeComponents {
 
     @Composable
     override fun AppBackground(aesthetic: AestheticThemeData, content: @Composable () -> Unit) {
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .background(aesthetic.primaryGradient)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(aesthetic.primaryGradient)
+        ) {
             ChristmasStars()
             ChristmasShootingStars()
             ChristmasSnowflakes()
@@ -509,7 +536,8 @@ fun ChristmasSantaFlight() {
 
         // Chimney target = roof peak + offset
         val chimneyX = houseX + with(density) { CHIMNEY_X_OFFSET_DP.dp.toPx() }
-        val chimneyY = houseBottomY - houseHeightPx * 0.7f + with(density) { CHIMNEY_Y_OFFSET_DP.dp.toPx() }
+        val chimneyY =
+            houseBottomY - houseHeightPx * 0.7f + with(density) { CHIMNEY_Y_OFFSET_DP.dp.toPx() }
         val chimneyBottomY = chimneyY + screenHeight * CHIMNEY_DEPTH_PERCENT
 
         // Calculate full train length for proper screen exit
@@ -651,7 +679,7 @@ fun ChristmasSantaFlight() {
             val midY = maxOf(reindeerBackY, sleighFrontY) + sagAmount
             val path = Path().apply {
                 moveTo(reindeerBackX, reindeerBackY)
-                quadraticBezierTo(midX, midY, sleighFrontX, sleighFrontY)
+                quadraticTo(midX, midY, sleighFrontX, sleighFrontY)
             }
             drawPath(
                 path,
@@ -856,66 +884,156 @@ fun ChristmasLandscape() {
         val snowdriftWidth = houseWidthPx * SNOWDRIFT_WIDTH_FACTOR
 
         Canvas(modifier = Modifier.fillMaxSize()) {
-            // Back hill - gentle curves all the way, no straight lines
+            // Back hill - shifted down, peaks at ~0.62
             val backHillPath = Path().apply {
-                moveTo(0f, screenHeight)
-                quadraticBezierTo(
-                    0f, screenHeight * 0.62f,
-                    screenWidth * 0.1f, screenHeight * 0.55f
+                moveTo(-screenWidth * 0.1f, screenHeight * 0.76f)
+                // Rise to first peak
+                quadraticTo(
+                    screenWidth * 0.05f, screenHeight * 0.70f,
+                    screenWidth * 0.15f, screenHeight * 0.66f
                 )
-                quadraticBezierTo(
-                    screenWidth * 0.25f, screenHeight * 0.48f,
-                    screenWidth * 0.4f, screenHeight * 0.53f
+                // Round first apex
+                quadraticTo(
+                    screenWidth * 0.22f, screenHeight * 0.64f,
+                    screenWidth * 0.30f, screenHeight * 0.68f
                 )
-                quadraticBezierTo(
-                    screenWidth * 0.6f, screenHeight * 0.50f,
-                    screenWidth * 0.8f, screenHeight * 0.46f
+                // Valley to second peak
+                quadraticTo(
+                    screenWidth * 0.42f, screenHeight * 0.72f,
+                    screenWidth * 0.52f, screenHeight * 0.64f
                 )
-                quadraticBezierTo(
-                    screenWidth * 0.92f, screenHeight * 0.44f,
-                    screenWidth, screenHeight * 0.50f
+                // Round second apex
+                quadraticTo(
+                    screenWidth * 0.60f, screenHeight * 0.62f,
+                    screenWidth * 0.70f, screenHeight * 0.66f
                 )
-                quadraticBezierTo(
-                    screenWidth, screenHeight * 0.75f,
-                    screenWidth, screenHeight
+                // Gentle roll off-screen
+                quadraticTo(
+                    screenWidth * 0.90f, screenHeight * 0.70f,
+                    screenWidth * 1.1f, screenHeight * 0.68f
                 )
+                lineTo(screenWidth * 1.1f, screenHeight)
+                lineTo(-screenWidth * 0.1f, screenHeight)
                 close()
             }
-            drawPath(backHillPath, Color(0xFFCCDDEE))
+            val backHillGradient = Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFDDEEF5),  // Lighter at peaks
+                    Color(0xFFB8CCDD)   // Shadowed at base
+                ),
+                startY = screenHeight * 0.62f,
+                endY = screenHeight
+            )
+            drawPath(backHillPath, backHillGradient)
 
-            // Front hill - gentle curves
+            // Far trees (small, faint, on back hill)
+            drawPineTree(
+                this,
+                screenWidth * 0.12f,
+                screenHeight * 0.68f,
+                50f,
+                Color(0xFF2D4A3A).copy(alpha = 0.55f)
+            )
+            drawPineTree(
+                this,
+                screenWidth * 0.45f,
+                screenHeight * 0.66f,
+                45f,
+                Color(0xFF2D4A3A).copy(alpha = 0.50f)
+            )
+            drawPineTree(
+                this,
+                screenWidth * 0.78f,
+                screenHeight * 0.67f,
+                48f,
+                Color(0xFF2D4A3A).copy(alpha = 0.55f)
+            )
+
+            // Front hill - shifted down, peaks at ~0.72
             val frontHillPath = Path().apply {
-                moveTo(0f, screenHeight)
-                quadraticBezierTo(
-                    0f, screenHeight * 0.68f,
-                    screenWidth * 0.1f, screenHeight * 0.70f
+                moveTo(-screenWidth * 0.1f, screenHeight * 0.84f)
+                quadraticTo(
+                    screenWidth * 0.08f, screenHeight * 0.80f,
+                    screenWidth * 0.2f, screenHeight * 0.76f
                 )
-                quadraticBezierTo(
-                    screenWidth * 0.25f, screenHeight * 0.64f,
-                    screenWidth * 0.4f, screenHeight * 0.67f
+                quadraticTo(
+                    screenWidth * 0.35f, screenHeight * 0.82f,
+                    screenWidth * 0.5f, screenHeight * 0.74f
                 )
-                quadraticBezierTo(
-                    screenWidth * 0.55f, screenHeight * 0.58f,
-                    screenWidth * 0.75f, screenHeight * 0.62f
+                quadraticTo(
+                    screenWidth * 0.7f, screenHeight * 0.78f,
+                    screenWidth * 0.85f, screenHeight * 0.72f
                 )
-                quadraticBezierTo(
-                    screenWidth * 0.9f, screenHeight * 0.66f,
-                    screenWidth, screenHeight * 0.62f
+                quadraticTo(
+                    screenWidth * 0.95f, screenHeight * 0.76f,
+                    screenWidth * 1.1f, screenHeight * 0.78f
                 )
-                quadraticBezierTo(
-                    screenWidth, screenHeight * 0.81f,
-                    screenWidth, screenHeight
-                )
+                lineTo(screenWidth * 1.1f, screenHeight)
+                lineTo(-screenWidth * 0.1f, screenHeight)
                 close()
             }
-            drawPath(frontHillPath, Color(0xFFE8F4FF))
+            val frontHillGradient = Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFF5FAFF),  // Bright snow at peaks
+                    Color(0xFFD8E8F5)   // Subtle shadow at base
+                ),
+                startY = screenHeight * 0.72f,
+                endY = screenHeight
+            )
+            drawPath(frontHillPath, frontHillGradient)
 
+            // Mid trees (medium, between hills)
+            drawPineTree(
+                this,
+                screenWidth * 0.08f,
+                screenHeight * 0.78f,
+                65f,
+                Color(0xFF1B3A26).copy(alpha = 0.70f)
+            )
+            drawPineTree(
+                this,
+                screenWidth * 0.25f,
+                screenHeight * 0.76f,
+                70f,
+                Color(0xFF1B3A26).copy(alpha = 0.75f)
+            )
+            drawPineTree(
+                this,
+                screenWidth * 0.65f,
+                screenHeight * 0.75f,
+                68f,
+                Color(0xFF1B3A26).copy(alpha = 0.70f)
+            )
+            drawPineTree(
+                this,
+                screenWidth * 0.88f,
+                screenHeight * 0.77f,
+                62f,
+                Color(0xFF1B3A26).copy(alpha = 0.70f)
+            )
 
-
-            drawPineTree(this, screenWidth * 0.08f, screenHeight * 0.70f, 70f, Color(0xFF1B3A26).copy(alpha = 0.8f))
-            drawPineTree(this, screenWidth * 0.18f, screenHeight * 0.64f, 90f, Color(0xFF165B33).copy(alpha = 0.9f))
-            drawPineTree(this, screenWidth * 0.82f, screenHeight * 0.61f, 85f, Color(0xFF1B3A26).copy(alpha = 0.8f))
-            drawPineTree(this, screenWidth * 0.92f, screenHeight * 0.64f, 60f, Color(0xFF165B33).copy(alpha = 0.7f))
+            // Near trees (large, solid, foreground)
+            drawPineTree(
+                this,
+                screenWidth * 0.05f,
+                screenHeight * 0.84f,
+                90f,
+                Color(0xFF165B33).copy(alpha = 0.90f)
+            )
+            drawPineTree(
+                this,
+                screenWidth * 0.18f,
+                screenHeight * 0.82f,
+                95f,
+                Color(0xFF165B33).copy(alpha = 0.95f)
+            )
+            drawPineTree(
+                this,
+                screenWidth * 0.92f,
+                screenHeight * 0.83f,
+                85f,
+                Color(0xFF165B33).copy(alpha = 0.85f)
+            )
         }
 
 
@@ -932,12 +1050,13 @@ fun ChristmasLandscape() {
         // Snowdrifts at base of house (drawn on top of house)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val driftCenterX = houseX
-            val driftBaseY = houseBottomY - houseHeightPx * 0.22f  // Raise up into visible house area
+            val driftBaseY =
+                houseBottomY - houseHeightPx * 0.22f  // Raise up into visible house area
 
             // Left drift
             val leftDriftPath = Path().apply {
                 moveTo(driftCenterX - houseWidthPx * 0.5f, driftBaseY)
-                quadraticBezierTo(
+                quadraticTo(
                     driftCenterX - houseWidthPx * 0.35f, driftBaseY - snowdriftHeightPx,
                     driftCenterX - houseWidthPx * 0.15f, driftBaseY
                 )
@@ -948,7 +1067,7 @@ fun ChristmasLandscape() {
             // Right drift
             val rightDriftPath = Path().apply {
                 moveTo(driftCenterX + houseWidthPx * 0.1f, driftBaseY)
-                quadraticBezierTo(
+                quadraticTo(
                     driftCenterX + houseWidthPx * 0.3f, driftBaseY - snowdriftHeightPx * 0.8f,
                     driftCenterX + houseWidthPx * 0.5f, driftBaseY
                 )
@@ -959,7 +1078,7 @@ fun ChristmasLandscape() {
             // Center small drift
             val centerDriftPath = Path().apply {
                 moveTo(driftCenterX - houseWidthPx * 0.15f, driftBaseY)
-                quadraticBezierTo(
+                quadraticTo(
                     driftCenterX, driftBaseY - snowdriftHeightPx * 0.5f,
                     driftCenterX + houseWidthPx * 0.12f, driftBaseY
                 )
@@ -1185,9 +1304,11 @@ fun ChristmasSnowflakes() {
             }
         }
         snowflakes.forEach { f ->
-            Canvas(modifier = Modifier
-                .offset(x = f.x.dp, y = f.y.dp)
-                .size((f.size * 18).dp)) {
+            Canvas(
+                modifier = Modifier
+                    .offset(x = f.x.dp, y = f.y.dp)
+                    .size((f.size * 18).dp)
+            ) {
                 drawContext.canvas.nativeCanvas.apply {
                     drawText(
                         f.emoji, 0f, size.height * 0.8f,
@@ -1267,34 +1388,31 @@ fun ChristmasRecordButton(
         ),
         label = "glow"
     )
+
+    // Rotation animation - spins when recording
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            tween(4000, easing = LinearEasing),
+            RepeatMode.Restart
+        ),
+        label = "spin"
+    )
+
     val ornamentColor =
         if (isRecording) ChristmasTheme.christmasRed else ChristmasTheme.christmasGreen
 
     Box(modifier = Modifier.size(130.dp), contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier
-            .size(120.dp)
-            .clickable { onClick() }) {
-            val centerX = size.width / 2;
+        Canvas(
+            modifier = Modifier
+                .size(120.dp)
+                .clickable { onClick() }) {
+            val centerX = size.width / 2
             val centerY = size.height / 2 + 10f
             val radius = size.minDimension / 2 - 20f
-            drawArc(
-                Color.Gray.copy(alpha = 0.3f),
-                -90f,
-                360f,
-                false,
-                style = Stroke(6f),
-                topLeft = Offset(centerX - radius - 5, centerY - radius - 5),
-                size = Size((radius + 5) * 2, (radius + 5) * 2)
-            )
-            if (isRecording) drawArc(
-                ChristmasTheme.christmasGold,
-                -90f,
-                360f * countdownProgress,
-                false,
-                style = Stroke(6f),
-                topLeft = Offset(centerX - radius - 5, centerY - radius - 5),
-                size = Size((radius + 5) * 2, (radius + 5) * 2)
-            )
+
+            // Cap
             drawRoundRect(
                 ChristmasTheme.christmasGold,
                 topLeft = Offset(centerX - 10f, centerY - radius - 10f),
@@ -1305,11 +1423,15 @@ fun ChristmasRecordButton(
                 ChristmasTheme.christmasGold, 180f, 180f, false, style = Stroke(3f),
                 topLeft = Offset(centerX - 8f, centerY - radius - 18f), size = Size(16f, 16f)
             )
+
+            // Glow when recording
             if (isRecording) drawCircle(
                 ornamentColor.copy(alpha = glowAlpha * 0.4f),
                 radius = radius + 15f,
                 center = Offset(centerX, centerY)
             )
+
+            // Main ornament ball
             drawCircle(
                 Brush.radialGradient(
                     listOf(
@@ -1324,21 +1446,61 @@ fun ChristmasRecordButton(
                     radius = radius * 1.5f
                 ), radius = radius, center = Offset(centerX, centerY)
             )
+
+            // Specular highlight
             drawCircle(
                 Color.White.copy(alpha = 0.4f),
                 radius = radius * 0.25f,
                 center = Offset(centerX - radius * 0.35f, centerY - radius * 0.35f)
             )
-            drawLine(
-                ChristmasTheme.christmasGold.copy(alpha = 0.6f),
-                Offset(centerX - radius * 0.8f, centerY),
-                Offset(centerX + radius * 0.8f, centerY),
-                strokeWidth = 3f
-            )
+
+            // 4 Starbursts around equator with 3D wrapping effect
+            val currentRotation = if (isRecording) rotation else 0f
+            val starburstRadius = radius * 0.95f
+            val spokeLength = radius * 0.18f
+            val dotRadius = 3f
+
+            for (i in 0 until 4) {
+                val baseAngle = i * 90f
+                val angle = Math.toRadians((baseAngle + currentRotation).toDouble())
+                val sinAngle = sin(angle).toFloat()  // horizontal position
+                val cosAngle = cos(angle).toFloat()  // depth (facing us or not)
+
+                // Only draw if on front half of sphere
+                if (cosAngle > -0.1f) {
+                    val burstX = centerX + sinAngle * starburstRadius
+                    val burstY = centerY
+
+                    val alpha = (cosAngle * 0.6f + 0.4f).coerceIn(0.2f, 1f)
+                    val burstColor = ChristmasTheme.christmasGold.copy(alpha = alpha)
+                    val scaleX = cosAngle.coerceIn(0.1f, 1f)
+
+                    // Center dot
+                    drawCircle(burstColor, dotRadius, Offset(burstX, burstY))
+
+                    // 6 spokes with dots at ends
+                    for (spoke in 0 until 6) {
+                        val spokeAngle = Math.toRadians(spoke * 60.0)
+                        val dx = (cos(spokeAngle) * spokeLength * scaleX).toFloat()
+                        val dy = (sin(spokeAngle) * spokeLength).toFloat()
+
+                        drawLine(
+                            burstColor,
+                            Offset(burstX, burstY),
+                            Offset(burstX + dx, burstY + dy),
+                            strokeWidth = 1.5f,
+                            cap = StrokeCap.Round
+                        )
+                        drawCircle(burstColor, dotRadius * 0.6f, Offset(burstX + dx, burstY + dy))
+                    }
+                }
+            }
+
+            // Central star
             drawStar(Offset(centerX, centerY), 12f, 5f, ChristmasTheme.christmasGold)
         }
         Text(
-            text = if (isRecording) "🔴" else "🎤",
+            text = if (isRecording) "" else "🎤",
             fontSize = 20.sp,
             modifier = Modifier.offset(y = 50.dp)
         )
@@ -1397,9 +1559,11 @@ fun ChristmasRecordingItem(
     val goldButton = ChristmasTheme.christmasGold
     val redButton = ChristmasTheme.christmasRed
 
-    Box(modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1448,24 +1612,51 @@ fun ChristmasRecordingItem(
                     goldButton,
                     "Share",
                     { showShareDialog = true }) { ChristmasShareIcon(iconColor) }
-                ChristmasControlButton(
-                    redButton, when {
-                        isPlayingForward && !isPaused -> "Pause"; isPlayingForward && isPaused -> "Resume"; else -> "Play"
-                    },
-                    { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }) {
-                    if (isPlayingForward && !isPaused) ChristmasPauseIcon(iconColor) else ChristmasPlayIcon(
-                        iconColor
-                    )
+
+                // Play OR Stop (when Reversed is playing)
+                if (isPlayingReversed) {
+                    ChristmasControlButton(
+                        goldButton,
+                        "Stop",
+                        onStop
+                    ) { ChristmasStopIcon(iconColor) }
+                } else {
+                    ChristmasControlButton(
+                        redButton, when {
+                            isPlayingForward && !isPaused -> "Pause"; isPlayingForward && isPaused -> "Resume"; else -> "Play"
+                        },
+                        { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }) {
+                        if (isPlayingForward && !isPaused) ChristmasPauseIcon(iconColor) else ChristmasPlayIcon(
+                            iconColor
+                        )
+                    }
                 }
-                ChristmasControlButton(
-                    goldButton, when {
-                        isPlayingReversed && !isPaused -> "Pause"; isPlayingReversed && isPaused -> "Resume"; else -> "Rev"
-                    },
-                    { if (isPlayingReversed) onPause() else recording.reversedPath?.let { onPlay(it) } }) {
-                    if (isPlayingReversed && !isPaused) ChristmasPauseIcon(iconColor) else ChristmasRewindIcon(
-                        iconColor
-                    )
+
+                // Rev OR Stop (when Forward is playing)
+                if (isPlayingForward) {
+                    ChristmasControlButton(
+                        goldButton,
+                        "Stop",
+                        onStop
+                    ) { ChristmasStopIcon(iconColor) }
+                } else {
+                    ChristmasControlButton(
+                        goldButton, when {
+                            isPlayingReversed && !isPaused -> "Pause"; isPlayingReversed && isPaused -> "Resume"; else -> "Rev"
+                        },
+                        {
+                            if (isPlayingReversed) onPause() else recording.reversedPath?.let {
+                                onPlay(
+                                    it
+                                )
+                            }
+                        }) {
+                        if (isPlayingReversed && !isPaused) ChristmasPauseIcon(iconColor) else ChristmasRewindIcon(
+                            iconColor
+                        )
+                    }
                 }
+
                 if (isGameModeEnabled) {
                     ChristmasControlButton(
                         goldButton, "Try",
@@ -1604,26 +1795,47 @@ fun ChristmasAttemptItem(
                                     "Share",
                                     { showShareDialog = true }) { ChristmasShareIcon(iconColor) }
                             }
-                            ChristmasControlButton(
-                                redButton, when {
-                                    isPlayingForward && !isPaused -> "Pause"; isPlayingForward && isPaused -> "Resume"; else -> "Play"
-                                },
-                                { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) }) {
-                                if (isPlayingForward && !isPaused) ChristmasPauseIcon(iconColor) else ChristmasPlayIcon(
-                                    iconColor
-                                )
-                            }
-                            attempt.reversedAttemptFilePath?.let { reversedPath ->
+
+                            // Play OR Stop (when Reversed is playing)
+                            if (isPlayingReversed) {
                                 ChristmasControlButton(
-                                    goldButton, when {
-                                        isPlayingReversed && !isPaused -> "Pause"; isPlayingReversed && isPaused -> "Resume"; else -> "Rev"
+                                    goldButton,
+                                    "Stop",
+                                    onStop
+                                ) { ChristmasStopIcon(iconColor) }
+                            } else {
+                                ChristmasControlButton(
+                                    redButton, when {
+                                        isPlayingForward && !isPaused -> "Pause"; isPlayingForward && isPaused -> "Resume"; else -> "Play"
                                     },
-                                    { if (isPlayingReversed) onPause() else onPlay(reversedPath) }) {
-                                    if (isPlayingReversed && !isPaused) ChristmasPauseIcon(iconColor) else ChristmasRewindIcon(
+                                    { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) }) {
+                                    if (isPlayingForward && !isPaused) ChristmasPauseIcon(iconColor) else ChristmasPlayIcon(
                                         iconColor
                                     )
                                 }
                             }
+
+                            // Rev OR Stop (when Forward is playing)
+                            attempt.reversedAttemptFilePath?.let { reversedPath ->
+                                if (isPlayingForward) {
+                                    ChristmasControlButton(
+                                        goldButton,
+                                        "Stop",
+                                        onStop
+                                    ) { ChristmasStopIcon(iconColor) }
+                                } else {
+                                    ChristmasControlButton(
+                                        goldButton, when {
+                                            isPlayingReversed && !isPaused -> "Pause"; isPlayingReversed && isPaused -> "Resume"; else -> "Rev"
+                                        },
+                                        { if (isPlayingReversed) onPause() else onPlay(reversedPath) }) {
+                                        if (isPlayingReversed && !isPaused) ChristmasPauseIcon(
+                                            iconColor
+                                        ) else ChristmasRewindIcon(iconColor)
+                                    }
+                                }
+                            }
+
                             if (onDeleteAttempt != null) {
                                 ChristmasControlButton(
                                     redButton,
@@ -1707,7 +1919,7 @@ fun ChristmasControlButton(
             label,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = ChristmasTheme.snowWhite,
+            color = borderColor,
             textAlign = TextAlign.Center
         )
     }
@@ -1743,35 +1955,84 @@ fun ChristmasShareIcon(color: Color) {
 fun ChristmasPlayIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
         val path = Path().apply {
-            moveTo(size.width * 0.25f, size.height * 0.15f)
-            lineTo(size.width * 0.25f, size.height * 0.85f)
-            lineTo(size.width * 0.85f, size.height * 0.5f); close()
+            // Puffed/pillowy play triangle with bezier curves
+            moveTo(size.width * 0.2f, size.height * 0.15f)
+            // Left edge - slight outward curve
+            quadraticTo(
+                size.width * 0.15f, size.height * 0.5f,
+                size.width * 0.2f, size.height * 0.85f
+            )
+            // Bottom-right edge - bow outward
+            quadraticTo(
+                size.width * 0.6f, size.height * 0.85f,
+                size.width * 0.85f, size.height * 0.5f
+            )
+            // Top-right edge - bow outward
+            quadraticTo(
+                size.width * 0.6f, size.height * 0.15f,
+                size.width * 0.2f, size.height * 0.15f
+            )
+            close()
         }
-        drawPath(
-            path,
-            color,
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
+        drawPath(path, color)
     }
 }
 
 @Composable
 fun ChristmasPauseIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
-        drawRoundRect(
-            color,
-            Offset(size.width * 0.22f, size.height * 0.15f),
-            Size(size.width * 0.2f, size.height * 0.7f),
-            CornerRadius(2.dp.toPx()),
-            style = Stroke(2.dp.toPx())
-        )
-        drawRoundRect(
-            color,
-            Offset(size.width * 0.58f, size.height * 0.15f),
-            Size(size.width * 0.2f, size.height * 0.7f),
-            CornerRadius(2.dp.toPx()),
-            style = Stroke(2.dp.toPx())
-        )
+        val strokeWidth = 3.dp.toPx()
+        // Left arc - curves outward to the left (
+        val leftArc = Path().apply {
+            moveTo(size.width * 0.35f, size.height * 0.15f)
+            quadraticTo(
+                size.width * 0.15f, size.height * 0.5f,
+                size.width * 0.35f, size.height * 0.85f
+            )
+        }
+        drawPath(leftArc, color, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
+
+        // Right arc - curves outward to the right )
+        val rightArc = Path().apply {
+            moveTo(size.width * 0.65f, size.height * 0.15f)
+            quadraticTo(
+                size.width * 0.85f, size.height * 0.5f,
+                size.width * 0.65f, size.height * 0.85f
+            )
+        }
+        drawPath(rightArc, color, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
+    }
+}
+
+@Composable
+fun ChristmasStopIcon(color: Color) {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val path = Path().apply {
+            // Puffed/pillowy square - all edges bow outward
+            // Top edge
+            moveTo(size.width * 0.15f, size.height * 0.15f)
+            quadraticTo(
+                size.width * 0.5f, size.height * 0.05f,
+                size.width * 0.85f, size.height * 0.15f
+            )
+            // Right edge
+            quadraticTo(
+                size.width * 0.95f, size.height * 0.5f,
+                size.width * 0.85f, size.height * 0.85f
+            )
+            // Bottom edge
+            quadraticTo(
+                size.width * 0.5f, size.height * 0.95f,
+                size.width * 0.15f, size.height * 0.85f
+            )
+            // Left edge
+            quadraticTo(
+                size.width * 0.05f, size.height * 0.5f,
+                size.width * 0.15f, size.height * 0.15f
+            )
+            close()
+        }
+        drawPath(path, color)
     }
 }
 
@@ -1779,15 +2040,26 @@ fun ChristmasPauseIcon(color: Color) {
 fun ChristmasRewindIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
         val path = Path().apply {
-            moveTo(size.width * 0.75f, size.height * 0.15f)
-            lineTo(size.width * 0.75f, size.height * 0.85f)
-            lineTo(size.width * 0.15f, size.height * 0.5f); close()
+            // Puffed/pillowy rewind triangle (mirrored play)
+            moveTo(size.width * 0.8f, size.height * 0.15f)
+            // Right edge - slight outward curve
+            quadraticTo(
+                size.width * 0.85f, size.height * 0.5f,
+                size.width * 0.8f, size.height * 0.85f
+            )
+            // Bottom-left edge - bow outward
+            quadraticTo(
+                size.width * 0.4f, size.height * 0.85f,
+                size.width * 0.15f, size.height * 0.5f
+            )
+            // Top-left edge - bow outward
+            quadraticTo(
+                size.width * 0.4f, size.height * 0.15f,
+                size.width * 0.8f, size.height * 0.15f
+            )
+            close()
         }
-        drawPath(
-            path,
-            color,
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
+        drawPath(path, color)
     }
 }
 
@@ -1803,13 +2075,13 @@ fun ChristmasMicIcon(color: Color) {
         )
         val path = Path().apply {
             moveTo(size.width * 0.25f, size.height * 0.5f)
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.25f,
                 size.height * 0.65f,
                 size.width * 0.5f,
                 size.height * 0.65f
             )
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.75f,
                 size.height * 0.65f,
                 size.width * 0.75f,
@@ -1835,55 +2107,49 @@ fun ChristmasMicIcon(color: Color) {
 @Composable
 fun ChristmasDeleteIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
-        drawLine(
-            color,
-            Offset(size.width * 0.2f, size.height * 0.25f),
-            Offset(size.width * 0.8f, size.height * 0.25f),
-            2.dp.toPx(),
-            StrokeCap.Round
-        )
+        // Lid handle - filled
         val lidPath = Path().apply {
-            moveTo(size.width * 0.35f, size.height * 0.25f); lineTo(
-            size.width * 0.35f,
-            size.height * 0.15f
-        )
-            quadraticBezierTo(
-                size.width * 0.35f,
-                size.height * 0.1f,
-                size.width * 0.4f,
-                size.height * 0.1f
+            moveTo(size.width * 0.35f, size.height * 0.25f)
+            lineTo(size.width * 0.35f, size.height * 0.15f)
+            quadraticTo(
+                size.width * 0.35f, size.height * 0.08f,
+                size.width * 0.42f, size.height * 0.08f
             )
-            lineTo(size.width * 0.6f, size.height * 0.1f)
-            quadraticBezierTo(
-                size.width * 0.65f,
-                size.height * 0.1f,
-                size.width * 0.65f,
-                size.height * 0.15f
+            lineTo(size.width * 0.58f, size.height * 0.08f)
+            quadraticTo(
+                size.width * 0.65f, size.height * 0.08f,
+                size.width * 0.65f, size.height * 0.15f
             )
             lineTo(size.width * 0.65f, size.height * 0.25f)
+            close()
         }
-        drawPath(lidPath, color, style = Stroke(2.dp.toPx()))
-        val canPath = Path().apply {
-            moveTo(size.width * 0.25f, size.height * 0.25f); lineTo(
-            size.width * 0.25f,
-            size.height * 0.75f
+        drawPath(lidPath, color)
+
+        // Top bar - filled
+        drawRoundRect(
+            color,
+            topLeft = Offset(size.width * 0.15f, size.height * 0.22f),
+            size = Size(size.width * 0.7f, size.height * 0.08f),
+            cornerRadius = CornerRadius(2.dp.toPx())
         )
-            quadraticBezierTo(
-                size.width * 0.25f,
-                size.height * 0.85f,
-                size.width * 0.35f,
-                size.height * 0.85f
+
+        // Can body - filled
+        val canPath = Path().apply {
+            moveTo(size.width * 0.22f, size.height * 0.30f)
+            lineTo(size.width * 0.25f, size.height * 0.78f)
+            quadraticTo(
+                size.width * 0.26f, size.height * 0.88f,
+                size.width * 0.35f, size.height * 0.88f
             )
-            lineTo(size.width * 0.65f, size.height * 0.85f)
-            quadraticBezierTo(
-                size.width * 0.75f,
-                size.height * 0.85f,
-                size.width * 0.75f,
-                size.height * 0.75f
+            lineTo(size.width * 0.65f, size.height * 0.88f)
+            quadraticTo(
+                size.width * 0.74f, size.height * 0.88f,
+                size.width * 0.75f, size.height * 0.78f
             )
-            lineTo(size.width * 0.75f, size.height * 0.25f)
+            lineTo(size.width * 0.78f, size.height * 0.30f)
+            close()
         }
-        drawPath(canPath, color, style = Stroke(2.dp.toPx()))
+        drawPath(canPath, color)
     }
 }
 

@@ -70,12 +70,12 @@ object EggIcons {
             // Irregular egg white
             val eggWhitePath = Path().apply {
                 moveTo(canvasSize * 0.2f, canvasSize * 0.5f)
-                quadraticBezierTo(canvasSize * 0.1f, canvasSize * 0.3f, canvasSize * 0.3f, canvasSize * 0.25f)
-                quadraticBezierTo(canvasSize * 0.5f, canvasSize * 0.2f, canvasSize * 0.7f, canvasSize * 0.25f)
-                quadraticBezierTo(canvasSize * 0.9f, canvasSize * 0.3f, canvasSize * 0.85f, canvasSize * 0.5f)
-                quadraticBezierTo(canvasSize * 0.9f, canvasSize * 0.7f, canvasSize * 0.7f, canvasSize * 0.8f)
-                quadraticBezierTo(canvasSize * 0.5f, canvasSize * 0.85f, canvasSize * 0.3f, canvasSize * 0.8f)
-                quadraticBezierTo(canvasSize * 0.1f, canvasSize * 0.7f, canvasSize * 0.2f, canvasSize * 0.5f)
+                quadraticTo(canvasSize * 0.1f, canvasSize * 0.3f, canvasSize * 0.3f, canvasSize * 0.25f)
+                quadraticTo(canvasSize * 0.5f, canvasSize * 0.2f, canvasSize * 0.7f, canvasSize * 0.25f)
+                quadraticTo(canvasSize * 0.9f, canvasSize * 0.3f, canvasSize * 0.85f, canvasSize * 0.5f)
+                quadraticTo(canvasSize * 0.9f, canvasSize * 0.7f, canvasSize * 0.7f, canvasSize * 0.8f)
+                quadraticTo(canvasSize * 0.5f, canvasSize * 0.85f, canvasSize * 0.3f, canvasSize * 0.8f)
+                quadraticTo(canvasSize * 0.1f, canvasSize * 0.7f, canvasSize * 0.2f, canvasSize * 0.5f)
                 close()
             }
 

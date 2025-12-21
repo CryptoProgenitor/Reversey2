@@ -1,28 +1,77 @@
 package com.quokkalabs.reversey.ui.theme
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -44,17 +93,16 @@ import com.quokkalabs.reversey.R
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
-import com.quokkalabs.reversey.scoring.DifficultyConfig
 import com.quokkalabs.reversey.ui.components.DifficultySquircle
 import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
-import kotlinx.coroutines.isActive
 
 
 // Handwriting font
@@ -238,38 +286,54 @@ class ScrapbookThemeComponents : ThemeComponents {
                             iconColor = Color(0xFF607D8B)
                         )
 
-                        // 🔧 POLYMORPHIC Play button
-                        ScrapbookButton(
-                            onClick = { if (isPlayingForward) onPause() else onPlay(recording.originalPath) },
-                            icon = if (isPlayingForward && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            label = when {
-                                isPlayingForward && !isPaused -> "Pause"
-                                isPlayingForward && isPaused -> "Resume"
-                                else -> "Play"
-                            },
-                            iconColor = if (isPlayingForward) Color(0xFF4CAF50) else Color(
-                                0xFF2196F3
+                        // Play OR Stop (when Reversed is playing)
+                        if (isPlayingReversed) {
+                            ScrapbookButton(
+                                onClick = onStop,
+                                icon = Icons.Default.Stop,
+                                label = "Stop",
+                                iconColor = Color(0xFF757575)
                             )
-                        )
+                        } else {
+                            ScrapbookButton(
+                                onClick = { if (isPlayingForward) onPause() else onPlay(recording.originalPath) },
+                                icon = if (isPlayingForward && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                label = when {
+                                    isPlayingForward && !isPaused -> "Pause"
+                                    isPlayingForward && isPaused -> "Resume"
+                                    else -> "Play"
+                                },
+                                iconColor = if (isPlayingForward) Color(0xFF4CAF50) else Color(
+                                    0xFF2196F3
+                                )
+                            )
+                        }
 
-                        // 🔧 POLYMORPHIC Rev button
-                        ScrapbookButton(
-                            onClick = {
-                                if (isPlayingReversed) onPause() else recording.reversedPath?.let {
-                                    onPlay(
-                                        it
-                                    )
-                                }
-                            },
-                            icon = if (isPlayingReversed && !isPaused) Icons.Default.Pause else Icons.Default.FastRewind,
-                            label = when {
-                                isPlayingReversed && !isPaused -> "Pause"
-                                isPlayingReversed && isPaused -> "Resume"
-                                else -> "Rev"
-                            },
-                            iconColor = Color(0xFFFF9800),
-                            enabled = isReady
-                        )
+                        // Rev OR Stop (when Forward is playing)
+                        if (isPlayingForward) {
+                            ScrapbookButton(
+                                onClick = onStop,
+                                icon = Icons.Default.Stop,
+                                label = "Stop",
+                                iconColor = Color(0xFF757575)
+                            )
+                        } else {
+                            ScrapbookButton(
+                                onClick = {
+                                    if (isPlayingReversed) onPause() else recording.reversedPath?.let {
+                                        onPlay(it)
+                                    }
+                                },
+                                icon = if (isPlayingReversed && !isPaused) Icons.Default.Pause else Icons.Default.Replay,
+                                label = when {
+                                    isPlayingReversed && !isPaused -> "Pause"
+                                    isPlayingReversed && isPaused -> "Resume"
+                                    else -> "Rev"
+                                },
+                                iconColor = Color(0xFFFF9800),
+                                enabled = isReady
+                            )
+                        }
 
                         if (isGameModeEnabled) {
                             ScrapbookButton(
@@ -437,29 +501,59 @@ class ScrapbookThemeComponents : ThemeComponents {
                                     iconColor = Color(0xFF9C27B0)
                                 )
 
-                                // 🔧 POLYMORPHIC Play button
-                                ScrapbookButton(
-                                    onClick = { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) },
-                                    icon = if (isPlayingForward && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    label = when {
-                                        isPlayingForward && !isPaused -> "Pause"
-                                        isPlayingForward && isPaused -> "Resume"
-                                        else -> "Play"
-                                    },
-                                    iconColor = if (isPlayingForward) Color(0xFF4CAF50) else Color(0xFF2196F3)
-                                )
+                                // Play OR Stop (when Reversed is playing)
+                                if (isPlayingReversed) {
+                                    ScrapbookButton(
+                                        onClick = onStop,
+                                        icon = Icons.Default.Stop,
+                                        label = "Stop",
+                                        iconColor = Color(0xFF757575)
+                                    )
+                                } else {
+                                    ScrapbookButton(
+                                        onClick = {
+                                            if (isPlayingForward) onPause() else onPlay(
+                                                attempt.attemptFilePath
+                                            )
+                                        },
+                                        icon = if (isPlayingForward && !isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        label = when {
+                                            isPlayingForward && !isPaused -> "Pause"
+                                            isPlayingForward && isPaused -> "Resume"
+                                            else -> "Play"
+                                        },
+                                        iconColor = if (isPlayingForward) Color(0xFF4CAF50) else Color(
+                                            0xFF2196F3
+                                        )
+                                    )
+                                }
 
-                                // 🔧 POLYMORPHIC Rev button
-                                if (attempt.reversedAttemptFilePath != null) ScrapbookButton(
-                                    onClick = { if (isPlayingReversed) onPause() else onPlay(attempt.reversedAttemptFilePath) },
-                                    icon = if (isPlayingReversed && !isPaused) Icons.Default.Pause else Icons.Default.FastRewind,
-                                    label = when {
-                                        isPlayingReversed && !isPaused -> "Pause"
-                                        isPlayingReversed && isPaused -> "Resume"
-                                        else -> "Rev"
-                                    },
-                                    iconColor = Color(0xFFFF9800)
-                                )
+                                // Rev OR Stop (when Forward is playing)
+                                if (attempt.reversedAttemptFilePath != null) {
+                                    if (isPlayingForward) {
+                                        ScrapbookButton(
+                                            onClick = onStop,
+                                            icon = Icons.Default.Stop,
+                                            label = "Stop",
+                                            iconColor = Color(0xFF757575)
+                                        )
+                                    } else {
+                                        ScrapbookButton(
+                                            onClick = {
+                                                if (isPlayingReversed) onPause() else onPlay(
+                                                    attempt.reversedAttemptFilePath
+                                                )
+                                            },
+                                            icon = if (isPlayingReversed && !isPaused) Icons.Default.Pause else Icons.Default.Replay,
+                                            label = when {
+                                                isPlayingReversed && !isPaused -> "Pause"
+                                                isPlayingReversed && isPaused -> "Resume"
+                                                else -> "Rev"
+                                            },
+                                            iconColor = Color(0xFFFF9800)
+                                        )
+                                    }
+                                }
 
                                 if (onDeleteAttempt != null) ScrapbookButton(
                                     onClick = { showDeleteDialog = true },
@@ -560,28 +654,6 @@ class ScrapbookThemeComponents : ThemeComponents {
                 },
             contentAlignment = Alignment.Center
         ) {
-            // 🎯 PHASE 3: Countdown arc
-            Canvas(modifier = Modifier.size(140.dp)) {
-                drawArc(
-                    color = Color.Gray.copy(alpha = 0.3f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-            if (isRecording && countdownProgress < 1f) {
-                Canvas(modifier = Modifier.size(140.dp)) {
-                    drawArc(
-                        color = Color.Red,
-                        startAngle = -90f,
-                        sweepAngle = 360f * countdownProgress,
-                        useCenter = false,
-                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                }
-            }
-
             // The booklet SVG
             Image(
                 painter = notebookPainter,
@@ -948,9 +1020,11 @@ private fun SwirlingPastelBackground(
         }
     }
 
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(Color(0xFFFFF3E0))) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFFF3E0))
+    ) {
 
         // Layer 1: Blobs (Interpolated Colors)
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1008,9 +1082,11 @@ private fun SwirlingPastelBackground(
             val seed = (time / 5).toInt()
             val random = Random(seed)
 
-            Canvas(modifier = Modifier
-                .fillMaxSize()
-                .zIndex(10f)) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(10f)
+            ) {
                 repeat(sparkleCount) {
                     val sx = random.nextFloat() * screenWidth
                     val sy = random.nextFloat() * screenHeight

@@ -6,21 +6,54 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
-import kotlin.math.sin
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -29,18 +62,31 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
+import com.quokkalabs.reversey.R
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
@@ -49,12 +95,9 @@ import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
-import androidx.compose.foundation.Image
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import com.quokkalabs.reversey.R
 
 
 /**
@@ -72,12 +115,12 @@ internal var eggRecordingState = mutableStateOf(false)
 class WobblyShape(
     private val cornerRadius: Dp,
     private val amplitude: Dp,
-    private val seed: Int
+    private val seed: Int,
 ) : Shape {
     override fun createOutline(
         size: androidx.compose.ui.geometry.Size,
         layoutDirection: LayoutDirection,
-        density: Density
+        density: Density,
     ): Outline {
         val path = Path()
         val cornerPx = with(density) { cornerRadius.toPx() }
@@ -113,7 +156,7 @@ class WobblyShape(
 
         // Top-right corner
         path.lineTo(w - cornerPx, wobble(w - cornerPx, topWavelength, topPhase, ampPx))
-        path.quadraticBezierTo(w, 0f, w + wobble(0f, rightWavelength, rightPhase, ampPx), cornerPx)
+        path.quadraticTo(w, 0f, w + wobble(0f, rightWavelength, rightPhase, ampPx), cornerPx)
 
         // Right edge (top to bottom)
         for (i in 1..steps) {
@@ -124,7 +167,12 @@ class WobblyShape(
         }
 
         // Bottom-right corner
-        path.quadraticBezierTo(w, h, w - cornerPx, h + wobble(0f, bottomWavelength, bottomPhase, ampPx))
+        path.quadraticTo(
+            w,
+            h,
+            w - cornerPx,
+            h + wobble(0f, bottomWavelength, bottomPhase, ampPx)
+        )
 
         // Bottom edge (right to left)
         for (i in 1..steps) {
@@ -135,7 +183,7 @@ class WobblyShape(
         }
 
         // Bottom-left corner
-        path.quadraticBezierTo(0f, h, wobble(h, leftWavelength, leftPhase, ampPx), h - cornerPx)
+        path.quadraticTo(0f, h, wobble(h, leftWavelength, leftPhase, ampPx), h - cornerPx)
 
         // Left edge (bottom to top)
         for (i in 1..steps) {
@@ -146,7 +194,7 @@ class WobblyShape(
         }
 
         // Top-left corner (close path)
-        path.quadraticBezierTo(0f, 0f, cornerPx, wobble(0f, topWavelength, topPhase, ampPx))
+        path.quadraticTo(0f, 0f, cornerPx, wobble(0f, topWavelength, topPhase, ampPx))
         path.close()
 
         return Outline.Generic(path)
@@ -585,9 +633,11 @@ fun EggRecordingItem(
         colors = CardDefaults.cardColors(containerColor = Color(0xBBFFFBF0)),
         shape = cardShape
     ) {
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -651,51 +701,81 @@ fun EggRecordingItem(
                     )
                 }
 
+                // Play OR Stop (when Reversed is playing)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    HandDrawnEggButton(
-                        onClick = {
-                            if (isPlayingForward) onPause()
-                            else onPlay(recording.originalPath ?: "")
-                        },
-                        backgroundColor = Color(0xFFFF8A65),
-                        size = 50.dp
-                    ) {
-                        if (isPlayingForward && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggPlayIcon(
-                            Color(0xFF6B5344)
+                    if (isPlayingReversed) {
+                        HandDrawnEggButton(
+                            onClick = onStop,
+                            backgroundColor = Color(0xFFFF5722),
+                            size = 50.dp
+                        ) { EggStopIcon(Color(0xFF6B5344)) }
+                        Text(
+                            "Stop",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF6B5344)
+                        )
+                    } else {
+                        HandDrawnEggButton(
+                            onClick = {
+                                if (isPlayingForward) onPause()
+                                else onPlay(recording.originalPath ?: "")
+                            },
+                            backgroundColor = Color(0xFFFF8A65),
+                            size = 50.dp
+                        ) {
+                            if (isPlayingForward && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggPlayIcon(
+                                Color(0xFF6B5344)
+                            )
+                        }
+                        Text(
+                            when {
+                                isPlayingForward && !isPaused -> "Pause"
+                                isPlayingForward && isPaused -> "Resume"
+                                else -> "Play"
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF6B5344)
                         )
                     }
-                    Text(
-                        when {
-                            isPlayingForward && !isPaused -> "Pause"
-                            isPlayingForward && isPaused -> "Resume"
-                            else -> "Play"
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF6B5344)
-                    )
                 }
 
+                // Rewind OR Stop (when Forward is playing)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    HandDrawnEggButton(
-                        onClick = {
-                            if (isPlayingReversed) onPause()
-                            else onPlay(recording.reversedPath ?: "")
-                        },
-                        backgroundColor = Color(0xFFFF8A65),
-                        enabled = isReady,
-                        size = 50.dp
-                    ) {
-                        if (isPlayingReversed && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggRewindIcon(Color(0xFF6B5344))
+                    if (isPlayingForward) {
+                        HandDrawnEggButton(
+                            onClick = onStop,
+                            backgroundColor = Color(0xFFFF5722),
+                            size = 50.dp
+                        ) { EggStopIcon(Color(0xFF6B5344)) }
+                        Text(
+                            "Stop",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF6B5344)
+                        )
+                    } else {
+                        HandDrawnEggButton(
+                            onClick = {
+                                if (isPlayingReversed) onPause()
+                                else onPlay(recording.reversedPath ?: "")
+                            },
+                            backgroundColor = Color(0xFFFF8A65),
+                            enabled = isReady,
+                            size = 50.dp
+                        ) {
+                            if (isPlayingReversed && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggRewindIcon(
+                                Color(0xFF6B5344)
+                            )
+                        }
+                        Text(
+                            when {
+                                isPlayingReversed && !isPaused -> "Pause"
+                                isPlayingReversed && isPaused -> "Resume"
+                                else -> "Rewind"
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF6B5344)
+                        )
                     }
-                    Text(
-                        when {
-                            isPlayingReversed && !isPaused -> "Pause"
-                            isPlayingReversed && isPaused -> "Resume"
-                            else -> "Rewind"
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF6B5344)
-                    )
                 }
 
                 if (isGameModeEnabled) {
@@ -789,7 +869,8 @@ fun EggAttemptItem(
     // 🖍️ WOBBLY: Stable ID for consistent wobble per card
     val stableId = attempt.attemptFilePath.hashCode()
     val cardShape = rememberWobblyShape(cornerRadius = 16.dp, amplitude = 3.dp, seed = stableId)
-    val nameBoxShape = rememberWobblyShape(cornerRadius = 4.dp, amplitude = 0.5.dp, seed = stableId + 1000)
+    val nameBoxShape =
+        rememberWobblyShape(cornerRadius = 4.dp, amplitude = 0.5.dp, seed = stableId + 1000)
     val nameRotation = remember(stableId) { (stableId % 17 - 8).toFloat() }
 
     Card(
@@ -801,9 +882,11 @@ fun EggAttemptItem(
         colors = CardDefaults.cardColors(containerColor = Color(0xBBFFFBF0)),//attempt card transparency set to 88
         shape = cardShape
     ) {
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
@@ -871,48 +954,39 @@ fun EggAttemptItem(
                             }
                         }
 
-                        // 🔧 POLYMORPHIC Play button
+                        // Play OR Stop (when Reversed is playing)
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            HandDrawnEggButton(
-                                onClick = {
-                                    if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
-                                },
-                                backgroundColor = Color(0xFFFF8A65),
-                                size = 40.dp
-                            ) {
-                                if (isPlayingForward && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggPlayIcon(Color(0xFF6B5344))
-                            }
-                            Text(
-                                when {
-                                    isPlayingForward && !isPaused -> "Pause"
-                                    isPlayingForward && isPaused -> "Resume"
-                                    else -> "Play"
-                                },
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 9.sp
-                                ),
-                                color = Color(0xFF6B5344)
-                            )
-                        }
-
-                        // 🔧 POLYMORPHIC Rev button
-                        attempt.reversedAttemptFilePath?.let { reversedPath ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (isPlayingReversed) {
+                                HandDrawnEggButton(
+                                    onClick = onStop,
+                                    backgroundColor = Color(0xFFFF5722),
+                                    size = 40.dp
+                                ) { EggStopIcon(Color(0xFF6B5344)) }
+                                Text(
+                                    "Stop",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.sp
+                                    ),
+                                    color = Color(0xFF6B5344)
+                                )
+                            } else {
                                 HandDrawnEggButton(
                                     onClick = {
-                                        if (isPlayingReversed) onPause() else onPlay(reversedPath)
+                                        if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
                                     },
                                     backgroundColor = Color(0xFFFF8A65),
                                     size = 40.dp
                                 ) {
-                                    if (isPlayingReversed && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggRewindIcon(Color(0xFF6B5344))
+                                    if (isPlayingForward && !isPaused) EggPauseIcon(Color(0xFF6B5344)) else EggPlayIcon(
+                                        Color(0xFF6B5344)
+                                    )
                                 }
                                 Text(
                                     when {
-                                        isPlayingReversed && !isPaused -> "Pause"
-                                        isPlayingReversed && isPaused -> "Resume"
-                                        else -> "Rev"
+                                        isPlayingForward && !isPaused -> "Pause"
+                                        isPlayingForward && isPaused -> "Resume"
+                                        else -> "Play"
                                     },
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
@@ -920,6 +994,55 @@ fun EggAttemptItem(
                                     ),
                                     color = Color(0xFF6B5344)
                                 )
+                            }
+                        }
+
+                        // Rev OR Stop (when Forward is playing)
+                        attempt.reversedAttemptFilePath?.let { reversedPath ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (isPlayingForward) {
+                                    HandDrawnEggButton(
+                                        onClick = onStop,
+                                        backgroundColor = Color(0xFFFF5722),
+                                        size = 40.dp
+                                    ) { EggStopIcon(Color(0xFF6B5344)) }
+                                    Text(
+                                        "Stop",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 9.sp
+                                        ),
+                                        color = Color(0xFF6B5344)
+                                    )
+                                } else {
+                                    HandDrawnEggButton(
+                                        onClick = {
+                                            if (isPlayingReversed) onPause() else onPlay(
+                                                reversedPath
+                                            )
+                                        },
+                                        backgroundColor = Color(0xFFFF8A65),
+                                        size = 40.dp
+                                    ) {
+                                        if (isPlayingReversed && !isPaused) EggPauseIcon(
+                                            Color(
+                                                0xFF6B5344
+                                            )
+                                        ) else EggRewindIcon(Color(0xFF6B5344))
+                                    }
+                                    Text(
+                                        when {
+                                            isPlayingReversed && !isPaused -> "Pause"
+                                            isPlayingReversed && isPaused -> "Resume"
+                                            else -> "Rev"
+                                        },
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 9.sp
+                                        ),
+                                        color = Color(0xFF6B5344)
+                                    )
+                                }
                             }
                         }
 
@@ -1010,9 +1133,11 @@ fun EggAttemptItem(
 
 @Composable
 fun FriedEggDecoration(size: Dp, rotation: Float = 0f) {
-    Canvas(modifier = Modifier
-        .size(size)
-        .rotate(rotation)) {
+    Canvas(
+        modifier = Modifier
+            .size(size)
+            .rotate(rotation)
+    ) {
         val center = this.center
         val radius = this.size.minDimension / 2
         drawCircle(color = Color(0xFFFFF8E1), radius = radius * 0.9f, center = center)
@@ -1179,6 +1304,20 @@ fun EggPauseIcon(color: Color) {
             color = color,
             topLeft = Offset(size.width * 0.58f, topY),
             size = Size(barWidth, barHeight),
+            style = Stroke(width = 2.dp.toPx())
+        )
+    }
+}
+
+@Composable
+fun EggStopIcon(color: Color) {
+    Canvas(modifier = Modifier.size(32.dp)) {
+        val squareSize = size.width * 0.5f
+        val offset = (size.width - squareSize) / 2
+        drawRect(
+            color = color,
+            topLeft = Offset(offset, offset),
+            size = Size(squareSize, squareSize),
             style = Stroke(width = 2.dp.toPx())
         )
     }
@@ -1359,20 +1498,22 @@ fun EggMicLeftArrowIcon(color: Color) {
 
 @Composable
 fun CrackedEggIcon() {
-    Canvas(modifier = Modifier
-        .size(20.dp)
-        .rotate(180f)) {
+    Canvas(
+        modifier = Modifier
+            .size(20.dp)
+            .rotate(180f)
+    ) {
         val color = Color.White
         val strokeWidth = 2.5.dp.toPx()
         val leftPath = Path().apply {
             moveTo(size.width * 0.5f, size.height * 0.1f)
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.2f,
                 size.height * 0.2f,
                 size.width * 0.15f,
                 size.height * 0.4f
             )
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.1f,
                 size.height * 0.7f,
                 size.width * 0.4f,
@@ -1382,13 +1523,13 @@ fun CrackedEggIcon() {
         }
         val rightPath = Path().apply {
             moveTo(size.width * 0.5f, size.height * 0.1f)
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.8f,
                 size.height * 0.2f,
                 size.width * 0.85f,
                 size.height * 0.4f
             )
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.9f,
                 size.height * 0.7f,
                 size.width * 0.6f,
@@ -1788,43 +1929,43 @@ fun EggRecordButton(
             // === CRISPY BROWN EDGE ===
             val crispyPath = Path().apply {
                 moveTo(eggOffsetX + (-0.32f * w * eggScale), eggOffsetY + (0f * h * eggScale))
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.38f * w * eggScale), eggOffsetY + (-0.20f * h * eggScale),
                     eggOffsetX + (-0.21f * w * eggScale), eggOffsetY + (-0.24f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.08f * w * eggScale), eggOffsetY + (-0.30f * h * eggScale),
                     eggOffsetX + (0f * w * eggScale), eggOffsetY + (-0.25f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.12f * w * eggScale), eggOffsetY + (-0.32f * h * eggScale),
                     eggOffsetX + (0.24f * w * eggScale), eggOffsetY + (-0.26f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.36f * w * eggScale), eggOffsetY + (-0.22f * h * eggScale),
                     eggOffsetX + (0.40f * w * eggScale), eggOffsetY + (-0.08f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.45f * w * eggScale), eggOffsetY + (0.06f * h * eggScale),
                     eggOffsetX + (0.38f * w * eggScale), eggOffsetY + (0.16f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.42f * w * eggScale), eggOffsetY + (0.28f * h * eggScale),
                     eggOffsetX + (0.28f * w * eggScale), eggOffsetY + (0.32f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.12f * w * eggScale), eggOffsetY + (0.38f * h * eggScale),
                     eggOffsetX + (0f * w * eggScale), eggOffsetY + (0.34f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.14f * w * eggScale), eggOffsetY + (0.38f * h * eggScale),
                     eggOffsetX + (-0.26f * w * eggScale), eggOffsetY + (0.30f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.38f * w * eggScale), eggOffsetY + (0.22f * h * eggScale),
                     eggOffsetX + (-0.34f * w * eggScale), eggOffsetY + (0.12f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.42f * w * eggScale), eggOffsetY + (0.04f * h * eggScale),
                     eggOffsetX + (-0.32f * w * eggScale), eggOffsetY + (0f * h * eggScale)
                 )
@@ -1835,43 +1976,43 @@ fun EggRecordButton(
             // === EGG WHITE ===
             val eggWhitePath = Path().apply {
                 moveTo(eggOffsetX + (-0.30f * w * eggScale), eggOffsetY + (0f * h * eggScale))
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.35f * w * eggScale), eggOffsetY + (-0.18f * h * eggScale),
                     eggOffsetX + (-0.18f * w * eggScale), eggOffsetY + (-0.22f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.06f * w * eggScale), eggOffsetY + (-0.27f * h * eggScale),
                     eggOffsetX + (0f * w * eggScale), eggOffsetY + (-0.22f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.10f * w * eggScale), eggOffsetY + (-0.28f * h * eggScale),
                     eggOffsetX + (0.22f * w * eggScale), eggOffsetY + (-0.23f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.32f * w * eggScale), eggOffsetY + (-0.19f * h * eggScale),
                     eggOffsetX + (0.36f * w * eggScale), eggOffsetY + (-0.06f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.40f * w * eggScale), eggOffsetY + (0.06f * h * eggScale),
                     eggOffsetX + (0.34f * w * eggScale), eggOffsetY + (0.14f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.37f * w * eggScale), eggOffsetY + (0.24f * h * eggScale),
                     eggOffsetX + (0.25f * w * eggScale), eggOffsetY + (0.28f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (0.10f * w * eggScale), eggOffsetY + (0.34f * h * eggScale),
                     eggOffsetX + (0f * w * eggScale), eggOffsetY + (0.30f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.12f * w * eggScale), eggOffsetY + (0.34f * h * eggScale),
                     eggOffsetX + (-0.24f * w * eggScale), eggOffsetY + (0.26f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.34f * w * eggScale), eggOffsetY + (0.20f * h * eggScale),
                     eggOffsetX + (-0.32f * w * eggScale), eggOffsetY + (0.10f * h * eggScale)
                 )
-                quadraticBezierTo(
+                quadraticTo(
                     eggOffsetX + (-0.38f * w * eggScale), eggOffsetY + (0.04f * h * eggScale),
                     eggOffsetX + (-0.30f * w * eggScale), eggOffsetY + (0f * h * eggScale)
                 )

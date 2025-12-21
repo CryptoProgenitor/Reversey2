@@ -492,28 +492,6 @@ fun SnowyOwlRecordButton(
     )
 
     Box(modifier = modifier.size(120.dp), contentAlignment = Alignment.Center) {
-        // 🎯 PHASE 3: Countdown arc
-        Canvas(modifier = Modifier.size(100.dp)) {
-            drawArc(
-                color = Color.Gray.copy(alpha = 0.3f),
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
-        if (isRecording && countdownProgress < 1f) {
-            Canvas(modifier = Modifier.size(100.dp)) {
-                drawArc(
-                    color = Color.Red,
-                    startAngle = -90f,
-                    sweepAngle = 360f * countdownProgress,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-        }
-
         if (isRecording) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawCircle(
@@ -796,7 +774,7 @@ fun SnowyOwlAurora() {
 
                     // Bottom
                     val bottomY = rayHeight
-                    quadraticBezierTo(
+                    quadraticTo(
                         baseX + rayWidth / 2, bottomY + 50f,
                         baseX + rayWidth, bottomY
                     )
@@ -1139,7 +1117,7 @@ private fun DrawScope.drawArticulatedWing(
         moveTo(shoulderX, shoulderY)
 
         // Upper arm curve
-        quadraticBezierTo(
+        quadraticTo(
             shoulderX + (elbowX - shoulderX) * 0.3f * side,
             shoulderY + (elbowY - shoulderY) * 0.3f,
             elbowX, elbowY
@@ -1147,7 +1125,7 @@ private fun DrawScope.drawArticulatedWing(
 
         // Forearm curve with feather spread
         val featherSpreadX = state.featherSpread * 15f * side
-        quadraticBezierTo(
+        quadraticTo(
             elbowX + (wristX - elbowX) * 0.5f + featherSpreadX,
             elbowY + (wristY - elbowY) * 0.5f,
             wristX, wristY
@@ -1167,7 +1145,7 @@ private fun DrawScope.drawArticulatedWing(
         }
 
         // Close back to body with trailing edge curve
-        quadraticBezierTo(
+        quadraticTo(
             wristX - featherSpreadX * 0.7f,
             wristY - 20f,
             shoulderX, shoulderY + 40f
@@ -1447,48 +1425,60 @@ fun SnowyOwlRecordingItem(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 OwlControlButton(mysticPurple, "Share", { showShareDialog = true }) {
-                    OwlShareIcon(
-                        Color.White
-                    )
+                    OwlShareIcon(Color.White)
                 }
-                OwlControlButton(
-                    deepSlate,
-                    when {
-                        isPlayingForward && !isPaused -> "Pause"
-                        isPlayingForward && isPaused -> "Resume"
-                        else -> "Play"
-                    },
-                    { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }
-                ) {
-                    if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(
-                        Color.White
-                    )
+
+                // Play OR Stop (when Reversed is playing)
+                if (isPlayingReversed) {
+                    OwlControlButton(
+                        mysticPurple,
+                        "Stop",
+                        onStop
+                    ) { OwlStopIcon(Color.White) }
+                } else {
+                    OwlControlButton(
+                        deepSlate,
+                        when {
+                            isPlayingForward && !isPaused -> "Pause"
+                            isPlayingForward && isPaused -> "Resume"
+                            else -> "Play"
+                        },
+                        { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }
+                    ) {
+                        if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
+                    }
                 }
-                OwlControlButton(
-                    mysticPurple,
-                    when {
-                        isPlayingReversed && !isPaused -> "Pause"
-                        isPlayingReversed && isPaused -> "Resume"
-                        else -> "Rev"
-                    },
-                    { if (isPlayingReversed) onPause() else recording.reversedPath?.let { onPlay(it) } }
-                ) {
-                    if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(Color.White)
+
+                // Rev OR Stop (when Forward is playing)
+                if (isPlayingForward) {
+                    OwlControlButton(
+                        mysticPurple,
+                        "Stop",
+                        onStop
+                    ) { OwlStopIcon(Color.White) }
+                } else {
+                    OwlControlButton(
+                        mysticPurple,
+                        when {
+                            isPlayingReversed && !isPaused -> "Pause"
+                            isPlayingReversed && isPaused -> "Resume"
+                            else -> "Rev"
+                        },
+                        { if (isPlayingReversed) onPause() else recording.reversedPath?.let { onPlay(it) } }
+                    ) {
+                        if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(Color.White)
+                    }
                 }
+
                 if (isGameModeEnabled) {
                     OwlControlButton(
                         mysticPurple,
                         "Try",
-                        { onStartAttempt(recording, ChallengeType.REVERSE) }) {
-                        OwlMicLeftArrowIcon(
-                            Color.White
-                        )
-                    }
+                        { onStartAttempt(recording, ChallengeType.REVERSE) }
+                    ) { OwlMicLeftArrowIcon(Color.White) }
                 }
                 OwlControlButton(deepSlate, "Del", { showDeleteDialog = true }) {
-                    OwlDeleteIcon(
-                        Color.White
-                    )
+                    OwlDeleteIcon(Color.White)
                 }
             }
         }
@@ -1603,30 +1593,51 @@ fun SnowyOwlAttemptItem(
                             mysticPurple,
                             "Share",
                             { showShareDialog = true }) { OwlShareIcon(Color.White) }
-                        // 🔧 POLYMORPHIC Play button
-                        OwlControlButton(
-                            deepSlate,
-                            when {
-                                isPlayingForward && !isPaused -> "Pause"
-                                isPlayingForward && isPaused -> "Resume"
-                                else -> "Play"
-                            },
-                            { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) }) {
-                            if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
-                        }
-                        // 🔧 POLYMORPHIC Rev button
-                        attempt.reversedAttemptFilePath?.let { reversedPath ->
+
+                        // Play OR Stop (when Reversed is playing)
+                        if (isPlayingReversed) {
                             OwlControlButton(
                                 mysticPurple,
+                                "Stop",
+                                onStop
+                            ) { OwlStopIcon(Color.White) }
+                        } else {
+                            OwlControlButton(
+                                deepSlate,
                                 when {
-                                    isPlayingReversed && !isPaused -> "Pause"
-                                    isPlayingReversed && isPaused -> "Resume"
-                                    else -> "Rev"
+                                    isPlayingForward && !isPaused -> "Pause"
+                                    isPlayingForward && isPaused -> "Resume"
+                                    else -> "Play"
                                 },
-                                { if (isPlayingReversed) onPause() else onPlay(reversedPath) }) {
-                                if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(Color.White)
+                                { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) }
+                            ) {
+                                if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
                             }
                         }
+
+                        // Rev OR Stop (when Forward is playing)
+                        attempt.reversedAttemptFilePath?.let { reversedPath ->
+                            if (isPlayingForward) {
+                                OwlControlButton(
+                                    mysticPurple,
+                                    "Stop",
+                                    onStop
+                                ) { OwlStopIcon(Color.White) }
+                            } else {
+                                OwlControlButton(
+                                    mysticPurple,
+                                    when {
+                                        isPlayingReversed && !isPaused -> "Pause"
+                                        isPlayingReversed && isPaused -> "Resume"
+                                        else -> "Rev"
+                                    },
+                                    { if (isPlayingReversed) onPause() else onPlay(reversedPath) }
+                                ) {
+                                    if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(Color.White)
+                                }
+                            }
+                        }
+
                         if (onDeleteAttempt != null) OwlControlButton(
                             deepSlate,
                             "Del",
@@ -1742,6 +1753,29 @@ fun OwlPauseIcon(color: Color) {
 }
 
 @Composable
+fun OwlStopIcon(color: Color) {
+    Canvas(modifier = Modifier.size(32.dp)) {
+        // Crescent moon - arctic midnight "rest"
+        val path = Path().apply {
+            // Outer arc of crescent
+            moveTo(size.width * 0.55f, size.height * 0.1f)
+            cubicTo(
+                size.width * 0.9f, size.height * 0.2f,
+                size.width * 0.9f, size.height * 0.8f,
+                size.width * 0.55f, size.height * 0.9f
+            )
+            // Inner arc (the "bite") - creates crescent shape
+            cubicTo(
+                size.width * 0.7f, size.height * 0.7f,
+                size.width * 0.7f, size.height * 0.3f,
+                size.width * 0.55f, size.height * 0.1f
+            )
+        }
+        drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+@Composable
 fun OwlShareIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
         val r = size.width * 0.083f
@@ -1781,52 +1815,55 @@ fun OwlShareIcon(color: Color) {
 @Composable
 fun OwlRewindIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
-        val stroke = 2.dp.toPx()
+        val stroke = Stroke(width = 2.5.dp.toPx())
+        // Left chevron
         drawPath(Path().apply {
-            moveTo(
-                size.width * 0.54f,
-                size.height * 0.71f
-            ); lineTo(size.width * 0.29f, size.height * 0.5f); lineTo(
-            size.width * 0.54f,
-            size.height * 0.29f
-        )
-        }, color, style = Stroke(stroke))
+            moveTo(size.width * 0.45f, size.height * 0.15f)
+            lineTo(size.width * 0.18f, size.height * 0.475f)
+            lineTo(size.width * 0.45f, size.height * 0.80f)
+        }, color, style = stroke)
+        // Right chevron
         drawPath(Path().apply {
-            moveTo(
-                size.width * 0.83f,
-                size.height * 0.71f
-            ); lineTo(size.width * 0.58f, size.height * 0.5f); lineTo(
-            size.width * 0.83f,
-            size.height * 0.29f
-        )
-        }, color, style = Stroke(stroke))
+            moveTo(size.width * 0.82f, size.height * 0.15f)
+            lineTo(size.width * 0.55f, size.height * 0.475f)
+            lineTo(size.width * 0.82f, size.height * 0.80f)
+        }, color, style = stroke)
     }
 }
 
 @Composable
 fun OwlDeleteIcon(color: Color) {
-    Canvas(modifier = Modifier.size(24.dp)) {
-        drawLine(
-            color,
-            Offset(size.width * 0.33f, size.height * 0.33f),
-            Offset(size.width * 0.67f, size.height * 0.67f),
-            strokeWidth = 2.5.dp.toPx()
-        )
-        drawLine(
-            color,
-            Offset(size.width * 0.67f, size.height * 0.33f),
-            Offset(size.width * 0.33f, size.height * 0.67f),
-            strokeWidth = 2.5.dp.toPx()
-        )
+    Canvas(modifier = Modifier.size(32.dp)) {
+        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+        // Owl talon - three curved claws grasping down
+        // Left talon
         drawPath(Path().apply {
-            moveTo(
-                size.width * 0.25f,
-                size.height * 0.75f
-            ); lineTo(size.width * 0.75f, size.height * 0.75f); lineTo(
-            size.width * 0.79f,
-            size.height * 0.83f
-        ); lineTo(size.width * 0.21f, size.height * 0.83f); close()
-        }, color, style = Stroke(2.dp.toPx()))
+            moveTo(size.width * 0.25f, size.height * 0.2f)
+            quadraticTo(
+                size.width * 0.15f, size.height * 0.5f,
+                size.width * 0.22f, size.height * 0.75f
+            )
+        }, color, style = stroke)
+        // Center talon
+        drawPath(Path().apply {
+            moveTo(size.width * 0.5f, size.height * 0.15f)
+            lineTo(size.width * 0.5f, size.height * 0.8f)
+        }, color, style = stroke)
+        // Right talon
+        drawPath(Path().apply {
+            moveTo(size.width * 0.75f, size.height * 0.2f)
+            quadraticTo(
+                size.width * 0.85f, size.height * 0.5f,
+                size.width * 0.78f, size.height * 0.75f
+            )
+        }, color, style = stroke)
+        // Connecting bar at top (the "foot")
+        drawLine(
+            color,
+            Offset(size.width * 0.25f, size.height * 0.2f),
+            Offset(size.width * 0.75f, size.height * 0.2f),
+            strokeWidth = 2.dp.toPx()
+        )
     }
 }
 
@@ -1855,45 +1892,35 @@ fun OwlHomeIcon(color: Color) {
 }
 
 @Composable
-fun OwlMicRightArrowIcon(color: Color) {
-    Canvas(modifier = Modifier.size(32.dp)) {
-        drawRoundRect(
-            color,
-            topLeft = Offset(size.width * 0.1f, size.height * 0.15f),
-            size = Size(size.width * 0.22f, size.height * 0.45f),
-            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-            style = Stroke(2.5.dp.toPx())
-        )
-        drawPath(Path().apply {
-            moveTo(
-                size.width * 0.48f,
-                size.height * 0.15f
-            ); lineTo(size.width * 0.68f, size.height * 0.375f); lineTo(
-            size.width * 0.48f,
-            size.height * 0.60f
-        )
-        }, color, style = Stroke(2.5.dp.toPx()))
-    }
-}
-
-@Composable
 fun OwlMicLeftArrowIcon(color: Color) {
     Canvas(modifier = Modifier.size(32.dp)) {
+        // Mic body (30% wider, shifted left)
         drawRoundRect(
             color,
-            topLeft = Offset(size.width * 0.68f, size.height * 0.15f),
-            size = Size(size.width * 0.22f, size.height * 0.45f),
+            topLeft = Offset(size.width * 0.58f, size.height * 0.15f),
+            size = Size(size.width * 0.29f, size.height * 0.35f),
             cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
             style = Stroke(2.5.dp.toPx())
         )
-        drawPath(Path().apply {
-            moveTo(
-                size.width * 0.52f,
-                size.height * 0.15f
-            ); lineTo(size.width * 0.32f, size.height * 0.375f); lineTo(
-            size.width * 0.52f,
-            size.height * 0.60f
+        // Stalk (centered on wider mic)
+        drawLine(
+            color,
+            Offset(size.width * 0.72f, size.height * 0.50f),
+            Offset(size.width * 0.72f, size.height * 0.80f),
+            strokeWidth = 2.5.dp.toPx()
         )
+        // Base (30% wider, centered)
+        drawLine(
+            color,
+            Offset(size.width * 0.53f, size.height * 0.80f),
+            Offset(size.width * 0.91f, size.height * 0.80f),
+            strokeWidth = 2.5.dp.toPx()
+        )
+        // Arrow pointing left (full height of mic+stand)
+        drawPath(Path().apply {
+            moveTo(size.width * 0.40f, size.height * 0.15f)
+            lineTo(size.width * 0.13f, size.height * 0.475f)
+            lineTo(size.width * 0.40f, size.height * 0.80f)
         }, color, style = Stroke(2.5.dp.toPx()))
     }
 }

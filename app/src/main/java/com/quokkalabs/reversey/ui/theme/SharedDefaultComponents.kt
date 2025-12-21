@@ -56,7 +56,7 @@ object SharedDefaultComponents {
         onShare: (String) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
-        onStartAttempt: (Recording, ChallengeType) -> Unit
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
@@ -126,48 +126,72 @@ object SharedDefaultComponents {
                         isPrimary = true
                     )
 
-                    // 2. Play (Forward) - 🔧 POLYMORPHIC
-                    SimpleGlowButton(
-                        onClick = {
-                            when {
-                                isPlayingForward -> onPause()  // Toggle pause/resume
-                                else -> onPlay(recording.originalPath)
+                    // 2. Play (Forward) OR Stop (when Reversed is playing)
+                    if (isPlayingReversed) {
+                        // Reversed is playing - this button becomes Stop
+                        SimpleGlowButton(
+                            onClick = onStop,
+                            size = 50.dp,
+                            label = "Stop",
+                            isPrimary = false,
+                            icon = Icons.Default.Stop
+                        )
+                    } else {
+                        // Normal Play/Pause button
+                        SimpleGlowButton(
+                            onClick = {
+                                when {
+                                    isPlayingForward -> onPause()
+                                    else -> onPlay(recording.originalPath)
+                                }
+                            },
+                            size = 50.dp,
+                            label = when {
+                                isPlayingForward && !isPaused -> "Pause"
+                                isPlayingForward && isPaused -> "Resume"
+                                else -> "Play"
+                            },
+                            isPrimary = true,
+                            icon = when {
+                                isPlayingForward && !isPaused -> Icons.Default.Pause
+                                else -> Icons.Default.PlayArrow
                             }
-                        },
-                        size = 50.dp,
-                        label = when {
-                            isPlayingForward && !isPaused -> "Pause"
-                            isPlayingForward && isPaused -> "Resume"
-                            else -> "Play"
-                        },
-                        isPrimary = true,
-                        icon = when {
-                            isPlayingForward && !isPaused -> Icons.Default.Pause
-                            else -> Icons.Default.PlayArrow
-                        }
-                    )
+                        )
+                    }
 
-                    // 3. Rewind (Reversed) - 🔧 POLYMORPHIC
-                    SimpleGlowButton(
-                        onClick = {
-                            when {
-                                isPlayingReversed -> onPause()  // Toggle pause/resume
-                                else -> recording.reversedPath?.let { onPlay(it) }
-                            }
-                        },
-                        enabled = recording.reversedPath != null,
-                        size = 50.dp,
-                        label = when {
-                            isPlayingReversed && !isPaused -> "Pause"
-                            isPlayingReversed && isPaused -> "Resume"
-                            else -> "Rewind"
-                        },
-                        icon = when {
-                            isPlayingReversed && !isPaused -> Icons.Default.Pause
-                            else -> Icons.Default.Replay
-                        },
-                        isPrimary = true
-                    )
+                    // 3. Rewind (Reversed) OR Stop (when Forward is playing)
+                    if (isPlayingForward) {
+                        // Forward is playing - this button becomes Stop
+                        SimpleGlowButton(
+                            onClick = onStop,
+                            size = 50.dp,
+                            label = "Stop",
+                            isPrimary = false,
+                            icon = Icons.Default.Stop
+                        )
+                    } else {
+                        // Normal Rewind/Pause button
+                        SimpleGlowButton(
+                            onClick = {
+                                when {
+                                    isPlayingReversed -> onPause()
+                                    else -> recording.reversedPath?.let { onPlay(it) }
+                                }
+                            },
+                            enabled = recording.reversedPath != null,
+                            size = 50.dp,
+                            label = when {
+                                isPlayingReversed && !isPaused -> "Pause"
+                                isPlayingReversed && isPaused -> "Resume"
+                                else -> "Rewind"
+                            },
+                            icon = when {
+                                isPlayingReversed && !isPaused -> Icons.Default.Pause
+                                else -> Icons.Default.Replay
+                            },
+                            isPrimary = true
+                        )
+                    }
 
                     // 4. Game Mode Button
                     if (isGameModeEnabled) {
@@ -241,7 +265,7 @@ object SharedDefaultComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)? = null,
-        onResetScore: (() -> Unit)? = null
+        onResetScore: (() -> Unit)? = null,
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
@@ -273,8 +297,15 @@ object SharedDefaultComponents {
                         // Header Row: Home Icon + Name
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (onJumpToParent != null) {
-                                IconButton(onClick = onJumpToParent, modifier = Modifier.size(24.dp)) {
-                                    Icon(Icons.Default.Home, "Parent", tint = MaterialTheme.colorScheme.primary)
+                                IconButton(
+                                    onClick = onJumpToParent,
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Home,
+                                        "Parent",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
@@ -307,48 +338,72 @@ object SharedDefaultComponents {
                                 )
                             }
 
-                            // 2. Play (Forward) - 🔧 POLYMORPHIC
-                            SimpleGlowButton(
-                                onClick = {
-                                    when {
-                                        isPlayingForward -> onPause()  // Toggle pause/resume
-                                        else -> onPlay(attempt.attemptFilePath)
-                                    }
-                                },
-                                size = 40.dp,
-                                label = when {
-                                    isPlayingForward && !isPaused -> "Pause"
-                                    isPlayingForward && isPaused -> "Resume"
-                                    else -> "Play"
-                                },
-                                icon = when {
-                                    isPlayingForward && !isPaused -> Icons.Default.Pause
-                                    else -> Icons.Default.PlayArrow
-                                },
-                                isPrimary = true
-                            )
-
-                            // 3. Reverse - 🔧 POLYMORPHIC
-                            attempt.reversedAttemptFilePath?.let { reversedPath ->
+                            // 2. Play (Forward) OR Stop (when Reversed is playing)
+                            if (isPlayingReversed) {
+                                // Reversed is playing - this button becomes Stop
+                                SimpleGlowButton(
+                                    onClick = onStop,
+                                    size = 40.dp,
+                                    label = "Stop",
+                                    isPrimary = false,
+                                    icon = Icons.Default.Stop
+                                )
+                            } else {
+                                // Normal Play/Pause button
                                 SimpleGlowButton(
                                     onClick = {
                                         when {
-                                            isPlayingReversed -> onPause()  // Toggle pause/resume
-                                            else -> onPlay(reversedPath)
+                                            isPlayingForward -> onPause()
+                                            else -> onPlay(attempt.attemptFilePath)
                                         }
                                     },
                                     size = 40.dp,
                                     label = when {
-                                        isPlayingReversed && !isPaused -> "Pause"
-                                        isPlayingReversed && isPaused -> "Resume"
-                                        else -> "Rev"
+                                        isPlayingForward && !isPaused -> "Pause"
+                                        isPlayingForward && isPaused -> "Resume"
+                                        else -> "Play"
                                     },
                                     icon = when {
-                                        isPlayingReversed && !isPaused -> Icons.Default.Pause
-                                        else -> Icons.Default.Replay
+                                        isPlayingForward && !isPaused -> Icons.Default.Pause
+                                        else -> Icons.Default.PlayArrow
                                     },
                                     isPrimary = true
                                 )
+                            }
+
+                            // 3. Reverse OR Stop (when Forward is playing)
+                            attempt.reversedAttemptFilePath?.let { reversedPath ->
+                                if (isPlayingForward) {
+                                    // Forward is playing - this button becomes Stop
+                                    SimpleGlowButton(
+                                        onClick = onStop,
+                                        size = 40.dp,
+                                        label = "Stop",
+                                        isPrimary = false,
+                                        icon = Icons.Default.Stop
+                                    )
+                                } else {
+                                    // Normal Rev/Pause button
+                                    SimpleGlowButton(
+                                        onClick = {
+                                            when {
+                                                isPlayingReversed -> onPause()
+                                                else -> onPlay(reversedPath)
+                                            }
+                                        },
+                                        size = 40.dp,
+                                        label = when {
+                                            isPlayingReversed && !isPaused -> "Pause"
+                                            isPlayingReversed && isPaused -> "Resume"
+                                            else -> "Rev"
+                                        },
+                                        icon = when {
+                                            isPlayingReversed && !isPaused -> Icons.Default.Pause
+                                            else -> Icons.Default.Replay
+                                        },
+                                        isPrimary = true
+                                    )
+                                }
                             }
 
                             // 4. Delete
@@ -372,7 +427,8 @@ object SharedDefaultComponents {
                         score = displayScore,
                         difficulty = attempt.difficulty,
                         challengeType = attempt.challengeType,
-                        emoji = aesthetic.scoreEmojis.entries.firstOrNull { displayScore >= it.key }?.value ?: "🎤",
+                        emoji = aesthetic.scoreEmojis.entries.firstOrNull { displayScore >= it.key }?.value
+                            ?: "🎤",
                         isOverridden = attempt.finalScore != null,
                         width = 85.dp,
                         height = 110.dp,
@@ -383,7 +439,9 @@ object SharedDefaultComponents {
                 if (isPlayingThis) {
                     LinearProgressIndicator(
                         progress = { progress },
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -437,36 +495,12 @@ object SharedDefaultComponents {
     fun MaterialRecordButton(
         isRecording: Boolean,
         countdownProgress: Float = 1f,
-        onClick: () -> Unit
+        onClick: () -> Unit,
     ) {
         Box(
             modifier = Modifier.size(80.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Background arc (gray track)
-            Canvas(modifier = Modifier.size(80.dp)) {
-                drawArc(
-                    color = Color.Gray.copy(alpha = 0.3f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-
-            // Progress arc (depleting red arc during timed recording)
-            if (isRecording && countdownProgress < 1f) {
-                Canvas(modifier = Modifier.size(100.dp)) {
-                    drawArc(
-                        color = Color.Red,
-                        startAngle = -90f,
-                        sweepAngle = 360f * countdownProgress,
-                        useCenter = false,
-                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                }
-            }
-
             // Record button FAB
             FloatingActionButton(
                 onClick = onClick,
@@ -487,7 +521,7 @@ object SharedDefaultComponents {
     @Composable
     fun GradientBackground(
         aesthetic: AestheticThemeData,
-        content: @Composable () -> Unit
+        content: @Composable () -> Unit,
     ) {
         Box(
             modifier = Modifier
@@ -506,7 +540,7 @@ object SharedDefaultComponents {
         aesthetic: AestheticThemeData,
         onDismiss: () -> Unit,
         onOverrideScore: (Int) -> Unit = { },
-        onResetScore: () -> Unit = { }
+        onResetScore: () -> Unit = { },
     ) {
         ScoreExplanationDialog(
             attempt = attempt,
@@ -524,9 +558,9 @@ object SharedDefaultComponents {
         item: Any,
         aesthetic: AestheticThemeData,
         onConfirm: () -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
-        val itemName = when(item) {
+        val itemName = when (item) {
             is Recording -> item.name
             is PlayerAttempt -> item.playerName
             else -> "Item"
@@ -559,7 +593,7 @@ object SharedDefaultComponents {
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
         onShare: (String) -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
 
@@ -607,7 +641,7 @@ object SharedDefaultComponents {
         currentName: String,
         aesthetic: AestheticThemeData,
         onRename: (String) -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
         var name by remember { mutableStateOf(currentName) }
         val copy = aesthetic.dialogCopy
@@ -644,7 +678,7 @@ object SharedDefaultComponents {
     fun ThemedSettingsCard(
         aesthetic: AestheticThemeData,
         title: String? = null,
-        content: @Composable ColumnScope.() -> Unit
+        content: @Composable ColumnScope.() -> Unit,
     ) {
         val colors = aesthetic.menuColors
 
@@ -665,7 +699,10 @@ object SharedDefaultComponents {
                 ),
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, colors.menuBorder.copy(alpha = 0.3f))
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    colors.menuBorder.copy(alpha = 0.3f)
+                )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     content()
@@ -679,7 +716,7 @@ object SharedDefaultComponents {
         aesthetic: AestheticThemeData,
         label: String,
         checked: Boolean,
-        onCheckedChange: (Boolean) -> Unit
+        onCheckedChange: (Boolean) -> Unit,
     ) {
         val colors = aesthetic.menuColors
 
@@ -716,9 +753,10 @@ object SharedDefaultComponents {
         enabled: Boolean = true,
         size: Dp,
         label: String,
-        icon: androidx.compose.ui.graphics.vector.ImageVector
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
     ) {
-        val containerColor = if (isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
+        val containerColor =
+            if (isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
 
         val disabledColor = if (isPrimary)
             MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
@@ -751,7 +789,9 @@ object SharedDefaultComponents {
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium
                 ),
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(
+                    alpha = 0.4f
+                ),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -789,7 +829,7 @@ class DefaultThemeComponents : ThemeComponents {
         onShare: (String) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
-        onStartAttempt: (Recording, ChallengeType) -> Unit
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
     ) {
         SharedDefaultComponents.MaterialRecordingCard(
             recording = recording,
@@ -824,7 +864,7 @@ class DefaultThemeComponents : ThemeComponents {
         onShareAttempt: ((String) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
-        onResetScore: (() -> Unit)?
+        onResetScore: (() -> Unit)?,
     ) {
         SharedDefaultComponents.MaterialAttemptCard(
             attempt = attempt,
@@ -851,7 +891,7 @@ class DefaultThemeComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-        countdownProgress: Float
+        countdownProgress: Float,
     ) {
         SharedDefaultComponents.MaterialRecordButton(isRecording, countdownProgress) {
             if (isRecording) onStopRecording() else onStartRecording()
@@ -861,7 +901,7 @@ class DefaultThemeComponents : ThemeComponents {
     @Composable
     override fun AppBackground(
         aesthetic: AestheticThemeData,
-        content: @Composable () -> Unit
+        content: @Composable () -> Unit,
     ) {
         SharedDefaultComponents.GradientBackground(aesthetic, content)
     }
@@ -871,7 +911,7 @@ class DefaultThemeComponents : ThemeComponents {
         attempt: PlayerAttempt,
         aesthetic: AestheticThemeData,
         onDismiss: () -> Unit,
-        onOverrideScore: (Int) -> Unit
+        onOverrideScore: (Int) -> Unit,
     ) {
         SharedDefaultComponents.MaterialScoreCard(attempt, aesthetic, onDismiss, onOverrideScore)
     }
@@ -882,9 +922,15 @@ class DefaultThemeComponents : ThemeComponents {
         item: Any,
         aesthetic: AestheticThemeData,
         onConfirm: () -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
-        SharedDefaultComponents.MaterialDeleteDialog(itemType, item, aesthetic, onConfirm, onDismiss)
+        SharedDefaultComponents.MaterialDeleteDialog(
+            itemType,
+            item,
+            aesthetic,
+            onConfirm,
+            onDismiss
+        )
     }
 
     @Composable
@@ -893,9 +939,15 @@ class DefaultThemeComponents : ThemeComponents {
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
         onShare: (String) -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
-        SharedDefaultComponents.MaterialShareDialog(recording, attempt, aesthetic, onShare, onDismiss)
+        SharedDefaultComponents.MaterialShareDialog(
+            recording,
+            attempt,
+            aesthetic,
+            onShare,
+            onDismiss
+        )
     }
 
     @Composable
@@ -904,8 +956,14 @@ class DefaultThemeComponents : ThemeComponents {
         currentName: String,
         aesthetic: AestheticThemeData,
         onRename: (String) -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) {
-        SharedDefaultComponents.MaterialRenameDialog(itemType, currentName, aesthetic, onRename, onDismiss)
+        SharedDefaultComponents.MaterialRenameDialog(
+            itemType,
+            currentName,
+            aesthetic,
+            onRename,
+            onDismiss
+        )
     }
 }

@@ -653,30 +653,6 @@ fun GuitarRecordButton(
             }
         }
 
-        // 🎯 PHASE 3: Countdown arc for timed recording
-        if (isRecording && countdownProgress < 1f) {
-            Canvas(modifier = Modifier
-                .size(140.dp)
-                .align(Alignment.Center)) {
-                // Gray background track
-                drawArc(
-                    color = Color.Gray.copy(alpha = 0.3f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-                // Red countdown arc
-                drawArc(
-                    color = Color.Red,
-                    startAngle = -90f,
-                    sweepAngle = 360f * countdownProgress,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-        }
-
         // Guitar drawing
         Box(
             modifier = Modifier
@@ -1103,7 +1079,7 @@ fun GuitarRecordButton(
             Text(
                 text = if (isRecording) "STOP" else "REC",
                 //fontSize = 16.sp,
-                fontSize = if (isRecording) 14.sp else 16.sp,
+                fontSize = if (isRecording) 11.sp else 13.sp,
                 // 🔴 If recording, turn Red. Otherwise, keep the dark brown.
                 color = if (isRecording) Color(0xFFEF4444) else Color(0xFF5d4a36),
                 fontWeight = FontWeight.Bold
@@ -1186,9 +1162,11 @@ fun GuitarRecordingItem(
     val tealGreen = Color(0xFF7DB9A8)
     val peachOrange = Color(0xFFE8A87C)
 
-    Box(modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1240,36 +1218,59 @@ fun GuitarRecordingItem(
                     color = tealGreen,
                     label = "Share",
                     onClick = { showShareDialog = true }) { GuitarShareIcon(darkBrown) }
-                GuitarControlButton(
-                    color = peachOrange,
-                    label = when {
-                        isPlayingForward && !isPaused -> "Pause"
-                        isPlayingForward && isPaused -> "Resume"
-                        else -> "Play"
-                    },
-                    onClick = { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }
-                ) {
-                    if (isPlayingForward && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(
-                        color = darkBrown
-                    )
-                }
-                GuitarControlButton(
-                    color = tealGreen,
-                    label = when {
-                        isPlayingReversed && !isPaused -> "Pause"
-                        isPlayingReversed && isPaused -> "Resume"
-                        else -> "Rev"
-                    },
-                    onClick = {
-                        if (isPlayingReversed) onPause() else recording.reversedPath?.let {
-                            onPlay(
-                                it
-                            )
-                        }
+
+                // Play OR Stop (when Reversed is playing)
+                if (isPlayingReversed) {
+                    GuitarControlButton(
+                        color = tealGreen,
+                        label = "Stop",
+                        onClick = onStop
+                    ) { GuitarStopIcon(darkBrown) }
+                } else {
+                    GuitarControlButton(
+                        color = peachOrange,
+                        label = when {
+                            isPlayingForward && !isPaused -> "Pause"
+                            isPlayingForward && isPaused -> "Resume"
+                            else -> "Play"
+                        },
+                        onClick = { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }
+                    ) {
+                        if (isPlayingForward && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(
+                            color = darkBrown
+                        )
                     }
-                ) {
-                    if (isPlayingReversed && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarRewindIcon(darkBrown)
                 }
+
+                // Rev OR Stop (when Forward is playing)
+                if (isPlayingForward) {
+                    GuitarControlButton(
+                        color = tealGreen,
+                        label = "Stop",
+                        onClick = onStop
+                    ) { GuitarStopIcon(darkBrown) }
+                } else {
+                    GuitarControlButton(
+                        color = tealGreen,
+                        label = when {
+                            isPlayingReversed && !isPaused -> "Pause"
+                            isPlayingReversed && isPaused -> "Resume"
+                            else -> "Rev"
+                        },
+                        onClick = {
+                            if (isPlayingReversed) onPause() else recording.reversedPath?.let {
+                                onPlay(
+                                    it
+                                )
+                            }
+                        }
+                    ) {
+                        if (isPlayingReversed && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarRewindIcon(
+                            darkBrown
+                        )
+                    }
+                }
+
                 if (isGameModeEnabled) {
                     // 🛡️ FIX: Check if reversedPath exists before starting
                     GuitarControlButton(
@@ -1416,36 +1417,61 @@ fun GuitarAttemptItem(
                                     label = "Share"
                                 ) { GuitarShareIcon(color = darkBrown) }
                             }
-                            // 🔧 POLYMORPHIC Play button
-                            GuitarControlButton(
-                                onClick = {
-                                    if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
-                                },
-                                color = peachOrange,
-                                label = when {
-                                    isPlayingForward && !isPaused -> "Pause"
-                                    isPlayingForward && isPaused -> "Resume"
-                                    else -> "Play"
-                                }
-                            ) {
-                                if (isPlayingForward && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(color = darkBrown)
-                            }
-                            // 🔧 POLYMORPHIC Rev button
-                            attempt.reversedAttemptFilePath?.let { reversedPath ->
+
+                            // Play OR Stop (when Reversed is playing)
+                            if (isPlayingReversed) {
+                                GuitarControlButton(
+                                    onClick = onStop,
+                                    color = tealGreen,
+                                    label = "Stop"
+                                ) { GuitarStopIcon(color = darkBrown) }
+                            } else {
                                 GuitarControlButton(
                                     onClick = {
-                                        if (isPlayingReversed) onPause() else onPlay(reversedPath)
+                                        if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath)
                                     },
-                                    color = tealGreen,
+                                    color = peachOrange,
                                     label = when {
-                                        isPlayingReversed && !isPaused -> "Pause"
-                                        isPlayingReversed && isPaused -> "Resume"
-                                        else -> "Rev"
+                                        isPlayingForward && !isPaused -> "Pause"
+                                        isPlayingForward && isPaused -> "Resume"
+                                        else -> "Play"
                                     }
                                 ) {
-                                    if (isPlayingReversed && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarRewindIcon(darkBrown)
+                                    if (isPlayingForward && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarPlayIcon(
+                                        color = darkBrown
+                                    )
                                 }
                             }
+
+                            // Rev OR Stop (when Forward is playing)
+                            attempt.reversedAttemptFilePath?.let { reversedPath ->
+                                if (isPlayingForward) {
+                                    GuitarControlButton(
+                                        onClick = onStop,
+                                        color = tealGreen,
+                                        label = "Stop"
+                                    ) { GuitarStopIcon(color = darkBrown) }
+                                } else {
+                                    GuitarControlButton(
+                                        onClick = {
+                                            if (isPlayingReversed) onPause() else onPlay(
+                                                reversedPath
+                                            )
+                                        },
+                                        color = tealGreen,
+                                        label = when {
+                                            isPlayingReversed && !isPaused -> "Pause"
+                                            isPlayingReversed && isPaused -> "Resume"
+                                            else -> "Rev"
+                                        }
+                                    ) {
+                                        if (isPlayingReversed && !isPaused) GuitarPauseIcon(color = darkBrown) else GuitarRewindIcon(
+                                            darkBrown
+                                        )
+                                    }
+                                }
+                            }
+
                             if (onDeleteAttempt != null) {
                                 GuitarControlButton(
                                     onClick = { showDeleteDialog = true },
@@ -1634,6 +1660,19 @@ fun GuitarPauseIcon(color: Color) {
 }
 
 @Composable
+fun GuitarStopIcon(color: Color) {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(size.width * 0.2f, size.height * 0.2f),
+            size = Size(size.width * 0.6f, size.height * 0.6f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+            style = Stroke(width = 2.dp.toPx())
+        )
+    }
+}
+
+@Composable
 fun GuitarMicIcon(color: Color) {
     Canvas(modifier = Modifier.size(24.dp)) {
         drawRoundRect(
@@ -1645,13 +1684,13 @@ fun GuitarMicIcon(color: Color) {
         )
         val path = Path().apply {
             moveTo(size.width * 0.25f, size.height * 0.5f)
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.25f,
                 size.height * 0.65f,
                 size.width * 0.5f,
                 size.height * 0.65f
             )
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.75f,
                 size.height * 0.65f,
                 size.width * 0.75f,
@@ -1687,14 +1726,14 @@ fun GuitarDeleteIcon(color: Color) {
         val lidPath = Path().apply {
             moveTo(size.width * 0.35f, size.height * 0.25f)
             lineTo(size.width * 0.35f, size.height * 0.15f)
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.35f,
                 size.height * 0.1f,
                 size.width * 0.4f,
                 size.height * 0.1f
             )
             lineTo(size.width * 0.6f, size.height * 0.1f)
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.65f,
                 size.height * 0.1f,
                 size.width * 0.65f,
@@ -1706,14 +1745,14 @@ fun GuitarDeleteIcon(color: Color) {
         val canPath = Path().apply {
             moveTo(size.width * 0.25f, size.height * 0.25f)
             lineTo(size.width * 0.25f, size.height * 0.75f)
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.25f,
                 size.height * 0.85f,
                 size.width * 0.35f,
                 size.height * 0.85f
             )
             lineTo(size.width * 0.65f, size.height * 0.85f)
-            quadraticBezierTo(
+            quadraticTo(
                 size.width * 0.75f,
                 size.height * 0.85f,
                 size.width * 0.75f,

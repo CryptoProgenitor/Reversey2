@@ -19,8 +19,8 @@ android {
         applicationId = "com.quokkalabs.reversey"
         minSdk = 26
         targetSdk = 35
-        versionCode = 32
-        versionName = "beta_0_1_7"
+        versionCode = 33
+        versionName = "beta_0_1_8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -597,28 +598,6 @@ fun StrangePlanetRecordButton(
         modifier = modifier.size(210.dp),
         contentAlignment = Alignment.Center
     ) {
-        // 🎯 PHASE 3: Countdown arc
-        Canvas(modifier = Modifier.size(140.dp)) {
-            drawArc(
-                color = Color.Gray.copy(alpha = 0.3f),
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
-        if (isRecording && countdownProgress < 1f) {
-            Canvas(modifier = Modifier.size(140.dp)) {
-                drawArc(
-                    color = Color.Red,
-                    startAngle = -90f,
-                    sweepAngle = 360f * countdownProgress,
-                    useCenter = false,
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-        }
-
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -1334,37 +1313,57 @@ fun StrangePlanetRecordingItem(
                     SPShareGlyph(Color.White)
                 }
 
-                // Play/Pause - 🔧 POLYMORPHIC
-                SPControlButton(
-                    color = buttonSecondary,
-                    label = when {
-                        isPlayingForward && !isPaused -> "Pause"
-                        isPlayingForward && isPaused -> "Resume"
-                        else -> "Play"
-                    },
-                    onClick = {
-                        if (isPlayingForward) onPause()
-                        else onPlay(recording.originalPath)
+                // Play OR Stop (when Reversed is playing)
+                if (isPlayingReversed) {
+                    SPControlButton(
+                        color = buttonPrimary,
+                        label = "Stop",
+                        onClick = onStop
+                    ) {
+                        SPStopGlyph(Color.White)
                     }
-                ) {
-                    if (isPlayingForward && !isPaused) SPPauseGlyph(Color.White)
-                    else SPPlayGlyph(Color.White)
+                } else {
+                    SPControlButton(
+                        color = buttonSecondary,
+                        label = when {
+                            isPlayingForward && !isPaused -> "Pause"
+                            isPlayingForward && isPaused -> "Resume"
+                            else -> "Play"
+                        },
+                        onClick = {
+                            if (isPlayingForward) onPause()
+                            else onPlay(recording.originalPath)
+                        }
+                    ) {
+                        if (isPlayingForward && !isPaused) SPPauseGlyph(Color.White)
+                        else SPPlayGlyph(Color.White)
+                    }
                 }
 
-                // Reversed playback - 🔧 POLYMORPHIC
-                SPControlButton(
-                    color = buttonPrimary,
-                    label = when {
-                        isPlayingReversed && !isPaused -> "Pause"
-                        isPlayingReversed && isPaused -> "Resume"
-                        else -> "Rev"
-                    },
-                    onClick = {
-                        if (isPlayingReversed) onPause()
-                        else recording.reversedPath?.let { onPlay(it) }
+                // Rev OR Stop (when Forward is playing)
+                if (isPlayingForward) {
+                    SPControlButton(
+                        color = buttonPrimary,
+                        label = "Stop",
+                        onClick = onStop
+                    ) {
+                        SPStopGlyph(Color.White)
                     }
-                ) {
-                    if (isPlayingReversed && !isPaused) SPPauseGlyph(Color.White) else SPRewindGlyph(Color.White)
+                } else {
+                    SPControlButton(
+                        color = buttonPrimary,
+                        label = when {
+                            isPlayingReversed && !isPaused -> "Pause"
+                            isPlayingReversed && isPaused -> "Resume"
+                            else -> "Rev"
+                        },
+                        onClick = {
+                            if (isPlayingReversed) onPause()
+                            else recording.reversedPath?.let { onPlay(it) }
+                        }
+                    ) {
+                        if (isPlayingReversed && !isPaused) SPPauseGlyph(Color.White) else SPRewindGlyph(Color.White)
+                    }
                 }
 
                 // Game mode button
@@ -1526,32 +1525,52 @@ fun StrangePlanetAttemptItem(
                             }
                         }
 
-                        // 🔧 POLYMORPHIC Play button
-                        SPControlButton(
-                            buttonSecondary,
-                            when {
-                                isPlayingForward && !isPaused -> "Pause"
-                                isPlayingForward && isPaused -> "Resume"
-                                else -> "Play"
-                            },
-                            { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) }
-                        ) {
-                            if (isPlayingForward && !isPaused) SPPauseGlyph(Color.White)
-                            else SPPlayGlyph(Color.White)
-                        }
-
-                        // 🔧 POLYMORPHIC Rev button
-                        attempt.reversedAttemptFilePath?.let { reversedPath ->
+                        // Play OR Stop (when Reversed is playing)
+                        if (isPlayingReversed) {
                             SPControlButton(
                                 buttonPrimary,
-                                when {
-                                    isPlayingReversed && !isPaused -> "Pause"
-                                    isPlayingReversed && isPaused -> "Resume"
-                                    else -> "Rev"
-                                },
-                                { if (isPlayingReversed) onPause() else onPlay(reversedPath) }
+                                "Stop",
+                                onStop
                             ) {
-                                if (isPlayingReversed && !isPaused) SPPauseGlyph(Color.White) else SPRewindGlyph(Color.White)
+                                SPStopGlyph(Color.White)
+                            }
+                        } else {
+                            SPControlButton(
+                                buttonSecondary,
+                                when {
+                                    isPlayingForward && !isPaused -> "Pause"
+                                    isPlayingForward && isPaused -> "Resume"
+                                    else -> "Play"
+                                },
+                                { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) }
+                            ) {
+                                if (isPlayingForward && !isPaused) SPPauseGlyph(Color.White)
+                                else SPPlayGlyph(Color.White)
+                            }
+                        }
+
+                        // Rev OR Stop (when Forward is playing)
+                        attempt.reversedAttemptFilePath?.let { reversedPath ->
+                            if (isPlayingForward) {
+                                SPControlButton(
+                                    buttonPrimary,
+                                    "Stop",
+                                    onStop
+                                ) {
+                                    SPStopGlyph(Color.White)
+                                }
+                            } else {
+                                SPControlButton(
+                                    buttonPrimary,
+                                    when {
+                                        isPlayingReversed && !isPaused -> "Pause"
+                                        isPlayingReversed && isPaused -> "Resume"
+                                        else -> "Rev"
+                                    },
+                                    { if (isPlayingReversed) onPause() else onPlay(reversedPath) }
+                                ) {
+                                    if (isPlayingReversed && !isPaused) SPPauseGlyph(Color.White) else SPRewindGlyph(Color.White)
+                                }
                             }
                         }
 
@@ -1714,6 +1733,28 @@ fun SPPauseGlyph(color: Color) {
         drawCircle(color, nodeRadius, Offset(size.width * 0.3f, size.height * 0.85f))
         drawCircle(color, nodeRadius, Offset(size.width * 0.7f, size.height * 0.15f))
         drawCircle(color, nodeRadius, Offset(size.width * 0.7f, size.height * 0.85f))
+    }
+}
+
+@Composable
+fun SPStopGlyph(color: Color) {
+    Canvas(modifier = Modifier.size(28.dp)) {
+        val strokeWidth = 2.5.dp.toPx()
+        val nodeRadius = 2.dp.toPx()
+
+        // Square outline
+        drawRect(
+            color,
+            topLeft = Offset(size.width * 0.2f, size.height * 0.2f),
+            size = Size(size.width * 0.6f, size.height * 0.6f),
+            style = Stroke(width = strokeWidth, join = StrokeJoin.Miter)
+        )
+
+        // Terminal dots at corners
+        drawCircle(color, nodeRadius, Offset(size.width * 0.2f, size.height * 0.2f))
+        drawCircle(color, nodeRadius, Offset(size.width * 0.8f, size.height * 0.2f))
+        drawCircle(color, nodeRadius, Offset(size.width * 0.2f, size.height * 0.8f))
+        drawCircle(color, nodeRadius, Offset(size.width * 0.8f, size.height * 0.8f))
     }
 }
 
