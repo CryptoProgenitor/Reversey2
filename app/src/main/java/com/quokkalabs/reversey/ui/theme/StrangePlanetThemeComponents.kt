@@ -219,6 +219,8 @@ class StrangePlanetComponents : ThemeComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?,
     ) {
         StrangePlanetRecordingItem(
             recording = recording,
@@ -234,7 +236,9 @@ class StrangePlanetComponents : ThemeComponents {
             onShare = onShare,
             onRename = onRename,
             isGameModeEnabled = isGameModeEnabled,
-            onStartAttempt = onStartAttempt
+            onStartAttempt = onStartAttempt,
+            activeAttemptRecordingPath = activeAttemptRecordingPath,
+            onStopAttempt = onStopAttempt
         )
     }
 
@@ -280,11 +284,11 @@ class StrangePlanetComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-          // 🎯 PHASE 3
+        // 🎯 PHASE 3
     ) {
         StrangePlanetRecordButton(
             isRecording = isRecording,
-              // 🎯 PHASE 3
+            // 🎯 PHASE 3
             onClick = {
                 if (isRecording) onStopRecording() else onStartRecording()
             }
@@ -1229,6 +1233,8 @@ fun StrangePlanetRecordingItem(
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
     onStartAttempt: (Recording, ChallengeType) -> Unit,
+    activeAttemptRecordingPath: String?,
+    onStopAttempt: (() -> Unit)?,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1363,15 +1369,38 @@ fun StrangePlanetRecordingItem(
                     }
                 }
 
-                // Game mode button
+                // 🎯 POLYMORPHIC: Try → Stop when recording attempt
                 if (isGameModeEnabled) {
+                    val isAttemptingThis = activeAttemptRecordingPath == recording.originalPath
 
-                    SPControlButton(
-                        color = buttonPrimary,
-                        label = "Try",
-                        onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }
-                    ) {
-                        SPMicGlyph(Color.White)
+                    if (isAttemptingThis && onStopAttempt != null) {
+                        // 🛑 STOP with blinking fill
+                        val infiniteTransition = rememberInfiniteTransition(label = "spBlink")
+                        val blink by infiniteTransition.animateFloat(
+                            initialValue = 1f,
+                            targetValue = 0f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(300, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "blink"
+                        )
+
+                        SPControlButton(
+                            color = buttonSecondary.copy(alpha = blink),
+                            label = "Stop",
+                            onClick = { onStopAttempt() }
+                        ) {
+                            SPStopGlyph(Color.White)
+                        }
+                    } else {
+                        SPControlButton(
+                            color = buttonPrimary,
+                            label = "Try",
+                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }
+                        ) {
+                            SPMicGlyph(Color.White)
+                        }
                     }
                 }
                 SPControlButton(

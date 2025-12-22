@@ -7,8 +7,10 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -324,6 +326,8 @@ class EggThemeComponents : ThemeComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?,
     ) {
         EggRecordingItem(
             recording = recording,
@@ -339,7 +343,9 @@ class EggThemeComponents : ThemeComponents {
             onShare = onShare,
             onRename = onRename,
             isGameModeEnabled = isGameModeEnabled,
-            onStartAttempt = onStartAttempt
+            onStartAttempt = onStartAttempt,
+            activeAttemptRecordingPath = activeAttemptRecordingPath,
+            onStopAttempt = onStopAttempt
         )
     }
 
@@ -385,11 +391,11 @@ class EggThemeComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-          // 🎯 PHASE 3
+        // 🎯 PHASE 3
     ) {
         EggRecordButton(
             isRecording = isRecording,
-              // 🎯 PHASE 3
+            // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -605,6 +611,8 @@ fun EggRecordingItem(
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
     onStartAttempt: (Recording, ChallengeType) -> Unit,
+    activeAttemptRecordingPath: String?,
+    onStopAttempt: (() -> Unit)?,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -776,19 +784,51 @@ fun EggRecordingItem(
                     }
                 }
 
+                // 🎯 POLYMORPHIC: Try → Stop when recording attempt
                 if (isGameModeEnabled) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        HandDrawnEggButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
-                            backgroundColor = Color(0xFFFF8A65),
-                            enabled = isReady,
-                            size = 50.dp
-                        ) { EggMicLeftArrowIcon(Color(0xFF6B5344)) }
-                        Text(
-                            "Try",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF6B5344)
+                    val isAttemptingThis = activeAttemptRecordingPath == recording.originalPath
+
+                    if (isAttemptingThis && onStopAttempt != null) {
+                        // 🛑 STOP with wobble animation
+                        val infiniteTransition = rememberInfiniteTransition(label = "eggWobble")
+                        val wobble by infiniteTransition.animateFloat(
+                            initialValue = -3f,
+                            targetValue = 3f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(150),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "wobble"
                         )
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(modifier = Modifier.rotate(wobble)) {
+                                HandDrawnEggButton(
+                                    onClick = onStopAttempt,
+                                    backgroundColor = Color(0xFFFF5722),
+                                    size = 50.dp
+                                ) { EggStopIcon(Color(0xFF6B5344)) }
+                            }
+                            Text(
+                                "Stop",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF6B5344)
+                            )
+                        }
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            HandDrawnEggButton(
+                                onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
+                                backgroundColor = Color(0xFFFF8A65),
+                                enabled = isReady,
+                                size = 50.dp
+                            ) { EggMicLeftArrowIcon(Color(0xFF6B5344)) }
+                            Text(
+                                "Try",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF6B5344)
+                            )
+                        }
                     }
                 }
 
@@ -1778,7 +1818,7 @@ fun BouncingEggs(floorHeightOffset: Dp = 200.dp) {
 fun EggRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
 
     // Sync to shared state so BouncingEggs can see it

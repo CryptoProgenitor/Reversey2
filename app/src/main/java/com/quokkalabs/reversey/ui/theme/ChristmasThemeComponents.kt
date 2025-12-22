@@ -209,10 +209,13 @@ class ChristmasComponents : ThemeComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?,
     ) {
         ChristmasRecordingItem(
             recording, aesthetic, isPaused, progress, currentlyPlayingPath,
-            onPlay, onPause, onStop, onDelete, onShare, onRename, isGameModeEnabled, onStartAttempt
+            onPlay, onPause, onStop, onDelete, onShare, onRename, isGameModeEnabled, onStartAttempt,
+            activeAttemptRecordingPath, onStopAttempt
         )
     }
 
@@ -248,7 +251,7 @@ class ChristmasComponents : ThemeComponents {
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
 
-    ) {
+        ) {
         ChristmasRecordButton(isRecording) {
             if (isRecording) onStopRecording() else onStartRecording()
         }
@@ -1542,6 +1545,8 @@ fun ChristmasRecordingItem(
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
     onStartAttempt: (Recording, ChallengeType) -> Unit,
+    activeAttemptRecordingPath: String?,
+    onStopAttempt: (() -> Unit)?,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1654,15 +1659,111 @@ fun ChristmasRecordingItem(
                     }
                 }
 
+                // 🎯 POLYMORPHIC: Try → Stop when recording attempt
                 if (isGameModeEnabled) {
-                    ChristmasControlButton(
-                        goldButton, "Try",
-                        {
-                            if (recording.reversedPath != null) onStartAttempt(
-                                recording,
-                                ChallengeType.REVERSE
+                    val isAttemptingThis = activeAttemptRecordingPath == recording.originalPath
+
+                    if (isAttemptingThis && onStopAttempt != null) {
+                        // 🎄 SPECTACULAR STOP: Candy cane stripes + house-style lights
+                        val infiniteTransition = rememberInfiniteTransition(label = "christmas")
+
+                        // Candy cane stripe scroll (seamless loop)
+                        val stripeOffset by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 16f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(400, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "candyCane"
+                        )
+
+                        // Single phase for all lights (matches house)
+                        val lightPhase by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 2 * PI.toFloat(),
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(3000, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "lightPhase"
+                        )
+
+                        val lightColors = listOf(
+                            ChristmasTheme.christmasRed,
+                            ChristmasTheme.christmasGreen,
+                            ChristmasTheme.christmasGold,
+                            Color(0xFF4169E1),
+                            Color(0xFFFF69B4)
+                        )
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(3.dp, ChristmasTheme.christmasGreen, RoundedCornerShape(10.dp))
+                                    .clickable { onStopAttempt() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // Candy cane background
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    // White background
+                                    drawRect(Color.White)
+                                    // Red diagonal stripes
+                                    val stripeWidth = 8.dp.toPx()
+                                    val offset = stripeOffset.dp.toPx()
+                                    for (i in -6..10) {
+                                        val x = i * stripeWidth * 2 + offset
+                                        drawLine(
+                                            color = ChristmasTheme.christmasRed,
+                                            start = Offset(x, 0f),
+                                            end = Offset(x - size.height, size.height),
+                                            strokeWidth = stripeWidth
+                                        )
+                                    }
+                                }
+
+                                // House-style lights at corners
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    val positions = listOf(
+                                        Offset(4.dp.toPx(), 4.dp.toPx()),
+                                        Offset(size.width - 4.dp.toPx(), 4.dp.toPx()),
+                                        Offset(4.dp.toPx(), size.height - 4.dp.toPx()),
+                                        Offset(size.width - 4.dp.toPx(), size.height - 4.dp.toPx())
+                                    )
+                                    positions.forEachIndexed { i, pos ->
+                                        val brightness = (sin(lightPhase + i * 0.9f) + 1f) / 2f
+                                        val color = lightColors[i % lightColors.size]
+                                        // Outer glow
+                                        drawCircle(color.copy(alpha = brightness * 0.5f), radius = 4.dp.toPx(), center = pos)
+                                        // Inner core
+                                        drawCircle(color.copy(alpha = 0.6f + brightness * 0.4f), radius = 2.dp.toPx(), center = pos)
+                                    }
+                                }
+
+                                // Stop icon centered
+                                ChristmasStopIcon(ChristmasTheme.christmasGreen)
+                            }
+                            Spacer(Modifier.height(1.dp))
+                            Text(
+                                "Stop",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ChristmasTheme.christmasGreen,
+                                textAlign = TextAlign.Center
                             )
-                        }) { ChristmasMicIcon(iconColor) }
+                        }
+                    } else {
+                        ChristmasControlButton(
+                            goldButton, "Try",
+                            {
+                                if (recording.reversedPath != null) onStartAttempt(
+                                    recording,
+                                    ChallengeType.REVERSE
+                                )
+                            }) { ChristmasMicIcon(iconColor) }
+                    }
                 }
                 ChristmasControlButton(
                     redButton,

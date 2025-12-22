@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.Font
@@ -313,6 +314,8 @@ class SakuraSerenityComponents : ThemeComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?,
     ) {
         // 🌸 THEME COLORS
         val bgPink = Color(0xFFFFF0F5) // Lavender Blush
@@ -469,21 +472,49 @@ class SakuraSerenityComponents : ThemeComponents {
                         }
                     }
 
-                    // Game Mode Controls
+                    // 🎯 POLYMORPHIC: Try → Stop when recording attempt
                     if (isGameModeEnabled && recording.reversedPath != null) {
-                        SakuraControlButton(
-                            color = buttonBg,
-                            label = "Try",
-                            textColor = textDarkPink,
-                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }) {
-                            Icon(
-                                Icons.Default.ArrowUpward,
-                                "Try",
-                                tint = textDarkPink,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .rotate(180f)
+                        val isAttemptingThis = activeAttemptRecordingPath == recording.originalPath
+
+                        if (isAttemptingThis && onStopAttempt != null) {
+                            // 🛑 STOP with Y-axis spin animation
+                            val infiniteTransition =
+                                rememberInfiniteTransition(label = "sakuraSpin")
+                            val spin by infiniteTransition.animateFloat(
+                                initialValue = 1f,
+                                targetValue = -1f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(600, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "spin"
                             )
+
+                            SakuraControlButton(
+                                color = buttonBg,
+                                label = "Stop",
+                                textColor = textDarkPink,
+                                onClick = { onStopAttempt() }
+                            ) {
+                                Box(modifier = Modifier.graphicsLayer(scaleX = spin)) {
+                                    SakuraStopIcon(textDarkPink)
+                                }
+                            }
+                        } else {
+                            SakuraControlButton(
+                                color = buttonBg,
+                                label = "Try",
+                                textColor = textDarkPink,
+                                onClick = { onStartAttempt(recording, ChallengeType.REVERSE) }) {
+                                Icon(
+                                    Icons.Default.ArrowUpward,
+                                    "Try",
+                                    tint = textDarkPink,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .rotate(180f)
+                                )
+                            }
                         }
                     }
                     // 🌸 STYLED DELETE BUTTON (Consistent with control row)
@@ -781,7 +812,7 @@ class SakuraSerenityComponents : ThemeComponents {
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
 
-    ) {
+        ) {
         Box(
             modifier = Modifier
                 .size(80.dp)

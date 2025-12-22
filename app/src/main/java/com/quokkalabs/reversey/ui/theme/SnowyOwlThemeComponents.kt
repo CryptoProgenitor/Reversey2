@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -196,6 +197,8 @@ class SnowyOwlComponents : ThemeComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?,
     ) {
         SnowyOwlRecordingItem(
             recording = recording,
@@ -210,7 +213,9 @@ class SnowyOwlComponents : ThemeComponents {
             onShare = onShare,
             onRename = onRename,
             isGameModeEnabled = isGameModeEnabled,
-            onStartAttempt = onStartAttempt
+            onStartAttempt = onStartAttempt,
+            activeAttemptRecordingPath = activeAttemptRecordingPath,
+            onStopAttempt = onStopAttempt
         )
     }
 
@@ -256,11 +261,11 @@ class SnowyOwlComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-          // 🎯 PHASE 3
+        // 🎯 PHASE 3
     ) {
         SnowyOwlRecordButton(
             isRecording = isRecording,
-              // 🎯 PHASE 3
+            // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -470,7 +475,7 @@ class SnowyOwlComponents : ThemeComponents {
 fun SnowyOwlRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val moonColor = Color(0xFFe8e8e8)
     val eclipseColor = Color(0xFF1c2541)
@@ -1357,6 +1362,8 @@ fun SnowyOwlRecordingItem(
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
     onStartAttempt: (Recording, ChallengeType) -> Unit,
+    activeAttemptRecordingPath: String?,
+    onStopAttempt: (() -> Unit)?,
 ) {
     val aesthetic = AestheticTheme()
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -1442,7 +1449,9 @@ fun SnowyOwlRecordingItem(
                         },
                         { if (isPlayingForward) onPause() else onPlay(recording.originalPath) }
                     ) {
-                        if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
+                        if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(
+                            Color.White
+                        )
                     }
                 }
 
@@ -1461,18 +1470,87 @@ fun SnowyOwlRecordingItem(
                             isPlayingReversed && isPaused -> "Resume"
                             else -> "Rev"
                         },
-                        { if (isPlayingReversed) onPause() else recording.reversedPath?.let { onPlay(it) } }
+                        {
+                            if (isPlayingReversed) onPause() else recording.reversedPath?.let {
+                                onPlay(
+                                    it
+                                )
+                            }
+                        }
                     ) {
-                        if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(Color.White)
+                        if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(
+                            Color.White
+                        )
                     }
                 }
 
+                // 🎯 POLYMORPHIC: Try → Stop when recording attempt
                 if (isGameModeEnabled) {
-                    OwlControlButton(
-                        mysticPurple,
-                        "Try",
-                        { onStartAttempt(recording, ChallengeType.REVERSE) }
-                    ) { OwlMicLeftArrowIcon(Color.White) }
+                    val isAttemptingThis = activeAttemptRecordingPath == recording.originalPath
+
+                    if (isAttemptingThis && onStopAttempt != null) {
+                        // 🌙 STOP with animated moon phase (crescent → full → crescent)
+                        val infiniteTransition = rememberInfiniteTransition(label = "moonPhase")
+                        val t by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(2400, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "moonCycle"
+                        )
+                        // t=0: crescent (0.85), t=0.5: full (0.15), t=1: crescent (0.85)
+                        // The original formula WAS correct for the desired visual range!
+                        val phase = 0.5f + 0.35f * kotlin.math.cos(t * 2 * Math.PI.toFloat())
+
+                        OwlControlButton(
+                            mysticPurple,
+                            "Stop",
+                            { onStopAttempt() }
+                        ) {
+                            // Animated crescent moon with proper phase transition
+                            Canvas(modifier = Modifier.size(32.dp)) {
+                                val path = Path().apply {
+                                    // Start at top center
+                                    moveTo(size.width * 0.5f, size.height * 0.1f)
+                                    // Outer arc - fixed right bulge (illuminated side)
+                                    cubicTo(
+                                        size.width * 0.9f, size.height * 0.2f,
+                                        size.width * 0.9f, size.height * 0.8f,
+                                        size.width * 0.5f, size.height * 0.9f
+                                    )
+                                    // Inner arc - phase controls dark portion
+                                    // phase=0.85: inner at 0.85 (thin crescent)
+                                    // phase=0.15: inner at 0.15 (almost full)
+                                    // The "darkness" moves from right to left as phase decreases
+                                    cubicTo(
+                                        size.width * phase, size.height * 0.8f,
+                                        size.width * phase, size.height * 0.2f,
+                                        size.width * 0.5f, size.height * 0.1f
+                                    )
+                                }
+                                drawPath(
+                                    path,
+                                    Color.White,
+                                    //style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                    // Optional: Add glow effect for better visibility
+                                    style = Stroke(
+                                        width = 2.dp.toPx(),
+                                        cap = StrokeCap.Round,
+                                        join = StrokeJoin.Round,
+                                        pathEffect = PathEffect.cornerPathEffect(4.dp.toPx())
+                                    )
+                                )
+                            }
+                        }
+                    } else {
+                        OwlControlButton(
+                            mysticPurple,
+                            "Try",
+                            { onStartAttempt(recording, ChallengeType.REVERSE) }
+                        ) { OwlMicLeftArrowIcon(Color.White) }
+                    }
                 }
                 OwlControlButton(deepSlate, "Del", { showDeleteDialog = true }) {
                     OwlDeleteIcon(Color.White)
@@ -1608,7 +1686,9 @@ fun SnowyOwlAttemptItem(
                                 },
                                 { if (isPlayingForward) onPause() else onPlay(attempt.attemptFilePath) }
                             ) {
-                                if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(Color.White)
+                                if (isPlayingForward && !isPaused) OwlPauseIcon(Color.White) else OwlPlayIcon(
+                                    Color.White
+                                )
                             }
                         }
 
@@ -1630,7 +1710,9 @@ fun SnowyOwlAttemptItem(
                                     },
                                     { if (isPlayingReversed) onPause() else onPlay(reversedPath) }
                                 ) {
-                                    if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(Color.White)
+                                    if (isPlayingReversed && !isPaused) OwlPauseIcon(Color.White) else OwlRewindIcon(
+                                        Color.White
+                                    )
                                 }
                             }
                         }
@@ -1768,7 +1850,11 @@ fun OwlStopIcon(color: Color) {
                 size.width * 0.55f, size.height * 0.1f
             )
         }
-        drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(
+            path,
+            color,
+            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
     }
 }
 

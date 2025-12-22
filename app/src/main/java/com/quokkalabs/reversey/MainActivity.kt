@@ -513,7 +513,9 @@ fun AudioReverserApp(
                                     isGameModeEnabled = isGameModeEnabled,
                                     onStartAttempt = { rec: Recording, type: ChallengeType ->
                                         viewModel.startAttemptRecording(rec, type)
-                                    }
+                                    },
+                                    activeAttemptRecordingPath = if (uiState.isRecordingAttempt) uiState.parentRecordingPath else null,
+                                    onStopAttempt = { viewModel.stopAttempt() }
                                 )
                             }
 

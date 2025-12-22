@@ -43,7 +43,9 @@ interface ThemeComponents {
         onShare: (String) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
-        onStartAttempt: (Recording, ChallengeType) -> Unit
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String? = null,  // 🎯 Which recording has active attempt
+        onStopAttempt: (() -> Unit)? = null          // 🎯 Stop attempt callback
     )
 
     /**

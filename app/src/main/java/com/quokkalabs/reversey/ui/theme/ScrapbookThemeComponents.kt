@@ -2,8 +2,12 @@ package com.quokkalabs.reversey.ui.theme
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -213,6 +217,8 @@ class ScrapbookThemeComponents : ThemeComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?,
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
@@ -333,14 +339,72 @@ class ScrapbookThemeComponents : ThemeComponents {
                             )
                         }
 
+                        // 🎯 POLYMORPHIC: Try → Stop when recording attempt
                         if (isGameModeEnabled) {
-                            ScrapbookButton(
-                                onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
-                                icon = Icons.Default.Mic,
-                                label = "Try",
-                                iconColor = Color(0xFFE91E63),
-                                enabled = isReady
-                            )
+                            val isAttemptingThis =
+                                activeAttemptRecordingPath == recording.originalPath
+
+                            if (isAttemptingThis && onStopAttempt != null) {
+                                // 🛑 STOP BUTTON with pulsing icon
+                                val infiniteTransition =
+                                    rememberInfiniteTransition(label = "stopPulse")
+                                val iconAlpha by infiniteTransition.animateFloat(
+                                    initialValue = 1f,
+                                    targetValue = 0.4f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(500),
+                                        repeatMode = RepeatMode.Reverse
+                                    ),
+                                    label = "iconAlpha"
+                                )
+
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .clickable { onStopAttempt() }
+                                        .padding(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .background(Color.White, RoundedCornerShape(4.dp))
+                                            .border(
+                                                2.dp,
+                                                Color(0xFFFF1744).copy(0.8f),
+                                                RoundedCornerShape(4.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Stop,
+                                            "Stop",
+                                            tint = Color(0xFFFF1744),
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .alpha(iconAlpha)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = "Stop",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontFamily = dancingScriptFontFamily,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        ),
+                                        color = Color.Black.copy(0.8f)
+                                    )
+                                }
+                            } else {
+                                // 🎤 TRY BUTTON (normal)
+                                ScrapbookButton(
+                                    onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
+                                    icon = Icons.Default.Mic,
+                                    label = "Try",
+                                    iconColor = Color(0xFFE91E63),
+                                    enabled = isReady
+                                )
+                            }
                         }
 
                         ScrapbookButton(
@@ -631,7 +695,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-          // 🎯 PHASE 3
+        // 🎯 PHASE 3
     ) {
         // SVG booklet as the base
         val notebookPainter = painterResource(id = R.drawable.spiral_notebook)

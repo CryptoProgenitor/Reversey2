@@ -218,6 +218,8 @@ class GuitarComponents : ThemeComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?,
     ) {
         GuitarRecordingItem(
             recording = recording,
@@ -231,7 +233,9 @@ class GuitarComponents : ThemeComponents {
             onShare = onShare,
             onRename = onRename,
             isGameModeEnabled = isGameModeEnabled,
-            onStartAttempt = onStartAttempt
+            onStartAttempt = onStartAttempt,
+            activeAttemptRecordingPath = activeAttemptRecordingPath,
+            onStopAttempt = onStopAttempt
         )
     }
 
@@ -277,11 +281,11 @@ class GuitarComponents : ThemeComponents {
         aesthetic: AestheticThemeData,
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
-          // 🎯 PHASE 3
+        // 🎯 PHASE 3
     ) {
         GuitarRecordButton(
             isRecording = isRecording,
-              // 🎯 PHASE 3
+            // 🎯 PHASE 3
             onClick = {
                 if (isRecording) {
                     onStopRecording()
@@ -544,7 +548,7 @@ fun FloatingMusicNote(
 fun GuitarRecordButton(
     isRecording: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var isStrumming by remember { mutableStateOf(false) }
@@ -1163,6 +1167,8 @@ fun GuitarRecordingItem(
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
     onStartAttempt: (Recording, ChallengeType) -> Unit,
+    activeAttemptRecordingPath: String?,
+    onStopAttempt: (() -> Unit)?,
 ) {
     val aesthetic = AestheticTheme() // Get access to dialogs
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -1288,17 +1294,44 @@ fun GuitarRecordingItem(
                     }
                 }
 
+                // 🎯 POLYMORPHIC: Try → Stop when recording attempt
                 if (isGameModeEnabled) {
-                    // 🛡️ FIX: Check if reversedPath exists before starting
-                    GuitarControlButton(
-                        color = tealGreen,
-                        label = "Try",
-                        onClick = {
-                            if (recording.reversedPath != null) onStartAttempt(
-                                recording,
-                                ChallengeType.REVERSE
-                            )
-                        }) { GuitarMicIcon(darkBrown) }
+                    val isAttemptingThis = activeAttemptRecordingPath == recording.originalPath
+
+                    if (isAttemptingThis && onStopAttempt != null) {
+                        // 🛑 STOP with tremolo vibrate animation
+                        val infiniteTransition = rememberInfiniteTransition(label = "guitarTremolo")
+                        val vibrate by infiniteTransition.animateFloat(
+                            initialValue = -3f,
+                            targetValue = 3f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(80, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "vibrate"
+                        )
+
+                        GuitarControlButton(
+                            color = peachOrange,
+                            label = "Stop",
+                            onClick = { onStopAttempt() }
+                        ) {
+                            Box(modifier = Modifier.offset(x = vibrate.dp)) {
+                                GuitarStopIcon(darkBrown)
+                            }
+                        }
+                    } else {
+                        // 🛡️ FIX: Check if reversedPath exists before starting
+                        GuitarControlButton(
+                            color = tealGreen,
+                            label = "Try",
+                            onClick = {
+                                if (recording.reversedPath != null) onStartAttempt(
+                                    recording,
+                                    ChallengeType.REVERSE
+                                )
+                            }) { GuitarMicIcon(darkBrown) }
+                    }
                 }
                 GuitarControlButton(
                     onClick = { showDeleteDialog = true },

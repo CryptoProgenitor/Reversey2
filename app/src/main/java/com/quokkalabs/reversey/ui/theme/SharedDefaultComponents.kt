@@ -46,6 +46,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -90,6 +96,8 @@ object SharedDefaultComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String? = null,  // 🎯 Which recording has active attempt
+        onStopAttempt: (() -> Unit)? = null,         // 🎯 Stop attempt callback
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
@@ -226,15 +234,59 @@ object SharedDefaultComponents {
                         )
                     }
 
-                    // 4. Game Mode Button
+                    // 4. Game Mode Button - 🎯 POLYMORPHIC: Try → Stop when recording attempt
                     if (isGameModeEnabled) {
-                        SimpleGlowButton(
-                            onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
-                            size = 50.dp,
-                            label = "Try",
-                            icon = Icons.Default.Mic,
-                            isPrimary = true
-                        )
+                        val isAttemptingThis = activeAttemptRecordingPath == recording.originalPath
+
+                        if (isAttemptingThis && onStopAttempt != null) {
+                            // 🛑 STOP BUTTON with pulsing icon
+                            val infiniteTransition = rememberInfiniteTransition(label = "stopPulse")
+                            val iconAlpha by infiniteTransition.animateFloat(
+                                initialValue = 1f,
+                                targetValue = 0.4f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(500),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "iconAlpha"
+                            )
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Button(
+                                    onClick = onStopAttempt,
+                                    modifier = Modifier.size(50.dp),
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(0.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) {
+                                    Icon(
+                                        Icons.Default.Stop,
+                                        contentDescription = "Stop",
+                                        modifier = Modifier.alpha(iconAlpha)
+                                    )
+                                }
+                                Text(
+                                    text = "Stop",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        } else {
+                            // 🎤 TRY BUTTON (normal)
+                            SimpleGlowButton(
+                                onClick = { onStartAttempt(recording, ChallengeType.REVERSE) },
+                                size = 50.dp,
+                                label = "Try",
+                                icon = Icons.Default.Mic,
+                                isPrimary = true
+                            )
+                        }
                     }
 
                     // 5. Delete
@@ -861,6 +913,8 @@ class DefaultThemeComponents : ThemeComponents {
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?,
     ) {
         SharedDefaultComponents.MaterialRecordingCard(
             recording = recording,
@@ -876,7 +930,9 @@ class DefaultThemeComponents : ThemeComponents {
             onShare = onShare,
             onRename = onRename,
             isGameModeEnabled = isGameModeEnabled,
-            onStartAttempt = onStartAttempt
+            onStartAttempt = onStartAttempt,
+            activeAttemptRecordingPath = activeAttemptRecordingPath,
+            onStopAttempt = onStopAttempt
         )
     }
 
@@ -923,7 +979,7 @@ class DefaultThemeComponents : ThemeComponents {
         onStartRecording: () -> Unit,
         onStopRecording: () -> Unit,
 
-    ) {
+        ) {
         SharedDefaultComponents.MaterialRecordButton(isRecording) {
             if (isRecording) onStopRecording() else onStartRecording()
         }
