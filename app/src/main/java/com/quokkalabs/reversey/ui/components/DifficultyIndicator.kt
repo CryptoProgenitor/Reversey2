@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,26 +25,57 @@ import com.quokkalabs.reversey.scoring.DifficultyLevel
 /**
  * Difficulty indicator for the top-right corner of the home screen
  * Shows current difficulty level with emoji and text
- * Now clickable to navigate to difficulty settings! 🔧
+ * Recording progress shown as draining border! 🎯
+ *
+ * @param difficulty Current difficulty level
+ * @param onClick Click handler for navigation to settings
+ * @param recordingProgress Optional progress (1.0 → 0.0) shown as draining border during recording
+ * @param modifier Modifier for the component
  */
 @Composable
 fun DifficultyIndicator(
     difficulty: DifficultyLevel,
-    onClick: () -> Unit = {}, // 🔧 ADD THIS - click handler for navigation
+    onClick: () -> Unit = {},
+    recordingProgress: Float? = null,
     modifier: Modifier = Modifier
 ) {
     val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
+    val arcColor = Color(0xFF1A1A2E)  // Dark color for progress arc
+    val shape = RoundedCornerShape(16.dp)
 
+    // Determine border based on recording state
+    val isRecording = recordingProgress != null && recordingProgress < 1f
+
+    val borderModifier = if (isRecording) {
+        // Progress border: sweeps clockwise from top, draining as time runs out
+        // Offset shifts gradient center to align sweep with top of badge
+        Modifier.border(
+            width = 3.dp,
+            brush = Brush.sweepGradient(
+                colorStops = arrayOf(
+                    0.0f to arcColor,
+                    recordingProgress!! to arcColor,
+                    recordingProgress to Color.Transparent,
+                    1.0f to Color.Transparent
+                ),
+                center = Offset.Unspecified  // Centers on the shape
+            ),
+            shape = shape
+        )
+    } else {
+        // Normal border
+        Modifier.border(width = 1.dp, color = difficultyColor, shape = shape)
+    }
 
     Card(
         modifier = modifier
-            .clickable { onClick() } // 🔧 ADD THIS - make it clickable
-            .border(width = 1.dp, color = difficultyColor, shape = RoundedCornerShape(16.dp))
-            .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = difficultyColor.copy(alpha = 0.55f)),
+            .clickable { onClick() }
+            .then(borderModifier)
+            .shadow(4.dp, shape, ambientColor = difficultyColor.copy(alpha = 0.55f)),
         colors = CardDefaults.cardColors(
             containerColor = difficultyColor.copy(alpha = 0.55f)
         ),
-        shape = RoundedCornerShape(16.dp)
+        shape = shape
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),

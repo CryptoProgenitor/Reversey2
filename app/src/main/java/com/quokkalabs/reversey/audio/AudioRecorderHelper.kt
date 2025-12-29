@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,7 +61,10 @@ class AudioRecorderHelper @Inject constructor(
     val countdownProgress = _countdownProgress.asStateFlow()
 
     // 🎯 Typed RecorderEvent
-    private val _events = MutableSharedFlow<RecorderEvent>()
+    private val _events = MutableSharedFlow<RecorderEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     val events: SharedFlow<RecorderEvent> = _events.asSharedFlow()
 
     private var recorderJob: Job? = null
@@ -148,9 +152,11 @@ class AudioRecorderHelper @Inject constructor(
                                 _countdownProgress.value = 1f - (elapsed.toFloat() / maxDurationMs)
                             }
                             // Auto-stop when countdown reaches zero
+                            // Auto-stop when countdown reaches zero
                             if (_isRecording.value) {
                                 Log.d("AudioRecorder", "🎯 Countdown complete - auto-stopping")
-                                _events.emit(RecorderEvent.Stop)
+                                val emitted = _events.tryEmit(RecorderEvent.Stop)
+                                Log.d("AudioRecorder", "🎯 Stop event tryEmit result: $emitted")
                             }
                         }
                     }

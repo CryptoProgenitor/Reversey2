@@ -417,9 +417,11 @@ fun AudioReverserApp(
                     },
                     actions = {
                         val currentDifficulty by viewModel.currentDifficultyFlow.collectAsState()
+                        val countdownProgress by viewModel.countdownProgress.collectAsState()
                         DifficultyIndicator(
                             difficulty = currentDifficulty,
                             onClick = openMenuToSettings,
+                            recordingProgress = if (uiState.isRecording) countdownProgress else null,
                             modifier = Modifier.padding(end = UiConstants.DIFFICULTY_INDICATOR_END_PADDING)
                         )
                     },

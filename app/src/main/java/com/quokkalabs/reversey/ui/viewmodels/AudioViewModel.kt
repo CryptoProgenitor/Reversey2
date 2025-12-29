@@ -265,7 +265,7 @@ class AudioViewModel @Inject constructor(
             currentRecordingFile = recordingFile
 
             // 🎯 FIX: Use correct method signature - start(File, maxDurationMs?)
-            audioRecorderHelper.start(recordingFile)
+            audioRecorderHelper.start(recordingFile, AudioConstants.MAX_RECORDING_DURATION_MS)
         }
     }
 
@@ -477,7 +477,7 @@ class AudioViewModel @Inject constructor(
             Log.d("RECORD_BUG", "🎤 About to call audioRecorderHelper.start()")
 
             // 🎯 FIX: Use correct method signature
-            audioRecorderHelper.start(attemptFile)
+            audioRecorderHelper.start(attemptFile, AudioConstants.MAX_RECORDING_DURATION_MS)
 
             Log.d("RECORD_BUG", "✅ audioRecorderHelper.start() returned")
         }
