@@ -1,6 +1,7 @@
 package com.quokkalabs.reversey.ui.menu
 
 import android.net.Uri
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -83,6 +87,12 @@ fun FilesContent(
     var currentScreen by remember { mutableStateOf<FilesScreen>(FilesScreen.Menu) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var isExporting by remember { mutableStateOf(false) }
+    var isExportingSelection by remember { mutableStateOf(false) }
+
+    // Share dialog state for Back It Up
+    var showBackupShareDialog by remember { mutableStateOf(false) }
+    var backupExportedUri by remember { mutableStateOf<Uri?>(null) }
+    var backupResultMessage by remember { mutableStateOf("") }
 
     // Handle incoming WAV file from external app
     LaunchedEffect(incomingWavUri) {
@@ -111,11 +121,10 @@ fun FilesContent(
                         result.zipFile.delete()
                         result.zipFile.parentFile?.deleteRecursively()
 
-                        Toast.makeText(
-                            context,
-                            "Backup saved! ${result.recordingsExported} recordings, ${result.attemptsExported} attempts",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        // Show share dialog
+                        backupExportedUri = uri
+                        backupResultMessage = "${result.recordingsExported} recordings, ${result.attemptsExported} attempts"
+                        showBackupShareDialog = true
                     } else {
                         Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
                     }
@@ -146,6 +155,9 @@ fun FilesContent(
                         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
                         exportLauncher.launch("reversey_backup_$timestamp.zip")
                     },
+                    onExportSelection = {
+                        currentScreen = FilesScreen.ExportSelection
+                    },
                     onRestoreBackup = {
                         wizardViewModel.reset()
                         currentScreen = FilesScreen.RestoreWizard
@@ -156,7 +168,8 @@ fun FilesContent(
                     onStartFresh = {
                         showDeleteConfirmDialog = true
                     },
-                    isExporting = isExporting
+                    isExporting = isExporting,
+                    isExportingSelection = isExportingSelection
                 )
             }
 
@@ -205,9 +218,27 @@ fun FilesContent(
                         } else {
                             currentScreen = FilesScreen.Menu
                         }
+
                     }
                 )
             }
+
+            is FilesScreen.ExportSelection -> {
+                ExportSelectionContent(
+                    audioViewModel = audioViewModel,
+                    backupManager = backupManager,
+                    onExportStarted = { isExportingSelection = true },
+                    onExportComplete = { message ->
+                        isExportingSelection = false
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        currentScreen = FilesScreen.Menu
+                    },
+                    onBack = {
+                        currentScreen = FilesScreen.Menu
+                    }
+                )
+            }
+
         }
 
         // Delete confirmation dialog
@@ -248,6 +279,60 @@ fun FilesContent(
                 }
             )
         }
+
+        // Share dialog for Back It Up
+        if (showBackupShareDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showBackupShareDialog = false
+                    isExporting = false
+                },
+                title = {
+                    Text(
+                        "Backup Complete! ✅",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        "Exported $backupResultMessage",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            backupExportedUri?.let { uri ->
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/zip"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Share Backup"))
+                            }
+                            showBackupShareDialog = false
+                            isExporting = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StaticMenuColors.toggleActive
+                        )
+                    ) {
+                        Text("Share")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = {
+                            showBackupShareDialog = false
+                            isExporting = false
+                        }
+                    ) {
+                        Text("Done")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -256,6 +341,7 @@ sealed class FilesScreen {
     object Menu : FilesScreen()
     object RestoreWizard : FilesScreen()
     object AddRecordingPicker : FilesScreen()
+    object ExportSelection : FilesScreen()
     data class SingleWavImport(val wavUri: Uri) : FilesScreen()
 }
 
@@ -267,10 +353,12 @@ sealed class FilesScreen {
 private fun FilesMenuContent(
     onNavigateBack: () -> Unit,
     onBackItUp: () -> Unit,
+    onExportSelection: () -> Unit,
     onRestoreBackup: () -> Unit,
     onAddRecording: () -> Unit,
     onStartFresh: () -> Unit,
-    isExporting: Boolean
+    isExporting: Boolean,
+    isExportingSelection: Boolean
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Glass Header
@@ -299,13 +387,22 @@ private fun FilesMenuContent(
                 showProgress = isExporting
             )
 
+            MenuCard(
+                emoji = "☑️",
+                title = "Export Selection",
+                subtitle = if (isExportingSelection) "Exporting..." else "Choose recordings to export",
+                onClick = onExportSelection,
+                enabled = !isExporting && !isExportingSelection,
+                showProgress = isExportingSelection
+            )
+
             // RESTORE Section
             SectionHeader("RESTORE")
 
             MenuCard(
                 emoji = "📦",
-                title = "Restore Backup",
-                subtitle = "Bring back your stuff from a zip",
+                title = "Import Backup",
+                subtitle = "Add recordings from a zip file",
                 onClick = onRestoreBackup
             )
 
@@ -640,6 +737,318 @@ private fun DangerCard(
                 style = MaterialTheme.typography.headlineMedium,
                 color = StaticMenuColors.deleteText.copy(alpha = 0.5f)
             )
+        }
+    }
+}
+
+// ============================================================
+//  EXPORT SELECTION SCREEN
+// ============================================================
+
+@Composable
+private fun ExportSelectionContent(
+    audioViewModel: AudioViewModel,
+    backupManager: BackupManager,
+    onExportStarted: () -> Unit,
+    onExportComplete: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val uiState by audioViewModel.uiState.collectAsState()
+    val recordings = uiState.recordings
+
+    // Selection state - all selected by default
+    var selectedPaths by remember(recordings) {
+        mutableStateOf(recordings.map { it.originalPath }.toSet())
+    }
+
+    // Derived state for toggle
+    val allSelected = selectedPaths.size == recordings.size && recordings.isNotEmpty()
+
+    // Share dialog state
+    var showShareDialog by remember { mutableStateOf(false) }
+    var exportedUri by remember { mutableStateOf<Uri?>(null) }
+    var exportResultMessage by remember { mutableStateOf("") }
+
+    // Export launcher
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null && selectedPaths.isNotEmpty()) {
+            onExportStarted()
+            scope.launch {
+                try {
+                    val tempDir = File(context.cacheDir, "backup_temp").apply { mkdirs() }
+                    val result = backupManager.exportCustomSelection(
+                        selectedPaths.toList(),
+                        tempDir
+                    )
+
+                    if (result.success && result.zipFile != null) {
+                        context.contentResolver.openOutputStream(uri)?.use { output ->
+                            java.io.FileInputStream(result.zipFile).use { input ->
+                                input.copyTo(output)
+                            }
+                        }
+                        result.zipFile.delete()
+                        result.zipFile.parentFile?.deleteRecursively()
+
+                        // Show share dialog instead of completing immediately
+                        exportedUri = uri
+                        exportResultMessage = "${result.recordingsExported} recordings, ${result.attemptsExported} attempts"
+                        showShareDialog = true
+                    } else {
+                        onExportComplete("Export failed")
+                    }
+                } catch (e: Exception) {
+                    onExportComplete("Error: ${e.message}")
+                }
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+    ) {
+        GlassHeader(
+            title = "EXPORT SELECTION",
+            onBack = onBack
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Select All / None toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Select All",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = StaticMenuColors.textOnGradient
+            )
+
+            Switch(
+                checked = allSelected,
+                onCheckedChange = { checked ->
+                    selectedPaths = if (checked) {
+                        recordings.map { it.originalPath }.toSet()
+                    } else {
+                        emptySet()
+                    }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = StaticMenuColors.toggleActive,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = StaticMenuColors.textMuted.copy(alpha = 0.3f),
+                    uncheckedBorderColor = Color.Transparent
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Summary
+        val totalAttempts = recordings.filter { it.originalPath in selectedPaths }
+            .sumOf { it.attempts.size }
+        Text(
+            text = "${selectedPaths.size} recordings, $totalAttempts attempts selected",
+            style = MaterialTheme.typography.bodySmall,
+            color = StaticMenuColors.textMuted.copy(alpha = 0.7f),
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Recording list with checkboxes
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            recordings.forEach { recording ->
+                val isSelected = recording.originalPath in selectedPaths
+                SelectableRecordingCard(
+                    name = recording.name,
+                    attemptCount = recording.attempts.size,
+                    isSelected = isSelected,
+                    onToggle = {
+                        selectedPaths = if (isSelected) {
+                            selectedPaths - recording.originalPath
+                        } else {
+                            selectedPaths + recording.originalPath
+                        }
+                    }
+                )
+            }
+
+            if (recordings.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "No recordings to export",
+                        color = StaticMenuColors.textMuted
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Export button
+        Button(
+            onClick = {
+                val count = selectedPaths.size
+                val total = recordings.size
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val filename = if (count == total) {
+                    "reversey_backup_$timestamp.zip"
+                } else {
+                    "reversey_backup_${count}of${total}_$timestamp.zip"
+                }
+                exportLauncher.launch(filename)
+            },
+            enabled = selectedPaths.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = StaticMenuColors.toggleActive
+            )
+        ) {
+            Text("Export ${selectedPaths.size} Recording${if (selectedPaths.size != 1) "s" else ""}")
+        }
+    }
+
+    // Share dialog after export
+    if (showShareDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showShareDialog = false
+                onExportComplete("Exported $exportResultMessage")
+            },
+            title = {
+                Text(
+                    "Export Complete! ✅",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    "Exported $exportResultMessage",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        exportedUri?.let { uri ->
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/zip"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Backup"))
+                        }
+                        showShareDialog = false
+                        onExportComplete("Exported $exportResultMessage")
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StaticMenuColors.toggleActive
+                    )
+                ) {
+                    Text("Share")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showShareDialog = false
+                        onExportComplete("Exported $exportResultMessage")
+                    }
+                ) {
+                    Text("Done")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SelectableRecordingCard(
+    name: String,
+    attemptCount: Int,
+    isSelected: Boolean,
+    onToggle: () -> Unit
+) {
+    val shape = RoundedCornerShape(12.dp)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(
+                if (isSelected) Color.White
+                else StaticMenuColors.settingsCardBackground
+            )
+            .border(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) StaticMenuColors.toggleActive else Color.White.copy(alpha = 0.2f),
+                shape = shape
+            )
+            .clickable(onClick = onToggle)
+            .padding(16.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Checkbox indicator
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        if (isSelected) StaticMenuColors.toggleActive
+                        else Color.Transparent
+                    )
+                    .border(
+                        2.dp,
+                        StaticMenuColors.toggleActive,
+                        RoundedCornerShape(6.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Text("✓", color = Color.White, fontSize = 14.sp)
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isSelected) Color.DarkGray else StaticMenuColors.textOnCard
+                )
+                Text(
+                    text = "$attemptCount attempt${if (attemptCount != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSelected) Color.Gray else StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                )
+            }
         }
     }
 }
