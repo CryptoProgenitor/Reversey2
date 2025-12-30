@@ -287,7 +287,7 @@ class BackupManager @Inject constructor(
                 val summary = BackupSummary(recordingEntries.size, attemptEntriesMap.values.sumOf { it.size }, totalSizeBytes, null, null, customNamesMap.isNotEmpty())
 
                 val manifest = BackupManifestV2(
-                    version = "2.1",
+                    version = "2.3",
                     exportTimestampMs = System.currentTimeMillis(),
                     appVersionName = packageInfo.versionName ?: "1.0",
                     appVersionCode = packageInfo.versionCode,
@@ -843,9 +843,6 @@ class BackupManager @Inject constructor(
         AttemptMetadataBackup(
             playerName = attempt.playerName,
             score = attempt.score,
-            pitchSimilarity = attempt.pitchSimilarity,
-            mfccSimilarity = attempt.mfccSimilarity,
-            rawScore = attempt.rawScore,
             challengeType = attempt.challengeType.toBackupString(),
             difficulty = attempt.difficulty.toBackupString(),
             feedback = attempt.feedback,
@@ -862,7 +859,9 @@ class BackupManager @Inject constructor(
             targetWordPhonemes = attempt.targetWordPhonemes.map { it.toBackup() },
             attemptWordPhonemes = attempt.attemptWordPhonemes.map { it.toBackup() },
             durationRatio = attempt.durationRatio,
-            wordAccuracy = attempt.wordAccuracy
+            wordAccuracy = attempt.wordAccuracy,
+            // v2.3: Score breakdown
+            scoreBreakdown = attempt.scoreBreakdown?.toBackup()
         )
 
     private fun metadataToPlayerAttempt(
@@ -875,9 +874,6 @@ class BackupManager @Inject constructor(
             attemptFilePath = attemptFilePath,
             reversedAttemptFilePath = reversedAttemptFilePath,
             score = metadata.score,
-            pitchSimilarity = metadata.pitchSimilarity,
-            mfccSimilarity = metadata.mfccSimilarity,
-            rawScore = metadata.rawScore,
             challengeType = ChallengeType.valueOf(metadata.challengeType),
             difficulty = DifficultyLevel.valueOf(metadata.difficulty),
             feedback = metadata.feedback,
@@ -894,6 +890,8 @@ class BackupManager @Inject constructor(
             targetWordPhonemes = metadata.targetWordPhonemes.map { it.toWordPhonemes() },
             attemptWordPhonemes = metadata.attemptWordPhonemes.map { it.toWordPhonemes() },
             durationRatio = metadata.durationRatio,
-            wordAccuracy = metadata.wordAccuracy
+            wordAccuracy = metadata.wordAccuracy,
+            // v2.3: Score breakdown restored
+            scoreBreakdown = metadata.scoreBreakdown?.toScoreBreakdown()
         )
 }

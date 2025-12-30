@@ -4,17 +4,22 @@ import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.scoring.DebuggingData
 import com.quokkalabs.reversey.scoring.DifficultyLevel
 import com.quokkalabs.reversey.scoring.PerformanceInsights
+import com.quokkalabs.reversey.scoring.ScoreBreakdown
 import com.quokkalabs.reversey.scoring.VocalAnalysis
 import com.quokkalabs.reversey.scoring.WordPhonemes
 import java.io.File
 
 /**
- * BACKUP MANIFEST v2.2 - Path-Agnostic, Cross-Device Compatible Format
+ * BACKUP MANIFEST v2.3 - Path-Agnostic, Cross-Device Compatible Format
  *
  * CRITICAL DESIGN PRINCIPLE:
  * - Keys are FILENAMES, not absolute paths
  * - Paths are reconstructed on import using device's local directories
  * - This survives cross-device restore (different user IDs, storage paths)
+ *
+ * CHANGES FROM v2.2:
+ * - Added ScoreBreakdownBackup (full scoring audit trail)
+ * - Removed pitchSimilarity, mfccSimilarity, rawScore (legacy)
  *
  * CHANGES FROM v2.1:
  * - Added full scorecard data to AttemptMetadataBackup:
@@ -43,7 +48,7 @@ import java.io.File
  * - customNames: Map of FILENAME → display name
  */
 data class BackupManifestV2(
-    val version: String = "2.2",
+    val version: String = "2.3",
 
     /** When this backup was created (epoch milliseconds) */
     val exportTimestampMs: Long,
@@ -211,7 +216,35 @@ data class WordPhonemesBackup(
 )
 
 /**
+ * Full scoring breakdown for audit/display.
+ * NEW IN v2.3: Complete scoring audit trail.
+ */
+data class ScoreBreakdownBackup(
+    val score: Int,
+    val phonemeOverlap: Float,
+    val matchedCount: Int,
+    val totalCount: Int,
+    val durationRatio: Float,
+    val durationScore: Float,
+    val durationInRange: Boolean,
+    val difficulty: String,
+    val model: String,
+    val phonemeLeniency: String,
+    val shouldAutoAccept: Boolean,
+    val shouldAutoReject: Boolean,
+    val targetPhonemes: List<String>,
+    val attemptPhonemes: List<String>,
+    val phonemeMatches: List<Boolean>,
+    val targetWordPhonemes: List<WordPhonemesBackup>,
+    val attemptWordPhonemes: List<WordPhonemesBackup>
+)
+
+/**
  * Attempt metadata for backup - matches ALL fields from PlayerAttempt.kt
+ *
+ * v2.3 ADDITIONS:
+ * - scoreBreakdown: Full scoring audit trail
+ * - Removed: pitchSimilarity, mfccSimilarity, rawScore (legacy)
  *
  * v2.2 ADDITIONS (Scorecard fields):
  * - finalScore: Player-overridden score
@@ -224,9 +257,6 @@ data class WordPhonemesBackup(
 data class AttemptMetadataBackup(
     val playerName: String,
     val score: Int,
-    val pitchSimilarity: Float,
-    val mfccSimilarity: Float,
-    val rawScore: Float,
     val challengeType: String,          // "REVERSE"
     val difficulty: String,             // "EASY", "NORMAL", or "HARD"
 
@@ -266,7 +296,14 @@ data class AttemptMetadataBackup(
     val durationRatio: Float? = null,
 
     /** Word accuracy / content match (0.0-1.0) */
-    val wordAccuracy: Float? = null
+    val wordAccuracy: Float? = null,
+
+    // ═══════════════════════════════════════════════════════════════
+    // v2.3: SCORE BREAKDOWN - Full scoring audit trail
+    // ═══════════════════════════════════════════════════════════════
+
+    /** Full scoring breakdown (v2.3) */
+    val scoreBreakdown: ScoreBreakdownBackup? = null
 )
 
 /**
@@ -380,10 +417,6 @@ fun ChallengeType.toBackupString(): String = this.name
 fun DifficultyLevel.toBackupString(): String = this.name
 
 /**
- * Convert ScoringEngineType enum to string for backup.
- */
-
-/**
  * Convert VocalAnalysis to backup format.
  */
 fun VocalAnalysis.toBackup(): VocalAnalysisBackup =
@@ -432,6 +465,56 @@ fun WordPhonemesBackup.toWordPhonemes(): WordPhonemes =
     WordPhonemes(
         word = this.word,
         phonemes = this.phonemes
+    )
+
+/**
+ * Convert ScoreBreakdown to backup format.
+ * NEW IN v2.3: Full scoring audit trail.
+ */
+fun ScoreBreakdown.toBackup(): ScoreBreakdownBackup =
+    ScoreBreakdownBackup(
+        score = this.score,
+        phonemeOverlap = this.phonemeOverlap,
+        matchedCount = this.matchedCount,
+        totalCount = this.totalCount,
+        durationRatio = this.durationRatio,
+        durationScore = this.durationScore,
+        durationInRange = this.durationInRange,
+        difficulty = this.difficulty.name,
+        model = this.model,
+        phonemeLeniency = this.phonemeLeniency,
+        shouldAutoAccept = this.shouldAutoAccept,
+        shouldAutoReject = this.shouldAutoReject,
+        targetPhonemes = this.targetPhonemes,
+        attemptPhonemes = this.attemptPhonemes,
+        phonemeMatches = this.phonemeMatches,
+        targetWordPhonemes = this.targetWordPhonemes.map { it.toBackup() },
+        attemptWordPhonemes = this.attemptWordPhonemes.map { it.toBackup() }
+    )
+
+/**
+ * Convert ScoreBreakdownBackup back to ScoreBreakdown.
+ * NEW IN v2.3: For restoring full scoring audit trail.
+ */
+fun ScoreBreakdownBackup.toScoreBreakdown(): ScoreBreakdown =
+    ScoreBreakdown(
+        score = this.score,
+        phonemeOverlap = this.phonemeOverlap,
+        matchedCount = this.matchedCount,
+        totalCount = this.totalCount,
+        durationRatio = this.durationRatio,
+        durationScore = this.durationScore,
+        durationInRange = this.durationInRange,
+        difficulty = DifficultyLevel.valueOf(this.difficulty),
+        model = this.model,
+        phonemeLeniency = this.phonemeLeniency,
+        shouldAutoAccept = this.shouldAutoAccept,
+        shouldAutoReject = this.shouldAutoReject,
+        targetPhonemes = this.targetPhonemes,
+        attemptPhonemes = this.attemptPhonemes,
+        phonemeMatches = this.phonemeMatches,
+        targetWordPhonemes = this.targetWordPhonemes.map { it.toWordPhonemes() },
+        attemptWordPhonemes = this.attemptWordPhonemes.map { it.toWordPhonemes() }
     )
 
 // ============================================================

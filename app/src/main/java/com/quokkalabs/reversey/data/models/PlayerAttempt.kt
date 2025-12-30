@@ -4,9 +4,9 @@ import androidx.compose.runtime.Immutable
 import com.quokkalabs.reversey.scoring.DebuggingData
 import com.quokkalabs.reversey.scoring.DifficultyLevel
 import com.quokkalabs.reversey.scoring.PerformanceInsights
-import com.quokkalabs.reversey.scoring.ScoreCalculationBreakdown
 import com.quokkalabs.reversey.scoring.VocalAnalysis
 import com.quokkalabs.reversey.scoring.WordPhonemes
+import com.quokkalabs.reversey.scoring.ScoreBreakdown
 
 /**
  * Represents a single player's attempt to match a recording (forward or reverse).
@@ -18,9 +18,6 @@ data class PlayerAttempt(
     val attemptFilePath: String,
     val reversedAttemptFilePath: String? = null,
     val score: Int = 0,
-    val pitchSimilarity: Float = 0f,
-    val mfccSimilarity: Float = 0f,
-    val rawScore: Float = 0f,
     val challengeType: ChallengeType,
     val difficulty: DifficultyLevel = DifficultyLevel.NORMAL,
 
@@ -31,8 +28,7 @@ data class PlayerAttempt(
     val performanceInsights: PerformanceInsights? = null,
     val debuggingData: DebuggingData? = null,
 
-    // --- NEW: Full Calculation Breakdown for Scorecard Tooltip (v21.6.0) ----
-    val calculationBreakdown: ScoreCalculationBreakdown? = null,
+    val scoreBreakdown: ScoreBreakdown? = null,
 
     // 🗣️ PHASE 3: ASR Transcription for Forward Speech scoring + scorecard display
     val attemptTranscription: String? = null,        // What the player SAID (first 50 words shown on scorecard)

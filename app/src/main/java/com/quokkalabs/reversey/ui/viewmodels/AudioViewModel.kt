@@ -41,6 +41,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+import com.quokkalabs.reversey.scoring.ScoreBreakdown
 
 data class AudioUiState(
     val recordings: List<Recording> = emptyList(),
@@ -611,6 +612,27 @@ class AudioViewModel @Inject constructor(
 
                     val feedbackList = buildPhonemeFeedback(result)
 
+                    val breakdown = ScoreBreakdown(
+                        score = result.score,
+                        phonemeOverlap = result.phonemeOverlap,
+                        matchedCount = result.matchedCount,
+                        totalCount = result.totalCount,
+                        durationRatio = result.durationRatio,
+                        durationScore = result.durationScore,
+                        durationInRange = result.durationInRange,
+                        difficulty = result.difficulty,
+                        model = result.model,
+                        phonemeLeniency = result.phonemeLeniency,
+                        shouldAutoAccept = result.shouldAutoAccept,
+                        shouldAutoReject = result.shouldAutoReject,
+                        targetPhonemes = result.targetPhonemes,
+                        attemptPhonemes = result.attemptPhonemes,
+                        phonemeMatches = result.phonemeMatches,
+                        targetWordPhonemes = result.targetWordPhonemes,
+                        attemptWordPhonemes = result.attemptWordPhonemes
+                    )
+
+
                     ScoringOutput(
                         score = result.score,
                         phonemeOverlap = result.phonemeOverlap,
@@ -621,7 +643,8 @@ class AudioViewModel @Inject constructor(
                         attemptPhonemes = result.attemptPhonemes,
                         phonemeMatches = result.phonemeMatches,
                         targetWordPhonemes = result.targetWordPhonemes,
-                        attemptWordPhonemes = result.attemptWordPhonemes
+                        attemptWordPhonemes = result.attemptWordPhonemes,
+                        scoreBreakdown = breakdown
                     )
                 } else {
                     // Missing transcription - can't score properly
@@ -654,15 +677,11 @@ class AudioViewModel @Inject constructor(
                     attemptFilePath = attemptFile.absolutePath,
                     reversedAttemptFilePath = reversedAttemptFile?.absolutePath,
                     score = scoringOutput.score,
-                    pitchSimilarity = 0f,  // Not used in phoneme scoring
-                    mfccSimilarity = 0f,   // Not used in phoneme scoring
-                    rawScore = scoringOutput.score.toFloat() / 100f,
                     challengeType = challengeType,
                     difficulty = _currentDifficulty.value,
                     feedback = scoringOutput.feedback,
                     isGarbage = scoringOutput.isGarbage,
                     vocalAnalysis = null,
-                    calculationBreakdown = null,
                     attemptTranscription = attemptTranscriptionText,
                     wordAccuracy = scoringOutput.phonemeOverlap,
                     targetPhonemes = scoringOutput.targetPhonemes,
@@ -670,7 +689,8 @@ class AudioViewModel @Inject constructor(
                     phonemeMatches = scoringOutput.phonemeMatches,
                     targetWordPhonemes = scoringOutput.targetWordPhonemes,
                     attemptWordPhonemes = scoringOutput.attemptWordPhonemes,
-                    durationRatio = scoringOutput.durationRatio
+                    durationRatio = scoringOutput.durationRatio,
+                    scoreBreakdown = scoringOutput.scoreBreakdown
                 )
 
                 val updatedRecordings = uiState.value.recordings.map { recording ->
@@ -729,7 +749,7 @@ class AudioViewModel @Inject constructor(
         }
     }
 
-    // Helper data class for scoring output
+
     private data class ScoringOutput(
         val score: Int,
         val phonemeOverlap: Float,
@@ -742,7 +762,10 @@ class AudioViewModel @Inject constructor(
         val phonemeMatches: List<Boolean> = emptyList(),
         val targetWordPhonemes: List<WordPhonemes> = emptyList(),
         val attemptWordPhonemes: List<WordPhonemes> = emptyList(),
-    )
+        // Phase 4: Full score breakdown
+        val scoreBreakdown: ScoreBreakdown? = null,
+
+        )
 
     // Build human-readable feedback from phoneme scoring
     private fun buildPhonemeFeedback(result: PhonemeScoreResult): List<String> {
