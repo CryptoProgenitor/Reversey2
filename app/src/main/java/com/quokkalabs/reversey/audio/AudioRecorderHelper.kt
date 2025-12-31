@@ -229,7 +229,8 @@ class AudioRecorderHelper @Inject constructor(
                             val absVal = abs(buffer[i].toInt())
                             if (absVal > maxAmp) maxAmp = absVal
                         }
-                        _amplitude.value = maxAmp / Short.MAX_VALUE.toFloat()
+                        // Line 226 - add gain boost
+                        _amplitude.value = (maxAmp / Short.MAX_VALUE.toFloat() * 5.5f).coerceIn(0f, 1f)
 
                         // Check recording duration/size limits
                         checkDuration(startTime)
