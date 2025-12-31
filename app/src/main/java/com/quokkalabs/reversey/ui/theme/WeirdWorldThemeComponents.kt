@@ -62,7 +62,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -85,6 +84,7 @@ import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
 import com.quokkalabs.reversey.ui.constants.UiConstants
 import kotlinx.coroutines.isActive
 import kotlin.math.cos
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -324,25 +324,57 @@ fun WeirdWorldRecordButton(isRecording: Boolean, onClick: () -> Unit, modifier: 
                     drawCircle(color = Color.White.copy(alpha = 0.4f), radius = specSize * 0.3f, center = Offset(specX - specSize * 0.2f, specY - specSize * 0.2f))
                 }
 
-                // Scan Line
+                // CURVED SCAN LINE WITH SINUSOIDAL MOTION
                 if (isRecording) {
-                    val scanProgress = (System.currentTimeMillis() % 2000) / 2000f
-                    val scanY = centerY - currentRadius + (currentRadius * 2 * scanProgress)
+                    val time = (System.currentTimeMillis() % 2000) / 1000f  // 0.0 → 2.0
+                    val sineValue = kotlin.math.sin(time * kotlin.math.PI.toFloat())
+
+
+                    val easedValue = sineValue  // Power of 1 - smooth natural motion
+
+                    // Calculate Y position with sinusoidal motion
+                    val scanY = centerY + (currentRadius * easedValue)
 
                     // Calculate chord length to constrain line within circle
                     val dy = kotlin.math.abs(scanY - centerY)
                     if (dy < currentRadius) {
                         val halfChord = kotlin.math.sqrt((currentRadius * currentRadius) - (dy * dy))
 
-                        drawLine(
+                        // Calculate curve depth - MORE at poles, ZERO at equator (convex lens)
+                        val distanceFromCenter = dy / currentRadius  // 0.0 at equator, 1.0 at poles
+                        val curveDepth = currentRadius * 0.45f * distanceFromCenter
+
+                        // Create curved path bowing AWAY from equator (convex surface)
+                        val scanPath = Path().apply {
+                            moveTo(centerX - halfChord, scanY)
+
+                            // Control point moves away from center, clamped to lens boundary
+                            val controlY = if (scanY < centerY) {
+                                // Top half: bow upward, but don't exceed top of lens
+                                maxOf(scanY - curveDepth, centerY - currentRadius)
+                            } else {
+                                // Bottom half: bow downward, but don't exceed bottom of lens
+                                minOf(scanY + curveDepth, centerY + currentRadius)
+                            }
+
+                            quadraticTo(
+                                centerX, controlY,
+                                centerX + halfChord, scanY
+                            )
+                        }
+
+                        drawPath(
+                            path = scanPath,
                             brush = Brush.horizontalGradient(
-                                colors = listOf(Color.Transparent, Color(0xFFF9D423).copy(alpha = 0.8f), Color.Transparent),
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color(0xFFF9D423).copy(alpha = 0.8f),  // Caution amber
+                                    Color.Transparent
+                                ),
                                 startX = centerX - halfChord,
                                 endX = centerX + halfChord
                             ),
-                            start = Offset(centerX - halfChord, scanY),
-                            end = Offset(centerX + halfChord, scanY),
-                            strokeWidth = 4.dp.toPx()
+                            style = Stroke(width = 4.dp.toPx())
                         )
                     }
                 }
