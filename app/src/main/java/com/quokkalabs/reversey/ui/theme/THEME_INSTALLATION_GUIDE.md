@@ -1,483 +1,437 @@
-# 🎨 ReVerseY Professional Theme Installation Guide
+# 🎨 ReVerseY Theme Installation Guide
 
-**How to Install a Complete Theme into ReVerseY**
-
-This guide assumes you already have a complete theme file (like `EggThemeComponents.kt`) ready to install. If you're creating a theme from scratch, use the AI template first, then follow this guide to wire it in.
+**How to add a new theme to ReVerseY in 3 steps**
 
 ---
 
-## Prerequisites
+## Two Types of Themes
 
-✅ You have a complete theme file (e.g., `CoolThemeComponents.kt`)  
-✅ The theme implements the `ThemeComponents` interface  
-✅ All theme assets are self-contained in the file  
-✅ Android Studio open with ReVerseY project loaded  
+### 1. **Simple Theme** (Uses Default Components)
+Just define colors and settings. Uses the standard card layout.
 
----
+**Example:** Cottage, Y2K, Vaporwave, Dark Academia
 
-## Installation Steps
+### 2. **Pro Theme** (Custom Components)
+Custom card designs, special effects, unique layouts.
 
-### Step 1: Place Theme File in Project
-
-**Location:**
-```
-app/src/main/java/com/example/reversey/ui/theme/
-```
-
-**Action:**
-1. Copy your theme file (e.g., `CoolThemeComponents.kt`)
-2. Paste it into the `ui/theme/` directory
-3. Verify package declaration is correct:
-   ```kotlin
-   package com.quokkalabs.reversey.ui.theme
-   ```
-
-**Expected Result:**
-Your file should appear alongside other theme files like:
-```
-ui/theme/
-├── AestheticThemeData.kt
-├── EggThemeComponents.kt
-├── SnowyOwlComponents.kt
-└── CoolThemeComponents.kt  ← Your new theme
-```
+**Example:** Strange Planet, Weird World, Egg, Snowy Owl
 
 ---
 
-### Step 2: Register Theme in AestheticThemeData.kt
+## Installation: Simple Theme
 
-**File:** `app/src/main/java/com/example/reversey/ui/theme/AestheticThemeData.kt`
+### Step 1: Create Theme File
 
-#### 2.1 Find the Theme Definitions Section
+**Location:** `app/src/main/java/com/quokkalabs/reversey/ui/theme/`
 
-Look for where other themes are defined. You'll see entries like:
+**File:** `YourThemeComponents.kt`
 
 ```kotlin
-val Egg = AestheticThemeData(
-    id = "egg",
-    name = "Egg Theme",
-    description = "🥚 CPD's adorable egg-inspired design!",
-    components = EggThemeComponents(),
-    primaryGradient = Brush.verticalGradient(...),
-    cardBorder = Color(0xFF2E2E2E),
-    primaryTextColor = Color(0xFF2E2E2E),
-    secondaryTextColor = Color(0xFF424242),
-    ...
-)
-```
+package com.quokkalabs.reversey.ui.theme
 
-#### 2.2 Add Your Theme Entry
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 
-**Add AFTER existing themes:**
+object YourTheme {
+    const val THEME_ID = "your_theme_id"  // lowercase, underscores
 
-```kotlin
-val CoolTheme = AestheticThemeData(
-    id = "cool_theme",                    // Unique ID (lowercase, underscores)
-    name = "Cool Theme",                  // Display name
-    description = "😎 A really cool theme!", // User-facing description
-    components = CoolThemeComponents(),   // YOUR theme class instance
-    primaryGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF1A1A1A),           // Top color
-            Color(0xFF2D2D2D),           // Middle color
-            Color(0xFF404040)            // Bottom color
+    val data = AestheticThemeData(
+        id = THEME_ID,
+        name = "Your Theme Name",
+        description = "🎨 Your theme description",
+        components = DefaultThemeComponents(),  // ← Uses default cards
+        
+        // Required colors
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF123456),  // Top
+                Color(0xFF234567),  // Middle  
+                Color(0xFF345678)   // Bottom
+            )
+        ),
+        accentColor = Color(0xFFFF00FF),        // Accent/highlight color
+        primaryTextColor = Color(0xFFFFFFFF),   // Main text (must be readable!)
+        secondaryTextColor = Color(0xFFCCCCCC), // Secondary text
+        
+        // Optional (customize if needed)
+        recordButtonEmoji = "🎤",
+        scoreEmojis = mapOf(
+            90 to "🔥",
+            80 to "💕", 
+            70 to "✨",
+            60 to "👍",
+            0 to "💪"
+        ),
+        useSerifFont = false,
+        useWideLetterSpacing = false,
+        
+        // Auto-defaults to accentColor (override if needed)
+        scrollGlowColor = accentColor,  // Optional
+        waveformColor = accentColor,    // Optional
+        
+        // Dialog/menu customization (optional)
+        dialogCopy = DialogCopy.default(),
+        scoreFeedback = ScoreFeedback.default(),
+        menuColors = MenuColors.fromColors(
+            primaryText = Color(0xFFFFFFFF),
+            secondaryText = Color(0xFFCCCCCC),
+            border = Color(0xFFFF00FF),
+            gradient = Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF123456),
+                    Color(0xFF234567),
+                    Color(0xFF345678)
+                )
+            )
         )
-    ),
-    cardBorder = Color(0xFF00FF00),      // Card outline color
-    primaryTextColor = Color(0xFFFFFFFF), // Main text color
-    secondaryTextColor = Color(0xFFCCCCCC), // Secondary text color
-    accentColor = Color(0xFF00FF00),      // Accent/highlight color
-    isDark = true                         // true for dark themes, false for light
-)
+    )
+}
 ```
 
-**Color Selection Tips:**
-- `primaryGradient`: Background gradient (top → bottom)
-- `cardBorder`: Outline around cards
-- `primaryTextColor`: Main text (make sure it's readable on your gradient!)
-- `secondaryTextColor`: Less important text
-- `accentColor`: Highlights, active states
-- `isDark`: Set to `true` if background is dark, `false` if light
+### Step 2: Register in AestheticThemeData.kt
 
----
+**File:** `app/src/main/java/com/quokkalabs/reversey/ui/theme/AestheticThemeData.kt`
 
-### Step 3: Add Theme to Available Themes List
+Find the `allThemes` map:
 
-**In the same file:** `AestheticThemeData.kt`
-
-#### 3.1 Find the Themes List
-
-Look for a list that contains all available themes:
-
-```kotlin
-val allThemes = listOf(
-    Y2KCyberPop,
-    CottageCoreDreams,
-    DarkAcademia,
-    Steampunk,
-    Egg,
-    SnowyOwl,
-    Scrapbook,
-    // ... more themes
-)
-```
-
-**OR it might be called:**
-```kotlin
-val availableThemes = listOf(...)
-```
-
-**OR:**
 ```kotlin
 object AestheticThemes {
-    val all = listOf(...)
+    val allThemes = mapOf(
+        Y2KTheme.THEME_ID to Y2KTheme.data,
+        CottageTheme.THEME_ID to CottageTheme.data,
+        // ... other themes
+        
+        YourTheme.THEME_ID to YourTheme.data  // ← Add this line
+    )
 }
 ```
 
-#### 3.2 Add Your Theme to the List
+### Step 3: Build & Test
 
-**Add your theme variable to the list:**
+1. Build project (`Ctrl+F9`)
+2. Run app
+3. Go to Settings → Theme
+4. Select your theme
+5. Verify colors, text readability, cards
+
+**Done!** ✅
+
+---
+
+## Installation: Pro Theme (Custom Components)
+
+### Step 1: Create Theme File with Custom Components
+
+**File:** `YourProThemeComponents.kt`
 
 ```kotlin
-val allThemes = listOf(
-    Y2KCyberPop,
-    CottageCoreDreams,
-    DarkAcademia,
-    Steampunk,
-    Egg,
-    SnowyOwl,
-    Scrapbook,
-    CoolTheme,  // ← Add your theme here
-)
-```
-
-**Important:** Make sure you're adding the variable name (e.g., `CoolTheme`), not a string!
-
----
-
-## Verification Steps
-
-### Build Check
-1. Build the project: `Build → Make Project`
-2. Fix any compilation errors
-3. Verify no import errors
-
-### Runtime Check
-1. Run the app on device/emulator
-2. Navigate to Settings
-3. Look for "Theme" or "Aesthetic" option
-4. Your theme should appear in the list!
-5. Select your theme
-6. Verify:
-   - Colors look correct
-   - Recording cards render properly
-   - Attempt cards render properly
-   - Text is readable
-   - Icons display correctly
-
----
-
-## Common Issues & Fixes
-
-### Issue 1: Theme Doesn't Appear in Settings
-
-**Possible Causes:**
-- ❌ Forgot Step 3 (adding to themes list)
-- ❌ Variable name typo in list
-
-**Fix:**
-Double-check Step 3. Make sure the variable name matches exactly.
-
----
-
-### Issue 2: Build Errors - "Unresolved Reference"
-
-**Error Example:**
-```
-Unresolved reference 'CoolThemeComponents'
-```
-
-**Possible Causes:**
-- ❌ Theme file not in correct location
-- ❌ Package declaration wrong
-- ❌ Class name doesn't match
-
-**Fix:**
-1. Verify file is in `ui/theme/` directory
-2. Check package declaration: `package com.example.reversey.ui.theme`
-3. Verify class name matches: `class CoolThemeComponents : ThemeComponents`
-
----
-
-### Issue 3: App Crashes When Selecting Theme
-
-**Possible Causes:**
-- ❌ Theme class doesn't implement `ThemeComponents` interface
-- ❌ Missing required functions (RecordingItem, AttemptItem)
-- ❌ Runtime error in theme code
-
-**Fix:**
-1. Check Logcat for error details
-2. Verify theme implements both required functions
-3. Test theme functions individually
-
----
-
-### Issue 4: Colors Look Wrong
-
-**Possible Causes:**
-- ❌ Color values incorrect (forgot `0xFF` prefix)
-- ❌ Text not readable on gradient background
-- ❌ Wrong color format
-
-**Fix:**
-1. Colors should be in format: `Color(0xFFRRGGBB)`
-   - `0xFF` = fully opaque
-   - `RRGGBB` = red, green, blue hex values
-2. Test contrast: dark text on light backgrounds, light text on dark backgrounds
-3. Use online color picker to get hex values
-
----
-
-### Issue 5: Custom Features Don't Work
-
-**Examples:**
-- Bouncing eggs don't appear
-- Custom animations don't play
-- Special effects missing
-
-**Possible Causes:**
-- ❌ Features not properly self-contained in theme file
-- ❌ Missing dependencies/imports
-- ❌ Feature relies on external code
-
-**Fix:**
-1. Verify all custom features are called within the theme file itself
-2. Check that special effects are integrated into the theme's composables
-3. Review reference implementation (EggThemeComponents.kt) for pattern
-
----
-
-## Theme File Requirements Checklist
-
-Before installing, verify your theme file has:
-
-✅ **Package declaration:** `package com.example.reversey.ui.theme`  
-✅ **Implements interface:** `class YourTheme : ThemeComponents`  
-✅ **RecordingItem function:** Complete implementation  
-✅ **AttemptItem function:** Complete implementation  
-✅ **All imports:** No missing dependencies  
-✅ **Self-contained:** All icons, helpers, dialogs inline  
-✅ **No external dependencies:** No references to other theme files  
-
----
-
-## Theme Customization After Installation
-
-### Changing Colors
-
-**Edit your theme entry in AestheticThemeData.kt:**
-
-```kotlin
-val CoolTheme = AestheticThemeData(
-    id = "cool_theme",
-    name = "Cool Theme",
-    description = "😎 A really cool theme!",
-    components = CoolThemeComponents(),
-    primaryGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF000000),  // ← Change these
-            Color(0xFF333333),  // ← Change these
-            Color(0xFF666666)   // ← Change these
-        )
-    ),
-    cardBorder = Color(0xFF00FF00),       // ← Change this
-    primaryTextColor = Color(0xFFFFFFFF), // ← Change this
-    // ... etc
-)
-```
-
-**No need to modify the theme file itself** - just update the values in AestheticThemeData.kt.
-
-### Changing Name/Description
-
-**Edit in AestheticThemeData.kt:**
-
-```kotlin
-val CoolTheme = AestheticThemeData(
-    id = "cool_theme",              // Don't change ID after release!
-    name = "Super Cool Theme",      // ← Change display name
-    description = "🌟 The coolest!", // ← Change description
-    // ...
-)
-```
-
-**Warning:** Don't change the `id` after users have selected the theme, or they'll lose their selection!
-
----
-
-## Example: Full Installation Walkthrough
-
-### Scenario
-You want to install "Retro Arcade Theme" (`RetroArcadeComponents.kt`)
-
-### Step-by-Step
-
-**Step 1: Place File**
-```
-Copy: RetroArcadeComponents.kt
-To: app/src/main/java/com/example/reversey/ui/theme/
-```
-
-**Step 2: Register Theme**
-
-Open `AestheticThemeData.kt`, add:
-
-```kotlin
-val RetroArcade = AestheticThemeData(
-    id = "retro_arcade",
-    name = "Retro Arcade",
-    description = "🕹️ Classic 8-bit arcade vibes!",
-    components = RetroArcadeComponents(),
-    primaryGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF1A0033),  // Deep purple
-            Color(0xFF330066),  // Purple
-            Color(0xFF4D0099)   // Bright purple
-        )
-    ),
-    cardBorder = Color(0xFFFF00FF),      // Neon pink border
-    primaryTextColor = Color(0xFF00FFFF), // Cyan text
-    secondaryTextColor = Color(0xFFFF00FF), // Pink text
-    accentColor = Color(0xFFFFFF00),      // Yellow accent
-    isDark = true
-)
-```
-
-**Step 3: Add to List**
-
-In same file, find:
-
-```kotlin
-val allThemes = listOf(
-    Y2KCyberPop,
-    CottageCoreDreams,
-    // ... other themes
-)
-```
-
-Change to:
-
-```kotlin
-val allThemes = listOf(
-    Y2KCyberPop,
-    CottageCoreDreams,
-    // ... other themes
-    RetroArcade,  // ← Added!
-)
-```
-
-**Build & Run!**
-
-Navigate to settings → Select "Retro Arcade" → Enjoy! 🕹️
-
----
-
-## Advanced: Theme with Custom Record Button
-
-Some themes (like Egg) have custom record buttons. These are **already wired automatically** if properly implemented in the theme file.
-
-**No extra installation steps needed!**
-
-The theme file should handle its own record button by:
-1. Defining the button composable in the same file
-2. The app's recording screen checks if the active theme has a custom button
-3. Automatically uses it when that theme is active
-
-**Example from Egg Theme:**
-- `EggRecordButton()` defined in `EggThemeComponents.kt`
-- No separate wiring needed
-- Just works when egg theme active
-
----
-
-## Advanced: Theme with Background Effects
-
-Some themes (like Egg with bouncing eggs) have special background effects. These should also be **self-contained** in the theme file.
-
-**Pattern:**
-```kotlin
-class CoolThemeComponents : ThemeComponents {
+package com.quokkalabs.reversey.ui.theme
+
+import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+// ... more imports
+
+// Theme Object
+object YourProTheme {
+    const val THEME_ID = "your_pro_theme"
+    
+    val data = AestheticThemeData(
+        id = THEME_ID,
+        name = "Your Pro Theme",
+        description = "🌟 Custom everything!",
+        components = YourProThemeComponents(),  // ← Custom implementation
+        
+        // Colors (same as simple theme)
+        primaryGradient = Brush.verticalGradient(...),
+        accentColor = Color(0xFFFF00FF),
+        primaryTextColor = Color(0xFFFFFFFF),
+        secondaryTextColor = Color(0xFFCCCCCC),
+        
+        // Mark as pro
+        isPro = true
+    )
+}
+
+// Custom Components Implementation
+class YourProThemeComponents : ThemeComponents {
     
     @Composable
-    override fun RecordingItem(...) {
-        Box {
-            // Background effect (if any)
-            if (showBackgroundEffect) {
-                CoolBackgroundEffect()
-            }
-            
-            // Main content
-            // ...
+    override fun RecordingItem(
+        recording: Recording,
+        aesthetic: AestheticThemeData,
+        isPaused: Boolean,
+        progress: Float,
+        currentlyPlayingPath: String?,
+        onPlay: (String) -> Unit,
+        onPause: () -> Unit,
+        onStop: () -> Unit,
+        onDelete: (Recording) -> Unit,
+        onShare: (String) -> Unit,
+        onRename: (String, String) -> Unit,
+        isGameModeEnabled: Boolean,
+        onStartAttempt: (Recording, ChallengeType) -> Unit,
+        activeAttemptRecordingPath: String?,
+        onStopAttempt: (() -> Unit)?
+    ) {
+        // Your custom recording card design here
+        // See StrangePlanetThemeComponents.kt or WeirdWorldThemeComponents.kt for examples
+    }
+    
+    @Composable
+    override fun AttemptItem(
+        attempt: PlayerAttempt,
+        aesthetic: AestheticThemeData,
+        currentlyPlayingPath: String?,
+        isPaused: Boolean,
+        progress: Float,
+        onPlay: (String) -> Unit,
+        onPause: () -> Unit,
+        onStop: () -> Unit,
+        onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
+        onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
+        onShareAttempt: ((String) -> Unit)?,
+        onJumpToParent: (() -> Unit)?,
+        onOverrideScore: ((Int) -> Unit)?,
+        onResetScore: (() -> Unit)?
+    ) {
+        // Your custom attempt card design here
+    }
+    
+    // Optional: Custom dialogs, backgrounds, effects
+    @Composable
+    override fun AppBackground(
+        aesthetic: AestheticThemeData,
+        modifier: Modifier,
+        content: @Composable () -> Unit
+    ) {
+        // Custom background effects (optional)
+        Box(modifier = modifier) {
+            // Your special effects here
+            content()
         }
     }
-    
-    // Effect defined in same file
-    @Composable
-    private fun CoolBackgroundEffect() {
-        // Implementation
-    }
 }
 ```
 
-**No separate installation steps needed** - it's all in the theme file!
+### Step 2: Register (Same as Simple Theme)
+
+Add to `AestheticThemes.allThemes` map in `AestheticThemeData.kt`
+
+### Step 3: Build & Test
+
+Same as simple theme.
 
 ---
 
-## Quick Reference
+## Field Reference
 
-### File Locations
+### Required Fields
+
+```kotlin
+id: String                    // Unique ID (lowercase_underscore)
+name: String                  // Display name
+description: String           // User-facing description
+components: ThemeComponents   // DefaultThemeComponents() or custom
+primaryGradient: Brush        // Background gradient
+accentColor: Color            // Accent/highlight color
+primaryTextColor: Color       // Main text color
+secondaryTextColor: Color     // Secondary text color
 ```
-Theme File:
-  app/src/main/java/com/example/reversey/ui/theme/YourTheme.kt
 
-Registration:
-  app/src/main/java/com/example/reversey/ui/theme/AestheticThemeData.kt
+### Optional Fields (Auto-Default)
+
+```kotlin
+scrollGlowColor: Color = accentColor      // Scroll edge glow
+waveformColor: Color = accentColor        // Waveform bars
+recordButtonEmoji: String = "🎤"
+scoreEmojis: Map<Int, String> = defaults
+useGlassmorphism: Boolean = false
+glowIntensity: Float = 0f
+useSerifFont: Boolean = false
+useWideLetterSpacing: Boolean = false
+cardAlpha: Float = 1f
+shadowElevation: Float = 0f
+isPro: Boolean = false
 ```
 
-### Installation Checklist
-- [ ] Step 1: Place theme file in `ui/theme/`
-- [ ] Step 2: Add theme entry in `AestheticThemeData.kt`
-- [ ] Step 3: Add to `allThemes` list
-- [ ] Build project
-- [ ] Test in app
-- [ ] Verify colors, text readability, icons
-- [ ] Test all card types (recordings, attempts)
-- [ ] Test theme switching
+---
+
+## Color Tips
+
+### Choosing Colors
+
+**primaryGradient:** App background (top → bottom)
+- Make sure text is readable!
+- Test with both light and dark text
+
+**accentColor:** Buttons, highlights, borders, waveforms, scroll glow
+- Should pop against your gradient
+- Used for interactive elements
+
+**primaryTextColor:** Headers, titles, important text
+- MUST be readable on your gradient
+- Light text on dark gradient, dark text on light gradient
+
+**secondaryTextColor:** Body text, less important info
+- Slightly less contrast than primary
+- Still readable
+
+### Testing Contrast
+
+```kotlin
+// Dark gradient → Use light text
+primaryGradient = Brush.verticalGradient(
+    colors = listOf(Color(0xFF000000), Color(0xFF333333))
+)
+primaryTextColor = Color(0xFFFFFFFF)   // White
+secondaryTextColor = Color(0xFFCCCCCC) // Light gray
+
+// Light gradient → Use dark text  
+primaryGradient = Brush.verticalGradient(
+    colors = listOf(Color(0xFFFFFFFF), Color(0xFFCCCCCC))
+)
+primaryTextColor = Color(0xFF000000)   // Black
+secondaryTextColor = Color(0xFF666666) // Dark gray
+```
 
 ---
 
-## Getting Help
+## Common Issues
 
-**If you get stuck:**
+### Theme doesn't appear in settings
+**Fix:** Check Step 2 - did you add it to `allThemes` map?
 
-1. **Check the reference:** Look at `EggThemeComponents.kt` or `SnowyOwlComponents.kt`
-2. **Review logcat:** Error messages are your friend
-3. **Verify checklist:** Did you complete all steps?
-4. **Ask AI assistant:** Provide error messages and file snippets
+### Build error: "Unresolved reference"
+**Fix:** 
+- File in correct location? (`ui/theme/`)
+- Package correct? (`package com.quokkalabs.reversey.ui.theme`)
+
+### Text is unreadable
+**Fix:** Wrong text color for your gradient
+- Dark gradient → light text
+- Light gradient → dark text
+
+### Cards look broken (Pro themes only)
+**Fix:** Check your `RecordingItem`/`AttemptItem` implementations
+- See `StrangePlanetThemeComponents.kt` for reference
+- Make sure all buttons/features are implemented
 
 ---
 
-## Summary
+## Examples
 
-**Installing a theme = 3 steps:**
+### Minimal Theme (3 Required Colors)
 
-1. **Place** theme file in `ui/theme/`
-2. **Register** theme in `AestheticThemeData.kt`  
-3. **Add** to available themes list
+```kotlin
+object MinimalTheme {
+    const val THEME_ID = "minimal"
+    
+    val data = AestheticThemeData(
+        id = THEME_ID,
+        name = "Minimal",
+        description = "Clean and simple",
+        components = DefaultThemeComponents(),
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(Color.White, Color(0xFFF5F5F5))
+        ),
+        accentColor = Color.Black,
+        primaryTextColor = Color.Black,
+        secondaryTextColor = Color.Gray
+    )
+}
+```
 
-**That's it!** Everything else (custom buttons, special effects, icons) should be self-contained in the theme file and work automatically.
+### Fully Customized Theme
+
+```kotlin
+object CustomTheme {
+    const val THEME_ID = "custom"
+    
+    val data = AestheticThemeData(
+        id = THEME_ID,
+        name = "Custom Theme",
+        description = "🎨 Everything customized!",
+        components = DefaultThemeComponents(),
+        
+        primaryGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF1A1A2E),
+                Color(0xFF16213E),
+                Color(0xFF0F3460)
+            )
+        ),
+        accentColor = Color(0xFFE94560),
+        primaryTextColor = Color(0xFFFFFFFF),
+        secondaryTextColor = Color(0xFFB0B0B0),
+        
+        // Custom emojis
+        recordButtonEmoji = "🎸",
+        scoreEmojis = mapOf(
+            90 to "🏆",
+            80 to "🎯",
+            70 to "⭐",
+            60 to "👏",
+            0 to "🎵"
+        ),
+        
+        // Custom waveform color (different from accent)
+        waveformColor = Color(0xFF00D9FF),
+        
+        // Typography
+        useSerifFont = true,
+        useWideLetterSpacing = true,
+        
+        // Custom dialog text
+        dialogCopy = DialogCopy(
+            deleteTitle = { "Remove ${if (it == DeletableItemType.RECORDING) "Track" else "Performance"}?" },
+            deleteMessage = { _, name -> "Delete '$name' permanently?" },
+            deleteConfirmButton = "Remove",
+            deleteCancelButton = "Keep",
+            shareTitle = "Share Audio",
+            shareMessage = "Choose version:",
+            renameTitle = { "Rename ${if (it == RenamableItemType.RECORDING) "Track" else "Artist"}" },
+            renameHint = "New name"
+        )
+    )
+}
+```
 
 ---
 
-**Happy theming!** 🎨🚀
+## Quick Checklist
+
+**Simple Theme:**
+- [ ] Create theme file in `ui/theme/`
+- [ ] Set all required colors
+- [ ] Use `DefaultThemeComponents()`
+- [ ] Add to `allThemes` map
+- [ ] Build & test
+
+**Pro Theme:**
+- [ ] Create theme file with custom `ThemeComponents`
+- [ ] Implement `RecordingItem()`
+- [ ] Implement `AttemptItem()`
+- [ ] Set all colors
+- [ ] Set `isPro = true`
+- [ ] Add to `allThemes` map
+- [ ] Build & test
+
+---
+
+## Reference Themes
+
+**Simple Themes (copy these):**
+- `CottageThemeComponents.kt`
+- `Y2KThemeComponents.kt`
+- `VaporwaveThemeComponents.kt`
+
+**Pro Themes (study these):**
+- `StrangePlanetThemeComponents.kt` - Full custom implementation
+- `WeirdWorldThemeComponents.kt` - Custom cards with effects
+- `EggThemeComponents.kt` - Animated background
+
+---
+
+**That's it! Most themes are just 30 lines of color definitions.** 🎨
