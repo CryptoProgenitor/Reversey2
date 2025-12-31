@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.scoring.DifficultyConfig
 import com.quokkalabs.reversey.scoring.DifficultyLevel
+import com.quokkalabs.reversey.ui.theme.AestheticThemeData
 
 /**
  * Difficulty indicator for the top-right corner of the home screen
@@ -35,12 +36,13 @@ import com.quokkalabs.reversey.scoring.DifficultyLevel
 @Composable
 fun DifficultyIndicator(
     difficulty: DifficultyLevel,
+    aesthetic: AestheticThemeData,
     onClick: () -> Unit = {},
     recordingProgress: Float? = null,
     modifier: Modifier = Modifier
 ) {
     val difficultyColor = DifficultyConfig.getColorForDifficulty(difficulty)
-    val arcColor = Color(0xFF1A1A2E)  // Dark color for progress arc
+    val arcColor = aesthetic.accentColor.copy(alpha = 0.8f)  // Theme's accent color for progress arc
     val shape = RoundedCornerShape(16.dp)
 
     // Determine border based on recording state

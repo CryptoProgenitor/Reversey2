@@ -24,7 +24,7 @@ object CyberpunkTheme {
                 Color(0xFF000A1A)
             )
         ),
-        cardBorder = Color(0xFF00FFFF),
+        accentColor = Color(0xFF00FFFF),
         primaryTextColor = Color(0xFF00FFFF),
         secondaryTextColor = Color(0xFF80FF80),
         useGlassmorphism = true,

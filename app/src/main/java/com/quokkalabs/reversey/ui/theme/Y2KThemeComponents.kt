@@ -24,7 +24,7 @@ object Y2KTheme {
                 Color(0xFF4FACFE)
             )
         ),
-        cardBorder = Color(0x4DFFFFFF),
+        accentColor = Color(0x4DFFFFFF),
         primaryTextColor = Color.White,
         secondaryTextColor = Color(0xFFE0E0E0),
         useGlassmorphism = true,

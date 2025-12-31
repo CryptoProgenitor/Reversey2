@@ -107,7 +107,7 @@ object SnowyOwlTheme {
                 Color(0xFF3a4a6d)
             )
         ),
-        cardBorder = Color(0xFF787896).copy(alpha = 0.4f),
+        accentColor = Color(0xFF787896).copy(alpha = 0.4f),
         primaryTextColor = Color.White,
         secondaryTextColor = Color.White.copy(alpha = 0.8f),
         useGlassmorphism = false,

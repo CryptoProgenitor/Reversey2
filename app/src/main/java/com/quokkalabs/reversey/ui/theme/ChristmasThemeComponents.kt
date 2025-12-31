@@ -142,7 +142,7 @@ object ChristmasTheme {
                 Color(0xFF2E1A1A)
             )
         ),
-        cardBorder = christmasGold.copy(alpha = 0.5f),
+        accentColor = christmasGold.copy(alpha = 0.5f),
         primaryTextColor = snowWhite,
         secondaryTextColor = warmCream.copy(alpha = 0.9f),
         useGlassmorphism = false,

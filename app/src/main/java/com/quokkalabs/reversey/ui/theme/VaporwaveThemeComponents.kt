@@ -24,7 +24,7 @@ object VaporwaveTheme {
                 Color(0xFFFF6EC7)
             )
         ),
-        cardBorder = Color(0xFF00FFFF),
+        accentColor = Color(0xFF00FFFF),
         primaryTextColor = Color(0xFF00FFFF),
         secondaryTextColor = Color(0xFFE0E0E0),
         useGlassmorphism = true,

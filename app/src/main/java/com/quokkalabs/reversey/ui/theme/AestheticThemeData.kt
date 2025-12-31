@@ -38,11 +38,15 @@ data class AestheticThemeData(
 
     // Background gradients
     val primaryGradient: Brush,
-    val cardBorder: Color,
+    val accentColor: Color,
 
     // Contrast-aware text colors
     val primaryTextColor: Color,
     val secondaryTextColor: Color,
+
+    // Scroll and waveform colors (auto-use accentColor)
+    val scrollGlowColor: Color = accentColor,
+    val waveformColor: Color = accentColor,
 
     // Material 3 overrides
     val cardAlpha: Float = 1f,
@@ -56,7 +60,7 @@ data class AestheticThemeData(
     val dialogCopy: DialogCopy = DialogCopy.default(),
     val scoreFeedback: ScoreFeedback = ScoreFeedback.default(),
     val menuColors: MenuColors = MenuColors.fromColors(
-        primaryTextColor, secondaryTextColor, cardBorder, primaryGradient
+        primaryTextColor, secondaryTextColor, accentColor, primaryGradient
     ),
     // 🎖️ Pro Theme Indicator
     val isPro: Boolean = false

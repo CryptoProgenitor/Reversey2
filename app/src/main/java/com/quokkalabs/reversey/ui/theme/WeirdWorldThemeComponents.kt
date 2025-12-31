@@ -119,7 +119,7 @@ object WeirdWorldTheme {
         // FIXED: Visible Gradient (Dark Void -> Light Slate)
         primaryGradient = Brush.verticalGradient(colors = listOf(darkVoid, lightSlate)),
 
-        cardBorder = seafoamGreen.copy(alpha = 0.3f),
+        accentColor = seafoamGreen.copy(alpha = 0.3f),
 
         // FIXED: White text for headers/menu to be visible against dark background
         primaryTextColor = brightWhite,

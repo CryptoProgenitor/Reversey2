@@ -148,7 +148,7 @@ object ScrapbookTheme {
                 Color(0xFFFFCCBC)
             )
         ),
-        cardBorder = Color(0xFF795548),
+        accentColor = Color(0xFF795548),
         primaryTextColor = Color(0xFF3E2723),
         secondaryTextColor = Color(0xFF5D4037),
         useGlassmorphism = false,

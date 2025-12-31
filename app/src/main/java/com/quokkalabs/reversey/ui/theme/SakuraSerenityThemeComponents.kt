@@ -220,7 +220,7 @@ object SakuraSerenityTheme {
                 Color(0xFFFF7F50)  // Coral orange
             )
         ),
-        cardBorder = Color(0xFFFF69B4),
+        accentColor = Color(0xFFFF69B4),
         useGlassmorphism = false,
         glowIntensity = 0.3f,
         recordButtonEmoji = "🌸",

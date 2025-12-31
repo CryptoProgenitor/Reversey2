@@ -24,7 +24,7 @@ object DarkAcademiaTheme {
                 Color(0xFF0F3460)
             )
         ),
-        cardBorder = Color(0x4DFFD700),
+        accentColor = Color(0x4DFFD700),
         primaryTextColor = Color(0xFFFFD700),
         secondaryTextColor = Color(0xFFE8E8E8),
         useGlassmorphism = true,

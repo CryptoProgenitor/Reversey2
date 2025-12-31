@@ -232,7 +232,7 @@ object EggTheme {
                 Color(0xFFFFE0B2)  // Light orange
             )
         ),
-        cardBorder = Color(0xFF6B5344),
+        accentColor = Color(0xFF6B5344),
         primaryTextColor = Color(0xFF6B5344),
         secondaryTextColor = Color(0xFF424242),
         useGlassmorphism = false,

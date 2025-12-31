@@ -124,7 +124,7 @@ object GuitarTheme {
                 Color(0xFFFFDFC1)   // Peachy bottom
             )
         ),
-        cardBorder = Color(0xFF5d4a36),
+        accentColor = Color(0xFF5d4a36),
         primaryTextColor = Color(0xFF3E2723),
         secondaryTextColor = Color(0xFF5D4037),
         useGlassmorphism = false,

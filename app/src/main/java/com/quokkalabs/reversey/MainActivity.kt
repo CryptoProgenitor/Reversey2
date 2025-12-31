@@ -420,6 +420,7 @@ fun AudioReverserApp(
                         val countdownProgress by viewModel.countdownProgress.collectAsState()
                         DifficultyIndicator(
                             difficulty = currentDifficulty,
+                            aesthetic = aesthetic,
                             onClick = openMenuToSettings,
                             recordingProgress = if (uiState.isRecording) countdownProgress else null,
                             modifier = Modifier.padding(end = UiConstants.DIFFICULTY_INDICATOR_END_PADDING)
@@ -460,6 +461,7 @@ fun AudioReverserApp(
                 if (uiState.isRecording) {
                     EnhancedWaveformVisualizer(
                         amplitudes = uiState.amplitudes,
+                        waveformColor = aesthetic.waveformColor,
                         modifier = Modifier.fillMaxWidth().height(UiConstants.WAVEFORM_HEIGHT)
                     )
                 } else {
@@ -576,8 +578,8 @@ fun AudioReverserApp(
                         }
                     }
 
-                    val topGradient = Brush.verticalGradient(0.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), 1.0f to Color.Transparent)
-                    val bottomGradient = Brush.verticalGradient(0.0f to Color.Transparent, 1.0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    val topGradient = Brush.verticalGradient(0.0f to aesthetic.scrollGlowColor.copy(alpha = 0.5f), 1.0f to Color.Transparent)
+                    val bottomGradient = Brush.verticalGradient(0.0f to Color.Transparent, 1.0f to aesthetic.scrollGlowColor.copy(alpha = 0.5f))
 
                     if (showTopFade) {
                         Box(modifier = Modifier.fillMaxWidth().height(UiConstants.GRADIENT_OVERLAY_HEIGHT).align(Alignment.TopCenter).clip(MaterialTheme.shapes.medium).background(topGradient))
@@ -662,11 +664,11 @@ fun EnhancedRecordButton(
 @Composable
 fun EnhancedWaveformVisualizer(
     amplitudes: List<Float>,
+    waveformColor: Color,
     modifier: Modifier = Modifier,
     barWidth: Dp = UiConstants.WAVEFORM_BAR_WIDTH,
     barGap: Dp = UiConstants.WAVEFORM_BAR_GAP
 ) {
-    val materialColors = MaterialColors()
     Canvas(modifier = modifier) {
         val canvasHeight = size.height
         val maxAmplitude = 1.0f
@@ -683,9 +685,9 @@ fun EnhancedWaveformVisualizer(
 
             val gradient = Brush.verticalGradient(
                 colors = listOf(
-                    materialColors.primary.copy(alpha = 0.3f),
-                    materialColors.primary.copy(alpha = 0.8f),
-                    materialColors.primary
+                    waveformColor.copy(alpha = 0.3f),
+                    waveformColor.copy(alpha = 0.8f),
+                    waveformColor
                 ),
                 startY = y,
                 endY = y + barHeight

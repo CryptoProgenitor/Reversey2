@@ -116,7 +116,7 @@ object StrangePlanetTheme {
                 Color(0xFF9B7FB8)   // Bottom - purple
             )
         ),
-        cardBorder = deepNavy.copy(alpha = 0.6f),
+        accentColor = deepNavy.copy(alpha = 0.6f),
         primaryTextColor = deepNavy,
         secondaryTextColor = deepNavy.copy(alpha = 0.7f),
         useGlassmorphism = false,
