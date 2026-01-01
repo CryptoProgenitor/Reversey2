@@ -117,6 +117,7 @@ object StrangePlanetTheme {
             )
         ),
         accentColor = deepNavy.copy(alpha = 0.6f),
+        materialPrimary = Color(0xFFE8B4C8),
         primaryTextColor = deepNavy,
         secondaryTextColor = deepNavy.copy(alpha = 0.7f),
         useGlassmorphism = false,

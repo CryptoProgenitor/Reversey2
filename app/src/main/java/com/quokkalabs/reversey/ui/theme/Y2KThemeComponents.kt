@@ -25,6 +25,9 @@ object Y2KTheme {
             )
         ),
         accentColor = Color(0x4DFFFFFF),
+        materialPrimary = Color(0xFFFF6EC7),
+        cardBackgroundLight = Color(0xFFFFFFFF).copy(alpha = 0.55f),
+        cardBackgroundDark = Color(0xFF2A2099).copy(alpha = 0.55f),
         primaryTextColor = Color.White,
         secondaryTextColor = Color(0xFFE0E0E0),
         useGlassmorphism = true,

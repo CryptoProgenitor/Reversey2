@@ -66,6 +66,9 @@ import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
 import com.quokkalabs.reversey.ui.components.DifficultySquircle
 import com.quokkalabs.reversey.ui.components.ScoreExplanationDialog
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.quokkalabs.reversey.ui.theme.LocalIsDarkTheme
+
 
 /**
  * 🛠️ SHARED DEFAULT COMPONENTS
@@ -114,7 +117,11 @@ object SharedDefaultComponents {
             shape = RoundedCornerShape(12.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = if (LocalIsDarkTheme.current) {
+                    aesthetic.cardBackgroundDark ?: MaterialTheme.colorScheme.surface
+                } else {
+                    aesthetic.cardBackgroundLight ?: MaterialTheme.colorScheme.surface
+                }
             )
         ) {
             Column(
@@ -270,7 +277,7 @@ object SharedDefaultComponents {
                                 Text(
                                     text = "Stop",
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 10.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium
                                     ),
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -295,7 +302,7 @@ object SharedDefaultComponents {
                         size = 50.dp,
                         label = "Del",
                         icon = Icons.Default.Delete,
-                        isPrimary = false
+                        isDestructive = true
                     )
                 }
             }
@@ -367,7 +374,11 @@ object SharedDefaultComponents {
                 .fillMaxWidth()
                 .padding(start = 32.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = if (LocalIsDarkTheme.current) {
+                    aesthetic.cardBackgroundDark ?: MaterialTheme.colorScheme.surface
+                } else {
+                    aesthetic.cardBackgroundLight ?: MaterialTheme.colorScheme.surface
+                }
             ),
             shape = RoundedCornerShape(12.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -398,6 +409,7 @@ object SharedDefaultComponents {
                             Text(
                                 text = attempt.playerName,
                                 style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
                                     .weight(1f)
@@ -498,7 +510,7 @@ object SharedDefaultComponents {
                                     size = 40.dp,
                                     label = "Del",
                                     icon = Icons.Default.Delete,
-                                    isPrimary = false
+                                    isDestructive = true
                                 )
                             }
                         }
@@ -581,22 +593,45 @@ object SharedDefaultComponents {
         isRecording: Boolean,
         onClick: () -> Unit,
     ) {
-        Box(
-            modifier = Modifier.size(80.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            // Record button FAB
-            FloatingActionButton(
-                onClick = onClick,
-                modifier = Modifier.size(64.dp),
-                containerColor = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+        val infiniteTransition = rememberInfiniteTransition(label = "recordPulse")
+        val iconAlpha by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 0.4f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(500),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "iconAlpha"
+        )
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier.size(80.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                    contentDescription = if (isRecording) "Stop" else "Record",
-                    modifier = Modifier.size(28.dp)
-                )
+                FloatingActionButton(
+                    onClick = onClick,
+                    modifier = Modifier.size(64.dp),
+                    containerColor = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(
+                        imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                        contentDescription = if (isRecording) "Stop" else "Record",
+                        modifier = Modifier
+                            .size(28.dp)
+                            .alpha(if (isRecording) iconAlpha else 1f)
+                    )
+                }
             }
+            Text(
+                text = if (isRecording) "Stop" else "Record",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
         }
     }
 
@@ -666,7 +701,9 @@ object SharedDefaultComponents {
                 ) { Text(copy.deleteConfirmButton) }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text(copy.deleteCancelButton) }
+                TextButton(onClick = onDismiss) {
+                    Text(copy.deleteCancelButton, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         )
     }
@@ -714,7 +751,9 @@ object SharedDefaultComponents {
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         )
     }
@@ -751,7 +790,9 @@ object SharedDefaultComponents {
                 }) { Text("Save") }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         )
     }
@@ -834,13 +875,17 @@ object SharedDefaultComponents {
     private fun SimpleGlowButton(
         onClick: () -> Unit,
         isPrimary: Boolean = false,
+        isDestructive: Boolean = false,
         enabled: Boolean = true,
         size: Dp,
         label: String,
         icon: androidx.compose.ui.graphics.vector.ImageVector,
     ) {
-        val containerColor =
-            if (isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
+        val containerColor = when {
+            isDestructive -> MaterialTheme.colorScheme.error
+            isPrimary -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.secondaryContainer
+        }
 
         val disabledColor = if (isPrimary)
             MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
@@ -870,7 +915,7 @@ object SharedDefaultComponents {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 ),
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(

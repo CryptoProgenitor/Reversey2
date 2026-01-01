@@ -25,6 +25,9 @@ object JeoseungTheme {
             )
         ),
         accentColor = Color(0x66FFD700),
+        materialPrimary = Color(0xFFFFD700),
+        cardBackgroundLight = Color(0xFF3A3A4A),
+        cardBackgroundDark = Color(0xFF1A1A28),
         primaryTextColor = Color(0xFFFFD700),
         secondaryTextColor = Color(0xFFCCCCCC),
         useGlassmorphism = true,

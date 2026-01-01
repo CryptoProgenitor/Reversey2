@@ -25,6 +25,9 @@ object DarkAcademiaTheme {
             )
         ),
         accentColor = Color(0x4DFFD700),
+        materialPrimary = Color(0xFFFFD700),
+        cardBackgroundLight = Color(0xFF4A4A5E),
+        cardBackgroundDark = Color(0xFF1A1A28),
         primaryTextColor = Color(0xFFFFD700),
         secondaryTextColor = Color(0xFFE8E8E8),
         useGlassmorphism = true,

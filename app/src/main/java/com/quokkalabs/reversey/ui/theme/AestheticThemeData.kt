@@ -40,6 +40,12 @@ data class AestheticThemeData(
     val primaryGradient: Brush,
     val accentColor: Color,
 
+    // Default fallback for themes with no materialPrimary defined
+    val materialPrimary: Color = Color(0xFFFF6EC7),
+    val cardBackgroundLight: Color? = null,
+    val cardBackgroundDark: Color? = null,
+
+
     // Contrast-aware text colors
     val primaryTextColor: Color,
     val secondaryTextColor: Color,

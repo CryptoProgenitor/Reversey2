@@ -25,6 +25,9 @@ object CottageTheme {
             )
         ),
         accentColor = Color(0xFFF8BBD0),
+        materialPrimary = Color(0xFFF8BBD0),
+        cardBackgroundLight = Color(0xFFFFF8F0),
+        cardBackgroundDark = Color(0xFF2D2520),
         primaryTextColor = Color(0xFF2E2E2E),
         secondaryTextColor = Color(0xFF424242),
         useGlassmorphism = false,

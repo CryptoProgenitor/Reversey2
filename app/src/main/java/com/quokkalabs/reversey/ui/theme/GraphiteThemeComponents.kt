@@ -25,6 +25,9 @@ object GraphiteTheme {
             )
         ),
         accentColor = Color(0xFF2A2A2A),
+        materialPrimary = Color(0xFF2A2A2A),
+        cardBackgroundLight = Color(0xFFF5F5F5),
+        cardBackgroundDark = Color(0xFF3A3A3A),
         primaryTextColor = Color(0xFF2A2A2A),
         secondaryTextColor = Color(0xFF505050),
         useGlassmorphism = false,

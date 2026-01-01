@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.toArgb
 val LocalAestheticTheme = compositionLocalOf<AestheticThemeData> {
     AestheticThemes.getThemeById("y2k_cyber")
 }
-
+val LocalIsDarkTheme = compositionLocalOf { false }
 /**
  * Unified ReVerseY Theme Provider
  * Combines Material 3 with aesthetic theme properties
@@ -38,7 +38,7 @@ fun ReVerseYTheme(
     // Determine the accent color priority:
     // 1. Custom accent (from color picker)
     // 2. Theme's default accent (from aesthetic theme)
-    val accentColor = customAccentColor ?: getThemeAccentColor(aestheticThemeId)
+    val accentColor = customAccentColor ?: aestheticTheme.materialPrimary
 
     // Generate Material 3 ColorScheme from the accent color
     val colorScheme = createDynamicColorScheme(
@@ -47,7 +47,10 @@ fun ReVerseYTheme(
     )
 
     // Provide both Material 3 theme and aesthetic theme
-    CompositionLocalProvider(LocalAestheticTheme provides aestheticTheme) {
+    CompositionLocalProvider(
+        LocalAestheticTheme provides aestheticTheme,
+        LocalIsDarkTheme provides darkTheme
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography(),
@@ -56,25 +59,7 @@ fun ReVerseYTheme(
     }
 }
 
-/**
- * Get the default accent color for each aesthetic theme
- */
-private fun getThemeAccentColor(themeId: String): Color {
-    return when (themeId) {
-        "y2k_cyber" -> Color(0xFFFF6EC7)           // Hot pink
-        "scrapbook" -> Color(0xFFFF5722)           // Deep orange
-        "cottagecore" -> Color(0xFFF8BBD0)         // Light pink
-        "dark_academia" -> Color(0xFFFFD700)       // Gold
-        "vaporwave" -> Color(0xFF00FFFF)           // Cyan
-        "jeoseung_shadows" -> Color(0xFFFFD700)    // Gold
-        "steampunk" -> Color(0xFFD4AF37)           // Brass gold
-        "cyberpunk" -> Color(0xFF00FFFF)           // Neon cyan
-        "graphite_sketch" -> Color(0xFF2A2A2A)     // Graphite gray
-        "egg" -> Color(0xFFFF8A65)                 // 🥚 Coral orange (your daughter's design!)
-        "sakura_serenity" -> Color(0xFFFF69B4)     // 🌸 ADD THIS LINE!
-        else -> Color(0xFFFF6EC7)                  // Default to Y2K pink
-    }
-}
+
 
 /**
  * Creates a complete Material3 ColorScheme from an accent color

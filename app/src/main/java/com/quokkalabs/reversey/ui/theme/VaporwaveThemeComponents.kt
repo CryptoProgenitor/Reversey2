@@ -25,6 +25,9 @@ object VaporwaveTheme {
             )
         ),
         accentColor = Color(0xFF00FFFF),
+        materialPrimary = Color(0xFF00FFFF),
+        cardBackgroundLight = Color(0xFF3D2050),
+        cardBackgroundDark = Color(0xFF1E0028),
         primaryTextColor = Color(0xFF00FFFF),
         secondaryTextColor = Color(0xFFE0E0E0),
         useGlassmorphism = true,

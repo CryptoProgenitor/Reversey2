@@ -25,6 +25,9 @@ object SteampunkTheme {
             )
         ),
         accentColor = Color(0xFFD4AF37),
+        materialPrimary = Color(0xFFD4AF37),
+        cardBackgroundLight = Color(0xFFF5E6D3),
+        cardBackgroundDark = Color(0xFF3D2A1E),
         primaryTextColor = Color(0xFFD4AF37),
         secondaryTextColor = Color(0xFFF5E6D3),
         useGlassmorphism = false,
