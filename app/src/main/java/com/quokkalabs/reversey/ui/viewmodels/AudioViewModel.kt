@@ -96,6 +96,9 @@ class AudioViewModel @Inject constructor(
     }
 
     // 🎯 RE-INTRODUCED: Mutex for strict serialization of I/O operations
+    // ⚠️ WARNING: Do NOT call loadRecordings() from within stopRecording()'s mutex block
+    // or any function it calls (processMainRecordingResult, processAttemptResult, scoreAttempt).
+    // Doing so will cause a DEADLOCK since Kotlin Mutex is non-reentrant.
     private val recordingProcessingMutex = Mutex()
 
     // 🎯 STATE: Must be declared BEFORE init block to avoid NPE
@@ -203,7 +206,20 @@ class AudioViewModel @Inject constructor(
                 val savedAttempts = attemptsRepository.loadAttempts()
                 val savedNames = recordingNamesRepository.loadCustomNames()
 
-                val recordingsWithAttempts = recordings.map { recording ->
+                // 🐛 FIX: Filter out any in-progress recording file to prevent duplicate key crash
+                // When deleteRecording() calls loadRecordings() while another recording is active,
+                // the in-progress file already exists on disk and would be added prematurely.
+                // 🔒 THREAD SAFETY: Acquire mutex to get consistent view of in-progress state
+                val (currentRecordingPath, currentAttemptPath) = recordingProcessingMutex.withLock {
+                    Pair(currentRecordingFile?.absolutePath, currentAttemptFile?.absolutePath)
+                }
+
+                val filteredRecordings = recordings.filter { recording ->
+                    recording.originalPath != currentRecordingPath &&
+                            recording.originalPath != currentAttemptPath
+                }
+
+                val recordingsWithAttempts = filteredRecordings.map { recording ->
                     val attempts = savedAttempts[recording.originalPath] ?: emptyList()
                     val customName = savedNames[recording.originalPath]
                     recording.copy(
@@ -285,25 +301,34 @@ class AudioViewModel @Inject constructor(
             Log.d("AudioViewModel", "📻 Recording stopped: file=${result.file?.absolutePath}")
 
             recordingProcessingMutex.withLock {
-                if (result.file != null && result.file.exists()) {
-                    if (wasAttempt) {
-                        Log.d("AudioViewModel", "🎯 Processing ATTEMPT recording")
-                        processAttemptResult(result.file)
+                try {
+                    if (result.file != null && result.file.exists()) {
+                        if (wasAttempt) {
+                            Log.d("AudioViewModel", "🎯 Processing ATTEMPT recording")
+                            processAttemptResult(result.file)
+                        } else {
+                            Log.d("AudioViewModel", "🎵 Processing MAIN recording")
+                            processMainRecordingResult(result.file)
+                        }
                     } else {
-                        Log.d("AudioViewModel", "🎵 Processing MAIN recording")
-                        processMainRecordingResult(result.file)
+                        Log.e("AudioViewModel", "❌ Recording failed: no file produced")
+                        _uiState.update {
+                            it.copy(
+                                isRecording = false,
+                                isRecordingAttempt = false,
+                                statusText = "Recording failed",
+                                parentRecordingPath = null,
+                                pendingChallengeType = null,
+                                amplitudes = emptyList()
+                            )
+                        }
                     }
-                } else {
-                    Log.e("AudioViewModel", "❌ Recording failed: no file produced")
-                    _uiState.update {
-                        it.copy(
-                            isRecording = false,
-                            isRecordingAttempt = false,
-                            statusText = "Recording failed",
-                            parentRecordingPath = null,
-                            pendingChallengeType = null,
-                            amplitudes = emptyList()
-                        )
+                } finally {
+                    // 🐛 FIX: Guaranteed cleanup regardless of success/failure/exception
+                    if (wasAttempt) {
+                        currentAttemptFile = null
+                    } else {
+                        currentRecordingFile = null
                     }
                 }
             }
@@ -346,7 +371,10 @@ class AudioViewModel @Inject constructor(
                     referenceTranscription = referenceTranscription
                 )
 
-                val updatedRecordings = listOf(newRecording) + _uiState.value.recordings
+                // 🐛 BELT-AND-BRACES: Dedupe on insert to guarantee no duplicate keys
+                // Even if filtering somehow fails, this prevents LazyColumn crash
+                val updatedRecordings = listOf(newRecording) +
+                        _uiState.value.recordings.filterNot { it.originalPath == newRecording.originalPath }
 
                 _uiState.update {
                     it.copy(
