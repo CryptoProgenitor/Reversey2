@@ -25,7 +25,9 @@ material3 = "1.4.0"
 uiGraphics = "1.9.4"
 ui = "1.9.5"
 uiGraphicsVersion = "1.9.5"
-uiTextVersion = "1.10.0" # And this one too
+uiTextVersion = "1.10.0"
+uiGeometryVersion = "1.10.0"
+androidxUiGraphics = "1.10.0" # And this one too
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -76,6 +78,8 @@ androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", ve
 androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "uiGraphicsVersion" }
 androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiTextVersion" }
+androidx-ui-geometry = { group = "androidx.compose.ui", name = "ui-geometry", version.ref = "uiGeometryVersion" }
+androidx-compose-ui-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "androidxUiGraphics" }
 
 
 

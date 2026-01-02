@@ -59,8 +59,9 @@ import com.quokkalabs.reversey.ui.menu.HelpContent
 import com.quokkalabs.reversey.ui.menu.MenuContent
 import com.quokkalabs.reversey.ui.menu.ModalScreen
 import com.quokkalabs.reversey.ui.menu.SettingsContent
-import com.quokkalabs.reversey.ui.menu.StaticMenuColors
 import com.quokkalabs.reversey.ui.menu.ThemesContent
+import com.quokkalabs.reversey.ui.theme.LocalAestheticTheme
+import com.quokkalabs.reversey.ui.theme.MenuColors
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.delay
@@ -83,8 +84,12 @@ fun ThemedMenuModal(
     backupManager: BackupManager,
     initialScreen: ModalScreen = ModalScreen.Menu
 ) {
+    // 🎨 Get theme colors
+    val theme = LocalAestheticTheme.current
+    val menuColors = theme.menuColors
+    val accentColor = theme.accentColor
+
     // 🔧 SAFETY: Custom Saver to handle Sealed Class serialization
-    // This maps the objects to strings and back, avoiding .name/.entries calls
     val stackSaver = remember {
         listSaver<List<ModalScreen>, String>(
             save = { stack -> stack.map { it.toScreenId() } },
@@ -159,11 +164,11 @@ fun ThemedMenuModal(
                     .shadow(
                         elevation = 24.dp,
                         shape = RoundedCornerShape(24.dp),
-                        ambientColor = Color(0xFF667EEA).copy(alpha = 0.3f),
-                        spotColor = Color(0xFF764BA2).copy(alpha = 0.3f)
+                        ambientColor = accentColor.copy(alpha = 0.3f),
+                        spotColor = accentColor.copy(alpha = 0.3f)
                     )
                     .clip(RoundedCornerShape(24.dp))
-                    .background(StaticMenuColors.backgroundGradient)
+                    .background(menuColors.menuBackground)
             ) {
                 Column(
                     modifier = Modifier
@@ -173,6 +178,7 @@ fun ThemedMenuModal(
                     // Glassmorphism Header
                     GlassHeader(
                         currentScreen = currentScreen,
+                        menuColors = menuColors,
                         onBack = {
                             if (screenStack.size > 1) {
                                 screenStack = screenStack.dropLast(1)
@@ -257,6 +263,7 @@ fun ThemedMenuModal(
 @Composable
 private fun GlassHeader(
     currentScreen: ModalScreen,
+    menuColors: MenuColors,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -276,10 +283,10 @@ private fun GlassHeader(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(StaticMenuColors.headerBackground)
+            .background(menuColors.menuItemBackground)
             .border(
                 width = 1.dp,
-                color = StaticMenuColors.headerBorder,
+                color = menuColors.menuBorder,
                 shape = RoundedCornerShape(16.dp)
             )
             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -298,7 +305,7 @@ private fun GlassHeader(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = StaticMenuColors.textOnGradient
+                        tint = menuColors.menuTitleText
                     )
                 }
             } else {
@@ -312,7 +319,7 @@ private fun GlassHeader(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp
                 ),
-                color = StaticMenuColors.textOnGradient
+                color = menuColors.menuTitleText
             )
 
             // Close Button
@@ -323,7 +330,7 @@ private fun GlassHeader(
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = StaticMenuColors.textOnGradient
+                    tint = menuColors.menuTitleText
                 )
             }
         }

@@ -57,6 +57,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import com.quokkalabs.reversey.ui.theme.LocalAestheticTheme
+import com.quokkalabs.reversey.ui.theme.MenuColors
 
 /**
  * Single WAV Import Dialog
@@ -73,6 +75,7 @@ fun SingleWavImportDialog(
     onImportComplete: (importedFilePath: String, displayName: String) -> Unit,
     onCancel: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -94,7 +97,7 @@ fun SingleWavImportDialog(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(StaticMenuColors.backgroundGradient)
+            .background(menuColors.menuBackground)
             .padding(20.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -103,7 +106,7 @@ fun SingleWavImportDialog(
                 .fillMaxWidth()
                 .shadow(16.dp, RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
-                .background(StaticMenuColors.settingsCardBackground)
+                .background(menuColors.menuCardBackground)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -115,7 +118,7 @@ fun SingleWavImportDialog(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp
                 ),
-                color = StaticMenuColors.textOnCard
+                color = menuColors.menuItemText
             )
 
             // File preview card
@@ -133,15 +136,15 @@ fun SingleWavImportDialog(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = StaticMenuColors.toggleActive,
-                    unfocusedBorderColor = StaticMenuColors.textOnCard.copy(alpha = 0.3f),
-                    focusedLabelColor = StaticMenuColors.toggleActive,
-                    unfocusedLabelColor = StaticMenuColors.textOnCard.copy(alpha = 0.6f),
-                    cursorColor = StaticMenuColors.toggleActive,
-                    focusedTextColor = StaticMenuColors.textOnCard,
-                    unfocusedTextColor = StaticMenuColors.textOnCard,
-                    focusedPlaceholderColor = StaticMenuColors.textOnCard.copy(alpha = 0.4f),
-                    unfocusedPlaceholderColor = StaticMenuColors.textOnCard.copy(alpha = 0.4f)
+                    focusedBorderColor = menuColors.toggleActive,
+                    unfocusedBorderColor = menuColors.menuItemText.copy(alpha = 0.3f),
+                    focusedLabelColor = menuColors.toggleActive,
+                    unfocusedLabelColor = menuColors.menuItemText.copy(alpha = 0.6f),
+                    cursorColor = menuColors.toggleActive,
+                    focusedTextColor = menuColors.menuItemText,
+                    unfocusedTextColor = menuColors.menuItemText,
+                    focusedPlaceholderColor = menuColors.menuItemText.copy(alpha = 0.4f),
+                    unfocusedPlaceholderColor = menuColors.menuItemText.copy(alpha = 0.4f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -161,9 +164,9 @@ fun SingleWavImportDialog(
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = StaticMenuColors.textOnCard
+                        contentColor = menuColors.menuItemText
                     ),
-                    border = BorderStroke(1.dp, StaticMenuColors.textOnCard.copy(alpha = 0.3f))
+                    border = BorderStroke(1.dp, menuColors.menuItemText.copy(alpha = 0.3f))
                 ) {
                     Text(
                         "Nah",
@@ -203,8 +206,8 @@ fun SingleWavImportDialog(
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = StaticMenuColors.toggleActive,
-                        disabledContainerColor = StaticMenuColors.toggleInactive
+                        containerColor = menuColors.toggleActive,
+                        disabledContainerColor = menuColors.toggleActive.copy(alpha = 0.3f)
                     )
                 ) {
                     if (isImporting) {
@@ -231,6 +234,7 @@ private fun FilePreviewCard(
     fileName: String,
     fileSize: String
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -246,10 +250,10 @@ private fun FilePreviewCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(StaticMenuColors.toggleActive.copy(alpha = 0.1f))
+            .background(menuColors.toggleActive.copy(alpha = 0.1f))
             .border(
                 2.dp,
-                StaticMenuColors.toggleActive.copy(alpha = 0.3f),
+                menuColors.toggleActive.copy(alpha = 0.3f),
                 RoundedCornerShape(16.dp)
             )
             .padding(20.dp)
@@ -263,7 +267,7 @@ private fun FilePreviewCard(
                 modifier = Modifier
                     .size((48 * scale).dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(StaticMenuColors.toggleActive),
+                    .background(menuColors.toggleActive),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -279,13 +283,13 @@ private fun FilePreviewCard(
                     fileName.ifEmpty { "audio file" },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = StaticMenuColors.textOnCard,
+                    color = menuColors.menuItemText,
                     maxLines = 1
                 )
                 Text(
                     fileSize,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                    color = menuColors.menuItemText.copy(alpha = 0.6f)
                 )
             }
         }

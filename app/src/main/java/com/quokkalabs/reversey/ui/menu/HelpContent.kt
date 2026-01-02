@@ -43,6 +43,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.quokkalabs.reversey.ui.theme.LocalAestheticTheme
+import com.quokkalabs.reversey.ui.theme.MenuColors
 
 // ========== HELP SECTIONS ==========
 enum class HelpSection(val title: String, val emoji: String) {
@@ -56,6 +58,7 @@ enum class HelpSection(val title: String, val emoji: String) {
 // ========== HELP SCREEN ==========
 @Composable
 fun HelpContent() {
+    val menuColors = LocalAestheticTheme.current.menuColors
     var expandedSection by rememberSaveable { mutableStateOf<HelpSection?>(HelpSection.HOW_TO_PLAY) }
 
     Column(
@@ -68,6 +71,7 @@ fun HelpContent() {
             HelpSectionCard(
                 section = section,
                 expanded = expandedSection == section,
+                menuColors = menuColors,
                 onToggle = {
                     expandedSection = if (expandedSection == section) null else section
                 }
@@ -83,6 +87,7 @@ fun HelpContent() {
 private fun HelpSectionCard(
     section: HelpSection,
     expanded: Boolean,
+    menuColors: MenuColors,
     onToggle: () -> Unit
 ) {
     val shape = RoundedCornerShape(14.dp)
@@ -102,8 +107,8 @@ private fun HelpSectionCard(
             )
             .clip(shape)
             .background(
-                if (expanded) StaticMenuColors.cardSelected
-                else StaticMenuColors.cardUnselected
+                if (expanded) menuColors.menuCardBackground
+                else menuColors.menuItemBackground
             )
             .animateContentSize()
     ) {
@@ -130,16 +135,16 @@ private fun HelpSectionCard(
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = if (expanded) FontWeight.Bold else FontWeight.Medium
                         ),
-                        color = if (expanded) StaticMenuColors.textOnCard
-                        else StaticMenuColors.textOnGradient
+                        color = if (expanded) menuColors.menuItemText
+                        else menuColors.menuTitleText
                     )
                 }
 
                 Icon(
                     imageVector = Icons.Default.ExpandMore,
                     contentDescription = if (expanded) "Collapse" else "Expand",
-                    tint = if (expanded) StaticMenuColors.textOnCard
-                    else StaticMenuColors.textOnGradient,
+                    tint = if (expanded) menuColors.menuItemText
+                    else menuColors.menuTitleText,
                     modifier = Modifier
                         .size(24.dp)
                         .rotate(rotation)
@@ -160,16 +165,16 @@ private fun HelpSectionCard(
                     )
                 ) {
                     HorizontalDivider(
-                        color = StaticMenuColors.textOnCard.copy(alpha = 0.15f),
+                        color = menuColors.menuItemText.copy(alpha = 0.15f),
                         modifier = Modifier.padding(bottom = 14.dp)
                     )
 
                     when (section) {
-                        HelpSection.HOW_TO_PLAY -> HowToPlayContent()
-                        HelpSection.CONTROLS -> ControlsContent()
-                        HelpSection.THEMES -> ThemesHelpContent()
-                        HelpSection.SCORING -> ScoringContent()
-                        HelpSection.TIPS -> TipsContent()
+                        HelpSection.HOW_TO_PLAY -> HowToPlayContent(menuColors)
+                        HelpSection.CONTROLS -> ControlsContent(menuColors)
+                        HelpSection.THEMES -> ThemesHelpContent(menuColors)
+                        HelpSection.SCORING -> ScoringContent(menuColors)
+                        HelpSection.TIPS -> TipsContent(menuColors)
                     }
                 }
             }
@@ -179,7 +184,7 @@ private fun HelpSectionCard(
 
 // ========== HOW TO PLAY ==========
 @Composable
-private fun HowToPlayContent() {
+private fun HowToPlayContent(menuColors: MenuColors) {
     val steps = listOf(
         "1️⃣" to "Record — Tap the record button and speak a phrase",
         "2️⃣" to "Listen — The app reverses your audio into gibberish",
@@ -197,7 +202,7 @@ private fun HowToPlayContent() {
                 Text(
                     text = text,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.85f)
+                    color = menuColors.menuItemText.copy(alpha = 0.85f)
                 )
             }
         }
@@ -206,41 +211,30 @@ private fun HowToPlayContent() {
 
 // ========== CONTROLS ==========
 @Composable
-private fun ControlsContent() {
+private fun ControlsContent(menuColors: MenuColors) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Main Screen Controls
-        HelpSubsection("Main Screen") {
+        HelpSubsection("Main Screen", menuColors) {
             HelpTable(
+                menuColors = menuColors,
                 rows = listOf(
                     "Record button" to "Tap to start/stop recording",
                     "Play ▶️" to "Play original audio",
                     "Rev ⏪" to "Play reversed audio",
                     "Pause ⏸️" to "Pause playback",
-                    "Rev 🎙️" to "Start a player attempt"
+                    "Try 🎙️" to "Start a player attempt"
                 )
             )
         }
 
-        // Recording Cards
-        HelpSubsection("Recording Cards") {
+        // Card Controls
+        HelpSubsection("Recording Cards", menuColors) {
             HelpTable(
+                menuColors = menuColors,
                 rows = listOf(
-                    "Tap filename" to "Rename recording",
-                    "Share" to "Share recording",
-                    "Delete" to "Delete recording",
-                    "Swipe" to "Delete (if enabled)"
-                )
-            )
-        }
-
-        // Attempt Cards
-        HelpSubsection("Attempt Cards") {
-            HelpTable(
-                rows = listOf(
-                    "🏚️ icon" to "Jump to recording",
-                    "Tap score" to "View score breakdown",
-                    "Play buttons" to "Listen to your attempt",
-                    "Score %" to "Show score breakdown"
+                    "Tap 🏠" to "Jump to challenge",
+                    "Press filename" to "Rename recording",
+                    "Press score" to "See score breakdown"
                 )
             )
         }
@@ -249,94 +243,71 @@ private fun ControlsContent() {
 
 // ========== THEMES HELP ==========
 @Composable
-private fun ThemesHelpContent() {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+private fun ThemesHelpContent(menuColors: MenuColors) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "ReVerseY includes 14 visual themes. Each theme changes:",
+            text = "ReVerseY comes with multiple themes to personalize your experience.",
             style = MaterialTheme.typography.bodyMedium,
-            color = StaticMenuColors.textOnCard.copy(alpha = 0.85f)
+            color = menuColors.menuItemText.copy(alpha = 0.85f)
         )
 
-        val changes = listOf(
-            "• Background colors and gradients",
-            "• Card styling and borders",
-            "• Button appearance",
-            "• Score emojis",
-            "• Dialog text and personality",
-            "• Pro themes have animations, sounds and Easter eggs"
-        )
-
-        changes.forEach { item ->
+        HelpSubsection("Changing Themes", menuColors) {
             Text(
-                text = item,
+                text = "Go to Menu → Themes to browse and select a theme.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = StaticMenuColors.textOnCard.copy(alpha = 0.75f),
-                modifier = Modifier.padding(start = 8.dp)
+                color = menuColors.menuItemText.copy(alpha = 0.85f)
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = "To change theme: Menu → Themes",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = StaticMenuColors.textOnCard
-        )
-
-        Text(
-            text = "Themes are purely cosmetic and do not affect gameplay or scoring.",
-            style = MaterialTheme.typography.bodySmall,
-            color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
-        )
+        HelpSubsection("Pro Themes", menuColors) {
+            Text(
+                text = "Some themes are marked as Pro and include custom animations, sounds, and visual effects.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = menuColors.menuItemText.copy(alpha = 0.85f)
+            )
+        }
     }
 }
 
 // ========== SCORING ==========
 @Composable
-private fun ScoringContent() {
+private fun ScoringContent(menuColors: MenuColors) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // The Basics
-        HelpSubsection("The Basics") {
-            Text(
-                text = "The app breaks down speech into individual sounds called phonemes. " +
-                        "For example, \"cat\" has three sounds: K - AE - T.\n\n" +
-                        "Your attempt is compared to the target sounds. " +
-                        "The more sounds you match, the higher your score.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = StaticMenuColors.textOnCard.copy(alpha = 0.85f)
-            )
-        }
+        Text(
+            text = "Your score is calculated by comparing your attempt to the reversed audio.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = menuColors.menuItemText.copy(alpha = 0.85f)
+        )
 
-        // Score Calculation
-        HelpSubsection("Score Calculation") {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HelpSubsection("Score Components", menuColors) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ScoringItem(
-                    label = "Sound Matching",
-                    value = "85% of score",
-                    description = "How many target sounds appear in your attempt"
+                    label = "Phonetic Match",
+                    value = "85%",
+                    description = "How well your sounds match the target",
+                    menuColors = menuColors
                 )
                 ScoringItem(
-                    label = "Timing Bonus",
-                    value = "up to 15%",
-                    description = "Bonus if attempt length matches target length"
+                    label = "Timing",
+                    value = "15%",
+                    description = "How close your duration is to the target",
+                    menuColors = menuColors
                 )
             }
         }
 
         // Difficulty Levels
-        HelpSubsection("Difficulty Levels") {
+        HelpSubsection("Difficulty Levels", menuColors) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "Difficulty affects both sound matching AND timing strictness.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+                    color = menuColors.menuItemText.copy(alpha = 0.7f)
                 )
 
-                DifficultyRow("Easy 💚", "Similar sounds accepted (T≈D, P≈B)", "50-150%")
-                DifficultyRow("Normal 💎", "Exact sounds required", "66-133%")
-                DifficultyRow("Hard 🔥", "Exact sounds in order", "80-120%")
+                DifficultyRow("Easy 💚", "Similar sounds accepted (T≈D, P≈B)", "50-150%", menuColors)
+                DifficultyRow("Normal 💎", "Exact sounds required", "66-133%", menuColors)
+                DifficultyRow("Hard 🔥", "Exact sounds in order", "80-120%", menuColors)
 
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -344,22 +315,23 @@ private fun ScoringContent() {
                     text = "Easy is forgiving — if you say \"D\" but the target was \"T\", " +
                             "it counts because they're made the same way in your mouth.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.65f)
+                    color = menuColors.menuItemText.copy(alpha = 0.65f)
                 )
             }
         }
 
         // Score Override
-        HelpSubsection("Score Override") {
+        HelpSubsection("Score Override", menuColors) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "If you disagree with the algorithm, tap the score to see the breakdown. " +
                             "Use the slider to set your own score.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.85f)
+                    color = menuColors.menuItemText.copy(alpha = 0.85f)
                 )
 
                 HelpTable(
+                    menuColors = menuColors,
                     rows = listOf(
                         "⚙️" to "Algorithm's score",
                         "✋" to "Human override"
@@ -369,7 +341,7 @@ private fun ScoringContent() {
                 Text(
                     text = "You can reset to the algorithm's score at any time.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.65f)
+                    color = menuColors.menuItemText.copy(alpha = 0.65f)
                 )
             }
         }
@@ -378,7 +350,7 @@ private fun ScoringContent() {
 
 // ========== TIPS ==========
 @Composable
-private fun TipsContent() {
+private fun TipsContent(menuColors: MenuColors) {
     val tips = listOf(
         "🎧" to "Listen to the reversed audio several times before attempting",
         "🔊" to "Focus on matching sounds, not making real words",
@@ -397,7 +369,7 @@ private fun TipsContent() {
                 Text(
                     text = tip,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.85f)
+                    color = menuColors.menuItemText.copy(alpha = 0.85f)
                 )
             }
         }
@@ -409,6 +381,7 @@ private fun TipsContent() {
 @Composable
 private fun HelpSubsection(
     title: String,
+    menuColors: MenuColors,
     content: @Composable () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -417,7 +390,7 @@ private fun HelpSubsection(
             style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = FontWeight.SemiBold
             ),
-            color = StaticMenuColors.textOnCard
+            color = menuColors.menuItemText
         )
         content()
     }
@@ -425,13 +398,14 @@ private fun HelpSubsection(
 
 @Composable
 private fun HelpTable(
+    menuColors: MenuColors,
     rows: List<Pair<String, String>>
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(StaticMenuColors.textOnCard.copy(alpha = 0.08f))
+            .background(menuColors.menuItemText.copy(alpha = 0.08f))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -445,19 +419,19 @@ private fun HelpTable(
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium
                     ),
-                    color = StaticMenuColors.textOnCard,
+                    color = menuColors.menuItemText,
                     modifier = Modifier.weight(0.4f)
                 )
                 Text(
                     text = action,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.75f),
+                    color = menuColors.menuItemText.copy(alpha = 0.75f),
                     modifier = Modifier.weight(0.6f)
                 )
             }
             if (index < rows.lastIndex) {
                 HorizontalDivider(
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.1f),
+                    color = menuColors.menuItemText.copy(alpha = 0.1f),
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
             }
@@ -469,7 +443,8 @@ private fun HelpTable(
 private fun ScoringItem(
     label: String,
     value: String,
-    description: String
+    description: String,
+    menuColors: MenuColors
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -486,18 +461,18 @@ private fun ScoringItem(
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium
                     ),
-                    color = StaticMenuColors.textOnCard
+                    color = menuColors.menuItemText
                 )
                 Text(
                     text = "($value)",
                     style = MaterialTheme.typography.bodySmall,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                    color = menuColors.menuItemText.copy(alpha = 0.6f)
                 )
             }
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+                color = menuColors.menuItemText.copy(alpha = 0.7f)
             )
         }
     }
@@ -507,13 +482,14 @@ private fun ScoringItem(
 private fun DifficultyRow(
     level: String,
     matching: String,
-    timing: String
+    timing: String,
+    menuColors: MenuColors
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(StaticMenuColors.textOnCard.copy(alpha = 0.06f))
+            .background(menuColors.menuItemText.copy(alpha = 0.06f))
             .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -522,19 +498,19 @@ private fun DifficultyRow(
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.SemiBold
             ),
-            color = StaticMenuColors.textOnCard,
+            color = menuColors.menuItemText,
             modifier = Modifier.width(80.dp)
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = matching,
                 style = MaterialTheme.typography.bodySmall,
-                color = StaticMenuColors.textOnCard.copy(alpha = 0.8f)
+                color = menuColors.menuItemText.copy(alpha = 0.8f)
             )
             Text(
                 text = "Timing: $timing of target",
                 style = MaterialTheme.typography.labelSmall,
-                color = StaticMenuColors.textOnCard.copy(alpha = 0.55f)
+                color = menuColors.menuItemText.copy(alpha = 0.55f)
             )
         }
     }

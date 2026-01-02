@@ -49,13 +49,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.quokkalabs.reversey.data.backup.BackupManager
+import com.quokkalabs.reversey.ui.theme.LocalAestheticTheme
+import com.quokkalabs.reversey.ui.theme.MenuColors
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ImportWizardViewModel
 import kotlinx.coroutines.launch
@@ -82,6 +86,9 @@ fun FilesContent(
     val scope = rememberCoroutineScope()
     val wizardViewModel: ImportWizardViewModel = hiltViewModel()
     val wizardState by wizardViewModel.state.collectAsState()
+
+    // 🎨 Get theme colors
+    val menuColors = LocalAestheticTheme.current.menuColors
 
     // Screen state
     var currentScreen by remember { mutableStateOf<FilesScreen>(FilesScreen.Menu) }
@@ -142,7 +149,7 @@ fun FilesContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(StaticMenuColors.backgroundGradient)
+            .background(menuColors.menuBackground)
             .statusBarsPadding()
             .padding(20.dp)
     ) {
@@ -254,7 +261,7 @@ fun FilesContent(
                 },
                 text = {
                     Text(
-                        "This will delete ALL your recordings and attempts. Like, everything. Gone forever. No takesies-backsies. 😬",
+                        "This will delete ALL your recordings and attempts. Everything. Gone forever. No going back! 😬",
                         style = MaterialTheme.typography.bodyLarge
                     )
                 },
@@ -315,7 +322,7 @@ fun FilesContent(
                             isExporting = false
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = StaticMenuColors.toggleActive
+                            containerColor = menuColors.toggleActive
                         )
                     ) {
                         Text("Share")
@@ -360,6 +367,8 @@ private fun FilesMenuContent(
     isExporting: Boolean,
     isExportingSelection: Boolean
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Glass Header
         GlassHeader(
@@ -528,6 +537,7 @@ private fun AddRecordingPickerContent(
     onFileSelected: (Uri) -> Unit,
     onBack: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -549,8 +559,8 @@ private fun AddRecordingPickerContent(
                 .height(200.dp)
                 .shadow(12.dp, RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
-                .background(StaticMenuColors.settingsCardBackground)
-                .border(2.dp, StaticMenuColors.toggleActive.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                .background(menuColors.menuCardBackground)
+                .border(2.dp, menuColors.toggleActive.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
                 .clickable { filePicker.launch("audio/*") },
             contentAlignment = Alignment.Center
         ) {
@@ -563,12 +573,12 @@ private fun AddRecordingPickerContent(
                     "Tap to pick an audio file",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = StaticMenuColors.textOnCard
+                    color = menuColors.menuItemText
                 )
                 Text(
                     "WAV files work best",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                    color = menuColors.menuItemText.copy(alpha = 0.6f)
                 )
             }
         }
@@ -584,14 +594,15 @@ private fun GlassHeader(
     title: String,
     onBack: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(StaticMenuColors.headerBackground)
+            .background(menuColors.menuItemBackground)
             .border(
                 width = 1.dp,
-                color = StaticMenuColors.headerBorder,
+                color = menuColors.menuBorder,
                 shape = RoundedCornerShape(16.dp)
             )
             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -608,7 +619,7 @@ private fun GlassHeader(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = StaticMenuColors.textOnGradient
+                    tint = menuColors.menuTitleText
                 )
             }
 
@@ -618,7 +629,7 @@ private fun GlassHeader(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp
                 ),
-                color = StaticMenuColors.textOnGradient
+                color = menuColors.menuTitleText
             )
 
             Spacer(modifier = Modifier.width(32.dp))
@@ -628,13 +639,14 @@ private fun GlassHeader(
 
 @Composable
 private fun SectionHeader(text: String) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Text(
         text = text,
         style = MaterialTheme.typography.labelMedium.copy(
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp
         ),
-        color = StaticMenuColors.textMuted,
+        color = menuColors.menuItemText.copy(alpha = 0.6f),
         modifier = Modifier.padding(start = 4.dp, top = 8.dp)
     )
 }
@@ -648,6 +660,7 @@ private fun MenuCard(
     enabled: Boolean = true,
     showProgress: Boolean = false
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val shape = RoundedCornerShape(16.dp)
 
     Box(
@@ -655,7 +668,7 @@ private fun MenuCard(
             .fillMaxWidth()
             .shadow(8.dp, shape)
             .clip(shape)
-            .background(StaticMenuColors.settingsCardBackground)
+            .background(menuColors.menuCardBackground)
             .border(1.dp, Color.White.copy(alpha = 0.3f), shape)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(18.dp)
@@ -667,7 +680,7 @@ private fun MenuCard(
             if (showProgress) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(28.dp),
-                    color = StaticMenuColors.toggleActive,
+                    color = menuColors.toggleActive,
                     strokeWidth = 3.dp
                 )
             } else {
@@ -679,18 +692,18 @@ private fun MenuCard(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = StaticMenuColors.textOnCard.copy(alpha = if (enabled) 1f else 0.5f)
+                    color = menuColors.menuItemText.copy(alpha = if (enabled) 1f else 0.5f)
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = if (enabled) 0.7f else 0.4f)
+                    color = menuColors.menuItemText.copy(alpha = if (enabled) 0.7f else 0.4f)
                 )
             }
             Text(
                 text = "›",
                 style = MaterialTheme.typography.headlineMedium,
-                color = StaticMenuColors.textOnCard.copy(alpha = if (enabled) 0.4f else 0.2f)
+                color = menuColors.menuItemText.copy(alpha = if (enabled) 0.4f else 0.2f)
             )
         }
     }
@@ -703,14 +716,15 @@ private fun DangerCard(
     subtitle: String,
     onClick: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val shape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(StaticMenuColors.deleteBackground)
-            .border(1.dp, StaticMenuColors.deleteBorder, shape)
+            .background(menuColors.dangerColor.copy(alpha = 0.9f))
+            .border(1.dp, menuColors.dangerColor3, shape)
             .clickable(onClick = onClick)
             .padding(18.dp)
     ) {
@@ -724,18 +738,18 @@ private fun DangerCard(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = StaticMenuColors.deleteText
+                    color = menuColors.dangerColor3
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.deleteText.copy(alpha = 0.8f)
+                    color = menuColors.dangerColor2
                 )
             }
             Text(
                 text = "›",
                 style = MaterialTheme.typography.headlineMedium,
-                color = StaticMenuColors.deleteText.copy(alpha = 0.5f)
+                color = menuColors.dangerColor.copy(alpha = 0.5f)
             )
         }
     }
@@ -753,6 +767,7 @@ private fun ExportSelectionContent(
     onExportComplete: (String) -> Unit,
     onBack: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uiState by audioViewModel.uiState.collectAsState()
@@ -832,7 +847,7 @@ private fun ExportSelectionContent(
                 text = "Select All",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = StaticMenuColors.textOnGradient
+                color = menuColors.menuTitleText
             )
 
             Switch(
@@ -846,9 +861,9 @@ private fun ExportSelectionContent(
                 },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = StaticMenuColors.toggleActive,
+                    checkedTrackColor = menuColors.toggleActive,
                     uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = StaticMenuColors.textMuted.copy(alpha = 0.3f),
+                    uncheckedTrackColor = menuColors.menuItemText.copy(alpha = 0.6f).copy(alpha = 0.3f),
                     uncheckedBorderColor = Color.Transparent
                 )
             )
@@ -862,7 +877,7 @@ private fun ExportSelectionContent(
         Text(
             text = "${selectedPaths.size} recordings, $totalAttempts attempts selected",
             style = MaterialTheme.typography.bodySmall,
-            color = StaticMenuColors.textMuted.copy(alpha = 0.7f),
+            color = menuColors.menuItemText.copy(alpha = 0.6f).copy(alpha = 0.7f),
             modifier = Modifier.padding(horizontal = 4.dp)
         )
 
@@ -900,7 +915,7 @@ private fun ExportSelectionContent(
                 ) {
                     Text(
                         "No recordings to export",
-                        color = StaticMenuColors.textMuted
+                        color = menuColors.menuItemText.copy(alpha = 0.6f)
                     )
                 }
             }
@@ -924,7 +939,7 @@ private fun ExportSelectionContent(
             enabled = selectedPaths.isNotEmpty(),
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
-                containerColor = StaticMenuColors.toggleActive
+                containerColor = menuColors.toggleActive
             )
         ) {
             Text("Export ${selectedPaths.size} Recording${if (selectedPaths.size != 1) "s" else ""}")
@@ -966,7 +981,7 @@ private fun ExportSelectionContent(
                         onExportComplete("Exported $exportResultMessage")
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = StaticMenuColors.toggleActive
+                        containerColor = menuColors.toggleActive
                     )
                 ) {
                     Text("Share")
@@ -993,6 +1008,7 @@ private fun SelectableRecordingCard(
     isSelected: Boolean,
     onToggle: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val shape = RoundedCornerShape(12.dp)
 
     Box(
@@ -1000,12 +1016,10 @@ private fun SelectableRecordingCard(
             .fillMaxWidth()
             .clip(shape)
             .background(
-                if (isSelected) Color.White
-                else StaticMenuColors.settingsCardBackground
-            )
+                if (isSelected) Color.White else Color.Gray)
             .border(
                 width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) StaticMenuColors.toggleActive else Color.White.copy(alpha = 0.2f),
+                color = if (isSelected) Color.Green.copy(alpha=0.7f) else Color.White.copy(alpha = 0.2f),
                 shape = shape
             )
             .clickable(onClick = onToggle)
@@ -1021,18 +1035,18 @@ private fun SelectableRecordingCard(
                     .size(24.dp)
                     .clip(RoundedCornerShape(6.dp))
                     .background(
-                        if (isSelected) StaticMenuColors.toggleActive
+                        if (isSelected) Color.LightGray
                         else Color.Transparent
                     )
                     .border(
                         2.dp,
-                        StaticMenuColors.toggleActive,
+                        color = if (isSelected) Color.Green.copy(alpha=0.7f) else Color.White.copy(alpha = 0.2f),
                         RoundedCornerShape(6.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
-                    Text("✓", color = Color.White, fontSize = 14.sp)
+                    Text("✓", color = Color.DarkGray, fontSize = 14.sp)
                 }
             }
 
@@ -1041,12 +1055,12 @@ private fun SelectableRecordingCard(
                     text = name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
-                    color = if (isSelected) Color.DarkGray else StaticMenuColors.textOnCard
+                    color = if (isSelected) Color.DarkGray else Color.LightGray
                 )
                 Text(
                     text = "$attemptCount attempt${if (attemptCount != 1) "s" else ""}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isSelected) Color.Gray else StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                    color = if (isSelected) Color.DarkGray else Color.LightGray
                 )
             }
         }

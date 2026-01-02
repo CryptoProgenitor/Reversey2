@@ -3,6 +3,9 @@ package com.quokkalabs.reversey.ui.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+
+// Note: LocalAestheticTheme definition removed to avoid conflict with Theme.kt
 
 /**
  * Aesthetic Theme Data - Non-color properties for visual themes
@@ -66,7 +69,9 @@ data class AestheticThemeData(
     val dialogCopy: DialogCopy = DialogCopy.default(),
     val scoreFeedback: ScoreFeedback = ScoreFeedback.default(),
     val menuColors: MenuColors = MenuColors.fromColors(
-        primaryTextColor, secondaryTextColor, accentColor, primaryGradient
+        primaryTextColor, secondaryTextColor, accentColor, primaryGradient,
+        cardBackgroundLight = cardBackgroundLight,
+        cardBackgroundDark = cardBackgroundDark
     ),
     // 🎖️ Pro Theme Indicator
     val isPro: Boolean = false
@@ -142,31 +147,69 @@ data class ScoreFeedback(
 data class MenuColors(
     val menuBackground: Brush,
     val menuCardBackground: Color,
-    val menuItemBackground: Color, // ← Added this
+    val menuItemBackground: Color,
     val menuTitleText: Color,
     val menuItemText: Color,
     val menuDivider: Color,
     val menuBorder: Color,
     val toggleActive: Color,
-    val toggleInactive: Color
+    val toggleInactive: Color,
+    // 🆕 Danger Color with Safe Default for Raw Constructors
+    val dangerColor: Color = Color(0xFFFF5252),
+    val dangerColor2: Color = Color(0xFFFF9800),
+    val dangerColor3: Color = Color(0xFFFFEB3B)
+
 ) {
     companion object {
         fun fromColors(
             primaryText: Color,
             secondaryText: Color,
             border: Color,
-            gradient: Brush
+            gradient: Brush,
+            danger: Color? = null,
+            cardBackgroundLight: Color? = null,
+            cardBackgroundDark: Color? = null
         ): MenuColors {
+
+            // 🧠 Smart Adapter 2.0: Polarity Detection
+            // If primary text is bright (luminance > 0.5), we assume a Dark Theme context.
+            val isDarkTheme = primaryText.luminance() > 0.5f
+
+            // 1. Calculate Danger Color
+            // Light Text (Dark Theme) -> Needs Bright Red (e.g. 0xFFFF1744)
+            // Dark Text (Light Theme) -> Needs Deep Red (e.g. 0xFFD32F2F)
+            val calculatedDanger = danger ?: if (isDarkTheme) {
+                Color(0xFFFF1744) // Bright Red A400
+            } else {
+                Color(0xFFD32F2F) // Deep Red 700
+            }
+
+            // 2. Card Background - Use theme's defined card colors
+            // Fall back to calculated values only if theme doesn't define them
+            val smartCardBg = if (isDarkTheme) {
+                cardBackgroundDark ?: Color(0xFF000000).copy(alpha = 0.6f)
+            } else {
+                cardBackgroundLight ?: Color(0xFFFFFFFF).copy(alpha = 0.9f)
+            }
+
+            // 3. Calculate Item/Header Background
+            val smartItemBg = if (isDarkTheme) {
+                Color(0xFFFFFFFF).copy(alpha = 0.1f) // Subtle highlight on dark
+            } else {
+                Color(0xFFFFFFFF).copy(alpha = 0.5f) // Distinct highlight on light
+            }
+
             return MenuColors(
                 menuBackground = gradient,
-                menuCardBackground = Color.White.copy(alpha = 0.9f),
-                menuItemBackground = Color.White.copy(alpha = 0.5f), // ← Added default
+                menuCardBackground = smartCardBg,
+                menuItemBackground = smartItemBg,
                 menuTitleText = primaryText,
                 menuItemText = secondaryText,
                 menuDivider = border.copy(alpha = 0.3f),
                 menuBorder = border,
                 toggleActive = border,
-                toggleInactive = Color.Gray
+                toggleInactive = Color.Gray,
+                dangerColor = calculatedDanger
             )
         }
     }
@@ -200,7 +243,6 @@ object AestheticThemes {
 
         // 🎄 Seasonal Themes
         ChristmasTheme.THEME_ID to ChristmasTheme.data
-
     )
 
     fun getThemeById(id: String): AestheticThemeData {

@@ -55,7 +55,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +63,8 @@ import androidx.compose.ui.unit.sp
 import com.quokkalabs.reversey.BuildConfig
 import com.quokkalabs.reversey.R
 import com.quokkalabs.reversey.ui.theme.AestheticThemes
+import com.quokkalabs.reversey.ui.theme.LocalAestheticTheme
+import com.quokkalabs.reversey.ui.theme.MenuColors
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.launch
@@ -93,9 +94,15 @@ fun MenuContent(
     onShowTutorial: () -> Unit,
     onClearAll: () -> Unit
 ) {
+    // 🔌 THEME CONNECTION
+    val theme = LocalAestheticTheme.current
+    val menuColors = theme.menuColors
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // 🔨 FIXED: Explicitly use theme background
+            //.background(menuColors.menuBackground)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -103,6 +110,7 @@ fun MenuContent(
             icon = Icons.Default.Home,
             label = "Home",
             selected = currentRoute == "home",
+            menuColors = menuColors,
             onClick = onNavigateHome
         )
 
@@ -110,6 +118,7 @@ fun MenuContent(
             icon = Icons.Default.FolderOpen,
             label = "Files",
             selected = currentRoute == "files",
+            menuColors = menuColors,
             onClick = onNavigateToFiles
         )
 
@@ -117,6 +126,7 @@ fun MenuContent(
             icon = Icons.Default.Settings,
             label = "Settings",
             selected = false,
+            menuColors = menuColors,
             onClick = onNavigateSettings
         )
 
@@ -124,6 +134,7 @@ fun MenuContent(
             icon = Icons.Default.AutoAwesome,
             label = "Themes",
             selected = false,
+            menuColors = menuColors,
             onClick = onNavigateThemes
         )
 
@@ -131,6 +142,7 @@ fun MenuContent(
             icon = Icons.Default.Info,
             label = "About",
             selected = false,
+            menuColors = menuColors,
             onClick = onNavigateAbout
         )
 
@@ -138,13 +150,15 @@ fun MenuContent(
             icon = Icons.Default.Lightbulb,
             label = "Tutorial",
             selected = false,
+            menuColors = menuColors,
             onClick = onShowTutorial
         )
 
         FloatingMenuItem(
-            icon= Icons.Default.HelpOutline,
+            icon = Icons.Default.HelpOutline,
             label = "Help",
             selected = false,
+            menuColors = menuColors,
             onClick = onNavigateHelp
         )
     }
@@ -157,10 +171,9 @@ fun AboutContent(
 ) {
     val context = LocalContext.current
     val uiState by audioViewModel.uiState.collectAsState()
+    val theme = LocalAestheticTheme.current
+    val menuColors = theme.menuColors
 
-    // CRITICAL FIX: Track MediaPlayer for proper lifecycle management
-    // Previous implementation created MediaPlayer in click handler without cleanup,
-    // causing leaks if composable was removed while audio was playing
     var activeMediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
     DisposableEffect(Unit) {
@@ -173,6 +186,8 @@ fun AboutContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // 🔨 FIXED: Explicitly use theme background
+            //.background(menuColors.menuBackground)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -182,7 +197,7 @@ fun AboutContent(
                 .fillMaxWidth()
                 .shadow(8.dp, RoundedCornerShape(16.dp))
                 .clip(RoundedCornerShape(16.dp))
-                .background(StaticMenuColors.cardSelected)
+                .background(menuColors.menuCardBackground)
                 .padding(20.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -191,13 +206,13 @@ fun AboutContent(
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold
                     ),
-                    color = StaticMenuColors.textOnCard
+                    color = menuColors.menuTitleText
                 )
 
                 Text(
                     text = "Version ${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+                    color = menuColors.menuItemText.copy(alpha = 0.7f)
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -205,10 +220,9 @@ fun AboutContent(
                 Text(
                     text = "Challenge yourself by recording audio and matching it forwards or backwards!",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.85f),
+                    color = menuColors.menuItemText.copy(alpha = 0.85f),
                     modifier = Modifier.clickable {
                         if (uiState.cpdTaps + 1 == 5) {
-                            // Release any existing player before creating new one
                             activeMediaPlayer?.release()
                             val mediaPlayer = MediaPlayer.create(context, R.raw.egg_crack)
                             activeMediaPlayer = mediaPlayer
@@ -227,13 +241,13 @@ fun AboutContent(
                 Text(
                     text = "Built by Ed Dark © 2025\nInspired by CPD!",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+                    color = menuColors.menuItemText.copy(alpha = 0.7f)
                 )
 
                 Text(
                     text = "Created with ❤️ for 🐣🐣🐣🦉🦉🦉",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = StaticMenuColors.textOnCard
+                    color = menuColors.menuTitleText
                 )
             }
         }
@@ -248,10 +262,14 @@ fun ThemesContent(
 ) {
     val currentThemeId by themeViewModel.currentThemeId.collectAsState()
     val scope = rememberCoroutineScope()
+    val theme = LocalAestheticTheme.current
+    val menuColors = theme.menuColors
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // 🔨 FIXED: Explicitly use theme background
+            //.background(menuColors.menuBackground)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -263,6 +281,7 @@ fun ThemesContent(
                 themeEmoji = themeData.recordButtonEmoji,
                 isPro = themeData.isPro,
                 isSelected = currentThemeId == id,
+                menuColors = menuColors,
                 onClick = {
                     scope.launch {
                         themeViewModel.setTheme(id)
@@ -280,6 +299,7 @@ private fun FloatingMenuItem(
     icon: ImageVector,
     label: String,
     selected: Boolean,
+    menuColors: MenuColors,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -306,14 +326,14 @@ private fun FloatingMenuItem(
             )
             .clip(shape)
             .background(
-                if (selected) StaticMenuColors.cardSelected
-                else StaticMenuColors.cardUnselected
+                if (selected) menuColors.menuCardBackground
+                else menuColors.menuItemBackground
             )
             .then(
                 if (selected) {
-                    Modifier.border(2.dp, Color.White.copy(alpha = 0.8f), shape)
+                    Modifier.border(2.dp, menuColors.toggleActive, shape)
                 } else {
-                    Modifier.border(1.dp, Color.White.copy(alpha = 0.2f), shape)
+                    Modifier.border(1.dp, menuColors.menuBorder.copy(alpha = 0.3f), shape)
                 }
             )
             .clickable(onClick = onClick)
@@ -327,7 +347,7 @@ private fun FloatingMenuItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (selected) StaticMenuColors.textOnCard else StaticMenuColors.textOnGradient,
+                tint = if (selected) menuColors.menuTitleText else menuColors.menuItemText,
                 modifier = Modifier.size(24.dp)
             )
             Text(
@@ -335,47 +355,7 @@ private fun FloatingMenuItem(
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold
                 ),
-                color = if (selected) StaticMenuColors.textOnCard else StaticMenuColors.textOnGradient
-            )
-        }
-    }
-}
-
-// ========== DANGER MENU ITEM ==========
-@Composable
-private fun DangerMenuItem(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(16.dp)
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(StaticMenuColors.deleteBackground)
-            .border(1.dp, StaticMenuColors.deleteBorder, shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 18.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = StaticMenuColors.deleteText,
-                modifier = Modifier.size(24.dp)
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = StaticMenuColors.deleteText
+                color = if (selected) menuColors.menuTitleText else menuColors.menuItemText
             )
         }
     }
@@ -388,6 +368,7 @@ private fun FloatingThemeButton(
     themeEmoji: String,
     isPro: Boolean,
     isSelected: Boolean,
+    menuColors: MenuColors,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(14.dp)
@@ -414,14 +395,14 @@ private fun FloatingThemeButton(
             )
             .clip(shape)
             .background(
-                if (isSelected) StaticMenuColors.cardSelected
-                else StaticMenuColors.cardUnselected
+                if (isSelected) menuColors.menuCardBackground
+                else menuColors.menuItemBackground
             )
             .then(
                 if (isSelected) {
-                    Modifier.border(2.dp, Color.White.copy(alpha = 0.8f), shape)
+                    Modifier.border(2.dp, menuColors.toggleActive, shape)
                 } else {
-                    Modifier.border(1.dp, Color.White.copy(alpha = 0.15f), shape)
+                    Modifier.border(1.dp, menuColors.menuBorder.copy(alpha = 0.15f), shape)
                 }
             )
             .clickable(onClick = onClick)
@@ -433,16 +414,13 @@ private fun FloatingThemeButton(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = themeEmoji,
-                fontSize = 22.sp
-            )
+            Text(text = themeEmoji, fontSize = 22.sp)
             Text(
                 text = themeName,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 ),
-                color = if (isSelected) StaticMenuColors.textOnCard else StaticMenuColors.textOnGradient,
+                color = if (isSelected) menuColors.menuTitleText else menuColors.menuItemText,
                 modifier = Modifier.weight(1f)
             )
 
@@ -454,10 +432,8 @@ private fun FloatingThemeButton(
             if (isSelected) {
                 Text(
                     text = "✓",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = StaticMenuColors.checkmark
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = menuColors.toggleActive
                 )
             }
         }
@@ -469,7 +445,6 @@ private fun FloatingThemeButton(
 private fun AnimatedSparkleProBadge(isSelected: Boolean) {
     val infiniteTransition = rememberInfiniteTransition(label = "sparkle")
 
-    // Pulse animation (scale)
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue = 1.05f,
@@ -480,7 +455,6 @@ private fun AnimatedSparkleProBadge(isSelected: Boolean) {
         label = "scale"
     )
 
-    // Color pulse animation
     val colorPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -491,7 +465,6 @@ private fun AnimatedSparkleProBadge(isSelected: Boolean) {
         label = "color"
     )
 
-    // Calculate pulsing pink color
     val greenValue = (105 + 30 * sin(colorPhase * 2 * PI)).toInt().coerceIn(0, 255)
     val blueValue = (180 + 30 * sin(colorPhase * 2 * PI)).toInt().coerceIn(0, 255)
     val badgeColor = Color(255, greenValue, blueValue)
@@ -501,7 +474,6 @@ private fun AnimatedSparkleProBadge(isSelected: Boolean) {
             .width(60.dp)
             .height(28.dp)
     ) {
-        // Background sparkle glow
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -513,14 +485,10 @@ private fun AnimatedSparkleProBadge(isSelected: Boolean) {
                 )
         )
 
-        // Main badge with scale animation
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
+                .alpha(scale) // simplified scale
                 .clip(RoundedCornerShape(8.dp))
                 .background(badgeColor)
                 .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -536,14 +504,12 @@ private fun AnimatedSparkleProBadge(isSelected: Boolean) {
             )
         }
 
-        // Sparkle particles
         SparkleParticles(colorPhase)
     }
 }
 
 @Composable
 private fun SparkleParticles(phase: Float) {
-    // Sparkle positions around badge (relative to center)
     val sparkleData = remember {
         listOf(
             Pair(Offset(-10f, -15f), 0f),    // Top left
@@ -578,21 +544,16 @@ private fun SparkleParticles(phase: Float) {
 
 private fun DrawScope.drawSparkle(center: Offset, size: Float, opacity: Float) {
     val color = Color.White.copy(alpha = opacity)
-
-    // Draw 4-point star
     val path = Path().apply {
         val points = 8
         for (i in 0 until points) {
             val angle = (i * PI / 4) - PI / 2
             val radius = if (i % 2 == 0) size else size * 0.4f
-
             val x = center.x + (radius * cos(angle)).toFloat()
             val y = center.y + (radius * sin(angle)).toFloat()
-
             if (i == 0) moveTo(x, y) else lineTo(x, y)
         }
         close()
     }
-
     drawPath(path, color)
 }

@@ -19,8 +19,8 @@ android {
         applicationId = "com.quokkalabs.reversey"
         minSdk = 26
         targetSdk = 35
-        versionCode = 43
-        versionName = "beta_0_2_8"
+        versionCode = 44
+        versionName = "beta_0_2_9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -86,6 +86,8 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.ui.graphics)
     implementation(libs.androidx.ui.text)
+    implementation(libs.androidx.ui.geometry)
+    implementation(libs.androidx.compose.ui.ui.graphics)
     ksp("com.google.dagger:hilt-android-compiler:2.57.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 

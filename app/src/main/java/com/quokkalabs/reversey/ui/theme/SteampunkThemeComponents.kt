@@ -88,7 +88,7 @@ object SteampunkTheme {
         ),
         menuColors = MenuColors.fromColors(
             primaryText = Color(0xFFD4AF37),
-            secondaryText = Color(0xFFF5E6D3),
+            secondaryText = Color(0xFFAD5F12),
             border = Color(0xFFD4AF37),
             gradient = Brush.verticalGradient(
                 colors = listOf(

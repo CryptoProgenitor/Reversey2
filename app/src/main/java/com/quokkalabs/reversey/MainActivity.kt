@@ -93,6 +93,7 @@ import com.quokkalabs.reversey.ui.constants.UiConstants
 import com.quokkalabs.reversey.ui.menu.FilesContent
 import com.quokkalabs.reversey.ui.menu.ModalScreen
 import com.quokkalabs.reversey.ui.theme.AestheticTheme
+import com.quokkalabs.reversey.ui.theme.LocalAestheticTheme
 import com.quokkalabs.reversey.ui.theme.MaterialColors
 import com.quokkalabs.reversey.ui.theme.ReVerseYTheme
 import com.quokkalabs.reversey.ui.theme.ScrapbookThemeComponents
@@ -211,6 +212,9 @@ fun MainApp(
     var showDebugPanel by remember { mutableStateOf(false) }
     var showTutorial by remember { mutableStateOf(false) }
 
+    // 🔌 THEME CONNECTION
+    val theme = LocalAestheticTheme.current
+
     // Handle incoming WAV file - navigate to files screen
     LaunchedEffect(incomingWavUri) {
         if (incomingWavUri != null) {
@@ -219,7 +223,12 @@ fun MainApp(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            // 🔨 FIXED: Apply Dynamic Theme Background
+            .background(theme.menuColors.menuBackground)
+    ) {
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
                 AudioReverserApp(

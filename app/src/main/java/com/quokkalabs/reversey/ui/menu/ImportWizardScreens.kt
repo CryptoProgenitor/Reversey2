@@ -75,6 +75,8 @@ import com.quokkalabs.reversey.data.backup.ImportAnalysis
 import com.quokkalabs.reversey.data.backup.RecordingBackupEntry
 import com.quokkalabs.reversey.data.backup.RestoreResult
 import com.quokkalabs.reversey.ui.viewmodels.DateChipOption
+import com.quokkalabs.reversey.ui.theme.LocalAestheticTheme
+import com.quokkalabs.reversey.ui.theme.MenuColors
 
 
 // ============================================================
@@ -86,6 +88,7 @@ fun RestoreStep1_FilePicker(
     onFileSelected: (android.net.Uri, String?) -> Unit,
     onBack: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -113,8 +116,8 @@ fun RestoreStep1_FilePicker(
                 .height(200.dp)
                 .shadow(12.dp, RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
-                .background(StaticMenuColors.settingsCardBackground)
-                .border(2.dp, StaticMenuColors.toggleActive.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                .background(menuColors.menuCardBackground)
+                .border(2.dp, menuColors.toggleActive.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
                 .clickable { filePicker.launch("application/zip") },
             contentAlignment = Alignment.Center
         ) {
@@ -126,18 +129,18 @@ fun RestoreStep1_FilePicker(
                     Icons.Default.FolderOpen,
                     contentDescription = null,
                     modifier = Modifier.size(56.dp),
-                    tint = StaticMenuColors.toggleActive
+                    tint = menuColors.toggleActive
                 )
                 Text(
                     "Tap to pick your backup",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = StaticMenuColors.textOnCard
+                    color = menuColors.menuItemText
                 )
                 Text(
                     "Select a .zip file",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                    color = menuColors.menuItemText.copy(alpha = 0.6f)
                 )
             }
         }
@@ -148,7 +151,7 @@ fun RestoreStep1_FilePicker(
         Text(
             text = "📦 Looking for a ReVerseY backup file",
             style = MaterialTheme.typography.bodyMedium,
-            color = StaticMenuColors.textMuted,
+            color = menuColors.menuItemText.copy(alpha = 0.6f),
             modifier = Modifier.padding(horizontal = 8.dp)
         )
     }
@@ -160,6 +163,7 @@ fun RestoreStep1_FilePicker(
 
 @Composable
 fun RestoreStep_Analyzing() {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -170,19 +174,19 @@ fun RestoreStep_Analyzing() {
         ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(64.dp),
-                color = StaticMenuColors.toggleActive,
+                color = menuColors.toggleActive,
                 strokeWidth = 4.dp
             )
             Text(
                 "Analyzing backup...",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = StaticMenuColors.textOnGradient
+                color = menuColors.menuTitleText
             )
             Text(
                 "Let's See →",
                 style = MaterialTheme.typography.bodyLarge,
-                color = StaticMenuColors.textMuted
+                color = menuColors.menuItemText.copy(alpha = 0.6f)
             )
         }
     }
@@ -209,6 +213,7 @@ fun RestoreStep2_Analysis(
     formatDate: (Long) -> String,
     formatSize: (Long) -> String
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val scrollState = rememberScrollState()
 
     // Helper to get display name or fallback to filename
@@ -234,7 +239,7 @@ fun RestoreStep2_Analysis(
                 "FILTER BY DATE",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = StaticMenuColors.textMuted,
+                color = menuColors.menuItemText.copy(alpha = 0.6f),
                 modifier = Modifier.padding(start = 4.dp)
             )
 
@@ -295,7 +300,7 @@ fun RestoreStep2_Analysis(
                 "THE BREAKDOWN",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = StaticMenuColors.textMuted,
+                color = menuColors.menuItemText.copy(alpha = 0.6f),
                 modifier = Modifier.padding(start = 4.dp, top = 8.dp)
             )
 
@@ -349,7 +354,7 @@ fun RestoreStep2_Analysis(
                             Text(
                                 getDisplayName(recording.filename),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                                color = menuColors.menuItemText.copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -390,7 +395,7 @@ fun RestoreStep2_Analysis(
                     Text(
                         "These attempts don't have a parent recording. They'll be skipped.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = StaticMenuColors.textOnCard.copy(alpha = 0.6f),
+                        color = menuColors.menuItemText.copy(alpha = 0.6f),
                         modifier = Modifier.padding(8.dp)
                     )
                 }
@@ -430,7 +435,7 @@ fun RestoreStep2_Analysis(
                     Text(
                         "Everything in this backup is already on your device",
                         style = MaterialTheme.typography.bodySmall,
-                        color = StaticMenuColors.textOnGradient.copy(alpha = 0.7f)
+                        color = menuColors.menuTitleText.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -467,6 +472,7 @@ fun RestoreStep3_Conflicts(
     onBack: () -> Unit,
     formatSize: (Long) -> String
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Column(modifier = Modifier.fillMaxSize()) {
         WizardGlassHeader(
             title = "SORT IT OUT",
@@ -485,7 +491,7 @@ fun RestoreStep3_Conflicts(
             Text(
                 "These files have the same name but different content. What should we do?",
                 style = MaterialTheme.typography.bodyLarge,
-                color = StaticMenuColors.textOnGradient
+                color = menuColors.menuTitleText
             )
 
             // Strategy options
@@ -522,7 +528,7 @@ fun RestoreStep3_Conflicts(
                         "AFFECTED FILES",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                        color = menuColors.menuItemText.copy(alpha = 0.6f)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -538,7 +544,7 @@ fun RestoreStep3_Conflicts(
                             Text(
                                 recording.filename,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = StaticMenuColors.textOnCard,
+                                color = menuColors.menuItemText,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
@@ -546,7 +552,7 @@ fun RestoreStep3_Conflicts(
                             Text(
                                 formatSize(recording.fileSizeBytes),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                                color = menuColors.menuItemText.copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -570,6 +576,7 @@ fun RestoreStep3_Conflicts(
 fun RestoreStep4_Importing(
     progress: BackupProgress
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val messages = listOf(
         "Unpacking...",
         "Moving recordings...",
@@ -600,15 +607,15 @@ fun RestoreStep4_Importing(
                 CircularProgressIndicator(
                     progress = { percentage / 100f },
                     modifier = Modifier.size(120.dp),
-                    color = StaticMenuColors.toggleActive,
+                    color = menuColors.toggleActive,
                     strokeWidth = 8.dp,
-                    trackColor = StaticMenuColors.toggleInactive
+                    trackColor = menuColors.toggleActive.copy(alpha = 0.3f)
                 )
                 Text(
                     "$percentage%",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = StaticMenuColors.textOnGradient
+                    color = menuColors.menuTitleText
                 )
             }
 
@@ -616,20 +623,20 @@ fun RestoreStep4_Importing(
                 "Doing the thing...",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = StaticMenuColors.textOnGradient
+                color = menuColors.menuTitleText
             )
 
             Text(
                 currentMessage,
                 style = MaterialTheme.typography.bodyLarge,
-                color = StaticMenuColors.textMuted
+                color = menuColors.menuItemText.copy(alpha = 0.6f)
             )
 
             if (progressData != null) {
                 Text(
                     progressData.currentFileName,
                     style = MaterialTheme.typography.bodySmall,
-                    color = StaticMenuColors.textMuted.copy(alpha = 0.6f),
+                    color = menuColors.menuItemText.copy(alpha = 0.6f).copy(alpha = 0.6f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -647,6 +654,7 @@ fun RestoreStep5_Complete(
     result: RestoreResult,
     onDone: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -676,7 +684,7 @@ fun RestoreStep5_Complete(
                 "All Done!",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = StaticMenuColors.textOnGradient
+                color = menuColors.menuTitleText
             )
 
             // Stats card
@@ -716,6 +724,7 @@ fun RestoreStep_Error(
     onRetry: () -> Unit,
     onBack: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -731,13 +740,13 @@ fun RestoreStep_Error(
                 "Something went wrong",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = StaticMenuColors.textOnGradient
+                color = menuColors.menuTitleText
             )
 
             Text(
                 message,
                 style = MaterialTheme.typography.bodyLarge,
-                color = StaticMenuColors.textMuted
+                color = menuColors.menuItemText.copy(alpha = 0.6f)
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -765,12 +774,13 @@ private fun WizardGlassHeader(
     subtitle: String,
     onBack: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(StaticMenuColors.headerBackground)
-            .border(1.dp, StaticMenuColors.headerBorder, RoundedCornerShape(16.dp))
+            .background(menuColors.menuItemBackground)
+            .border(1.dp, menuColors.menuBorder, RoundedCornerShape(16.dp))
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(
@@ -782,7 +792,7 @@ private fun WizardGlassHeader(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = StaticMenuColors.textOnGradient
+                    tint = menuColors.menuTitleText
                 )
             }
 
@@ -793,12 +803,12 @@ private fun WizardGlassHeader(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.sp
                     ),
-                    color = StaticMenuColors.textOnGradient
+                    color = menuColors.menuTitleText
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = StaticMenuColors.textMuted
+                    color = menuColors.menuItemText.copy(alpha = 0.6f)
                 )
             }
 
@@ -813,6 +823,7 @@ private fun WizardPrimaryButton(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Button(
         onClick = onClick,
         enabled = enabled,
@@ -821,8 +832,8 @@ private fun WizardPrimaryButton(
             .height(56.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = StaticMenuColors.toggleActive,
-            disabledContainerColor = StaticMenuColors.toggleInactive
+            containerColor = menuColors.toggleActive,
+            disabledContainerColor = menuColors.toggleActive.copy(alpha = 0.3f)
         )
     ) {
         Text(
@@ -838,14 +849,15 @@ private fun WizardSecondaryButton(
     text: String,
     onClick: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier.height(56.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = StaticMenuColors.textOnGradient
+            contentColor = menuColors.menuTitleText
         ),
-        border = BorderStroke(1.dp, StaticMenuColors.textOnGradient.copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, menuColors.menuTitleText.copy(alpha = 0.5f))
     ) {
         Text(
             text,
@@ -861,16 +873,17 @@ private fun DateFilterChip(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
             .background(
-                if (isSelected) StaticMenuColors.toggleActive
+                if (isSelected) menuColors.toggleActive
                 else Color.White.copy(alpha = 0.2f)
             )
             .border(
                 1.dp,
-                if (isSelected) StaticMenuColors.toggleActive else Color.White.copy(alpha = 0.3f),
+                if (isSelected) menuColors.toggleActive else Color.White.copy(alpha = 0.3f),
                 RoundedCornerShape(20.dp)
             )
             .clickable(onClick = onClick)
@@ -880,7 +893,7 @@ private fun DateFilterChip(
             label,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = if (isSelected) Color.White else StaticMenuColors.textOnGradient
+            color = if (isSelected) Color.White else menuColors.menuTitleText
         )
     }
 }
@@ -897,6 +910,7 @@ private fun SummaryCard(
     totalSize: String,
     dateRange: String?
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     GlassCard {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             FlowRow(
@@ -917,11 +931,11 @@ private fun SummaryCard(
             }
 
             if (dateRange != null) {
-                HorizontalDivider(color = StaticMenuColors.divider)
+                HorizontalDivider(color = menuColors.menuItemText.copy(alpha = 0.2f))
                 Text(
                     "📅 $dateRange",
                     style = MaterialTheme.typography.bodySmall,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+                    color = menuColors.menuItemText.copy(alpha = 0.7f)
                 )
             }
         }
@@ -956,6 +970,7 @@ private fun ExpandableSection(
     defaultExpanded: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     var expanded by remember { mutableStateOf(defaultExpanded) }
 
     GlassCard {
@@ -976,14 +991,14 @@ private fun ExpandableSection(
                             title,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = StaticMenuColors.textOnCard
+                            color = menuColors.menuItemText
                         )
                     }
                     if (subtitle != null) {
                         Text(
                             subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = StaticMenuColors.textOnCard.copy(alpha = 0.6f),
+                            color = menuColors.menuItemText.copy(alpha = 0.6f),
                             modifier = Modifier.padding(start = 32.dp)
                         )
                     }
@@ -1009,7 +1024,7 @@ private fun ExpandableSection(
                     Icon(
                         if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = null,
-                        tint = StaticMenuColors.textOnCard.copy(alpha = 0.5f)
+                        tint = menuColors.menuItemText.copy(alpha = 0.5f)
                     )
                 }
             }
@@ -1029,13 +1044,15 @@ private fun CheckboxItem(
     subtitle: String,
     isChecked: Boolean,
     onCheckedChange: () -> Unit,
-    accentColor: Color = StaticMenuColors.toggleActive
+    accentColor: Color? = null
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
+    val resolvedAccent = accentColor ?: menuColors.toggleActive
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isChecked) accentColor.copy(alpha = 0.1f) else Color.Transparent)
+            .background(if (isChecked) resolvedAccent.copy(alpha = 0.1f) else Color.Transparent)
             .clickable(onClick = onCheckedChange)
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1044,8 +1061,8 @@ private fun CheckboxItem(
             checked = isChecked,
             onCheckedChange = { onCheckedChange() },
             colors = CheckboxDefaults.colors(
-                checkedColor = accentColor,
-                uncheckedColor = StaticMenuColors.textOnCard.copy(alpha = 0.4f)
+                checkedColor = resolvedAccent,
+                uncheckedColor = menuColors.menuItemText.copy(alpha = 0.4f)
             )
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -1054,14 +1071,14 @@ private fun CheckboxItem(
                 label,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = StaticMenuColors.textOnCard,
+                color = menuColors.menuItemText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
+                color = menuColors.menuItemText.copy(alpha = 0.6f)
             )
         }
     }
@@ -1075,6 +1092,7 @@ private fun ConflictStrategyCard(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val shape = RoundedCornerShape(16.dp)
 
     Box(
@@ -1083,12 +1101,12 @@ private fun ConflictStrategyCard(
             .shadow(if (isSelected) 8.dp else 2.dp, shape)
             .clip(shape)
             .background(
-                if (isSelected) StaticMenuColors.toggleActive.copy(alpha = 0.15f)
-                else StaticMenuColors.settingsCardBackground
+                if (isSelected) menuColors.toggleActive.copy(alpha = 0.15f)
+                else menuColors.menuCardBackground
             )
             .border(
                 2.dp,
-                if (isSelected) StaticMenuColors.toggleActive else Color.Transparent,
+                if (isSelected) menuColors.toggleActive else Color.Transparent,
                 shape
             )
             .clickable(onClick = onClick)
@@ -1105,12 +1123,12 @@ private fun ConflictStrategyCard(
                     title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (isSelected) StaticMenuColors.toggleActive else StaticMenuColors.textOnCard
+                    color = if (isSelected) menuColors.toggleActive else menuColors.menuItemText
                 )
                 Text(
                     subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+                    color = menuColors.menuItemText.copy(alpha = 0.7f)
                 )
             }
 
@@ -1118,7 +1136,7 @@ private fun ConflictStrategyCard(
                 Icon(
                     Icons.Default.CheckCircle,
                     contentDescription = null,
-                    tint = StaticMenuColors.toggleActive,
+                    tint = menuColors.toggleActive,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -1130,6 +1148,7 @@ private fun ConflictStrategyCard(
 private fun GlassCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val shape = RoundedCornerShape(16.dp)
 
     Box(
@@ -1137,7 +1156,7 @@ private fun GlassCard(
             .fillMaxWidth()
             .shadow(8.dp, shape)
             .clip(shape)
-            .background(StaticMenuColors.settingsCardBackground)
+            .background(menuColors.menuCardBackground)
             .border(1.dp, Color.White.copy(alpha = 0.3f), shape)
             .padding(16.dp)
     ) {
@@ -1147,6 +1166,7 @@ private fun GlassCard(
 
 @Composable
 private fun StatRow(label: String, value: String) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
@@ -1154,13 +1174,13 @@ private fun StatRow(label: String, value: String) {
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium,
-            color = StaticMenuColors.textOnCard.copy(alpha = 0.7f)
+            color = menuColors.menuItemText.copy(alpha = 0.7f)
         )
         Text(
             value,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
-            color = StaticMenuColors.textOnCard
+            color = menuColors.menuItemText
         )
     }
 }
@@ -1177,6 +1197,7 @@ private fun DateRangePickerDialog(
     onConfirm: (Long, Long) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val menuColors = LocalAestheticTheme.current.menuColors
     val dateRangePickerState = rememberDateRangePickerState(
         initialSelectedStartDateMillis = initialStartMs,
         initialSelectedEndDateMillis = initialEndMs
@@ -1198,7 +1219,7 @@ private fun DateRangePickerDialog(
                 enabled = dateRangePickerState.selectedStartDateMillis != null &&
                         dateRangePickerState.selectedEndDateMillis != null
             ) {
-                Text("OK", color = StaticMenuColors.toggleActive)
+                Text("OK", color = menuColors.toggleActive)
             }
         },
         dismissButton = {

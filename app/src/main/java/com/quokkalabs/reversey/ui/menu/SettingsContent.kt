@@ -1,6 +1,5 @@
 package com.quokkalabs.reversey.ui.menu
 
-
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,6 +60,7 @@ import com.quokkalabs.reversey.asr.VoskTranscriptionHelper
 import com.quokkalabs.reversey.data.backup.BackupManager
 import com.quokkalabs.reversey.scoring.DifficultyConfig
 import com.quokkalabs.reversey.ui.components.DifficultyButton
+import com.quokkalabs.reversey.ui.theme.LocalAestheticTheme
 import com.quokkalabs.reversey.ui.viewmodels.AudioViewModel
 import com.quokkalabs.reversey.ui.viewmodels.ThemeViewModel
 import kotlinx.coroutines.launch
@@ -77,6 +77,10 @@ fun SettingsContent(
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
 
+    // 🔌 THE HUB CONNECTION: Pull colors from the active theme
+    val theme = LocalAestheticTheme.current
+    val menuColors = theme.menuColors
+
     // State collection
     val currentDifficulty by audioViewModel.currentDifficultyFlow.collectAsState()
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
@@ -90,25 +94,28 @@ fun SettingsContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ========== GAMEPLAY SECTION ==========
-        SectionTitle("GAMEPLAY")
+        SectionTitle("GAMEPLAY", menuColors.menuTitleText)
 
-        GlassCard {
+        GlassCard(menuColors.menuCardBackground, menuColors.menuTitleText) {
             GlassToggle(
                 label = "Enable Game Mode",
                 checked = isGameModeEnabled,
+                textColor = menuColors.menuItemText, // Replaced StaticMenuColors.textOnCard
+                activeColor = menuColors.toggleActive, // Replaced StaticMenuColors.toggleActive
+                inactiveColor = menuColors.toggleInactive,
                 onCheckedChange = { scope.launch { themeViewModel.setGameMode(it) } }
             )
         }
 
-        GlassDivider()
+        GlassDivider(menuColors.menuDivider) // Replaced StaticMenuColors.divider
 
         // ========== DIFFICULTY SECTION ==========
-        SectionTitle("SCORING DIFFICULTY")
+        SectionTitle("SCORING DIFFICULTY", menuColors.menuTitleText)
 
         Text(
             text = "Choose your challenge level",
             style = MaterialTheme.typography.bodyMedium,
-            color = StaticMenuColors.textSecondary,
+            color = menuColors.menuItemText.copy(alpha = 0.8f),
             modifier = Modifier.padding(horizontal = 4.dp)
         )
 
@@ -126,12 +133,12 @@ fun SettingsContent(
             }
         }
 
-        GlassDivider()
+        GlassDivider(menuColors.menuDivider)
 
         // ========== APPEARANCE SECTION ==========
-        SectionTitle("APPEARANCE")
+        SectionTitle("APPEARANCE", menuColors.menuTitleText)
 
-        GlassCard(title = "Dark Mode") {
+        GlassCard(menuColors.menuCardBackground, menuColors.menuTitleText, title = "Dark Mode") {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("Light", "Dark", "System").forEach { mode ->
                     Row(
@@ -146,15 +153,15 @@ fun SettingsContent(
                             selected = darkModePreference == mode,
                             onClick = { scope.launch { themeViewModel.setDarkModePreference(mode) } },
                             colors = RadioButtonDefaults.colors(
-                                selectedColor = StaticMenuColors.toggleActive,
-                                unselectedColor = StaticMenuColors.textOnCard.copy(alpha = 0.5f)
+                                selectedColor = menuColors.toggleActive,
+                                unselectedColor = menuColors.menuItemText.copy(alpha = 0.5f)
                             )
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = mode,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = StaticMenuColors.textOnCard
+                            color = menuColors.menuItemText
                         )
                     }
                 }
@@ -162,7 +169,7 @@ fun SettingsContent(
         }
 
         // Custom Accent Color
-        GlassCard(title = "Custom Accent Color") {
+        GlassCard(menuColors.menuCardBackground, menuColors.menuTitleText, title = "Custom Accent Color") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -171,14 +178,14 @@ fun SettingsContent(
                 Text(
                     text = if (customAccentColor != null) "Custom color active" else "Using theme default",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = StaticMenuColors.textOnCard.copy(alpha = 0.8f)
+                    color = menuColors.menuItemText.copy(alpha = 0.8f)
                 )
 
                 if (customAccentColor != null) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(StaticMenuColors.toggleActive.copy(alpha = 0.15f))
+                            .background(menuColors.toggleActive.copy(alpha = 0.15f))
                             .clickable { scope.launch { themeViewModel.setCustomAccentColor(null) } }
                             .padding(horizontal = 14.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
@@ -186,7 +193,7 @@ fun SettingsContent(
                         Text(
                             text = "Reset",
                             style = MaterialTheme.typography.bodySmall,
-                            color = StaticMenuColors.toggleActive,
+                            color = menuColors.toggleActive,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -201,7 +208,7 @@ fun SettingsContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(StaticMenuColors.settingsInputBackground)
+                    .background(menuColors.menuItemBackground) // Replaced StaticMenuColors.headerBackground
                     .clickable { showColorPicker = true }
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -211,14 +218,14 @@ fun SettingsContent(
                     Icon(
                         Icons.Default.Palette,
                         contentDescription = "Color Picker",
-                        tint = StaticMenuColors.toggleActive
+                        tint = menuColors.toggleActive
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         "Pick Color",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = StaticMenuColors.textOnCard
+                        color = menuColors.menuTitleText
                     )
                 }
                 Box(
@@ -233,6 +240,7 @@ fun SettingsContent(
             if (showColorPicker) {
                 ARGBColorPickerDialog(
                     currentColor = customAccentColor ?: colors.primary,
+                    activeColor = menuColors.toggleActive,
                     onColorSelected = { color ->
                         scope.launch { themeViewModel.setCustomAccentColor(color) }
                         showColorPicker = false
@@ -242,173 +250,69 @@ fun SettingsContent(
             }
         }
 
-        GlassDivider()
+        GlassDivider(menuColors.menuDivider)
 
         // ========== DEVELOPER OPTIONS SECTION ==========
         if (BuildConfig.DEBUG) {
-            SectionTitle("DEVELOPER OPTIONS")
+            SectionTitle("DEVELOPER OPTIONS", menuColors.menuTitleText)
 
-            //START==========hacky test buttons!============
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
-
-            // Create helper directly for testing
+            // VoskTranscriptionHelper is assumed to be available
+            // Creating it here for debug options as per original file
             val voskHelper = remember { VoskTranscriptionHelper(context) }
 
             Button(onClick = { DualMicTest(context).runSpeechOnlyTest() }) {
                 Text("Run Dual Mic Test")
             }
 
-            // Button 1: Init (do once)
             Button(onClick = {
                 scope.launch {
                     Log.d("TEST", "Vosk init: ${voskHelper.initialize()}")
                 }
             }) { Text("Init Vosk") }
 
-// Button 2: Transcribe last recording
             Button(onClick = {
                 scope.launch {
                     if (!voskHelper.isReady()) {
-                        Log.d("TEST", "Initializing Vosk first...")
                         voskHelper.initialize()
                     }
-
-                    // Find the most recent FORWARD recording (not reversed)
                     val recordingsDir = File(context.filesDir, "recordings")
                     val latestFile = recordingsDir.listFiles()
                         ?.filter { it.extension == "wav" && !it.name.contains("reversed") }
                         ?.maxByOrNull { it.lastModified() }
 
                     if (latestFile != null) {
-                        Log.d("TEST", "Testing with: ${latestFile.name}")
                         val result = voskHelper.transcribeFile(latestFile)
                         Log.d("TEST", "Vosk: '${result.text}' (success=${result.isSuccess})")
-                    } else {
-                        Log.d("TEST", "No recordings found!")
                     }
                 }
             }) { Text("Test Vosk") }
-
-            //END==========hacky test buttons!============
-
-            // ========== BIT RUNNER (Synthetic Tests) ==========
-            /*var bitRunning by remember { mutableStateOf(false) }
-            var bitProgress by remember { mutableStateOf("Ready") }
-            var bitCurrent by remember { mutableStateOf(0) }
-            var bitTotal by remember { mutableStateOf(15) }
-
-            GlassCard {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !bitRunning) {
-                            if (!bitRunning) {
-                                bitRunning = true
-                                bitProgress = "Starting..."
-                                scope.launch {
-                                    try {
-                                        // Get BITRunner from AudioViewModel
-                                        val bitRunner = audioViewModel.getBITRunner()
-
-                                        val result = bitRunner.runAllTests { current, total ->
-                                            bitCurrent = current
-                                            bitTotal = total
-                                            bitProgress = "Test $current/$total"
-                                        }
-
-                                        result.fold(
-                                            onSuccess = { message ->
-                                                bitProgress = "Complete!"
-                                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                                            },
-                                            onFailure = { error ->
-                                                bitProgress = "Failed"
-                                                Toast.makeText(
-                                                    context,
-                                                    "BIT Failed: ${error.message}",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                            }
-                                        )
-                                    } catch (e: Exception) {
-                                        bitProgress = "Error"
-                                        Toast.makeText(context, "BIT Error: ${e.message}", Toast.LENGTH_LONG)
-                                            .show()
-                                    } finally {
-                                        bitRunning = false
-                                    }
-                                }
-                            }
-                        },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.BugReport,
-                            contentDescription = "BIT",
-                            tint = if (bitRunning) StaticMenuColors.toggleActive else StaticMenuColors.textOnCard
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                if (bitRunning) "Running BIT..." else "Built-In Test (Synthetic)",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = StaticMenuColors.textOnCard
-                            )
-                            Text(
-                                bitProgress,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = StaticMenuColors.textOnCard.copy(alpha = 0.6f)
-                            )
-                            if (bitRunning && bitCurrent > 0) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                LinearProgressIndicator(
-                                    progress = { bitCurrent.toFloat() / bitTotal.toFloat() },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = StaticMenuColors.toggleActive,
-                                    trackColor = StaticMenuColors.toggleInactive,
-                                )
-                            }
-                        }
-                    }
-                    if (bitRunning) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                            color = StaticMenuColors.toggleActive
-                        )
-                    }
-                }
-            }*/
         }
-        // Bottom spacing
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 
-
-
 // ========== REUSABLE COMPONENTS ==========
 
 @Composable
-private fun SectionTitle(text: String) {
+private fun SectionTitle(text: String, color: Color) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleLarge.copy(
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.5.dp.value.sp
         ),
-        color = StaticMenuColors.textOnGradient,
+        color = color,
         modifier = Modifier.padding(horizontal = 4.dp)
     )
 }
 
 @Composable
 private fun GlassCard(
+    backgroundColor: Color,
+    titleColor: Color,
     title: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -419,7 +323,7 @@ private fun GlassCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = StaticMenuColors.textOnGradient,
+                color = titleColor,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
             )
@@ -430,7 +334,7 @@ private fun GlassCard(
                 .fillMaxWidth()
                 .shadow(8.dp, shape)
                 .clip(shape)
-                .background(StaticMenuColors.settingsCardBackground)
+                .background(backgroundColor)
                 .border(1.dp, Color.White.copy(alpha = 0.3f), shape)
                 .padding(18.dp)
         ) {
@@ -445,6 +349,9 @@ private fun GlassCard(
 private fun GlassToggle(
     label: String,
     checked: Boolean,
+    textColor: Color,
+    activeColor: Color,
+    inactiveColor: Color,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
@@ -455,7 +362,7 @@ private fun GlassToggle(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = StaticMenuColors.textOnCard
+            color = textColor
         )
 
         Switch(
@@ -463,27 +370,28 @@ private fun GlassToggle(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = StaticMenuColors.toggleActive,
+                checkedTrackColor = activeColor,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = StaticMenuColors.toggleInactive
+                uncheckedTrackColor = inactiveColor
             )
         )
     }
 }
 
 @Composable
-private fun GlassDivider() {
+private fun GlassDivider(color: Color) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(StaticMenuColors.divider)
+            .background(color)
     )
 }
 
 @Composable
 private fun ARGBColorPickerDialog(
     currentColor: Color,
+    activeColor: Color,
     onColorSelected: (Color) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -570,7 +478,7 @@ private fun ARGBColorPickerDialog(
         confirmButton = {
             Button(
                 onClick = { onColorSelected(previewColor) },
-                colors = ButtonDefaults.buttonColors(containerColor = StaticMenuColors.toggleActive)
+                colors = ButtonDefaults.buttonColors(containerColor = activeColor)
             ) { Text("Apply Color") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

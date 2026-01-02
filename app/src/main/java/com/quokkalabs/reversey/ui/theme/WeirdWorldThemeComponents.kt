@@ -149,15 +149,14 @@ object WeirdWorldTheme {
         ),
         menuColors = MenuColors(
             menuBackground = Brush.verticalGradient(colors = listOf(darkVoid, lightSlate)),
-            menuCardBackground = sterileWhite,
-            menuItemBackground = Color.Black.copy(alpha = 0.05f),
+            menuCardBackground = slateGrey.copy(alpha = 0.75f),
+            menuItemBackground = slateGrey.copy(alpha = 0.5f),
 
             // FIXED: Menu title text white for visibility
-            menuTitleText = brightWhite,
-            menuItemText = slateGrey.copy(alpha = 0.9f),
-
+            menuTitleText = seafoamGreen,
+            menuItemText = brightWhite,
             menuDivider = slateGrey.copy(alpha = 0.1f),
-            menuBorder = slateGrey.copy(alpha = 0.2f),
+            menuBorder = seafoamGreen,
             toggleActive = seafoamGreen,
             toggleInactive = Color.Gray
         ),

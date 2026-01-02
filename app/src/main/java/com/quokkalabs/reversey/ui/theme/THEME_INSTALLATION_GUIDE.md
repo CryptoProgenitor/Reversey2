@@ -6,19 +6,21 @@
 
 ## Two Types of Themes
 
-### 1. **Simple Theme** (Uses Default Components)
-Just define colors and settings. Uses the standard card layout.
+### 1. **Material Theme** (Uses Default Components)
+Just define colors and settings. Uses the standard Material card layout.
+Colors are injected via `materialPrimary` and card backgrounds.
 
-**Example:** Cottage, Y2K, Vaporwave, Dark Academia
+**Example:** Cottage, Y2K, Vaporwave, Dark Academia, Cyberpunk, Graphite, Jeoseung, Steampunk
 
 ### 2. **Pro Theme** (Custom Components)
 Custom card designs, special effects, unique layouts.
+Fully self-contained with hardcoded colors - ignores Material theming.
 
-**Example:** Strange Planet, Weird World, Egg, Snowy Owl
+**Example:** Strange Planet, Weird World, Egg, Snowy Owl, Sakura, Scrapbook, Guitar, Christmas
 
 ---
 
-## Installation: Simple Theme
+## Installation: Material Theme
 
 ### Step 1: Create Theme File
 
@@ -39,7 +41,7 @@ object YourTheme {
         id = THEME_ID,
         name = "Your Theme Name",
         description = "🎨 Your theme description",
-        components = DefaultThemeComponents(),  // ← Uses default cards
+        components = DefaultThemeComponents(),  // ← Uses default Material cards
         
         // Required colors
         primaryGradient = Brush.verticalGradient(
@@ -49,9 +51,14 @@ object YourTheme {
                 Color(0xFF345678)   // Bottom
             )
         ),
-        accentColor = Color(0xFFFF00FF),        // Accent/highlight color
+        accentColor = Color(0xFFFF00FF),        // Theme accent (waveforms, glows, decorations)
+        materialPrimary = Color(0xFFFF00FF),    // Material3 seed (buttons, dialogs, ripples)
         primaryTextColor = Color(0xFFFFFFFF),   // Main text (must be readable!)
         secondaryTextColor = Color(0xFFCCCCCC), // Secondary text
+        
+        // Card backgrounds (nullable - falls back to Material surface if not set)
+        cardBackgroundLight = Color(0xFFF5F5F5),  // Card color in light mode
+        cardBackgroundDark = Color(0xFF2A2A2A),   // Card color in dark mode
         
         // Optional (customize if needed)
         recordButtonEmoji = "🎤",
@@ -112,7 +119,8 @@ object AestheticThemes {
 2. Run app
 3. Go to Settings → Theme
 4. Select your theme
-5. Verify colors, text readability, cards
+5. Test in **both light and dark mode**
+6. Verify colors, text readability, cards, buttons
 
 **Done!** ✅
 
@@ -143,11 +151,14 @@ object YourProTheme {
         description = "🌟 Custom everything!",
         components = YourProThemeComponents(),  // ← Custom implementation
         
-        // Colors (same as simple theme)
+        // Colors (same as material theme)
         primaryGradient = Brush.verticalGradient(...),
         accentColor = Color(0xFFFF00FF),
         primaryTextColor = Color(0xFFFFFFFF),
         secondaryTextColor = Color(0xFFCCCCCC),
+        
+        // Note: materialPrimary and cardBackground are ignored in Pro themes
+        // Pro themes hardcode their own colors in custom components
         
         // Mark as pro
         isPro = true
@@ -176,6 +187,7 @@ class YourProThemeComponents : ThemeComponents {
         onStopAttempt: (() -> Unit)?
     ) {
         // Your custom recording card design here
+        // Hardcode your own colors - don't use MaterialTheme.colorScheme
         // See StrangePlanetThemeComponents.kt or WeirdWorldThemeComponents.kt for examples
     }
     
@@ -199,7 +211,17 @@ class YourProThemeComponents : ThemeComponents {
         // Your custom attempt card design here
     }
     
-    // Optional: Custom dialogs, backgrounds, effects
+    // Custom dialogs - hardcode containerColor
+    @Composable
+    override fun DeleteDialog(...) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFFYOURCOLOR),  // ← Hardcode, don't use MaterialTheme
+            // ...
+        )
+    }
+    
+    // Optional: Custom backgrounds, effects
     @Composable
     override fun AppBackground(
         aesthetic: AestheticThemeData,
@@ -215,13 +237,13 @@ class YourProThemeComponents : ThemeComponents {
 }
 ```
 
-### Step 2: Register (Same as Simple Theme)
+### Step 2: Register (Same as Material Theme)
 
 Add to `AestheticThemes.allThemes` map in `AestheticThemeData.kt`
 
 ### Step 3: Build & Test
 
-Same as simple theme.
+Same as material theme.
 
 ---
 
@@ -235,9 +257,19 @@ name: String                  // Display name
 description: String           // User-facing description
 components: ThemeComponents   // DefaultThemeComponents() or custom
 primaryGradient: Brush        // Background gradient
-accentColor: Color            // Accent/highlight color
+accentColor: Color            // Accent/highlight color (decorations)
 primaryTextColor: Color       // Main text color
 secondaryTextColor: Color     // Secondary text color
+```
+
+### Material Theme Fields (for DefaultThemeComponents)
+
+```kotlin
+materialPrimary: Color = Color(0xFFFF6EC7)  // Material3 seed color for buttons/dialogs
+                                             // Defaults to Hot Pink if not set
+
+cardBackgroundLight: Color? = null  // Card color in light mode (null = Material surface)
+cardBackgroundDark: Color? = null   // Card color in dark mode (null = Material surface)
 ```
 
 ### Optional Fields (Auto-Default)
@@ -258,6 +290,49 @@ isPro: Boolean = false
 
 ---
 
+## Understanding materialPrimary vs accentColor
+
+These serve different purposes:
+
+| Property | Used For | Used By |
+|----------|----------|---------|
+| `accentColor` | Waveforms, scroll glows, decorative elements | Theme visuals |
+| `materialPrimary` | Buttons, dialogs, ripples, Material UI | Material3 system |
+
+They **can** be the same color, but don't have to be:
+
+```kotlin
+// Same color (simple)
+accentColor = Color(0xFFF8BBD0),
+materialPrimary = Color(0xFFF8BBD0),
+
+// Different colors (advanced)
+accentColor = Color(0x4DFFD700),      // Semi-transparent gold for decorations
+materialPrimary = Color(0xFFFFD700),  // Solid gold for buttons (needs full opacity)
+```
+
+---
+
+## Understanding Card Backgrounds
+
+Cards adapt to light/dark mode using `LocalIsDarkTheme`:
+
+```kotlin
+// Warm cozy theme
+cardBackgroundLight = Color(0xFFFFF8F0),  // Cream in light mode
+cardBackgroundDark = Color(0xFF2D2520),   // Warm brown in dark mode
+
+// Dark aesthetic theme (dark cards in both modes)
+cardBackgroundLight = Color(0xFF2A2A3E),  // Dark purple even in "light" mode
+cardBackgroundDark = Color(0xFF1A1A28),   // Darker purple in dark mode
+
+// Let Material decide (nullable)
+cardBackgroundLight = null,  // Uses MaterialTheme.colorScheme.surface
+cardBackgroundDark = null,
+```
+
+---
+
 ## Color Tips
 
 ### Choosing Colors
@@ -266,9 +341,13 @@ isPro: Boolean = false
 - Make sure text is readable!
 - Test with both light and dark text
 
-**accentColor:** Buttons, highlights, borders, waveforms, scroll glow
+**accentColor:** Decorative elements, waveforms, scroll glow
 - Should pop against your gradient
-- Used for interactive elements
+- Can be semi-transparent for effects
+
+**materialPrimary:** Buttons, dialogs, system UI
+- Must be fully opaque (0xFF prefix)
+- Material3 generates a full color scheme from this seed
 
 **primaryTextColor:** Headers, titles, important text
 - MUST be readable on your gradient
@@ -313,6 +392,15 @@ secondaryTextColor = Color(0xFF666666) // Dark gray
 - Dark gradient → light text
 - Light gradient → dark text
 
+### Buttons are wrong color
+**Fix:** Set `materialPrimary` to your desired button color
+
+### Cards are white/black and boring
+**Fix:** Set `cardBackgroundLight` and `cardBackgroundDark`
+
+### Dark mode shows light card / light mode shows dark card
+**Fix:** This was a bug with `isSystemInDarkTheme()`. Now uses `LocalIsDarkTheme` which respects the app's dark mode setting (Light/Dark/System).
+
 ### Cards look broken (Pro themes only)
 **Fix:** Check your `RecordingItem`/`AttemptItem` implementations
 - See `StrangePlanetThemeComponents.kt` for reference
@@ -322,7 +410,7 @@ secondaryTextColor = Color(0xFF666666) // Dark gray
 
 ## Examples
 
-### Minimal Theme (3 Required Colors)
+### Minimal Theme (Uses Defaults)
 
 ```kotlin
 object MinimalTheme {
@@ -337,13 +425,15 @@ object MinimalTheme {
             colors = listOf(Color.White, Color(0xFFF5F5F5))
         ),
         accentColor = Color.Black,
+        materialPrimary = Color.Black,
         primaryTextColor = Color.Black,
         secondaryTextColor = Color.Gray
+        // cardBackgroundLight/Dark not set = uses Material surface
     )
 }
 ```
 
-### Fully Customized Theme
+### Fully Customized Material Theme
 
 ```kotlin
 object CustomTheme {
@@ -363,8 +453,13 @@ object CustomTheme {
             )
         ),
         accentColor = Color(0xFFE94560),
+        materialPrimary = Color(0xFFE94560),
         primaryTextColor = Color(0xFFFFFFFF),
         secondaryTextColor = Color(0xFFB0B0B0),
+        
+        // Custom card colors for light/dark mode
+        cardBackgroundLight = Color(0xFF2A2A3E),
+        cardBackgroundDark = Color(0xFF1A1A28),
         
         // Custom emojis
         recordButtonEmoji = "🎸",
@@ -372,7 +467,7 @@ object CustomTheme {
             90 to "🏆",
             80 to "🎯",
             70 to "⭐",
-            60 to "👏",
+            60 to "👍",
             0 to "🎵"
         ),
         
@@ -402,18 +497,21 @@ object CustomTheme {
 
 ## Quick Checklist
 
-**Simple Theme:**
+**Material Theme:**
 - [ ] Create theme file in `ui/theme/`
 - [ ] Set all required colors
+- [ ] Set `materialPrimary` for buttons/dialogs
+- [ ] Set `cardBackgroundLight`/`cardBackgroundDark` (optional)
 - [ ] Use `DefaultThemeComponents()`
 - [ ] Add to `allThemes` map
-- [ ] Build & test
+- [ ] Build & test in **both light and dark mode**
 
 **Pro Theme:**
 - [ ] Create theme file with custom `ThemeComponents`
 - [ ] Implement `RecordingItem()`
 - [ ] Implement `AttemptItem()`
-- [ ] Set all colors
+- [ ] Implement custom dialogs with hardcoded `containerColor`
+- [ ] Set all colors (materialPrimary/cardBackground ignored)
 - [ ] Set `isPro = true`
 - [ ] Add to `allThemes` map
 - [ ] Build & test
@@ -422,16 +520,29 @@ object CustomTheme {
 
 ## Reference Themes
 
-**Simple Themes (copy these):**
-- `CottageThemeComponents.kt`
-- `Y2KThemeComponents.kt`
-- `VaporwaveThemeComponents.kt`
+**Material Themes (copy these):**
+- `CottageThemeComponents.kt` - Warm pastel aesthetic
+- `CyberpunkThemeComponents.kt` - Dark neon aesthetic
+- `DarkAcademiaThemeComponents.kt` - Moody gold aesthetic
+- `Y2KThemeComponents.kt` - Glassmorphism with alpha cards
 
 **Pro Themes (study these):**
-- `StrangePlanetThemeComponents.kt` - Full custom implementation
+- `StrangePlanetThemeComponents.kt` - Full custom with aliens
 - `WeirdWorldThemeComponents.kt` - Custom cards with effects
+- `SakuraSerenityThemeComponents.kt` - Custom shapes and animations
 - `EggThemeComponents.kt` - Animated background
 
 ---
 
-**That's it! Most themes are just 30 lines of color definitions.** 🎨
+## Architecture Note
+
+As of v0.2.8, the theme system uses a "Dumb Pipe" architecture:
+
+- **Material themes** inject colors via `materialPrimary` → `CreateReVerseYTheme` → `MaterialTheme.colorScheme`
+- **Pro themes** are self-contained with hardcoded colors throughout
+
+There is no longer a `getThemeAccentColor()` switch statement. Each theme is the single source of truth for its own colors.
+
+---
+
+**That's it! Most themes are just 30-40 lines of color definitions.** 🎨
