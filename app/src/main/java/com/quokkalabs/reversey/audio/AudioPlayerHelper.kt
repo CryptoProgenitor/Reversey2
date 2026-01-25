@@ -39,7 +39,11 @@ class AudioPlayerHelper @Inject constructor() {
     val currentPath = _currentPath.asStateFlow()
 
     @Synchronized
-    fun play(path: String, onCompletion: () -> Unit = {}) {
+    fun play(
+        path: String,
+        onCompletion: () -> Unit = {},
+        onError: (Exception) -> Unit = {}
+    ) {
         stop() // Clean up previous
 
         try {
@@ -61,6 +65,7 @@ class AudioPlayerHelper @Inject constructor() {
         } catch (e: Exception) {
             Log.e("AudioPlayerHelper", "Error playing file: $path", e)
             stop()
+            onError(e)
         }
     }
 

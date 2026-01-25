@@ -107,8 +107,10 @@ object SharedDefaultComponents {
         var showShareDialog by remember { mutableStateOf(false) }
 
         // 🔧 POLYMORPHIC: Track which button owns the current playback
-        val isPlayingForward = currentlyPlayingPath == recording.originalPath
-        val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+        // 🐛 FIX: Null-safe comparisons to prevent "null == null" evaluating to true
+        // when currentlyPlayingPath is null (idle) and reversedPath is null (no reversal yet)
+        val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == recording.originalPath
+        val isPlayingReversed = currentlyPlayingPath != null && currentlyPlayingPath == recording.reversedPath
 
         Card(
             modifier = Modifier
