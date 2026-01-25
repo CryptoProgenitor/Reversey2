@@ -368,17 +368,18 @@ enum class GamePackageType {
  * Lightweight manifest for single-item game packages.
  * Used for Challenge/Response sharing (not full backups).
  *
- * GAME_ID STRATEGY:
- * - game_id is the recording's creation timestamp (epoch ms)
- * - On import, match ANY local recording with same timestamp
- * - This allows cross-device sync without path dependencies
+ * IDENTITY STRATEGY (v3.0):
+ * - audioHash is the SHA-256 hash of the original recording's WAV content
+ * - On import, match ANY local recording with same audioHash
+ * - Content-based identity survives file renames, timestamp changes, cross-device sync
  */
 data class GamePackageManifest(
-    val version: String = "3.0",
+    /** Manifest version for compatibility checking (integer for easy comparison) */
+    val version: Int = CURRENT_GAME_PACKAGE_VERSION,
     val type: GamePackageType,
 
-    /** Unique identifier: recording's original creation timestamp (epoch ms) */
-    val gameId: Long,
+    /** Unique identifier: SHA-256 hash of original recording's audio content */
+    val audioHash: String,
 
     /** When this package was created */
     val exportTimestampMs: Long,
@@ -395,7 +396,11 @@ data class GamePackageManifest(
 
     /** Custom display name (if any) */
     val customName: String? = null
-)
+) {
+    companion object {
+        const val CURRENT_GAME_PACKAGE_VERSION = 1
+    }
+}
 
 /**
  * Result of a game package export operation.
@@ -404,7 +409,7 @@ data class GamePackageResult(
     val success: Boolean,
     val zipFile: File?,
     val type: GamePackageType?,
-    val gameId: Long?,
+    val audioHash: String?,
     val error: String? = null
 )
 

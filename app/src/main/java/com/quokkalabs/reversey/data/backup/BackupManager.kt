@@ -140,7 +140,8 @@ class BackupManager @Inject constructor(
                 return@withContext GamePackageResult(false, null, null, null, "Recording file not found")
             }
 
-            val gameId = originalFile.lastModified()
+            // Calculate SHA-256 content hash as unique game identity
+            val audioHash = calculateContentHash(originalFile)
             val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val zipFile = File(outputDir, "reversey_challenge_$timestamp.rvy")
 
@@ -151,7 +152,7 @@ class BackupManager @Inject constructor(
                 filename = originalFile.name,
                 reversedFilename = recording.reversedPath?.let { File(it).name },
                 hash = calculateFileHash(originalFile),
-                creationTimestampMs = gameId,
+                creationTimestampMs = originalFile.lastModified(),
                 lastModified = originalFile.lastModified(),
                 fileSizeBytes = originalFile.length(),
                 vocalMode = recording.vocalAnalysis?.mode?.name,
@@ -163,10 +164,10 @@ class BackupManager @Inject constructor(
             val customNames = threadSafeJsonRepo.loadRecordingNamesJson()
             val customName = customNames[recording.originalPath]
 
-            // Build manifest
+            // Build manifest with content hash as identity
             val manifest = GamePackageManifest(
                 type = GamePackageType.CHALLENGE,
-                gameId = gameId,
+                audioHash = audioHash,
                 exportTimestampMs = System.currentTimeMillis(),
                 appVersionName = packageInfo.versionName ?: "1.0",
                 appVersionCode = packageInfo.versionCode,
@@ -188,8 +189,8 @@ class BackupManager @Inject constructor(
                 zipOut.closeEntry()
             }
 
-            Log.d(TAG, "Exported challenge: gameId=$gameId, file=${zipFile.name}")
-            GamePackageResult(true, zipFile, GamePackageType.CHALLENGE, gameId)
+            Log.d(TAG, "Exported challenge: audioHash=$audioHash, file=${zipFile.name}")
+            GamePackageResult(true, zipFile, GamePackageType.CHALLENGE, audioHash)
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to export challenge", e)
@@ -218,7 +219,8 @@ class BackupManager @Inject constructor(
                 return@withContext GamePackageResult(false, null, null, null, "Attempt file not found")
             }
 
-            val gameId = originalFile.lastModified()
+            // Calculate SHA-256 content hash as unique game identity
+            val audioHash = calculateContentHash(originalFile)
             val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val zipFile = File(outputDir, "reversey_response_$timestamp.rvy")
 
@@ -229,7 +231,7 @@ class BackupManager @Inject constructor(
                 filename = originalFile.name,
                 reversedFilename = recording.reversedPath?.let { File(it).name },
                 hash = calculateFileHash(originalFile),
-                creationTimestampMs = gameId,
+                creationTimestampMs = originalFile.lastModified(),
                 lastModified = originalFile.lastModified(),
                 fileSizeBytes = originalFile.length(),
                 vocalMode = recording.vocalAnalysis?.mode?.name,
@@ -237,12 +239,12 @@ class BackupManager @Inject constructor(
                 vocalFeatures = recording.vocalAnalysis?.toBackup()?.features
             )
 
-            // Build attempt entry
+            // Build attempt entry (also include content hash for attempt deduplication)
             val attemptEntry = AttemptBackupEntry(
                 parentRecordingFilename = originalFile.name,
                 attemptFilename = attemptFile.name,
                 reversedAttemptFilename = attempt.reversedAttemptFilePath?.let { File(it).name },
-                hash = calculateFileHash(attemptFile),
+                hash = calculateContentHash(attemptFile),  // Use content hash for attempt identity
                 metadata = attemptToBackupMetadata(attempt)
             )
 
@@ -250,10 +252,10 @@ class BackupManager @Inject constructor(
             val customNames = threadSafeJsonRepo.loadRecordingNamesJson()
             val customName = customNames[recording.originalPath]
 
-            // Build manifest
+            // Build manifest with content hash as identity
             val manifest = GamePackageManifest(
                 type = GamePackageType.RESPONSE,
-                gameId = gameId,
+                audioHash = audioHash,
                 exportTimestampMs = System.currentTimeMillis(),
                 appVersionName = packageInfo.versionName ?: "1.0",
                 appVersionCode = packageInfo.versionCode,
@@ -280,8 +282,8 @@ class BackupManager @Inject constructor(
                 zipOut.closeEntry()
             }
 
-            Log.d(TAG, "Exported response: gameId=$gameId, file=${zipFile.name}")
-            GamePackageResult(true, zipFile, GamePackageType.RESPONSE, gameId)
+            Log.d(TAG, "Exported response: audioHash=$audioHash, file=${zipFile.name}")
+            GamePackageResult(true, zipFile, GamePackageType.RESPONSE, audioHash)
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to export response", e)
@@ -291,13 +293,14 @@ class BackupManager @Inject constructor(
 
     /**
      * Import a Game Package (Challenge or Response).
-     * Uses game_id (timestamp) matching to merge with existing recordings.
+     * Uses SHA-256 content hash matching for identity.
      *
      * IMPORT LOGIC:
-     * 1. Read game_id from manifest
-     * 2. Scan local recordings for any with matching lastModified timestamp
-     * 3. If match found: Merge attempt (for RESPONSE) or skip (for CHALLENGE)
-     * 4. If no match: Import as new recording
+     * 1. Validate manifest version (reject if newer than supported)
+     * 2. Calculate SHA-256 hash of each local recording
+     * 3. Match by audioHash from manifest
+     * 4. If match found: Merge attempt (for RESPONSE) or skip (for CHALLENGE)
+     * 5. If no match: Import as new recording
      *
      * @param packageFile The .rvy ZIP file to import
      * @return RestoreResult with import statistics
@@ -316,7 +319,14 @@ class BackupManager @Inject constructor(
                 return@withContext importBackup(packageFile, ConflictStrategy.SKIP_DUPLICATES)
             }
 
-            Log.d(TAG, "Importing game package: type=${gameManifest.type}, gameId=${gameManifest.gameId}")
+            // Version validation - reject packages from future versions
+            if (gameManifest.version > GamePackageManifest.CURRENT_GAME_PACKAGE_VERSION) {
+                val errorMsg = "Package version ${gameManifest.version} is newer than supported version ${GamePackageManifest.CURRENT_GAME_PACKAGE_VERSION}. Please update the app."
+                Log.e(TAG, errorMsg)
+                return@withContext RestoreResult(false, 0, 0, 0, 0, errorMsg)
+            }
+
+            Log.d(TAG, "Importing game package: type=${gameManifest.type}, audioHash=${gameManifest.audioHash}")
 
             val recordingsDir = getRecordingsDir()
             val attemptsDir = getAttemptsDir()
@@ -326,10 +336,15 @@ class BackupManager @Inject constructor(
             val existingAttemptsMap = threadSafeJsonRepo.loadAttemptsJson().toMutableMap()
             val existingCustomNames = threadSafeJsonRepo.loadRecordingNamesJson().toMutableMap()
 
-            // Find local recording matching game_id (by timestamp)
+            // Find local recording matching audioHash (by content hash)
             val matchingRecording = localRecordings.find { recording ->
                 val localFile = File(recording.originalPath)
-                localFile.exists() && localFile.lastModified() == gameManifest.gameId
+                if (localFile.exists()) {
+                    val localHash = calculateContentHash(localFile)
+                    localHash == gameManifest.audioHash
+                } else {
+                    false
+                }
             }
 
             var importedRecs = 0
@@ -348,21 +363,30 @@ class BackupManager @Inject constructor(
                         entryName.endsWith(".wav") && !entryName.startsWith("attempts/") -> {
                             // This is the original recording WAV
                             if (matchingRecording != null) {
-                                // Recording exists locally - skip import
+                                // Recording exists locally (hash match) - skip import
                                 skippedRecs++
-                                Log.d(TAG, "Recording exists locally, skipping: ${gameManifest.recording.filename}")
+                                Log.d(TAG, "Recording exists locally (hash match), skipping: ${gameManifest.recording.filename}")
                             } else {
                                 // New recording - import it
                                 val targetFile = File(recordingsDir, gameManifest.recording.filename)
                                 if (!targetFile.exists()) {
                                     FileOutputStream(targetFile).use { zipIn.copyTo(it) }
-                                    // Restore original timestamp for game_id matching
-                                    targetFile.setLastModified(gameManifest.gameId)
                                     importedRecs++
                                     Log.d(TAG, "Imported new recording: ${targetFile.name}")
                                 } else {
-                                    skippedRecs++
-                                    Log.d(TAG, "Recording file already exists: ${targetFile.name}")
+                                    // File exists but hash didn't match - check if it's actually the same content
+                                    val existingHash = calculateContentHash(targetFile)
+                                    if (existingHash == gameManifest.audioHash) {
+                                        skippedRecs++
+                                        Log.d(TAG, "Recording file exists with matching hash: ${targetFile.name}")
+                                    } else {
+                                        // Different content, same filename - rename and import
+                                        val newName = generateUniqueFilename(recordingsDir, gameManifest.recording.filename)
+                                        val renamedFile = File(recordingsDir, newName)
+                                        FileOutputStream(renamedFile).use { zipIn.copyTo(it) }
+                                        importedRecs++
+                                        Log.d(TAG, "Imported recording with new name: $newName")
+                                    }
                                 }
                             }
                         }
@@ -372,23 +396,27 @@ class BackupManager @Inject constructor(
                             val attemptFilename = entryName.removePrefix("attempts/")
                             val targetFile = File(attemptsDir, attemptFilename)
 
-                            if (!targetFile.exists()) {
-                                FileOutputStream(targetFile).use { zipIn.copyTo(it) }
-                                Log.d(TAG, "Extracted attempt file: $attemptFilename")
-                            }
-
                             // Determine parent path
                             val parentPath = matchingRecording?.originalPath
                                 ?: File(recordingsDir, gameManifest.recording.filename).absolutePath
 
-                            // Add attempt to JSON if not already present
+                            // Check if attempt already exists by content hash
                             gameManifest.attempt?.let { attemptEntry ->
                                 val existingAttempts = existingAttemptsMap[parentPath] ?: emptyList()
-                                val alreadyExists = existingAttempts.any {
-                                    it.attemptFilePath == targetFile.absolutePath
+
+                                // Check by hash if attempt already exists
+                                val alreadyExists = existingAttempts.any { existing ->
+                                    val existingFile = File(existing.attemptFilePath)
+                                    existingFile.exists() && calculateContentHash(existingFile) == attemptEntry.hash
                                 }
 
                                 if (!alreadyExists) {
+                                    // Extract the attempt file
+                                    if (!targetFile.exists()) {
+                                        FileOutputStream(targetFile).use { zipIn.copyTo(it) }
+                                        Log.d(TAG, "Extracted attempt file: $attemptFilename")
+                                    }
+
                                     val playerAttempt = metadataToPlayerAttempt(
                                         attemptEntry.metadata,
                                         targetFile.absolutePath,
@@ -402,6 +430,8 @@ class BackupManager @Inject constructor(
                                     }
                                     importedAttempts++
                                     Log.d(TAG, "Added attempt to recording: $parentPath")
+                                } else {
+                                    Log.d(TAG, "Attempt already exists (hash match), skipping")
                                 }
                             }
                         }
@@ -412,7 +442,7 @@ class BackupManager @Inject constructor(
                 }
             }
 
-            // Restore custom name if provided and recording was imported
+            // Restore custom name if provided
             gameManifest.customName?.let { name ->
                 val recordingPath = matchingRecording?.originalPath
                     ?: File(recordingsDir, gameManifest.recording.filename).absolutePath
@@ -444,8 +474,8 @@ class BackupManager @Inject constructor(
                 while (entry != null) {
                     if (entry.name == MANIFEST_FILENAME) {
                         val jsonContent = zip.readBytes().toString(Charsets.UTF_8)
-                        // Check if it's a game package by looking for "gameId" field
-                        if (jsonContent.contains("\"gameId\"")) {
+                        // Check if it's a game package by looking for "audioHash" field (v3.0+)
+                        if (jsonContent.contains("\"audioHash\"")) {
                             return gson.fromJson(jsonContent, GamePackageManifest::class.java)
                         }
                         return null // It's a regular backup manifest
@@ -1172,6 +1202,31 @@ class BackupManager @Inject constructor(
 
     private fun calculateFileHash(file: File): String {
         return "${file.length()}_${file.lastModified()}"
+    }
+
+    /**
+     * Calculate SHA-256 content hash of a file.
+     * Used for game identity matching in Remote Play.
+     *
+     * @param file The file to hash
+     * @return Hex-encoded SHA-256 hash string
+     */
+    private fun calculateContentHash(file: File): String {
+        return try {
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+            FileInputStream(file).use { fis ->
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                while (fis.read(buffer).also { bytesRead = it } != -1) {
+                    digest.update(buffer, 0, bytesRead)
+                }
+            }
+            digest.digest().joinToString("") { "%02x".format(it) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to calculate content hash for ${file.name}", e)
+            // Fallback to simple hash if SHA-256 fails
+            "${file.length()}_${file.lastModified()}"
+        }
     }
 
     // ============================================================
