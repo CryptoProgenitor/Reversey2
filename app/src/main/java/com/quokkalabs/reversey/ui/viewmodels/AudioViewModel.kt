@@ -845,17 +845,31 @@ class AudioViewModel @Inject constructor(
     }
 
     fun play(path: String) {
-        _uiState.update { it.copy(isPaused = false, currentlyPlayingPath = path) }  // ADD: currentlyPlayingPath = path
+        _uiState.update { it.copy(isPaused = false, currentlyPlayingPath = path) }
 
-        audioPlayerHelper.play(path) {
-            _uiState.update {
-                it.copy(
-                    currentlyPlayingPath = null,
-                    isPaused = false,
-                    playbackProgress = 0f
-                )
+        audioPlayerHelper.play(
+            path = path,
+            onCompletion = {
+                _uiState.update {
+                    it.copy(
+                        currentlyPlayingPath = null,
+                        isPaused = false,
+                        playbackProgress = 0f
+                    )
+                }
+            },
+            onError = { e ->
+                // 🐛 FIX: Reset UI state on playback failure to prevent "zombie" playing state
+                Log.e("AudioViewModel", "Playback failed for: $path", e)
+                _uiState.update {
+                    it.copy(
+                        currentlyPlayingPath = null,
+                        isPaused = false,
+                        playbackProgress = 0f
+                    )
+                }
             }
-        }
+        )
     }
 
     fun pause() {
