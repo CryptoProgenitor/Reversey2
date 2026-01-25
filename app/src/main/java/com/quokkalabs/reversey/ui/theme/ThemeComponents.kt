@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
+import java.io.File
 
 /**
  * 🎨 THEME COMPONENTS INTERFACE
@@ -16,6 +17,11 @@ import com.quokkalabs.reversey.data.models.Recording
  * Implementation options:
  * - Vanilla themes: Use DefaultThemeComponents() for zero-boilerplate delegation
  * - Pro themes: Implement this interface directly with custom UI
+ *
+ * v3.0 BREAKING CHANGE:
+ * - onShare now takes (Recording) instead of (String) for Remote Play support
+ * - onShareAttempt now takes (PlayerAttempt) instead of (String)
+ * - Caller is responsible for ZIP generation via ViewModel
  */
 interface ThemeComponents {
 
@@ -28,6 +34,9 @@ interface ThemeComponents {
      * 🔧 POLYMORPHIC BUTTONS: currentlyPlayingPath enables each button
      * (Play/Rewind) to independently track if IT is the one playing,
      * allowing proper Pause/Resume state per button.
+     *
+     * 🎮 REMOTE PLAY: onShare now receives the full Recording object
+     * so the ViewModel can generate a Challenge ZIP package.
      */
     @Composable
     fun RecordingItem(
@@ -40,7 +49,7 @@ interface ThemeComponents {
         onPause: () -> Unit,
         onStop: () -> Unit,
         onDelete: (Recording) -> Unit,
-        onShare: (String) -> Unit,
+        onShare: (Recording) -> Unit,   // 🎮 v3.0: Changed from (String) for Remote Play
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
@@ -51,6 +60,10 @@ interface ThemeComponents {
     /**
      * Attempt Item Component
      * Displays a player's attempt with score and controls
+     *
+     * 🎮 REMOTE PLAY: onShareAttempt now receives the full PlayerAttempt object.
+     * The caller captures the parent Recording in the closure to generate
+     * a Response ZIP package via ViewModel.
      */
     @Composable
     fun AttemptItem(
@@ -64,7 +77,7 @@ interface ThemeComponents {
         onStop: () -> Unit,
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)? = null,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)? = null,
-        onShareAttempt: ((String) -> Unit)? = null,
+        onShareAttempt: ((PlayerAttempt) -> Unit)? = null,  // 🎮 v3.0: Changed from (String)
         onJumpToParent: (() -> Unit)? = null,
         onOverrideScore: ((Int) -> Unit)? = null,
         onResetScore: (() -> Unit)? = null
@@ -121,13 +134,16 @@ interface ThemeComponents {
 
     /**
      * Share Dialog
+     *
+     * 🎮 REMOTE PLAY: onShare now takes the file and MIME type directly.
+     * The ViewModel generates the ZIP before showing the dialog.
      */
     @Composable
     fun ShareDialog(
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (String) -> Unit,
+        onShare: (file: File, mimeType: String) -> Unit,  // 🎮 v3.0: Changed for Remote Play
         onDismiss: () -> Unit
     )
 

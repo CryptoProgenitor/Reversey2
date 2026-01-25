@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -95,7 +96,7 @@ object SharedDefaultComponents {
         onPause: () -> Unit,
         onStop: () -> Unit,
         onDelete: (Recording) -> Unit,
-        onShare: (String) -> Unit,
+        onShare: (Recording) -> Unit,  // 🎮 v3.0: Changed from (String) for Remote Play
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
@@ -167,9 +168,9 @@ object SharedDefaultComponents {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    // 1. Share
+                    // 1. Share - 🎮 v3.0: Direct share (no dialog) for Remote Play
                     SimpleGlowButton(
-                        onClick = { showShareDialog = true },
+                        onClick = { onShare(recording) },
                         size = 50.dp,
                         label = "Share",
                         icon = Icons.Default.Share,
@@ -356,7 +357,7 @@ object SharedDefaultComponents {
         onStop: () -> Unit,
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
-        onShareAttempt: ((String) -> Unit)?,
+        onShareAttempt: ((PlayerAttempt) -> Unit)?,  // 🎮 v3.0: Changed from (String)
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)? = null,
         onResetScore: (() -> Unit)? = null,
@@ -426,10 +427,10 @@ object SharedDefaultComponents {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            // 1. Share
+                            // 1. Share - 🎮 v3.0: Direct share (no dialog) for Remote Play
                             if (onShareAttempt != null) {
                                 SimpleGlowButton(
-                                    onClick = { showShareDialog = true },
+                                    onClick = { onShareAttempt.invoke(attempt) },
                                     size = 40.dp,
                                     label = "Share",
                                     icon = Icons.Default.Share,
@@ -710,22 +711,30 @@ object SharedDefaultComponents {
         )
     }
 
+    /**
+     * 🎮 v3.0: DEPRECATED - Direct share via onShare(Recording) is now preferred.
+     * This dialog is kept for backwards compatibility but may be removed.
+     *
+     * For Remote Play, the ViewModel generates the ZIP file before showing any dialog.
+     */
     @Composable
     fun MaterialShareDialog(
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (String) -> Unit,
+        onShare: (file: File, mimeType: String) -> Unit,  // 🎮 v3.0: New signature
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
 
+        // 🎮 v3.0: This dialog needs refactoring for Remote Play.
+        // Currently showing a placeholder message.
         AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(copy.shareTitle) },
             text = {
                 Column {
-                    Text(copy.shareMessage)
+                    Text("Share functionality has been updated for Remote Play.")
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
@@ -956,7 +965,7 @@ class DefaultThemeComponents : ThemeComponents {
         onPause: () -> Unit,
         onStop: () -> Unit,
         onDelete: (Recording) -> Unit,
-        onShare: (String) -> Unit,
+        onShare: (Recording) -> Unit,  // 🎮 v3.0: Changed from (String)
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
@@ -995,7 +1004,7 @@ class DefaultThemeComponents : ThemeComponents {
         onStop: () -> Unit,
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
-        onShareAttempt: ((String) -> Unit)?,
+        onShareAttempt: ((PlayerAttempt) -> Unit)?,  // 🎮 v3.0: Changed from (String)
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
         onResetScore: (() -> Unit)?,
@@ -1072,7 +1081,7 @@ class DefaultThemeComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (String) -> Unit,
+        onShare: (file: File, mimeType: String) -> Unit,  // 🎮 v3.0: New signature
         onDismiss: () -> Unit,
     ) {
         SharedDefaultComponents.MaterialShareDialog(

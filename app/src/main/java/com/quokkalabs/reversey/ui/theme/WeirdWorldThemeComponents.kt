@@ -176,7 +176,7 @@ class WeirdWorldComponents : ThemeComponents {
         onPause: () -> Unit,
         onStop: () -> Unit,
         onDelete: (Recording) -> Unit,
-        onShare: (String) -> Unit,
+        onShare: (Recording) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
@@ -214,7 +214,7 @@ class WeirdWorldComponents : ThemeComponents {
         onStop: () -> Unit,
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
-        onShareAttempt: ((String) -> Unit)?,
+        onShareAttempt: ((PlayerAttempt) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
         onResetScore: (() -> Unit)?,
@@ -320,7 +320,7 @@ class WeirdWorldComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (String) -> Unit,
+        onShare: (Recording) -> Unit,
         onDismiss: () -> Unit,
     ) = WWShareDialog(recording, attempt, aesthetic, onShare, onDismiss)
 
@@ -808,7 +808,7 @@ fun WeirdWorldRecordingItem(
     onPause: () -> Unit,
     onStop: () -> Unit,
     onDelete: (Recording) -> Unit,
-    onShare: (String) -> Unit,
+    onShare: (Recording) -> Unit,
     onRename: (String, String) -> Unit,
     isGameModeEnabled: Boolean,
     onStartAttempt: (Recording, ChallengeType) -> Unit,
@@ -1008,7 +1008,7 @@ fun WeirdWorldAttemptItem(
     onStop: () -> Unit,
     onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
     onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
-    onShareAttempt: ((String) -> Unit)?,
+    onShareAttempt: ((PlayerAttempt) -> Unit)?,
     onJumpToParent: (() -> Unit)?,
     onOverrideScore: ((Int) -> Unit)?,
     onResetScore: (() -> Unit)?,
@@ -1606,7 +1606,7 @@ fun WWShareDialog(
     recording: Recording?,
     attempt: PlayerAttempt?,
     aesthetic: AestheticThemeData,
-    onShare: (String) -> Unit,
+    onShare: (Recording) -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(

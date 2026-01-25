@@ -514,13 +514,18 @@ fun AudioReverserApp(
                                     onPause = { viewModel.pause() },
                                     onStop = { viewModel.stopPlayback() },
                                     onDelete = { viewModel.deleteRecording(recording) },
-                                    onShare = { path: String ->
-                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "audio/wav"
-                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    onShare = { rec: Recording ->
+                                        // 🎮 v3.0: Remote Play - Share as Challenge ZIP
+                                        viewModel.shareChallenge(rec) { result ->
+                                            if (result.success && result.zipFile != null) {
+                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "application/zip"
+                                                    putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", result.zipFile))
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                context.startActivity(Intent.createChooser(shareIntent, "Share Challenge"))
+                                            }
                                         }
-                                        context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
                                     },
                                     onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
                                     isGameModeEnabled = isGameModeEnabled,
@@ -555,13 +560,18 @@ fun AudioReverserApp(
                                     onDeleteAttempt = { attemptToDelete ->
                                         viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
                                     },
-                                    onShareAttempt = { path ->
-                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "audio/wav"
-                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    onShareAttempt = { attemptToShare ->
+                                        // 🎮 v3.0: Remote Play - Share as Response ZIP
+                                        viewModel.shareResponse(recording, attemptToShare) { result ->
+                                            if (result.success && result.zipFile != null) {
+                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "application/zip"
+                                                    putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", result.zipFile))
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                context.startActivity(Intent.createChooser(shareIntent, "Share Response"))
+                                            }
                                         }
-                                        context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
                                     },
                                     onJumpToParent = {
                                         scope.launch {

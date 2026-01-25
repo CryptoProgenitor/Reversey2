@@ -351,6 +351,64 @@ enum class ConflictStrategy {
 }
 
 // ============================================================
+//  GAME PACKAGE (Remote Play) - v3.0
+// ============================================================
+
+/**
+ * Type of game package for Remote Play sharing.
+ */
+enum class GamePackageType {
+    /** Share a recording as a challenge to a friend */
+    CHALLENGE,
+    /** Share an attempt as a response back to the challenger */
+    RESPONSE
+}
+
+/**
+ * Lightweight manifest for single-item game packages.
+ * Used for Challenge/Response sharing (not full backups).
+ *
+ * GAME_ID STRATEGY:
+ * - game_id is the recording's creation timestamp (epoch ms)
+ * - On import, match ANY local recording with same timestamp
+ * - This allows cross-device sync without path dependencies
+ */
+data class GamePackageManifest(
+    val version: String = "3.0",
+    val type: GamePackageType,
+
+    /** Unique identifier: recording's original creation timestamp (epoch ms) */
+    val gameId: Long,
+
+    /** When this package was created */
+    val exportTimestampMs: Long,
+
+    /** App version info */
+    val appVersionName: String,
+    val appVersionCode: Int,
+
+    /** Recording metadata */
+    val recording: RecordingBackupEntry,
+
+    /** Attempt metadata (only present for RESPONSE type) */
+    val attempt: AttemptBackupEntry? = null,
+
+    /** Custom display name (if any) */
+    val customName: String? = null
+)
+
+/**
+ * Result of a game package export operation.
+ */
+data class GamePackageResult(
+    val success: Boolean,
+    val zipFile: File?,
+    val type: GamePackageType?,
+    val gameId: Long?,
+    val error: String? = null
+)
+
+// ============================================================
 //  PROGRESS TRACKING
 // ============================================================
 

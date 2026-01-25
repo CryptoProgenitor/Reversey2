@@ -121,6 +121,345 @@ class BackupManager @Inject constructor(
         }
     }
 
+    // ============================================================
+    //  GAME PACKAGE EXPORT (Remote Play)
+    // ============================================================
+
+    /**
+     * Export a recording as a Challenge package for Remote Play.
+     * Creates a ZIP containing the original WAV and a GamePackageManifest.
+     *
+     * @param recording The recording to share as a challenge
+     * @param outputDir Directory to write the ZIP file
+     * @return GamePackageResult with the ZIP file path
+     */
+    suspend fun exportChallenge(recording: Recording, outputDir: File): GamePackageResult = withContext(Dispatchers.IO) {
+        try {
+            val originalFile = File(recording.originalPath)
+            if (!originalFile.exists()) {
+                return@withContext GamePackageResult(false, null, null, null, "Recording file not found")
+            }
+
+            val gameId = originalFile.lastModified()
+            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val zipFile = File(outputDir, "reversey_challenge_$timestamp.rvy")
+
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+
+            // Build recording entry
+            val recordingEntry = RecordingBackupEntry(
+                filename = originalFile.name,
+                reversedFilename = recording.reversedPath?.let { File(it).name },
+                hash = calculateFileHash(originalFile),
+                creationTimestampMs = gameId,
+                lastModified = originalFile.lastModified(),
+                fileSizeBytes = originalFile.length(),
+                vocalMode = recording.vocalAnalysis?.mode?.name,
+                vocalConfidence = recording.vocalAnalysis?.confidence,
+                vocalFeatures = recording.vocalAnalysis?.toBackup()?.features
+            )
+
+            // Get custom name if exists
+            val customNames = threadSafeJsonRepo.loadRecordingNamesJson()
+            val customName = customNames[recording.originalPath]
+
+            // Build manifest
+            val manifest = GamePackageManifest(
+                type = GamePackageType.CHALLENGE,
+                gameId = gameId,
+                exportTimestampMs = System.currentTimeMillis(),
+                appVersionName = packageInfo.versionName ?: "1.0",
+                appVersionCode = packageInfo.versionCode,
+                recording = recordingEntry,
+                attempt = null,
+                customName = customName
+            )
+
+            // Create ZIP
+            ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
+                // Add original WAV
+                zipOut.putNextEntry(ZipEntry(originalFile.name))
+                FileInputStream(originalFile).use { it.copyTo(zipOut) }
+                zipOut.closeEntry()
+
+                // Add manifest
+                zipOut.putNextEntry(ZipEntry(MANIFEST_FILENAME))
+                zipOut.write(gson.toJson(manifest).toByteArray())
+                zipOut.closeEntry()
+            }
+
+            Log.d(TAG, "Exported challenge: gameId=$gameId, file=${zipFile.name}")
+            GamePackageResult(true, zipFile, GamePackageType.CHALLENGE, gameId)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to export challenge", e)
+            GamePackageResult(false, null, null, null, e.message)
+        }
+    }
+
+    /**
+     * Export a recording + attempt as a Response package for Remote Play.
+     * Creates a ZIP containing original WAV, attempt WAV, and GamePackageManifest.
+     *
+     * @param recording The parent recording
+     * @param attempt The attempt to share as a response
+     * @param outputDir Directory to write the ZIP file
+     * @return GamePackageResult with the ZIP file path
+     */
+    suspend fun exportResponse(recording: Recording, attempt: PlayerAttempt, outputDir: File): GamePackageResult = withContext(Dispatchers.IO) {
+        try {
+            val originalFile = File(recording.originalPath)
+            val attemptFile = File(attempt.attemptFilePath)
+
+            if (!originalFile.exists()) {
+                return@withContext GamePackageResult(false, null, null, null, "Recording file not found")
+            }
+            if (!attemptFile.exists()) {
+                return@withContext GamePackageResult(false, null, null, null, "Attempt file not found")
+            }
+
+            val gameId = originalFile.lastModified()
+            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val zipFile = File(outputDir, "reversey_response_$timestamp.rvy")
+
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+
+            // Build recording entry
+            val recordingEntry = RecordingBackupEntry(
+                filename = originalFile.name,
+                reversedFilename = recording.reversedPath?.let { File(it).name },
+                hash = calculateFileHash(originalFile),
+                creationTimestampMs = gameId,
+                lastModified = originalFile.lastModified(),
+                fileSizeBytes = originalFile.length(),
+                vocalMode = recording.vocalAnalysis?.mode?.name,
+                vocalConfidence = recording.vocalAnalysis?.confidence,
+                vocalFeatures = recording.vocalAnalysis?.toBackup()?.features
+            )
+
+            // Build attempt entry
+            val attemptEntry = AttemptBackupEntry(
+                parentRecordingFilename = originalFile.name,
+                attemptFilename = attemptFile.name,
+                reversedAttemptFilename = attempt.reversedAttemptFilePath?.let { File(it).name },
+                hash = calculateFileHash(attemptFile),
+                metadata = attemptToBackupMetadata(attempt)
+            )
+
+            // Get custom name if exists
+            val customNames = threadSafeJsonRepo.loadRecordingNamesJson()
+            val customName = customNames[recording.originalPath]
+
+            // Build manifest
+            val manifest = GamePackageManifest(
+                type = GamePackageType.RESPONSE,
+                gameId = gameId,
+                exportTimestampMs = System.currentTimeMillis(),
+                appVersionName = packageInfo.versionName ?: "1.0",
+                appVersionCode = packageInfo.versionCode,
+                recording = recordingEntry,
+                attempt = attemptEntry,
+                customName = customName
+            )
+
+            // Create ZIP
+            ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
+                // Add original WAV
+                zipOut.putNextEntry(ZipEntry(originalFile.name))
+                FileInputStream(originalFile).use { it.copyTo(zipOut) }
+                zipOut.closeEntry()
+
+                // Add attempt WAV
+                zipOut.putNextEntry(ZipEntry("attempts/${attemptFile.name}"))
+                FileInputStream(attemptFile).use { it.copyTo(zipOut) }
+                zipOut.closeEntry()
+
+                // Add manifest
+                zipOut.putNextEntry(ZipEntry(MANIFEST_FILENAME))
+                zipOut.write(gson.toJson(manifest).toByteArray())
+                zipOut.closeEntry()
+            }
+
+            Log.d(TAG, "Exported response: gameId=$gameId, file=${zipFile.name}")
+            GamePackageResult(true, zipFile, GamePackageType.RESPONSE, gameId)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to export response", e)
+            GamePackageResult(false, null, null, null, e.message)
+        }
+    }
+
+    /**
+     * Import a Game Package (Challenge or Response).
+     * Uses game_id (timestamp) matching to merge with existing recordings.
+     *
+     * IMPORT LOGIC:
+     * 1. Read game_id from manifest
+     * 2. Scan local recordings for any with matching lastModified timestamp
+     * 3. If match found: Merge attempt (for RESPONSE) or skip (for CHALLENGE)
+     * 4. If no match: Import as new recording
+     *
+     * @param packageFile The .rvy ZIP file to import
+     * @return RestoreResult with import statistics
+     */
+    suspend fun importGamePackage(packageFile: File): RestoreResult = withContext(Dispatchers.IO) {
+        try {
+            if (!securityUtils.isValidZipFile(packageFile)) {
+                return@withContext RestoreResult(false, 0, 0, 0, 0, "Invalid package file")
+            }
+
+            // Try to extract as GamePackageManifest first
+            val gameManifest = extractGamePackageManifest(packageFile)
+            if (gameManifest == null) {
+                // Not a game package - fall back to full backup import
+                Log.d(TAG, "Not a game package, delegating to full backup import")
+                return@withContext importBackup(packageFile, ConflictStrategy.SKIP_DUPLICATES)
+            }
+
+            Log.d(TAG, "Importing game package: type=${gameManifest.type}, gameId=${gameManifest.gameId}")
+
+            val recordingsDir = getRecordingsDir()
+            val attemptsDir = getAttemptsDir()
+
+            // Load current state
+            val localRecordings = recordingRepository.loadRecordings()
+            val existingAttemptsMap = threadSafeJsonRepo.loadAttemptsJson().toMutableMap()
+            val existingCustomNames = threadSafeJsonRepo.loadRecordingNamesJson().toMutableMap()
+
+            // Find local recording matching game_id (by timestamp)
+            val matchingRecording = localRecordings.find { recording ->
+                val localFile = File(recording.originalPath)
+                localFile.exists() && localFile.lastModified() == gameManifest.gameId
+            }
+
+            var importedRecs = 0
+            var skippedRecs = 0
+            var importedAttempts = 0
+            var restoredNames = 0
+
+            ZipInputStream(FileInputStream(packageFile)).use { zipIn ->
+                var entry = zipIn.nextEntry
+                while (entry != null) {
+                    val entryName = entry.name
+
+                    when {
+                        entryName == MANIFEST_FILENAME -> { /* Skip manifest */ }
+
+                        entryName.endsWith(".wav") && !entryName.startsWith("attempts/") -> {
+                            // This is the original recording WAV
+                            if (matchingRecording != null) {
+                                // Recording exists locally - skip import
+                                skippedRecs++
+                                Log.d(TAG, "Recording exists locally, skipping: ${gameManifest.recording.filename}")
+                            } else {
+                                // New recording - import it
+                                val targetFile = File(recordingsDir, gameManifest.recording.filename)
+                                if (!targetFile.exists()) {
+                                    FileOutputStream(targetFile).use { zipIn.copyTo(it) }
+                                    // Restore original timestamp for game_id matching
+                                    targetFile.setLastModified(gameManifest.gameId)
+                                    importedRecs++
+                                    Log.d(TAG, "Imported new recording: ${targetFile.name}")
+                                } else {
+                                    skippedRecs++
+                                    Log.d(TAG, "Recording file already exists: ${targetFile.name}")
+                                }
+                            }
+                        }
+
+                        entryName.startsWith("attempts/") && entryName.endsWith(".wav") -> {
+                            // This is an attempt WAV
+                            val attemptFilename = entryName.removePrefix("attempts/")
+                            val targetFile = File(attemptsDir, attemptFilename)
+
+                            if (!targetFile.exists()) {
+                                FileOutputStream(targetFile).use { zipIn.copyTo(it) }
+                                Log.d(TAG, "Extracted attempt file: $attemptFilename")
+                            }
+
+                            // Determine parent path
+                            val parentPath = matchingRecording?.originalPath
+                                ?: File(recordingsDir, gameManifest.recording.filename).absolutePath
+
+                            // Add attempt to JSON if not already present
+                            gameManifest.attempt?.let { attemptEntry ->
+                                val existingAttempts = existingAttemptsMap[parentPath] ?: emptyList()
+                                val alreadyExists = existingAttempts.any {
+                                    it.attemptFilePath == targetFile.absolutePath
+                                }
+
+                                if (!alreadyExists) {
+                                    val playerAttempt = metadataToPlayerAttempt(
+                                        attemptEntry.metadata,
+                                        targetFile.absolutePath,
+                                        attemptEntry.reversedAttemptFilename?.let {
+                                            File(attemptsDir, it).absolutePath
+                                        }
+                                    )
+
+                                    existingAttemptsMap.compute(parentPath) { _, list ->
+                                        (list ?: emptyList()) + playerAttempt
+                                    }
+                                    importedAttempts++
+                                    Log.d(TAG, "Added attempt to recording: $parentPath")
+                                }
+                            }
+                        }
+                    }
+
+                    zipIn.closeEntry()
+                    entry = zipIn.nextEntry
+                }
+            }
+
+            // Restore custom name if provided and recording was imported
+            gameManifest.customName?.let { name ->
+                val recordingPath = matchingRecording?.originalPath
+                    ?: File(recordingsDir, gameManifest.recording.filename).absolutePath
+                existingCustomNames[recordingPath] = name
+                restoredNames++
+            }
+
+            // Save updated metadata
+            threadSafeJsonRepo.saveAttemptsJson(existingAttemptsMap)
+            threadSafeJsonRepo.saveRecordingNamesJson(existingCustomNames)
+
+            Log.d(TAG, "Game package import complete: recs=$importedRecs, attempts=$importedAttempts")
+            RestoreResult(true, importedRecs, skippedRecs, importedAttempts, restoredNames)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to import game package", e)
+            RestoreResult(false, 0, 0, 0, 0, e.message)
+        }
+    }
+
+    /**
+     * Extract GamePackageManifest from a ZIP file.
+     * Returns null if the manifest is not a game package format.
+     */
+    private fun extractGamePackageManifest(file: File): GamePackageManifest? {
+        try {
+            ZipInputStream(FileInputStream(file)).use { zip ->
+                var entry = zip.nextEntry
+                while (entry != null) {
+                    if (entry.name == MANIFEST_FILENAME) {
+                        val jsonContent = zip.readBytes().toString(Charsets.UTF_8)
+                        // Check if it's a game package by looking for "gameId" field
+                        if (jsonContent.contains("\"gameId\"")) {
+                            return gson.fromJson(jsonContent, GamePackageManifest::class.java)
+                        }
+                        return null // It's a regular backup manifest
+                    }
+                    zip.closeEntry()
+                    entry = zip.nextEntry
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to extract game package manifest", e)
+        }
+        return null
+    }
+
     private suspend fun performExport(
         recordings: List<Recording>,
         attemptsMap: Map<String, List<PlayerAttempt>>,

@@ -213,7 +213,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         onPause: () -> Unit,
         onStop: () -> Unit,
         onDelete: (Recording) -> Unit,
-        onShare: (String) -> Unit,
+        onShare: (Recording) -> Unit,
         onRename: (String, String) -> Unit,
         isGameModeEnabled: Boolean,
         onStartAttempt: (Recording, ChallengeType) -> Unit,
@@ -461,7 +461,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         onStop: () -> Unit,
         onRenamePlayer: ((PlayerAttempt, String) -> Unit)?,
         onDeleteAttempt: ((PlayerAttempt) -> Unit)?,
-        onShareAttempt: ((String) -> Unit)?,
+        onShareAttempt: ((PlayerAttempt) -> Unit)?,
         onJumpToParent: (() -> Unit)?,
         onOverrideScore: ((Int) -> Unit)?,
         onResetScore: (() -> Unit)?,
@@ -851,7 +851,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (String) -> Unit,
+        onShare: (Recording) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy

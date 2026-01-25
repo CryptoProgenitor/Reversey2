@@ -12,6 +12,8 @@ import com.quokkalabs.reversey.audio.AudioConstants
 import com.quokkalabs.reversey.audio.AudioPlayerHelper
 import com.quokkalabs.reversey.audio.AudioRecorderHelper
 import com.quokkalabs.reversey.audio.RecorderEvent
+import com.quokkalabs.reversey.data.backup.BackupManager
+import com.quokkalabs.reversey.data.backup.GamePackageResult
 import com.quokkalabs.reversey.data.models.ChallengeType
 import com.quokkalabs.reversey.data.models.PlayerAttempt
 import com.quokkalabs.reversey.data.models.Recording
@@ -88,6 +90,7 @@ class AudioViewModel @Inject constructor(
     private val audioRecorderHelper: AudioRecorderHelper,
     private val bitRunner: BITRunner,
     private val voskTranscriptionHelper: VoskTranscriptionHelper,
+    private val backupManager: BackupManager,
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -890,6 +893,45 @@ class AudioViewModel @Inject constructor(
                 isPaused = false,
                 playbackProgress = 0f
             )
+        }
+    }
+
+    // ============================================================
+    //  REMOTE PLAY - Share Challenge/Response
+    // ============================================================
+
+    /**
+     * Export a recording as a Challenge package for sharing.
+     * Returns the ZIP file to be shared via Android ShareSheet.
+     *
+     * @param recording The recording to share as a challenge
+     * @param onResult Callback with the result (File and MIME type, or error)
+     */
+    fun shareChallenge(recording: Recording, onResult: (GamePackageResult) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cacheDir = getApplication<Application>().cacheDir
+            val result = backupManager.exportChallenge(recording, cacheDir)
+            withContext(Dispatchers.Main) {
+                onResult(result)
+            }
+        }
+    }
+
+    /**
+     * Export a recording + attempt as a Response package for sharing.
+     * Returns the ZIP file to be shared via Android ShareSheet.
+     *
+     * @param recording The parent recording
+     * @param attempt The attempt to share as a response
+     * @param onResult Callback with the result (File and MIME type, or error)
+     */
+    fun shareResponse(recording: Recording, attempt: PlayerAttempt, onResult: (GamePackageResult) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cacheDir = getApplication<Application>().cacheDir
+            val result = backupManager.exportResponse(recording, attempt, cacheDir)
+            withContext(Dispatchers.Main) {
+                onResult(result)
+            }
         }
     }
 
