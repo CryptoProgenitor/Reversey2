@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.RepeatMode
@@ -222,7 +223,6 @@ class ScrapbookThemeComponents : ThemeComponents {
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
-        var showShareDialog by remember { mutableStateOf(false) }
 
         // RESTORED COLORS: Lighter Orange
         val stickyNoteColor = Color(0xFFFFB74D)
@@ -237,8 +237,8 @@ class ScrapbookThemeComponents : ThemeComponents {
         val isReady = recording.reversedPath != null
 
         // 🔧 POLYMORPHIC: Track which button owns the current playback
-        val isPlayingForward = currentlyPlayingPath == recording.originalPath
-        val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+        val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == recording.originalPath
+        val isPlayingReversed = currentlyPlayingPath != null && recording.reversedPath != null && currentlyPlayingPath == recording.reversedPath
 
         Box(
             modifier = Modifier
@@ -284,7 +284,7 @@ class ScrapbookThemeComponents : ThemeComponents {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         ScrapbookButton(
-                            onClick = { showShareDialog = true },
+                            onClick = { onShare(recording) },
                             icon = Icons.Default.Share,
                             label = "Share",
                             iconColor = Color(0xFF607D8B)
@@ -441,12 +441,6 @@ class ScrapbookThemeComponents : ThemeComponents {
             aesthetic,
             { onDelete(recording) },
             { showDeleteDialog = false })
-        if (showShareDialog) ShareDialog(
-            recording,
-            null,
-            aesthetic,
-            onShare,
-            { showShareDialog = false })
     }
 
     @Composable
@@ -468,12 +462,11 @@ class ScrapbookThemeComponents : ThemeComponents {
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
-        var showShareDialog by remember { mutableStateOf(false) }
         var showScoreDialog by remember { mutableStateOf(false) }
 
         // 🔧 POLYMORPHIC: Track which specific file is playing
-        val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
-        val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+        val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == attempt.attemptFilePath
+        val isPlayingReversed = currentlyPlayingPath != null && attempt.reversedAttemptFilePath != null && currentlyPlayingPath == attempt.reversedAttemptFilePath
 
         val stableId = attempt.attemptFilePath.hashCode()
         val stickyNoteColor = remember(stableId) {
@@ -557,7 +550,7 @@ class ScrapbookThemeComponents : ThemeComponents {
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
                                 if (onShareAttempt != null) ScrapbookButton(
-                                    onClick = { showShareDialog = true },
+                                    onClick = { onShareAttempt(attempt) },
                                     icon = Icons.Default.Share,
                                     label = "Share",
                                     iconColor = Color(0xFF9C27B0)
@@ -667,12 +660,6 @@ class ScrapbookThemeComponents : ThemeComponents {
             aesthetic,
             { onDeleteAttempt(attempt) },
             { showDeleteDialog = false })
-        if (showShareDialog && onShareAttempt != null) ShareDialog(
-            null,
-            attempt,
-            aesthetic,
-            onShareAttempt,
-            { showShareDialog = false })
         if (showScoreDialog) ScoreExplanationDialog(
             attempt,
             { showScoreDialog = false },
@@ -851,7 +838,7 @@ class ScrapbookThemeComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (Recording) -> Unit,
+        onShare: (File, String) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
@@ -874,20 +861,25 @@ class ScrapbookThemeComponents : ThemeComponents {
                         fontFamily = dancingScriptFontFamily,
                         fontSize = 18.sp,
                         color = Color(0xFF5D4037)
-                    ); Spacer(modifier = Modifier.height(16.dp))
-                    val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""; Button(
-                    onClick = { onShare(path); onDismiss() },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))
-                ) { Text("Share Original 🎤", fontFamily = dancingScriptFontFamily) }
-                    val revPath = recording?.reversedPath
-                        ?: attempt?.reversedAttemptFilePath; if (revPath != null) {
-                    Spacer(modifier = Modifier.height(8.dp)); Button(
-                        onClick = { onShare(revPath); onDismiss() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D))
-                    ) { Text("Share Reversed 🔁", fontFamily = dancingScriptFontFamily) }
-                }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
+                    if (path.isNotEmpty()) {
+                        Button(
+                            onClick = { onShare(File(path), "audio/wav"); onDismiss() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))
+                        ) { Text("Share Original 🎤", fontFamily = dancingScriptFontFamily) }
+                    }
+                    val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
+                    if (revPath != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { onShare(File(revPath), "audio/wav"); onDismiss() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D))
+                        ) { Text("Share Reversed 🔁", fontFamily = dancingScriptFontFamily) }
+                    }
                 }
             },
             confirmButton = {},

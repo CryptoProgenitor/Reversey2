@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import android.content.Context
 import android.media.SoundPool
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -320,7 +321,7 @@ class WeirdWorldComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (Recording) -> Unit,
+        onShare: (File, String) -> Unit,
         onDismiss: () -> Unit,
     ) = WWShareDialog(recording, attempt, aesthetic, onShare, onDismiss)
 
@@ -817,10 +818,9 @@ fun WeirdWorldRecordingItem(
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
 
-    val isPlayingForward = currentlyPlayingPath == recording.originalPath
-    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == recording.originalPath
+    val isPlayingReversed = recording.reversedPath != null && currentlyPlayingPath == recording.reversedPath
 
     // Colors: Slate and Seafoam palette - now more transparent as requested
     val cardBg = Color(0xFFF5F7FA).copy(alpha = 0.6f)
@@ -889,7 +889,7 @@ fun WeirdWorldRecordingItem(
                 WWControlButton(
                     color = buttonPrimary,
                     label = "Share",
-                    onClick = { showShareDialog = true }
+                    onClick = { onShare(recording) }
                 ) { WWShareGlyph(Color(0xFF2C3E50)) }
 
                 // Play OR Stop (Reversed)
@@ -984,12 +984,6 @@ fun WeirdWorldRecordingItem(
         aesthetic,
         { onDelete(recording) },
         { showDeleteDialog = false })
-    if (showShareDialog) WWShareDialog(
-        recording,
-        null,
-        aesthetic,
-        onShare,
-        { showShareDialog = false })
 }
 
 // ============================================
@@ -1015,11 +1009,10 @@ fun WeirdWorldAttemptItem(
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
-    val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
-    val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingReversed = attempt.reversedAttemptFilePath != null && currentlyPlayingPath == attempt.reversedAttemptFilePath
     val isPlayingThis = isPlayingForward || isPlayingReversed
 
     val score = (attempt.finalScore ?: attempt.score).toInt()
@@ -1091,7 +1084,7 @@ fun WeirdWorldAttemptItem(
                             WWControlButton(
                                 buttonPrimary,
                                 "Share",
-                                { showShareDialog = true }) { WWShareGlyph(Color(0xFF2C3E50)) }
+                                { onShareAttempt(attempt) }) { WWShareGlyph(Color(0xFF2C3E50)) }
                         }
 
                         if (isPlayingReversed) {
@@ -1186,12 +1179,6 @@ fun WeirdWorldAttemptItem(
         aesthetic,
         { onDeleteAttempt(attempt) },
         { showDeleteDialog = false })
-    if (showShareDialog && onShareAttempt != null) WWShareDialog(
-        null,
-        attempt,
-        aesthetic,
-        onShareAttempt,
-        { showShareDialog = false })
     if (showScoreDialog) ScoreExplanationDialog(
         attempt,
         { showScoreDialog = false },
@@ -1606,7 +1593,7 @@ fun WWShareDialog(
     recording: Recording?,
     attempt: PlayerAttempt?,
     aesthetic: AestheticThemeData,
-    onShare: (Recording) -> Unit,
+    onShare: (File, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -1624,24 +1611,23 @@ fun WWShareDialog(
                 Text(
                     aesthetic.dialogCopy.shareMessage,
                     color = Color(0xFF2C3E50).copy(alpha = 0.8f)
-                );
-                Spacer(modifier = Modifier.height(16.dp));
-                Button(
-                    onClick = {
-                        onShare(
-                            recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                        ); onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA8E6CF))
-                ) {
-                    Text("Original Frequency", color = Color(0xFF2C3E50))
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
+                if (path.isNotEmpty()) {
+                    Button(
+                        onClick = { onShare(File(path), "audio/wav"); onDismiss() },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA8E6CF))
+                    ) {
+                        Text("Original Frequency", color = Color(0xFF2C3E50))
+                    }
                 }
                 val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                 if (revPath != null) {
-                    Spacer(modifier = Modifier.height(8.dp));
+                    Spacer(modifier = Modifier.height(8.dp))
                     Button(
-                        onClick = { onShare(revPath); onDismiss() },
+                        onClick = { onShare(File(revPath), "audio/wav"); onDismiss() },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF34495E))
                     ) {

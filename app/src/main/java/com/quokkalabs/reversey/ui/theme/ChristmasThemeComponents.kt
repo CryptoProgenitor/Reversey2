@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import android.content.Context
 import android.media.SoundPool
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -332,7 +333,7 @@ class ChristmasComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (Recording) -> Unit,
+        onShare: (File, String) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
@@ -350,15 +351,17 @@ class ChristmasComponents : ThemeComponents {
                     Text(copy.shareMessage, color = ChristmasTheme.snowWhite.copy(alpha = 0.9f))
                     Spacer(Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    Button(
-                        onClick = { onShare(path); onDismiss() }, Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = ChristmasTheme.christmasRed)
-                    ) { Text("🎁 Share Original") }
+                    if (path.isNotEmpty()) {
+                        Button(
+                            onClick = { onShare(File(path), "audio/wav"); onDismiss() }, Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = ChristmasTheme.christmasRed)
+                        ) { Text("🎁 Share Original") }
+                    }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(Modifier.height(8.dp))
                         Button(
-                            onClick = { onShare(revPath); onDismiss() }, Modifier.fillMaxWidth(),
+                            onClick = { onShare(File(revPath), "audio/wav"); onDismiss() }, Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = ChristmasTheme.berryRed)
                         ) { Text("🔄 Share Reversed") }
                     }
@@ -1550,9 +1553,8 @@ fun ChristmasRecordingItem(
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
-    val isPlayingForward = currentlyPlayingPath == recording.originalPath
-    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == recording.originalPath
+    val isPlayingReversed = currentlyPlayingPath != null && currentlyPlayingPath == recording.reversedPath
 
     val cardBg = ChristmasTheme.frostBlue
     val titleBoxBg = ChristmasTheme.christmasGold.copy(alpha = 0.3f)
@@ -1613,7 +1615,7 @@ fun ChristmasRecordingItem(
                 ChristmasControlButton(
                     goldButton,
                     "Share",
-                    { showShareDialog = true }) { ChristmasShareIcon(iconColor) }
+                    { onShare(recording) }) { ChristmasShareIcon(iconColor) }
 
                 // Play OR Stop (when Reversed is playing)
                 if (isPlayingReversed) {
@@ -1784,12 +1786,6 @@ fun ChristmasRecordingItem(
         aesthetic,
         { onDelete(recording) },
         { showDeleteDialog = false })
-    if (showShareDialog) aesthetic.components.ShareDialog(
-        recording,
-        null,
-        aesthetic,
-        onShare,
-        { showShareDialog = false })
 }
 
 @Composable
@@ -1815,7 +1811,6 @@ fun ChristmasAttemptItem(
 
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
     val displayScore = (attempt.finalScore ?: attempt.score).toInt()
@@ -1891,7 +1886,7 @@ fun ChristmasAttemptItem(
                                 ChristmasControlButton(
                                     goldButton,
                                     "Share",
-                                    { showShareDialog = true }) { ChristmasShareIcon(iconColor) }
+                                    { onShareAttempt(attempt) }) { ChristmasShareIcon(iconColor) }
                             }
 
                             // Play OR Stop (when Reversed is playing)
@@ -1980,12 +1975,6 @@ fun ChristmasAttemptItem(
         aesthetic,
         { onDeleteAttempt(attempt) },
         { showDeleteDialog = false })
-    if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(
-        null,
-        attempt,
-        aesthetic,
-        onShareAttempt,
-        { showShareDialog = false })
     if (showScoreDialog) ScoreExplanationDialog(
         attempt,
         { showScoreDialog = false },

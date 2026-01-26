@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import android.content.Context
 import android.media.SoundPool
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -421,7 +422,7 @@ class StrangePlanetComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (Recording) -> Unit,
+        onShare: (File, String) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
@@ -442,19 +443,21 @@ class StrangePlanetComponents : ThemeComponents {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    Button(
-                        onClick = { onShare(path); onDismiss() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = softPink)
-                    ) {
-                        Text("Original Vibrations", color = Color.White)
+                    if (path.isNotEmpty()) {
+                        Button(
+                            onClick = { onShare(File(path), "audio/wav"); onDismiss() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = softPink)
+                        ) {
+                            Text("Original Vibrations", color = Color.White)
+                        }
                     }
 
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
-                            onClick = { onShare(revPath); onDismiss() },
+                            onClick = { onShare(File(revPath), "audio/wav"); onDismiss() },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = cosmicPurple)
                         ) {
@@ -1239,11 +1242,10 @@ fun StrangePlanetRecordingItem(
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
 
     // 🔧 POLYMORPHIC: Track which button owns the current playback
     val isPlayingForward = currentlyPlayingPath == recording.originalPath
-    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+    val isPlayingReversed = recording.reversedPath != null && currentlyPlayingPath == recording.reversedPath
 
     // Card colors - semi-transparent pink
     val cardOuter = Color(0xFFE8B4C8).copy(alpha = 0.7f)
@@ -1312,7 +1314,7 @@ fun StrangePlanetRecordingItem(
                 SPControlButton(
                     color = buttonPrimary,
                     label = "Share",
-                    onClick = { showShareDialog = true }
+                    onClick = { onShare(recording) }
                 ) {
                     SPShareGlyph(Color.White)
                 }
@@ -1434,15 +1436,6 @@ fun StrangePlanetRecordingItem(
             { showDeleteDialog = false }
         )
     }
-    if (showShareDialog) {
-        aesthetic.components.ShareDialog(
-            recording,
-            null,
-            aesthetic,
-            onShare,
-            { showShareDialog = false }
-        )
-    }
 }
 
 // ============================================
@@ -1468,12 +1461,11 @@ fun StrangePlanetAttemptItem(
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
     // 🔧 POLYMORPHIC: Track which specific file is playing
     val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
-    val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingReversed = attempt.reversedAttemptFilePath != null && currentlyPlayingPath == attempt.reversedAttemptFilePath
     val isPlayingThis = isPlayingForward || isPlayingReversed
 
     // 🔧 FIX: Use finalScore override if present
@@ -1547,7 +1539,7 @@ fun StrangePlanetAttemptItem(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         if (onShareAttempt != null) {
-                            SPControlButton(buttonPrimary, "Share", { showShareDialog = true }) {
+                            SPControlButton(buttonPrimary, "Share", { onShareAttempt(attempt) }) {
                                 SPShareGlyph(Color.White)
                             }
                         }
@@ -1655,15 +1647,6 @@ fun StrangePlanetAttemptItem(
             aesthetic,
             { onDeleteAttempt(attempt) },
             { showDeleteDialog = false }
-        )
-    }
-    if (showShareDialog && onShareAttempt != null) {
-        aesthetic.components.ShareDialog(
-            null,
-            attempt,
-            aesthetic,
-            onShareAttempt,
-            { showShareDialog = false }
         )
     }
     if (showScoreDialog) {

@@ -105,7 +105,6 @@ object SharedDefaultComponents {
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
-        var showShareDialog by remember { mutableStateOf(false) }
 
         // 🔧 POLYMORPHIC: Track which button owns the current playback
         // 🐛 FIX: Null-safe comparisons to prevent "null == null" evaluating to true
@@ -322,15 +321,7 @@ object SharedDefaultComponents {
             )
         }
 
-        if (showShareDialog) {
-            MaterialShareDialog(
-                recording = recording,
-                attempt = null,
-                aesthetic = aesthetic,
-                onShare = onShare,
-                onDismiss = { showShareDialog = false }
-            )
-        }
+        // Note: ShareDialog removed in v3.0 - direct share via onShare(Recording) is now used
 
         if (showRenameDialog) {
             MaterialRenameDialog(
@@ -364,7 +355,6 @@ object SharedDefaultComponents {
     ) {
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
-        var showShareDialog by remember { mutableStateOf(false) }
         var showScoreDialog by remember { mutableStateOf(false) }
 
         // 🔧 POLYMORPHIC: Track which specific file is playing
@@ -559,15 +549,7 @@ object SharedDefaultComponents {
             )
         }
 
-        if (showShareDialog && onShareAttempt != null) {
-            MaterialShareDialog(
-                recording = null,
-                attempt = attempt,
-                aesthetic = aesthetic,
-                onShare = onShareAttempt,
-                onDismiss = { showShareDialog = false }
-            )
-        }
+        // Note: ShareDialog removed in v3.0 - direct share via onShareAttempt(PlayerAttempt) is now used
 
         if (showRenameDialog && onRenamePlayer != null) {
             MaterialRenameDialog(
@@ -717,39 +699,45 @@ object SharedDefaultComponents {
      *
      * For Remote Play, the ViewModel generates the ZIP file before showing any dialog.
      */
+    /**
+     * 🎮 v3.0: ShareDialog for direct file sharing.
+     *
+     * This dialog allows sharing WAV files directly. For Remote Play ZIP packages,
+     * use the ViewModel's shareChallenge/shareResponse functions instead.
+     */
     @Composable
     fun MaterialShareDialog(
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (file: File, mimeType: String) -> Unit,  // 🎮 v3.0: New signature
+        onShare: (file: File, mimeType: String) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
 
-        // 🎮 v3.0: This dialog needs refactoring for Remote Play.
-        // Currently showing a placeholder message.
         AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(copy.shareTitle) },
             text = {
                 Column {
-                    Text("Share functionality has been updated for Remote Play.")
+                    Text("Share audio file:")
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    Button(
-                        onClick = { onShare(path); onDismiss() },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (recording != null) "Share Original" else "Share Attempt")
+                    if (path.isNotEmpty()) {
+                        Button(
+                            onClick = { onShare(File(path), "audio/wav"); onDismiss() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (recording != null) "Share Original" else "Share Attempt")
+                        }
                     }
 
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
-                            onClick = { onShare(revPath); onDismiss() },
+                            onClick = { onShare(File(revPath), "audio/wav"); onDismiss() },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondary

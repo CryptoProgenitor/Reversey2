@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import android.content.Context
 import android.graphics.Paint
 import android.hardware.Sensor
@@ -491,7 +492,7 @@ class EggThemeComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (Recording) -> Unit,
+        onShare: (File, String) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
@@ -510,18 +511,20 @@ class EggThemeComponents : ThemeComponents {
                     Text(copy.shareMessage, color = Color(0xFF6B5344))
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    Button(
-                        onClick = { onShare(path); onDismiss() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0))
-                    ) {
-                        Text("Share Original 🥚")
+                    if (path.isNotEmpty()) {
+                        Button(
+                            onClick = { onShare(File(path), "audio/wav"); onDismiss() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0))
+                        ) {
+                            Text("Share Original 🥚")
+                        }
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
-                            onClick = { onShare(revPath); onDismiss() },
+                            onClick = { onShare(File(revPath), "audio/wav"); onDismiss() },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A65))
                         ) {
@@ -616,14 +619,13 @@ fun EggRecordingItem(
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
 
     // 🛡️ FIX: Check if file is ready
     val isReady = recording.reversedPath != null
 
     // 🔧 POLYMORPHIC: Track which button owns the current playback
-    val isPlayingForward = currentlyPlayingPath == recording.originalPath
-    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == recording.originalPath
+    val isPlayingReversed = currentlyPlayingPath != null && currentlyPlayingPath == recording.reversedPath
     val isPlayingThis = isPlayingForward || isPlayingReversed
 
     // 🖍️ WOBBLY: Stable ID for consistent wobble per card
@@ -696,7 +698,7 @@ fun EggRecordingItem(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     HandDrawnEggButton(
-                        onClick = { showShareDialog = true },
+                        onClick = { onShare(recording) },
                         backgroundColor = Color(0xFF9C27B0),
                         size = 50.dp
                     ) { EggShareIcon(Color(0xFF6B5344)) }
@@ -860,12 +862,6 @@ fun EggRecordingItem(
         aesthetic,
         { onDelete(recording) },
         { showDeleteDialog = false })
-    if (showShareDialog) aesthetic.components.ShareDialog(
-        recording,
-        null,
-        aesthetic,
-        onShare,
-        { showShareDialog = false })
 }
 
 // ============================================
@@ -891,12 +887,11 @@ fun EggAttemptItem(
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
     // 🔧 POLYMORPHIC: Track which specific file is playing
-    val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
-    val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingReversed = currentlyPlayingPath != null && currentlyPlayingPath == attempt.reversedAttemptFilePath
     val isPlayingThis = isPlayingForward || isPlayingReversed
 
     // 🔧 FIX: Use finalScore override if present
@@ -977,7 +972,7 @@ fun EggAttemptItem(
                         if (onShareAttempt != null) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 HandDrawnEggButton(
-                                    onClick = { showShareDialog = true },
+                                    onClick = { onShareAttempt(attempt) },
                                     backgroundColor = Color(0xFF9C27B0),
                                     size = 40.dp
                                 ) { EggShareIcon(Color(0xFF6B5344)) }
@@ -1152,12 +1147,6 @@ fun EggAttemptItem(
         aesthetic,
         { onDeleteAttempt(attempt) },
         { showDeleteDialog = false })
-    if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(
-        null,
-        attempt,
-        aesthetic,
-        onShareAttempt,
-        { showShareDialog = false })
     if (showScoreDialog) ScoreExplanationDialog(
         attempt,
         { showScoreDialog = false },

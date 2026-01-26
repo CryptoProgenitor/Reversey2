@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -325,11 +326,10 @@ class SakuraSerenityComponents : ThemeComponents {
 
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
-        var showShareDialog by remember { mutableStateOf(false) }
 
         // 🔧 POLYMORPHIC: Track which button owns the current playback
-        val isPlayingForward = currentlyPlayingPath == recording.originalPath
-        val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+        val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == recording.originalPath
+        val isPlayingReversed = currentlyPlayingPath != null && recording.reversedPath != null && currentlyPlayingPath == recording.reversedPath
 
         // LAYOUT: Adapted from Guitar Theme
         // 🌸 Petal-edged card with variegated border
@@ -406,7 +406,7 @@ class SakuraSerenityComponents : ThemeComponents {
                         color = buttonBg,
                         label = "Share",
                         textColor = textDarkPink,
-                        onClick = { showShareDialog = true }) {
+                        onClick = { onShare(recording) }) {
                         SakuraShareIcon(borderPink)
                     }
 
@@ -542,12 +542,6 @@ class SakuraSerenityComponents : ThemeComponents {
             aesthetic,
             { onDelete(recording) },
             { showDeleteDialog = false })
-        if (showShareDialog) ShareDialog(
-            recording,
-            null,
-            aesthetic,
-            onShare,
-            { showShareDialog = false })
     }
 
     @Composable
@@ -574,13 +568,12 @@ class SakuraSerenityComponents : ThemeComponents {
         val buttonBg = Color(0xFFFFE4E1)
 
         // 🔧 POLYMORPHIC: Track which specific file is playing
-        val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
-        val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+        val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == attempt.attemptFilePath
+        val isPlayingReversed = currentlyPlayingPath != null && attempt.reversedAttemptFilePath != null && currentlyPlayingPath == attempt.reversedAttemptFilePath
         val isPlayingThis = isPlayingForward || isPlayingReversed
 
         var showRenameDialog by remember { mutableStateOf(false) }
         var showDeleteDialog by remember { mutableStateOf(false) }
-        var showShareDialog by remember { mutableStateOf(false) }
         var showScoreDialog by remember { mutableStateOf(false) }
 
         // 🔧 FIX: Use finalScore override if present
@@ -667,7 +660,7 @@ class SakuraSerenityComponents : ThemeComponents {
                             ) {
                                 if (onShareAttempt != null) {
                                     SakuraControlButton(
-                                        onClick = { showShareDialog = true },
+                                        onClick = { onShareAttempt(attempt) },
                                         color = buttonBg,
                                         label = "Share",
                                         textColor = textDarkPink
@@ -791,12 +784,6 @@ class SakuraSerenityComponents : ThemeComponents {
             aesthetic,
             { onDeleteAttempt(attempt) },
             { showDeleteDialog = false })
-        if (showShareDialog && onShareAttempt != null) ShareDialog(
-            null,
-            attempt,
-            aesthetic,
-            onShareAttempt,
-            { showShareDialog = false })
         if (showScoreDialog) ScoreExplanationDialog(
             attempt,
             { showScoreDialog = false },
@@ -1280,7 +1267,7 @@ class SakuraSerenityComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (Recording) -> Unit,
+        onShare: (File, String) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
@@ -1299,18 +1286,20 @@ class SakuraSerenityComponents : ThemeComponents {
                     Text(copy.shareMessage, color = Color(0xFF8B008B))
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    Button(
-                        onClick = { onShare(path); onDismiss() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF69B4))
-                    ) {
-                        Text("Share Blossom 🌸▶️")
+                    if (path.isNotEmpty()) {
+                        Button(
+                            onClick = { onShare(File(path), "audio/wav"); onDismiss() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF69B4))
+                        ) {
+                            Text("Share Blossom 🌸▶️")
+                        }
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
-                            onClick = { onShare(revPath); onDismiss() },
+                            onClick = { onShare(File(revPath), "audio/wav"); onDismiss() },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDB7093))
                         ) {

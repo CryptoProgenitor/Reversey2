@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import android.content.Context
 import android.media.SoundPool
 import androidx.compose.animation.core.Animatable
@@ -361,7 +362,7 @@ class SnowyOwlComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (Recording) -> Unit,
+        onShare: (File, String) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
@@ -378,18 +379,20 @@ class SnowyOwlComponents : ThemeComponents {
                     Text(copy.shareMessage, color = Color.White.copy(alpha = 0.8f))
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    Button(
-                        onClick = { onShare(path); onDismiss() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = mysticPurple)
-                    ) {
-                        Text("Share Original")
+                    if (path.isNotEmpty()) {
+                        Button(
+                            onClick = { onShare(File(path), "audio/wav"); onDismiss() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = mysticPurple)
+                        ) {
+                            Text("Share Original")
+                        }
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
-                            onClick = { onShare(revPath); onDismiss() },
+                            onClick = { onShare(File(revPath), "audio/wav"); onDismiss() },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = deepSlate)
                         ) {
@@ -1368,11 +1371,10 @@ fun SnowyOwlRecordingItem(
     val aesthetic = AestheticTheme()
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
 
     // 🔧 POLYMORPHIC: Track which button owns the current playback
-    val isPlayingForward = currentlyPlayingPath == recording.originalPath
-    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == recording.originalPath
+    val isPlayingReversed = currentlyPlayingPath != null && currentlyPlayingPath == recording.reversedPath
 
     val cardOuter = Color(0xFF282832).copy(alpha = 0.6f)
     val cardInner = Color(0xFF14141e).copy(alpha = 0.6f)
@@ -1428,7 +1430,7 @@ fun SnowyOwlRecordingItem(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                OwlControlButton(mysticPurple, "Share", { showShareDialog = true }) {
+                OwlControlButton(mysticPurple, "Share", { onShare(recording) }) {
                     OwlShareIcon(Color.White)
                 }
 
@@ -1571,12 +1573,6 @@ fun SnowyOwlRecordingItem(
         aesthetic,
         { onDelete(recording) },
         { showDeleteDialog = false })
-    if (showShareDialog) aesthetic.components.ShareDialog(
-        recording,
-        null,
-        aesthetic,
-        onShare,
-        { showShareDialog = false })
 }
 
 @Composable
@@ -1598,12 +1594,11 @@ fun SnowyOwlAttemptItem(
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
     // 🔧 POLYMORPHIC: Track which specific file is playing
-    val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
-    val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingReversed = currentlyPlayingPath != null && currentlyPlayingPath == attempt.reversedAttemptFilePath
     val isPlayingThis = isPlayingForward || isPlayingReversed
 
     // 🔧 FIX: Use finalScore override if present
@@ -1667,7 +1662,7 @@ fun SnowyOwlAttemptItem(
                         if (onShareAttempt != null) OwlControlButton(
                             mysticPurple,
                             "Share",
-                            { showShareDialog = true }) { OwlShareIcon(Color.White) }
+                            { onShareAttempt(attempt) }) { OwlShareIcon(Color.White) }
 
                         // Play OR Stop (when Reversed is playing)
                         if (isPlayingReversed) {
@@ -1759,12 +1754,6 @@ fun SnowyOwlAttemptItem(
         aesthetic,
         { onDeleteAttempt(attempt) },
         { showDeleteDialog = false })
-    if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(
-        null,
-        attempt,
-        aesthetic,
-        onShareAttempt,
-        { showShareDialog = false })
     if (showScoreDialog) ScoreExplanationDialog(
         attempt,
         { showScoreDialog = false },

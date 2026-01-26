@@ -381,7 +381,7 @@ class BackupManager @Inject constructor(
                                         Log.d(TAG, "Recording file exists with matching hash: ${targetFile.name}")
                                     } else {
                                         // Different content, same filename - rename and import
-                                        val newName = generateUniqueFilename(recordingsDir, gameManifest.recording.filename)
+                                        val newName = generateUniqueName(gameManifest.recording.filename, recordingsDir)
                                         val renamedFile = File(recordingsDir, newName)
                                         FileOutputStream(renamedFile).use { zipIn.copyTo(it) }
                                         importedRecs++

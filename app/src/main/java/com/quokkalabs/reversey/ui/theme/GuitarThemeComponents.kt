@@ -1,5 +1,6 @@
 package com.quokkalabs.reversey.ui.theme
 
+import java.io.File
 import android.media.MediaPlayer
 import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -378,13 +379,11 @@ class GuitarComponents : ThemeComponents {
         recording: Recording?,
         attempt: PlayerAttempt?,
         aesthetic: AestheticThemeData,
-        onShare: (Recording) -> Unit,
+        onShare: (File, String) -> Unit,
         onDismiss: () -> Unit,
     ) {
         val copy = aesthetic.dialogCopy
         val darkBrown = Color(0xFF5d4a36)
-        Color(0xFF7DDDA8)
-        Color(0xFFE8A87C)
 
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -402,16 +401,18 @@ class GuitarComponents : ThemeComponents {
                     Text(copy.shareMessage, color = darkBrown)
                     Spacer(modifier = Modifier.height(16.dp))
                     val path = recording?.originalPath ?: attempt?.attemptFilePath ?: ""
-                    TextButton(onClick = { onShare(path); onDismiss() }) {
-                        Text(
-                            "Share Original (Forward)",
-                            color = darkBrown,
-                            fontWeight = FontWeight.Bold
-                        )
+                    if (path.isNotEmpty()) {
+                        TextButton(onClick = { onShare(File(path), "audio/wav"); onDismiss() }) {
+                            Text(
+                                "Share Original (Forward)",
+                                color = darkBrown,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                     val revPath = recording?.reversedPath ?: attempt?.reversedAttemptFilePath
                     if (revPath != null) {
-                        TextButton(onClick = { onShare(revPath); onDismiss() }) {
+                        TextButton(onClick = { onShare(File(revPath), "audio/wav"); onDismiss() }) {
                             Text("Share Reversed", color = darkBrown, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -1172,12 +1173,11 @@ fun GuitarRecordingItem(
 ) {
     val aesthetic = AestheticTheme() // Get access to dialogs
     var showRenameDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // 🔧 POLYMORPHIC: Track which button owns the current playback
-    val isPlayingForward = currentlyPlayingPath == recording.originalPath
-    val isPlayingReversed = currentlyPlayingPath == recording.reversedPath
+    // 🔧 POLYMORPHIC: Track which button owns the current playback (null-safe)
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == recording.originalPath
+    val isPlayingReversed = currentlyPlayingPath != null && recording.reversedPath != null && currentlyPlayingPath == recording.reversedPath
 
     val beigeBg = Color(0xFFC4B4A0)
     val lavenderBox = Color(0xFFB8A8C8)
@@ -1240,7 +1240,7 @@ fun GuitarRecordingItem(
                 GuitarControlButton(
                     color = tealGreen,
                     label = "Share",
-                    onClick = { showShareDialog = true }) { GuitarShareIcon(darkBrown) }
+                    onClick = { onShare(recording) }) { GuitarShareIcon(darkBrown) }
 
                 // Play OR Stop (when Reversed is playing)
                 if (isPlayingReversed) {
@@ -1354,12 +1354,6 @@ fun GuitarRecordingItem(
         aesthetic,
         { onDelete(recording) },
         { showDeleteDialog = false })
-    if (showShareDialog) aesthetic.components.ShareDialog(
-        recording,
-        null,
-        aesthetic,
-        onShare,
-        { showShareDialog = false })
 }
 
 @Composable
@@ -1384,14 +1378,13 @@ fun GuitarAttemptItem(
     val peachOrange = Color(0xFFE8A87C)
     val lavenderPurple = Color(0xFFB8A8C8)
 
-    // 🔧 POLYMORPHIC: Track which specific file is playing
-    val isPlayingForward = currentlyPlayingPath == attempt.attemptFilePath
-    val isPlayingReversed = currentlyPlayingPath == attempt.reversedAttemptFilePath
+    // 🔧 POLYMORPHIC: Track which specific file is playing (null-safe)
+    val isPlayingForward = currentlyPlayingPath != null && currentlyPlayingPath == attempt.attemptFilePath
+    val isPlayingReversed = currentlyPlayingPath != null && attempt.reversedAttemptFilePath != null && currentlyPlayingPath == attempt.reversedAttemptFilePath
     val isPlayingThis = isPlayingForward || isPlayingReversed
 
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showShareDialog by remember { mutableStateOf(false) }
     var showScoreDialog by remember { mutableStateOf(false) }
 
     // 🔧 FIX: Use finalScore override if present
@@ -1462,7 +1455,7 @@ fun GuitarAttemptItem(
                         ) {
                             if (onShareAttempt != null) {
                                 GuitarControlButton(
-                                    onClick = { showShareDialog = true },
+                                    onClick = { onShareAttempt(attempt) },
                                     color = tealGreen,
                                     label = "Share"
                                 ) { GuitarShareIcon(color = darkBrown) }
@@ -1570,12 +1563,6 @@ fun GuitarAttemptItem(
         aesthetic,
         { onDeleteAttempt(attempt) },
         { showDeleteDialog = false })
-    if (showShareDialog && onShareAttempt != null) aesthetic.components.ShareDialog(
-        null,
-        attempt,
-        aesthetic,
-        onShareAttempt,
-        { showShareDialog = false })
     if (showScoreDialog) ScoreExplanationDialog(
         attempt,
         { showScoreDialog = false },
