@@ -60,7 +60,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -162,25 +164,56 @@ object SharedDefaultComponents {
                     isExpanded = isExpanded,
                     attemptCount = recording.attempts.size,
                     aesthetic = aesthetic,
+                    borderColor = borderColor,
                     onClick = onToggleExpanded,
+                    // Tucked just inside the family border's 2.dp stroke,
+                    // sharing its top-end corner.
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 2.dp, end = 14.dp)
+                        .padding(2.dp)
                 )
             }
         }
     }
 
     /**
+     * WCAG contrast ratio between two opaque colors (1..21).
+     */
+    private fun contrastRatio(a: Color, b: Color): Float {
+        val brighter = maxOf(a.luminance(), b.luminance()) + 0.05f
+        val darker = minOf(a.luminance(), b.luminance()) + 0.05f
+        return brighter / darker
+    }
+
+    /**
+     * Resolves a color that stays legible on [background]. Several themes
+     * define translucent, near-invisible accents (e.g. Y2K's 30% white), so
+     * the theme accent can't be trusted for foreground use. Falls back to
+     * the theme's primary text color, then to plain dark/light, the first
+     * candidate winning that clears a 3:1 UI-component contrast ratio.
+     */
+    fun resolveAccentOn(background: Color, aesthetic: AestheticThemeData): Color {
+        val accent = aesthetic.accentColor.compositeOver(background)
+        if (contrastRatio(accent, background) >= 3f) return accent
+        val text = aesthetic.primaryTextColor.compositeOver(background)
+        if (contrastRatio(text, background) >= 3f) return text
+        return if (background.luminance() > 0.5f) Color(0xFF1F1F1F) else Color.White
+    }
+
+    /**
      * Collapse/expand toggle with a pop/wobble animation on each state
-     * change: the pill overshoots in scale and wobbles in rotation while
+     * change: the tab overshoots in scale and wobbles in rotation while
      * the chevron flips.
+     *
+     * Shaped as a corner tab that shares the family border's top-end
+     * radius (16.dp outer − 2.dp stroke = 14.dp inner).
      */
     @Composable
     fun FamilyCollapseButton(
         isExpanded: Boolean,
         attemptCount: Int,
         aesthetic: AestheticThemeData,
+        borderColor: Color,
         onClick: () -> Unit,
         modifier: Modifier = Modifier,
     ) {
@@ -225,11 +258,23 @@ object SharedDefaultComponents {
             label = "chevronRotation"
         )
 
-        val pillBackground = if (LocalIsDarkTheme.current) {
+        val tabBackground = if (LocalIsDarkTheme.current) {
             aesthetic.cardBackgroundDark ?: MaterialTheme.colorScheme.surface
         } else {
             aesthetic.cardBackgroundLight ?: MaterialTheme.colorScheme.surface
         }
+        // Contrast-safe foreground: theme accents can be translucent/washed out
+        val contentColor = resolveAccentOn(tabBackground, aesthetic)
+        val tabFill = contentColor.copy(alpha = 0.12f).compositeOver(tabBackground)
+
+        // Corner tab: outer family radius is 16.dp with a 2.dp stroke, so the
+        // shared inner top-end radius is 14.dp.
+        val tabShape = RoundedCornerShape(
+            topStart = 0.dp,
+            topEnd = 14.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 12.dp
+        )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -239,15 +284,11 @@ object SharedDefaultComponents {
                     scaleY = scale.value
                     rotationZ = wobble.value
                 }
-                .clip(RoundedCornerShape(50))
-                .background(pillBackground)
-                .border(
-                    width = 2.dp,
-                    color = aesthetic.accentColor.copy(alpha = 0.55f),
-                    shape = RoundedCornerShape(50)
-                )
+                .clip(tabShape)
+                .background(tabFill)
+                .border(width = 2.dp, color = borderColor, shape = tabShape)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.ExpandMore,
@@ -256,7 +297,7 @@ object SharedDefaultComponents {
                 } else {
                     "Expand $attemptCount attempts"
                 },
-                tint = aesthetic.accentColor,
+                tint = contentColor,
                 modifier = Modifier
                     .size(20.dp)
                     .rotate(chevronRotation)
@@ -266,7 +307,7 @@ object SharedDefaultComponents {
                     text = "$attemptCount",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = aesthetic.accentColor,
+                    color = contentColor,
                     modifier = Modifier.padding(start = 2.dp, end = 2.dp)
                 )
             }
