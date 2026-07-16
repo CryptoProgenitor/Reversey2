@@ -1,6 +1,16 @@
 package com.quokkalabs.reversey.ui.theme
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
@@ -42,12 +53,18 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -81,6 +98,180 @@ import com.quokkalabs.reversey.ui.theme.LocalIsDarkTheme
  * playback state via currentlyPlayingPath, enabling proper Pause/Resume per button.
  */
 object SharedDefaultComponents {
+
+    // --- FAMILY CONTAINER (recording + its attempts as one collapsible unit) ---
+
+    /**
+     * Envelops a recording card and all of its attempt cards in an outer
+     * border that mimics the recording tile (same 12.dp corner language,
+     * border tinted with the theme accent), with a collapse/expand button
+     * anchored on the top-right corner of the recording tile.
+     *
+     * Border and button only appear once the family has attempts.
+     */
+    @Composable
+    fun MaterialFamilyContainer(
+        recording: Recording,
+        aesthetic: AestheticThemeData,
+        isExpanded: Boolean,
+        onToggleExpanded: () -> Unit,
+        recordingContent: @Composable () -> Unit,
+        attemptsContent: @Composable () -> Unit,
+    ) {
+        val hasAttempts = recording.attempts.isNotEmpty()
+        val borderColor = aesthetic.accentColor.copy(alpha = 0.55f)
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (hasAttempts) {
+                        Modifier
+                            .padding(horizontal = 8.dp)
+                            .border(
+                                width = 2.dp,
+                                color = borderColor,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                    } else Modifier
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = if (hasAttempts) 4.dp else 0.dp)
+            ) {
+                recordingContent()
+
+                AnimatedVisibility(
+                    visible = isExpanded,
+                    enter = expandVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ) + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Column { attemptsContent() }
+                }
+            }
+
+            if (hasAttempts) {
+                FamilyCollapseButton(
+                    isExpanded = isExpanded,
+                    attemptCount = recording.attempts.size,
+                    aesthetic = aesthetic,
+                    onClick = onToggleExpanded,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 2.dp, end = 14.dp)
+                )
+            }
+        }
+    }
+
+    /**
+     * Collapse/expand toggle with a pop/wobble animation on each state
+     * change: the pill overshoots in scale and wobbles in rotation while
+     * the chevron flips.
+     */
+    @Composable
+    fun FamilyCollapseButton(
+        isExpanded: Boolean,
+        attemptCount: Int,
+        aesthetic: AestheticThemeData,
+        onClick: () -> Unit,
+        modifier: Modifier = Modifier,
+    ) {
+        val scale = remember { Animatable(1f) }
+        val wobble = remember { Animatable(0f) }
+        var hasAppeared by remember { mutableStateOf(false) }
+
+        LaunchedEffect(isExpanded) {
+            if (!hasAppeared) {
+                hasAppeared = true
+                return@LaunchedEffect
+            }
+            launch {
+                scale.snapTo(1f)
+                scale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = keyframes {
+                        durationMillis = 450
+                        1.35f at 120
+                        0.85f at 260
+                        1.08f at 360
+                    }
+                )
+            }
+            launch {
+                wobble.snapTo(0f)
+                wobble.animateTo(
+                    targetValue = 0f,
+                    animationSpec = keyframes {
+                        durationMillis = 450
+                        -14f at 100
+                        10f at 220
+                        -5f at 330
+                    }
+                )
+            }
+        }
+
+        val chevronRotation by animateFloatAsState(
+            targetValue = if (isExpanded) 180f else 0f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "chevronRotation"
+        )
+
+        val pillBackground = if (LocalIsDarkTheme.current) {
+            aesthetic.cardBackgroundDark ?: MaterialTheme.colorScheme.surface
+        } else {
+            aesthetic.cardBackgroundLight ?: MaterialTheme.colorScheme.surface
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = modifier
+                .graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                    rotationZ = wobble.value
+                }
+                .clip(RoundedCornerShape(50))
+                .background(pillBackground)
+                .border(
+                    width = 2.dp,
+                    color = aesthetic.accentColor.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(50)
+                )
+                .clickable(onClick = onClick)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ExpandMore,
+                contentDescription = if (isExpanded) {
+                    "Collapse $attemptCount attempts"
+                } else {
+                    "Expand $attemptCount attempts"
+                },
+                tint = aesthetic.accentColor,
+                modifier = Modifier
+                    .size(20.dp)
+                    .rotate(chevronRotation)
+            )
+            if (!isExpanded) {
+                Text(
+                    text = "$attemptCount",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = aesthetic.accentColor,
+                    modifier = Modifier.padding(start = 2.dp, end = 2.dp)
+                )
+            }
+        }
+    }
 
     // --- RECORDING CARD ---
 

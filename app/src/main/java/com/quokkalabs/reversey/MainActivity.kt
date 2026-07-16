@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -48,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -501,89 +503,95 @@ fun AudioReverserApp(
                         verticalArrangement = Arrangement.spacedBy(UiConstants.RECORDING_LIST_ITEM_SPACING),
                         modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium)
                     ) {
-                        uiState.recordings.forEach { recording ->
-                            item(key = "parent_${recording.originalPath}") {
-                                aesthetic.components.RecordingItem(
-                                    recording = recording,
-                                    aesthetic = aesthetic,
-                                    isPaused = uiState.isPaused,
-                                    progress = if (uiState.currentlyPlayingPath == recording.originalPath ||
-                                        uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
-                                    currentlyPlayingPath = uiState.currentlyPlayingPath,
-                                    onPlay = { path: String -> viewModel.play(path) },
-                                    onPause = { viewModel.pause() },
-                                    onStop = { viewModel.stopPlayback() },
-                                    onDelete = { viewModel.deleteRecording(recording) },
-                                    onShare = { path: String ->
-                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "audio/wav"
-                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
-                                    },
-                                    onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
-                                    isGameModeEnabled = isGameModeEnabled,
-                                    onStartAttempt = { rec: Recording, type: ChallengeType ->
-                                        viewModel.startAttemptRecording(rec, type)
-                                    },
-                                    activeAttemptRecordingPath = if (uiState.isRecordingAttempt) uiState.parentRecordingPath else null,
-                                    onStopAttempt = { viewModel.stopAttempt() }
-                                )
-                            }
+                        // 🗂️ One lazy item per FAMILY (recording + all its attempts),
+                        // wrapped in the theme's FamilyContainer envelope.
+                        itemsIndexed(
+                            items = uiState.recordings,
+                            key = { _, recording -> "family_${recording.originalPath}" }
+                        ) { familyIndex, recording ->
+                            val isExpanded = recording.originalPath !in uiState.collapsedFamilies
 
-                            items(
-                                count = recording.attempts.size,
-                                key = { index -> "attempt_${recording.originalPath}_${index}" }
-                            ) { index ->
-                                val attempt = recording.attempts[index]
-                                // 🎯 POLYMORPHIC CALL 2: Attempt Item
-                                aesthetic.components.AttemptItem(
-                                    attempt = attempt,
-                                    aesthetic = aesthetic,
-                                    currentlyPlayingPath = uiState.currentlyPlayingPath,
-                                    isPaused = uiState.isPaused,
-                                    progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath ||
-                                        uiState.currentlyPlayingPath == attempt.reversedAttemptFilePath
-                                    ) uiState.playbackProgress else 0f,
-                                    onPlay = { path -> viewModel.play(path) },
-                                    onPause = { viewModel.pause() },
-                                    onStop = { viewModel.stopPlayback() },
-                                    onRenamePlayer = { oldAttempt, newName ->
-                                        viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
-                                    },
-                                    onDeleteAttempt = { attemptToDelete ->
-                                        viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
-                                    },
-                                    onShareAttempt = { path ->
-                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "audio/wav"
-                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
-                                    },
-                                    onJumpToParent = {
-                                        scope.launch {
-                                            var flatIndex = 0
-                                            for (i in uiState.recordings.indices) {
-                                                val rec = uiState.recordings[i]
-                                                if (rec.originalPath == recording.originalPath) {
-                                                    listState.animateScrollToItem(index = flatIndex, scrollOffset = 0)
-                                                    break
-                                                }
-                                                flatIndex += 1 + rec.attempts.size
+                            aesthetic.components.FamilyContainer(
+                                recording = recording,
+                                aesthetic = aesthetic,
+                                isExpanded = isExpanded,
+                                onToggleExpanded = { viewModel.toggleFamilyCollapsed(recording.originalPath) },
+                                recordingContent = {
+                                    aesthetic.components.RecordingItem(
+                                        recording = recording,
+                                        aesthetic = aesthetic,
+                                        isPaused = uiState.isPaused,
+                                        progress = if (uiState.currentlyPlayingPath == recording.originalPath ||
+                                            uiState.currentlyPlayingPath == recording.reversedPath) uiState.playbackProgress else 0f,
+                                        currentlyPlayingPath = uiState.currentlyPlayingPath,
+                                        onPlay = { path: String -> viewModel.play(path) },
+                                        onPause = { viewModel.pause() },
+                                        onStop = { viewModel.stopPlayback() },
+                                        onDelete = { viewModel.deleteRecording(recording) },
+                                        onShare = { path: String ->
+                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "audio/wav"
+                                                putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            }
+                                            context.startActivity(Intent.createChooser(shareIntent, "Share Recording"))
+                                        },
+                                        onRename = { oldPath: String, newName: String -> viewModel.renameRecording(oldPath, newName) },
+                                        isGameModeEnabled = isGameModeEnabled,
+                                        onStartAttempt = { rec: Recording, type: ChallengeType ->
+                                            viewModel.startAttemptRecording(rec, type)
+                                        },
+                                        activeAttemptRecordingPath = if (uiState.isRecordingAttempt) uiState.parentRecordingPath else null,
+                                        onStopAttempt = { viewModel.stopAttempt() }
+                                    )
+                                },
+                                attemptsContent = {
+                                    Column {
+                                        recording.attempts.forEach { attempt ->
+                                            key(attempt.attemptFilePath) {
+                                                // 🎯 POLYMORPHIC CALL 2: Attempt Item
+                                                aesthetic.components.AttemptItem(
+                                                    attempt = attempt,
+                                                    aesthetic = aesthetic,
+                                                    currentlyPlayingPath = uiState.currentlyPlayingPath,
+                                                    isPaused = uiState.isPaused,
+                                                    progress = if (uiState.currentlyPlayingPath == attempt.attemptFilePath ||
+                                                        uiState.currentlyPlayingPath == attempt.reversedAttemptFilePath
+                                                    ) uiState.playbackProgress else 0f,
+                                                    onPlay = { path -> viewModel.play(path) },
+                                                    onPause = { viewModel.pause() },
+                                                    onStop = { viewModel.stopPlayback() },
+                                                    onRenamePlayer = { oldAttempt, newName ->
+                                                        viewModel.renamePlayer(recording.originalPath, oldAttempt, newName)
+                                                    },
+                                                    onDeleteAttempt = { attemptToDelete ->
+                                                        viewModel.deleteAttempt(recording.originalPath, attemptToDelete)
+                                                    },
+                                                    onShareAttempt = { path ->
+                                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                            type = "audio/wav"
+                                                            putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path)))
+                                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                        }
+                                                        context.startActivity(Intent.createChooser(shareIntent, "Share Attempt"))
+                                                    },
+                                                    onJumpToParent = {
+                                                        scope.launch {
+                                                            listState.animateScrollToItem(index = familyIndex, scrollOffset = 0)
+                                                        }
+                                                    },
+                                                    onOverrideScore = { score ->
+                                                        viewModel.overrideAttemptScore(recording.originalPath, attempt, score)
+                                                    },
+                                                    onResetScore = {
+                                                        viewModel.resetAttemptScore(recording.originalPath, attempt)
+                                                    }
+                                                )
                                             }
                                         }
-                                    },
-                                    onOverrideScore = { score ->
-                                        viewModel.overrideAttemptScore(recording.originalPath, attempt, score)
-                                    },
-                                    onResetScore = {
-                                        viewModel.resetAttemptScore(recording.originalPath, attempt)
                                     }
-                                )
-                            }
+                                }
+                            )
                         }
                     }
 

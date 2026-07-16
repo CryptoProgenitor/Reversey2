@@ -75,6 +75,9 @@ data class AudioUiState(
     // 🥚 Easter egg state
     val showEasterEgg: Boolean = false,
     val cpdTaps: Int = 0,
+    // 🗂️ Collapsed families, keyed by the parent recording's originalPath.
+    // Session-only: not persisted across app restarts.
+    val collapsedFamilies: Set<String> = emptySet(),
 )
 
 @HiltViewModel
@@ -735,15 +738,9 @@ class AudioViewModel @Inject constructor(
 
                 // 7. Update UI
                 withContext(Dispatchers.Main) {
-                    // Calculate flat index for new attempt
+                    // One lazy item per family: the family's list index IS the scroll target.
                     val parentIndex = updatedRecordings.indexOfFirst { it.originalPath == originalRecordingPath }
-                    val scrollTarget = if (parentIndex >= 0) {
-                        var flatIndex = 0
-                        for (i in 0 until parentIndex) {
-                            flatIndex += 1 + updatedRecordings[i].attempts.size
-                        }
-                        flatIndex + updatedRecordings[parentIndex].attempts.size  // Points to new attempt (last one)
-                    } else null
+                    val scrollTarget = if (parentIndex >= 0) parentIndex else null
 
                     _uiState.update {
                         it.copy(
@@ -756,7 +753,9 @@ class AudioViewModel @Inject constructor(
                                 originalRecordingPath,
                                 attempt
                             ) else null,
-                            scrollToIndex = scrollTarget
+                            scrollToIndex = scrollTarget,
+                            // Auto-expand so the freshly scored attempt is visible
+                            collapsedFamilies = it.collapsedFamilies - originalRecordingPath
                         )
                     }
                 }
@@ -1044,6 +1043,19 @@ class AudioViewModel @Inject constructor(
     }
 
     // --- Scroll/Tutorial/Warning UI Controls ---
+
+    fun toggleFamilyCollapsed(originalPath: String) {
+        _uiState.update {
+            val collapsed = it.collapsedFamilies
+            it.copy(
+                collapsedFamilies = if (originalPath in collapsed) {
+                    collapsed - originalPath
+                } else {
+                    collapsed + originalPath
+                }
+            )
+        }
+    }
 
     fun clearScrollToIndex() {
         _uiState.update { it.copy(scrollToIndex = null) }

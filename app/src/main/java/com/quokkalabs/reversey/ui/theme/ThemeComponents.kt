@@ -49,6 +49,39 @@ interface ThemeComponents {
     )
 
     /**
+     * Family Container Component
+     * Wraps a recording ("challenge") card together with all of its attempt
+     * ("try") cards in a single visual unit: an outer border that mimics the
+     * recording tile's border, plus a collapse/expand button anchored at the
+     * top-right corner of the recording tile.
+     *
+     * The default implementation delegates to
+     * [SharedDefaultComponents.MaterialFamilyContainer]; pro themes can
+     * override to draw the envelope in their own visual language.
+     *
+     * The border and button are only shown when the recording has attempts —
+     * a family of one has nothing to collapse.
+     */
+    @Composable
+    fun FamilyContainer(
+        recording: Recording,
+        aesthetic: AestheticThemeData,
+        isExpanded: Boolean,
+        onToggleExpanded: () -> Unit,
+        recordingContent: @Composable () -> Unit,
+        attemptsContent: @Composable () -> Unit
+    ) {
+        SharedDefaultComponents.MaterialFamilyContainer(
+            recording = recording,
+            aesthetic = aesthetic,
+            isExpanded = isExpanded,
+            onToggleExpanded = onToggleExpanded,
+            recordingContent = recordingContent,
+            attemptsContent = attemptsContent
+        )
+    }
+
+    /**
      * Attempt Item Component
      * Displays a player's attempt with score and controls
      */
