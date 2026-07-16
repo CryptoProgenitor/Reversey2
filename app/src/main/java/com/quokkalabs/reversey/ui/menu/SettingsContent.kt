@@ -86,6 +86,7 @@ fun SettingsContent(
     val isGameModeEnabled by themeViewModel.gameModeEnabled.collectAsState()
     val darkModePreference by themeViewModel.darkModePreference.collectAsState()
     val customAccentColor by themeViewModel.customAccentColor.collectAsState()
+    val themeSoundsEnabled by themeViewModel.themeSoundsEnabled.collectAsState()
 
     Column(
         modifier = Modifier
@@ -166,6 +167,24 @@ fun SettingsContent(
                     }
                 }
             }
+        }
+
+        // 🔇 Theme sound effects — one switch to rule them all
+        GlassCard(menuColors.menuCardBackground, menuColors.menuTitleText) {
+            GlassToggle(
+                label = "Theme Sound Effects",
+                checked = themeSoundsEnabled,
+                textColor = menuColors.menuItemText,
+                activeColor = menuColors.toggleActive,
+                inactiveColor = menuColors.toggleInactive,
+                onCheckedChange = { scope.launch { themeViewModel.setThemeSoundsEnabled(it) } }
+            )
+            Text(
+                text = "Owl hoots, creature chatter, guitar strums and other theme flourishes",
+                style = MaterialTheme.typography.bodySmall,
+                color = menuColors.menuItemText.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 2.dp, start = 4.dp)
+            )
         }
 
         // Custom Accent Color

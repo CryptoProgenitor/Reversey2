@@ -449,6 +449,7 @@ class HoHoSoundManager(private val context: Context) {
     }
 
     fun playHoHo() {
+        if (!ThemeSoundGate.enabled) return
         if (isSoundLoaded && hohoSoundId != 0) soundPool.play(hohoSoundId, 0.8f, 0.8f, 1, 0, 1f)
     }
 

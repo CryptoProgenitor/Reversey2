@@ -1548,6 +1548,7 @@ class SpecimenSoundManager(val context: Context) {
     }
 
     fun playRandomSound() {
+        if (!ThemeSoundGate.enabled) return
         if (!isSoundLoaded) return
         val sounds = listOf(beepId, chirpId, staticId).filter { it != 0 }
         if (sounds.isNotEmpty()) {

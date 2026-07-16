@@ -911,6 +911,7 @@ class OwlHootManager(private val context: Context) {
     }
 
     fun playHoot() {
+        if (!ThemeSoundGate.enabled) return
         if (isSoundLoaded && hootSoundId != 0) soundPool.play(hootSoundId, 0.7f, 0.7f, 1, 0, 1f)
     }
 

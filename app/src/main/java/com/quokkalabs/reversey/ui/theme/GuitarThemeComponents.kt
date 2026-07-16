@@ -603,7 +603,9 @@ fun GuitarRecordButton(
                             strummedNotesCount = 20
                             try {
                                 mediaPlayer?.release()
-                                mediaPlayer = MediaPlayer.create(context, R.raw.e_chord)
+                                mediaPlayer = if (ThemeSoundGate.enabled) {
+                                    MediaPlayer.create(context, R.raw.e_chord)
+                                } else null
                                 mediaPlayer?.setOnCompletionListener { mp ->
                                     mp.release()
                                     mediaPlayer = null

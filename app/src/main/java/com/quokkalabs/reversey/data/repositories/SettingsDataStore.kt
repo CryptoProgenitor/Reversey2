@@ -26,6 +26,7 @@ class SettingsDataStore(context: Context) {
         val BACKUP_RECORDINGS_KEY = booleanPreferencesKey("backup_recordings_enabled")
         val CUSTOM_ACCENT_COLOR_KEY = intPreferencesKey("custom_accent_color") // 🎨 NEW
         val DIFFICULTY_LEVEL_KEY = stringPreferencesKey("difficulty_level") // 🎯 NEW - ADD THIS LINE
+        val THEME_SOUNDS_KEY = booleanPreferencesKey("theme_sounds_enabled") // 🔇 Theme sound effects
     }
 
     val getTheme: Flow<String> = dataStore.data.map { preferences ->
@@ -113,6 +114,17 @@ class SettingsDataStore(context: Context) {
     suspend fun saveDifficultyLevel(difficultyLevel: String) {
         dataStore.edit { preferences ->
             preferences[DIFFICULTY_LEVEL_KEY] = difficultyLevel
+        }
+    }
+
+    // 🔇 Theme-specific sound effects (owl hoots, creature sounds, guitar strums...)
+    val getThemeSoundsEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[THEME_SOUNDS_KEY] ?: true
+    }
+
+    suspend fun saveThemeSoundsEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[THEME_SOUNDS_KEY] = enabled
         }
     }
 }

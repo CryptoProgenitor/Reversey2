@@ -891,6 +891,7 @@ class CreatureSoundManager(private val context: Context) {
     }
 
     fun playSound(type: CreatureType) {
+        if (!ThemeSoundGate.enabled) return
         if (!isSoundLoaded) return
         val soundId = when (type) {
             CreatureType.ALIEN_MUM, CreatureType.ALIEN_DAD, CreatureType.ALIEN_KID -> beepBoopId
@@ -905,6 +906,7 @@ class CreatureSoundManager(private val context: Context) {
     }
 
     fun playRandomSound() {
+        if (!ThemeSoundGate.enabled) return
         if (!isSoundLoaded) return
         val sounds = listOf(beepBoopId, meowId, woofId, neighId).filter { it != 0 }
         if (sounds.isNotEmpty()) {

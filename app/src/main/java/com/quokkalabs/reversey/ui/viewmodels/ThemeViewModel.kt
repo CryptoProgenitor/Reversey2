@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.quokkalabs.reversey.data.repositories.SettingsDataStore
+import com.quokkalabs.reversey.ui.theme.ThemeSoundGate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -70,6 +71,29 @@ class ThemeViewModel @Inject constructor(
     fun setGameMode(isEnabled: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             settingsDataStore.saveGameMode(isEnabled)
+        }
+    }
+
+    // 🔇 Theme sound effects setting — one switch to rule them all
+    val themeSoundsEnabled: StateFlow<Boolean> = settingsDataStore.getThemeSoundsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Companion.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    init {
+        // Keep the global gate in sync so theme sound managers (plain
+        // classes, no composition access) can check it directly.
+        viewModelScope.launch {
+            settingsDataStore.getThemeSoundsEnabled.collect { enabled ->
+                ThemeSoundGate.enabled = enabled
+            }
+        }
+    }
+
+    fun setThemeSoundsEnabled(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsDataStore.saveThemeSoundsEnabled(enabled)
         }
     }
 
