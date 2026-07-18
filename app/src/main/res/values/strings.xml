@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">The Hunt</string>
+    <string name="title_display">THE HUNT</string>
+    <string name="welcome_subtitle">An ordeal in ten parts.</string>
+    <string name="begin">Begin</string>
+    <string name="scan">SCAN</string>
+    <string name="onward">Onward</string>
+    <string name="dismiss_message">Noted.</string>
+    <string name="scanner_hint">Offer the code to the lens.</string>
+    <string name="camera_rationale">The hunt requires your eyes. And your camera.</string>
+    <string name="camera_grant">Surrender the camera</string>
+    <string name="camera_denied">Very well. Enjoy scanning nothing.</string>
+    <string name="camera_return">Retreat</string>
+    <string name="reset_title">Erase all suffering and begin again?</string>
+    <string name="reset_body">All progress will be lost. The clues do not care.</string>
+    <string name="reset_confirm">Erase</string>
+    <string name="reset_cancel">Endure on</string>
+    <string name="replay_fanfare">Replay the fanfare</string>
+    <string name="clue_of">Clue %1$s of %2$s</string>
+</resources>

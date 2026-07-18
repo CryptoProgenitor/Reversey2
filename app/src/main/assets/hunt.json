@@ -1,0 +1,68 @@
+{
+  "title": "The Hunt",
+  "startClue": "Where the garments are swirled in a watery tomb,\ngo and peer through the glass at the spinning of doom.",
+  "codes": [
+    {
+      "id": "WOE-01",
+      "hideAt": "Washing machine",
+      "nextClue": "Visit those who are trapped in a plastic despair,\nwith their permanent smiles and their uncombed hair."
+    },
+    {
+      "id": "WOE-02",
+      "hideAt": "Doll house",
+      "nextClue": "There's a soft, furry witness to all of your years,\nwho has choked down your secrets and swallowed your tears."
+    },
+    {
+      "id": "WOE-03",
+      "hideAt": "Charlie Bear",
+      "nextClue": "Where the six-stringed instrument rests in its coffin\nis a velvet-lined chamber you don't visit often."
+    },
+    {
+      "id": "WOE-04",
+      "hideAt": "Guitar case",
+      "nextClue": "Go and look in Tilly's frost where the dead peas are stored,\nby the ancient fish fingers that everyone ignored."
+    },
+    {
+      "id": "WOE-05",
+      "hideAt": "Freezer in Tilly (utility room)",
+      "nextClue": "It's the place where you rest your exhausted young head,\nmocking death for eight hours whilst lying in bed."
+    },
+    {
+      "id": "WOE-06",
+      "hideAt": "Under the pillow, Charlotte's bedroom",
+      "nextClue": "Plunge your hand in the crevice where daylight is banned,\nand pray nothing bites at your wandering hand."
+    },
+    {
+      "id": "WOE-07",
+      "hideAt": "Under the sofa cushions, living room",
+      "nextClue": "Find the tale of the horseman who lost his own head,\nsqueezed between other works that you haven't yet read."
+    },
+    {
+      "id": "WOE-08",
+      "hideAt": "Inside 'The Legend of Sleepy Hollow', bookshelf",
+      "nextClue": "Seek the desk where the pixels and spreadsheets combine\nto erase a man's soul by a tedious design."
+    },
+    {
+      "id": "WOE-09",
+      "hideAt": "Dadda's PC",
+      "nextClue": "To the final small village of creatures we go,\nwhere your prizes await in the plastic chateau."
+    },
+    {
+      "id": "WOE-10",
+      "hideAt": "Sylvanian house — WITH THE PRESENTS",
+      "nextClue": null
+    }
+  ],
+  "finale": {
+    "heading": "You survived. How surprising.",
+    "body": "Your prize, as decreed:\none (1) book, assorted snacks —\nnow go forth and read.",
+    "footer": "Happy 15th Birthday \u2661"
+  },
+  "outOfOrderMessages": [
+    "How ambitious. That code comes later. Find clue %d first.",
+    "You've skipped ahead. Wednesday would approve. The app does not. Seek clue %d.",
+    "Patience is a form of suffering. Practise it. You need clue %d."
+  ],
+  "alreadyScannedMessage": "You've already endured this one. Move along.",
+  "unknownCodeMessage": "That code is not part of your ordeal. Intriguing, but useless."
+}
