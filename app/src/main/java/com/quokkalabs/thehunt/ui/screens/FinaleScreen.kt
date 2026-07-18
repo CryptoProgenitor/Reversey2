@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -35,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quokkalabs.thehunt.HuntViewModel
 import com.quokkalabs.thehunt.R
+import com.quokkalabs.thehunt.ui.components.ResetDialog
+import com.quokkalabs.thehunt.ui.components.longHold
 import com.quokkalabs.thehunt.ui.effects.FinaleParticles
 import com.quokkalabs.thehunt.ui.theme.Bone
 import com.quokkalabs.thehunt.ui.theme.Mist
@@ -43,6 +46,7 @@ import com.quokkalabs.thehunt.ui.theme.Violet
 @Composable
 fun FinaleScreen(vm: HuntViewModel) {
     var burstKey by remember { mutableIntStateOf(0) }
+    var showReset by remember { mutableStateOf(false) }
 
     // Fanfare + burst fire automatically only when the finale was just reached by a live
     // scan. On later cold starts the screen shows quietly, with the skull replay button.
@@ -68,6 +72,8 @@ fun FinaleScreen(vm: HuntViewModel) {
                 style = MaterialTheme.typography.headlineMedium,
                 color = Bone,
                 textAlign = TextAlign.Center,
+                // same hidden reset as the title screens, so testing can loop
+                modifier = Modifier.longHold { showReset = true },
             )
             Spacer(Modifier.height(34.dp))
             Text(
@@ -84,6 +90,20 @@ fun FinaleScreen(vm: HuntViewModel) {
                 burstKey++
             }
         }
+    }
+
+    if (showReset) {
+        ResetDialog(
+            title = stringResource(R.string.reset_title),
+            body = stringResource(R.string.reset_body),
+            confirm = stringResource(R.string.reset_confirm),
+            cancel = stringResource(R.string.reset_cancel),
+            onConfirm = {
+                showReset = false
+                vm.reset()
+            },
+            onDismiss = { showReset = false },
+        )
     }
 }
 
