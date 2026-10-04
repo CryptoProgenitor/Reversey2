@@ -872,10 +872,14 @@ class AudioViewModel @Inject constructor(
     }
 
     fun pause() {
+        // Only flip isPaused when the player actually changed state, so the UI can't
+        // show "paused" when nothing is playing (or "playing" after a failed resume).
         if (_uiState.value.isPaused) {
             audioPlayerHelper.resume()
-            _uiState.update { it.copy(isPaused = false) }
-        } else {
+            if (audioPlayerHelper.isPlaying.value) {
+                _uiState.update { it.copy(isPaused = false) }
+            }
+        } else if (audioPlayerHelper.isPlaying.value) {
             audioPlayerHelper.pause()
             _uiState.update { it.copy(isPaused = true) }
         }
@@ -900,25 +904,29 @@ class AudioViewModel @Inject constructor(
 
     fun deleteRecording(recording: Recording) {
         viewModelScope.launch {
-            repository.deleteRecording(recording.originalPath, recording.reversedPath)
-            recording.attempts.forEach { attempt ->
+            deleteRecordingFiles(recording)
+            loadRecordings()
+        }
+    }
+
+    private suspend fun deleteRecordingFiles(recording: Recording) {
+        repository.deleteRecording(recording.originalPath, recording.reversedPath)
+        recording.attempts.forEach { attempt ->
+            try {
+                File(attempt.attemptFilePath).delete()
+            } catch (e: Exception) {
+                Log.w(
+                    "AudioViewModel",
+                    "Failed to delete attempt file: ${attempt.attemptFilePath}"
+                )
+            }
+            attempt.reversedAttemptFilePath?.let { path ->
                 try {
-                    File(attempt.attemptFilePath).delete()
+                    File(path).delete()
                 } catch (e: Exception) {
-                    Log.w(
-                        "AudioViewModel",
-                        "Failed to delete attempt file: ${attempt.attemptFilePath}"
-                    )
-                }
-                attempt.reversedAttemptFilePath?.let { path ->
-                    try {
-                        File(path).delete()
-                    } catch (e: Exception) {
-                        Log.w("AudioViewModel", "Failed to delete reversed attempt: $path")
-                    }
+                    Log.w("AudioViewModel", "Failed to delete reversed attempt: $path")
                 }
             }
-            loadRecordings()
         }
     }
 
@@ -928,9 +936,10 @@ class AudioViewModel @Inject constructor(
             attemptsRepository.clearAllAttempts()
             // Step 2: Clear custom names JSON
             recordingNamesRepository.clearAllCustomNames()
-            // Step 3: Delete physical files
+            // Step 3: Delete physical files sequentially, so the reload below
+            // runs after every delete has finished (not racing per-item reloads)
             _uiState.value.recordings.forEach { recording ->
-                deleteRecording(recording)
+                deleteRecordingFiles(recording)
             }
             // Step 4: Reload state
             loadRecordings()
@@ -1191,12 +1200,13 @@ class AudioViewModel @Inject constructor(
                 return floatArrayOf()
             }
 
-            // Skip WAV header (44 bytes) and convert to float
-            val audioBytes = bytes.drop(44)
-            val samples = FloatArray(audioBytes.size / 2)
+            // Skip WAV header (44 bytes) and convert to float.
+            // Index into the array directly: bytes.drop(44) would box every byte into a List.
+            val headerSize = 44
+            val samples = FloatArray((bytes.size - headerSize) / 2)
             for (i in samples.indices) {
-                val low = audioBytes[i * 2].toInt() and 0xFF
-                val high = audioBytes[i * 2 + 1].toInt()
+                val low = bytes[headerSize + i * 2].toInt() and 0xFF
+                val high = bytes[headerSize + i * 2 + 1].toInt()
                 val sample = (high shl 8) or low
                 samples[i] = sample / 32768f
             }

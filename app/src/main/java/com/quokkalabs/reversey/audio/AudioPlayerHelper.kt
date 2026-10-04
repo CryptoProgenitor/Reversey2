@@ -6,7 +6,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -117,9 +116,13 @@ class AudioPlayerHelper @Inject constructor() {
         }
     }
 
+    /**
+     * Stops playback. Does NOT cancel [scope]: this helper is a @Singleton that outlives
+     * any single ViewModel, so cancelling here would permanently break progress polling
+     * for the next ViewModel that uses it.
+     */
     fun cleanup() {
         stop()
-        scope.cancel()
     }
 
     private fun startProgressPolling() {

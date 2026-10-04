@@ -46,6 +46,10 @@ android {
         // This line enables the BuildConfig.DEBUG variable used in SettingsScreen.kt
         buildConfig = true
     }
+    testOptions {
+        // Lets JVM unit tests call android.util.Log without "Method not mocked" errors
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

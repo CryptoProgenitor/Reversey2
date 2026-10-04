@@ -33,8 +33,8 @@ class VoskTranscriptionHelper @Inject constructor(
         private const val WAV_HEADER_SIZE = 44
     }
 
-    private var model: Model? = null
-    private var isInitialized = false
+    @Volatile private var model: Model? = null
+    @Volatile private var isInitialized = false  // Written from StorageService's callback thread
 
     /**
      * Initialize Vosk model (call once at app startup)
@@ -106,19 +106,23 @@ class VoskTranscriptionHelper @Inject constructor(
             // Create recognizer for 16kHz audio
             val recognizer = Recognizer(model, VOSK_SAMPLE_RATE.toFloat())
 
-            // Feed resampled audio in chunks
-            var offset = 0
-            val chunkSize = 4096
-            while (offset < resampledBytes.size) {
-                val end = minOf(offset + chunkSize, resampledBytes.size)
-                val chunk = resampledBytes.copyOfRange(offset, end)
-                recognizer.acceptWaveForm(chunk, chunk.size)
-                offset = end
-            }
+            // Always close the native recognizer, even if feeding audio throws
+            val resultJson = try {
+                // Feed resampled audio in chunks
+                var offset = 0
+                val chunkSize = 4096
+                while (offset < resampledBytes.size) {
+                    val end = minOf(offset + chunkSize, resampledBytes.size)
+                    val chunk = resampledBytes.copyOfRange(offset, end)
+                    recognizer.acceptWaveForm(chunk, chunk.size)
+                    offset = end
+                }
 
-            // Get final result
-            val resultJson = recognizer.finalResult
-            recognizer.close()
+                // Get final result
+                recognizer.finalResult
+            } finally {
+                recognizer.close()
+            }
 
             // Parse JSON: {"text": "hello world"}
             val text = parseVoskResult(resultJson)

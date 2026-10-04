@@ -68,6 +68,7 @@ class AudioRecorderHelper @Inject constructor(
     val events: SharedFlow<RecorderEvent> = _events.asSharedFlow()
 
     private var recorderJob: Job? = null
+    private var startJob: Job? = null  // Pending start() launch; stop() joins it so a quick stop can't race ahead
     private var countdownJob: Job? = null  // 🎯 PHASE 2: Separate job for countdown timer
     private var audioRecord: AudioRecord? = null
     private var currentFile: File? = null
@@ -91,7 +92,7 @@ class AudioRecorderHelper @Inject constructor(
      */
     @SuppressLint("MissingPermission")
     fun start(outputFile: File, maxDurationMs: Long? = null) {
-        helperScope.launch {
+        startJob = helperScope.launch {
             recordingMutex.withLock {
                 if (_isRecording.value) return@withLock
 
@@ -125,6 +126,7 @@ class AudioRecorderHelper @Inject constructor(
 
                     if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
                         Log.e("AudioRecorder", "Microphone failed to initialize")
+                        cleanup()
                         return@withLock
                     }
 
@@ -174,7 +176,15 @@ class AudioRecorderHelper @Inject constructor(
      * Returns RecordingResult with file only (transcription handled by Vosk in AudioViewModel)
      * Thread-safe: uses mutex to prevent race conditions with start()
      */
-    suspend fun stop(): RecordingResult = recordingMutex.withLock {
+    suspend fun stop(): RecordingResult {
+        // A fast tap on stop can arrive before start()'s coroutine has taken the mutex.
+        // Without this join, stop() would see "not recording", return null, and then
+        // start() would begin an orphaned recording nobody ever stops.
+        startJob?.join()
+        return stopLocked()
+    }
+
+    private suspend fun stopLocked(): RecordingResult = recordingMutex.withLock {
         if (!_isRecording.value) {
             return@withLock RecordingResult(null, null)
         }

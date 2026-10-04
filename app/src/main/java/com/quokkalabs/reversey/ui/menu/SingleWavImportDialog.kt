@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import android.widget.Toast
+import com.quokkalabs.reversey.audio.WavNormalizer
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -338,11 +339,22 @@ private suspend fun importWavFile(
         val targetFileName = generateUniqueFileName(baseFileName, recordingsDir)
         val targetFile = File(recordingsDir, targetFileName)
 
-        // Copy file
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(targetFile).use { output ->
-                input.copyTo(output)
+        // Copy to a temp file, then convert to the app's canonical WAV format
+        // (mono 16-bit 44.1kHz, 44-byte header) that reverse/transcribe/score assume
+        val tempFile = File(context.cacheDir, "import_${System.currentTimeMillis()}.wav")
+        try {
+            val input = context.contentResolver.openInputStream(uri) ?: return@withContext null
+            input.use {
+                FileOutputStream(tempFile).use { output ->
+                    it.copyTo(output)
+                }
             }
+            if (!WavNormalizer.normalize(tempFile, targetFile)) {
+                targetFile.delete()
+                return@withContext null
+            }
+        } finally {
+            tempFile.delete()
         }
 
         Log.d("SingleWavImport", "Imported to: ${targetFile.absolutePath}")
